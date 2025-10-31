@@ -87,17 +87,6 @@
               <!-- Joint from lower_arm to wrist -->
               <joint axis="0 0 1" name="wrist_flex" type="hinge" range="-1.6580628494556928 1.6580627293335335" class="sts3215"/>
               <inertial pos="-0.000103312 -0.0386143 0.0281156" mass="0.079" fullinertia="3.68263e-05 2.5391e-05 2.1e-05 1.7893e-08 -5.28128e-08 3.6412e-06"/>
-              <!-- OAK-D Lite camera body (moved 5cm outward from motor) -->
-              <body name="oak_d_lite" pos="0 -0.04 0.08" euler="67.5 0 0">
-                <!-- Physical representation: 91x28x17.5mm, 61g -->
-                <geom name="camera_body" type="box" 
-                      size="0.0455 0.014 0.00875" 
-                      rgba="0.2 0.2 0.2 1" 
-                      mass="0.061"/>
-                <inertial pos="0 0 0" mass="0.061" diaginertia="0.0001 0.0001 0.0001"/>
-                <!-- Virtual camera for vision input -->
-                <camera name="wrist_camera" pos="0 0 0" euler="0 90 0" fovy="72"/>
-              </body>
               <!-- Part sts3215_03a_no_horn_v1 -->
               <geom type="mesh" class="visual" pos="8.32667e-17 -0.0424 0.0306" quat="0.5 0.5 0.5 -0.5" mesh="sts3215_03a_no_horn_v1" material="sts3215_03a_no_horn_v1_material"/>
               <geom type="mesh" class="collision" pos="8.32667e-17 -0.0424 0.0306" quat="0.5 0.5 0.5 -0.5" mesh="sts3215_03a_no_horn_v1" material="sts3215_03a_no_horn_v1_material"/>
