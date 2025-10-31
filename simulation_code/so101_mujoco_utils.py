@@ -1,5 +1,7 @@
 import time
 import mujoco
+import numpy as np
+import torch
 
 def convert_to_dictionary(qpos):
     return {
@@ -23,7 +25,7 @@ def convert_to_list(dictionary):
 
 def set_initial_pose(d, position_dict):
     pos = convert_to_list(position_dict)
-    d.qpos = pos
+    d.qpos[:6] = pos  # Only set the first 6 elements (robot joints)
 
 def send_position_command(d, position_dict):
     pos = convert_to_list(position_dict)
@@ -31,7 +33,7 @@ def send_position_command(d, position_dict):
 
 def move_to_pose(m, d, viewer, desired_position, duration):
     start_time = time.time()
-    starting_pose = d.qpos.copy()
+    starting_pose = d.qpos[:6].copy()  # Only get robot joints
     starting_pose = convert_to_dictionary(starting_pose)
 
     while True:
@@ -57,7 +59,7 @@ def move_to_pose(m, d, viewer, desired_position, duration):
         viewer.sync()
 
 def hold_position(m, d, viewer, duration):
-    current_pos = d.qpos.copy()
+    current_pos = d.qpos[:6].copy()  # Only get robot joints
     current_pos_dict = convert_to_dictionary(current_pos)
 
     start_time = time.time()
@@ -68,3 +70,77 @@ def hold_position(m, d, viewer, duration):
         send_position_command(d, current_pos_dict)
         mujoco.mj_step(m, d)
         viewer.sync()
+
+# ===== SmolVLA Helper Functions =====
+
+def get_camera_observation(renderer, d, camera_name="wrist_camera"):
+    """Render a camera and return RGB image as numpy array."""
+    renderer.update_scene(d, camera=camera_name)
+    rgb_array = renderer.render()
+    return rgb_array
+
+def get_robot_state(d):
+    """Get current joint positions and velocities."""
+    # qpos: joint positions (only first 6 are robot joints)
+    # qvel: joint velocities (only first 6 are robot joints)
+    state = np.concatenate([d.qpos[:6].copy(), d.qvel[:6].copy()])
+    return state
+
+def prepare_observation(rgb_image, robot_state, instruction, device, policy=None):
+    """
+    Prepare observation dict for SmolVLA policy.
+    Format based on LeRobot conventions.
+    
+    Args:
+        rgb_image: numpy array of shape (H, W, C) with values in [0, 255]
+        robot_state: numpy array of robot state (positions + velocities)
+        instruction: string with task instruction
+        device: torch device (cuda, mps, or cpu)
+        policy: SmolVLA policy object (needed for tokenization)
+    
+    Returns:
+        observation: dict with image and state tensors
+    """
+    # Convert image to torch tensor and normalize
+    # Expected format: (C, H, W) with values in [0, 1]
+    image_tensor = torch.from_numpy(rgb_image).float() / 255.0
+    # Transpose from (H, W, C) to (C, H, W)
+    image_tensor = image_tensor.permute(2, 0, 1)
+    # Add batch dimension
+    image_tensor = image_tensor.unsqueeze(0)
+    
+    # Image is already at 256x256 from the renderer, no need to resize
+    
+    # Move to device
+    image_tensor = image_tensor.to(device)
+    
+    # Convert robot state to torch tensor
+    state_tensor = torch.from_numpy(robot_state).float().unsqueeze(0).to(device)
+    
+    # Tokenize the instruction if policy is provided
+    if policy is not None and hasattr(policy, 'tokenizer'):
+        # Tokenize the instruction
+        tokens = policy.tokenizer(
+            instruction,
+            return_tensors="pt",
+            padding=True,
+            truncation=True
+        )
+        # Move tokens to device and get input_ids and attention_mask
+        language_tokens = tokens['input_ids'].to(device)
+        # Convert attention_mask to boolean type
+        attention_mask = tokens['attention_mask'].bool().to(device)
+    else:
+        # Fallback: create dummy tensors if no tokenizer available
+        language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
+        attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
+    
+    # Observation dictionary - use camera1 key to match SmolVLA training data
+    observation = {
+        "observation.images.camera1": image_tensor,
+        "observation.state": state_tensor,
+        "observation.language.tokens": language_tokens,
+        "observation.language.attention_mask": attention_mask,  # Add attention mask
+    }
+    
+    return observation
