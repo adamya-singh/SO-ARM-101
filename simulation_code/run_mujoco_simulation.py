@@ -33,7 +33,7 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
     start = time.time()
     hold_position(m, d, viewer, 2) #hold starting position for 2 seconds
 
-    while viewer.is_running() and time.time() - start < 30:
+    while viewer.is_running() and time.time() - start < 300:
         step_start = time.time()
 
         move_to_pose(m, d, viewer, all_zeros_position, 2)
