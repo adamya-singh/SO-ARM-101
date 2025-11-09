@@ -33,7 +33,7 @@ policy.eval()
 print("SmolVLA policy loaded successfully!")
 
 # Task instruction for SmolVLA
-INSTRUCTION = "pick up the red block and put it in the cup"
+INSTRUCTION = "pick up the red block"
 
 # ===== End SmolVLA Setup =====
 
@@ -84,7 +84,7 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
         if policy_step_counter % STEPS_PER_POLICY_UPDATE == 0:
             try:
                 # Get camera observation
-                rgb_image = get_camera_observation(renderer, d)
+                rgb_image = get_camera_observation(renderer, d, camera_name="camera_up")
                 
                 # Get robot state
                 robot_state = get_robot_state(d)
