@@ -33,7 +33,7 @@ policy.eval()
 print("SmolVLA policy loaded successfully!")
 
 # Task instruction for SmolVLA
-INSTRUCTION = "pick up the red block and put it in the orange bin"
+INSTRUCTION = "pick up the red block"
 
 # ===== End SmolVLA Setup =====
 
@@ -83,14 +83,15 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
         # Only run policy inference every N steps to improve performance
         if policy_step_counter % STEPS_PER_POLICY_UPDATE == 0:
             try:
-                # Get camera observation
-                rgb_image = get_camera_observation(renderer, d, camera_name="camera_up")
+                # Get both camera observations
+                rgb_image_top = get_camera_observation(renderer, d, camera_name="camera_up")
+                rgb_image_side = get_camera_observation(renderer, d, camera_name="camera_side")
                 
                 # Get robot state
                 robot_state = get_robot_state(d)
                 
                 # Prepare observation for policy (includes tokenized instruction)
-                observation = prepare_observation(rgb_image, robot_state, INSTRUCTION, device, policy)
+                observation = prepare_observation(rgb_image_top, rgb_image_side, robot_state, INSTRUCTION, device, policy)
                 
                 # Get action from SmolVLA policy
                 with torch.no_grad():

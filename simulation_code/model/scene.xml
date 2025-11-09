@@ -22,7 +22,7 @@
         <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane" />
         
         <!-- Red block on the ground -->
-        <body name="red_block" pos="0.3 0 0.025">
+        <body name="red_block" pos="0 0.3 0.025">
             <freejoint/>
             <geom name="red_block_geom" type="box" size="0.025 0.025 0.025" rgba="1 0 0 1" mass="0.1"/>
             <inertial pos="0 0 0" mass="0.1" diaginertia="0.00004 0.00004 0.00004"/>

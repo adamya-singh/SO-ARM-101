@@ -86,33 +86,37 @@ def get_robot_state(d):
     state = np.concatenate([d.qpos[:6].copy(), d.qvel[:6].copy()])
     return state
 
-def prepare_observation(rgb_image, robot_state, instruction, device, policy=None):
+def prepare_observation(rgb_image_top, rgb_image_side, robot_state, instruction, device, policy=None):
     """
-    Prepare observation dict for SmolVLA policy.
+    Prepare observation dict for SmolVLA policy with multiple cameras.
     Format based on LeRobot conventions.
     
     Args:
-        rgb_image: numpy array of shape (H, W, C) with values in [0, 255]
+        rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
+        rgb_image_side: numpy array of shape (H, W, C) from side camera with values in [0, 255]
         robot_state: numpy array of robot state (positions + velocities)
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
         policy: SmolVLA policy object (needed for tokenization)
     
     Returns:
-        observation: dict with image and state tensors
+        observation: dict with images and state tensors
     """
-    # Convert image to torch tensor and normalize
+    # Convert top camera image to torch tensor and normalize
     # Expected format: (C, H, W) with values in [0, 1]
-    image_tensor = torch.from_numpy(rgb_image).float() / 255.0
+    image_top_tensor = torch.from_numpy(rgb_image_top).float() / 255.0
     # Transpose from (H, W, C) to (C, H, W)
-    image_tensor = image_tensor.permute(2, 0, 1)
+    image_top_tensor = image_top_tensor.permute(2, 0, 1)
     # Add batch dimension
-    image_tensor = image_tensor.unsqueeze(0)
-    
-    # Image is already at 256x256 from the renderer, no need to resize
-    
+    image_top_tensor = image_top_tensor.unsqueeze(0)
     # Move to device
-    image_tensor = image_tensor.to(device)
+    image_top_tensor = image_top_tensor.to(device)
+    
+    # Convert side camera image to torch tensor and normalize
+    image_side_tensor = torch.from_numpy(rgb_image_side).float() / 255.0
+    image_side_tensor = image_side_tensor.permute(2, 0, 1)
+    image_side_tensor = image_side_tensor.unsqueeze(0)
+    image_side_tensor = image_side_tensor.to(device)
     
     # Convert robot state to torch tensor
     state_tensor = torch.from_numpy(robot_state).float().unsqueeze(0).to(device)
@@ -135,12 +139,14 @@ def prepare_observation(rgb_image, robot_state, instruction, device, policy=None
         language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
     
-    # Observation dictionary - use camera1 key to match SmolVLA training data
+    # Observation dictionary with both cameras
+    # Using "camera1" and "camera2" keys to match the trained model's expected format
     observation = {
-        "observation.images.camera1": image_tensor,
+        "observation.images.camera1": image_top_tensor,
+        "observation.images.camera2": image_side_tensor,
         "observation.state": state_tensor,
         "observation.language.tokens": language_tokens,
-        "observation.language.attention_mask": attention_mask,  # Add attention mask
+        "observation.language.attention_mask": attention_mask,
     }
     
     return observation
