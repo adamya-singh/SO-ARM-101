@@ -33,7 +33,7 @@ policy.eval()
 print("SmolVLA policy loaded successfully!")
 
 # Task instruction for SmolVLA
-INSTRUCTION = "pick up the red block"
+INSTRUCTION = "pick up the red block and put it in the orange bin"
 
 # ===== End SmolVLA Setup =====
 
