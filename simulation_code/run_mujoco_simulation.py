@@ -2,6 +2,7 @@ import time
 import mujoco
 import mujoco.viewer
 import torch
+from transformers import AutoTokenizer
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 #from so101_mujoco_utils import set_initial_pose, send_position_command
 from so101_mujoco_utils import *
@@ -32,10 +33,30 @@ policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
 
+# Load and attach tokenizer if missing
+print("\nChecking tokenizer...")
+if not hasattr(policy, 'tokenizer') or policy.tokenizer is None:
+    print("Policy missing tokenizer. Loading SmolVLM2 tokenizer...")
+    try:
+        tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Video-Instruct")
+        policy.tokenizer = tokenizer
+        print(f"✓ Tokenizer loaded successfully: {type(tokenizer).__name__}")
+        
+        # Test tokenizer
+        test_tokens = tokenizer("pick up the red block", return_tensors="pt")
+        print(f"✓ Tokenizer test: input shape {test_tokens['input_ids'].shape}, sample tokens: {test_tokens['input_ids'][0][:10].tolist()}")
+    except Exception as e:
+        print(f"✗ Failed to load tokenizer: {e}")
+        print("  Policy will use dummy tokens (language instructions will be ignored)")
+else:
+    print(f"✓ Policy already has tokenizer: {type(policy.tokenizer).__name__}")
+
 # DEBUG: Check policy attributes
 print("\n=== POLICY INSPECTION ===")
 print(f"Policy type: {type(policy)}")
 print(f"Policy has 'tokenizer': {hasattr(policy, 'tokenizer')}")
+if hasattr(policy, 'tokenizer') and policy.tokenizer is not None:
+    print(f"  Tokenizer type: {type(policy.tokenizer).__name__}")
 print(f"Policy has 'select_action': {hasattr(policy, 'select_action')}")
 print(f"Policy has 'forward': {hasattr(policy, 'forward')}")
 if hasattr(policy, 'config'):
@@ -48,7 +69,7 @@ if hasattr(policy, 'input_shapes'):
 print("========================\n")
 
 # Task instruction for SmolVLA
-INSTRUCTION = "move to the right"
+INSTRUCTION = "pick up the red block"
 
 # ===== End SmolVLA Setup =====
 

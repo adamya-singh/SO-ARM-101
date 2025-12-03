@@ -80,10 +80,9 @@ def get_camera_observation(renderer, d, camera_name="wrist_camera"):
     return rgb_array
 
 def get_robot_state(d):
-    """Get current joint positions and velocities."""
-    # qpos: joint positions (only first 6 are robot joints)
-    # qvel: joint velocities (only first 6 are robot joints)
-    state = np.concatenate([d.qpos[:6].copy(), d.qvel[:6].copy()])
+    """Get current joint positions only."""
+    # SmolVLA base expects 6-dim state (joint positions only, no velocities)
+    state = d.qpos[:6].copy()
     return state
 
 def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction, device, policy=None, debug=False):
