@@ -26,14 +26,29 @@ renderer = mujoco.Renderer(m, height=256, width=256)
 
 # Load SmolVLA policy
 print("Loading SmolVLA policy...")
-#policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
-policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
+policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
+#policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
 policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
 
+# DEBUG: Check policy attributes
+print("\n=== POLICY INSPECTION ===")
+print(f"Policy type: {type(policy)}")
+print(f"Policy has 'tokenizer': {hasattr(policy, 'tokenizer')}")
+print(f"Policy has 'select_action': {hasattr(policy, 'select_action')}")
+print(f"Policy has 'forward': {hasattr(policy, 'forward')}")
+if hasattr(policy, 'config'):
+    print(f"Policy config keys: {policy.config.keys() if hasattr(policy.config, 'keys') else 'N/A'}")
+# Check what the expected input keys are
+if hasattr(policy, 'expected_image_keys'):
+    print(f"Expected image keys: {policy.expected_image_keys}")
+if hasattr(policy, 'input_shapes'):
+    print(f"Input shapes: {policy.input_shapes}")
+print("========================\n")
+
 # Task instruction for SmolVLA
-INSTRUCTION = "pick up the red block"
+INSTRUCTION = "move to the right"
 
 # ===== End SmolVLA Setup =====
 
@@ -60,6 +75,7 @@ set_initial_pose(d, starting_position) #set initial pose before starting sim vie
 # Policy control frequency settings
 STEPS_PER_POLICY_UPDATE = 10  # Run policy every 10 physics steps
 policy_step_counter = 0
+policy_inference_count = 0  # Track number of policy inferences
 last_action_dict = starting_position.copy()  # Initialize with starting pose
 
 with mujoco.viewer.launch_passive(m, d) as viewer:
@@ -69,6 +85,7 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
 
     print(f"\nStarting SmolVLA control with instruction: '{INSTRUCTION}'")
     print(f"Running policy inference every {STEPS_PER_POLICY_UPDATE} physics steps")
+    print(f"Debug output will be shown for first 3 policy inferences only")
     print("Press Ctrl+C to stop\n")
 
     while viewer.is_running() and time.time() - start < 300:
@@ -83,29 +100,77 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
         # Only run policy inference every N steps to improve performance
         if policy_step_counter % STEPS_PER_POLICY_UPDATE == 0:
             try:
-                # Get both camera observations
+                policy_inference_count += 1
+                DEBUG_THIS_ITERATION = (policy_inference_count <= 3)  # Only debug first 3 inferences
+                
+                # Get both camera observations (top and wrist for SmolVLA)
                 rgb_image_top = get_camera_observation(renderer, d, camera_name="camera_up")
-                rgb_image_side = get_camera_observation(renderer, d, camera_name="camera_side")
+                rgb_image_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                
+                # DEBUG: Check camera images (first inference only)
+                if DEBUG_THIS_ITERATION:
+                    print(f"\n{'='*60}")
+                    print(f"POLICY INFERENCE #{policy_inference_count}")
+                    print(f"{'='*60}")
+                    print(f"\n[Camera Debug]")
+                    print(f"  Top camera shape: {rgb_image_top.shape}, dtype: {rgb_image_top.dtype}")
+                    print(f"  Top camera range: [{rgb_image_top.min()}, {rgb_image_top.max()}]")
+                    print(f"  Wrist camera shape: {rgb_image_wrist.shape}, dtype: {rgb_image_wrist.dtype}")
+                    print(f"  Wrist camera range: [{rgb_image_wrist.min()}, {rgb_image_wrist.max()}]")
                 
                 # Get robot state
                 robot_state = get_robot_state(d)
                 
                 # Prepare observation for policy (includes tokenized instruction)
-                observation = prepare_observation(rgb_image_top, rgb_image_side, robot_state, INSTRUCTION, device, policy)
+                observation = prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
+                
+                # DEBUG: Verify observation structure matches policy expectations
+                if DEBUG_THIS_ITERATION:
+                    print(f"\n[Observation Structure Debug]")
+                    print(f"  Observation keys: {list(observation.keys())}")
+                    for key, value in observation.items():
+                        if torch.is_tensor(value):
+                            print(f"  {key}: shape={value.shape}, dtype={value.dtype}, device={value.device}")
                 
                 # Get action from SmolVLA policy
+                if DEBUG_THIS_ITERATION:
+                    print(f"\n[Policy Call Debug]")
+                    print(f"  Calling policy inference...")
+                    print(f"  Policy type: {type(policy)}")
+                    print(f"  Policy has select_action: {hasattr(policy, 'select_action')}")
+                
                 with torch.no_grad():
                     # Try calling the policy - the exact method may vary
                     # Common patterns: policy.select_action(), policy(), or policy.generate()
                     try:
+                        if DEBUG_THIS_ITERATION:
+                            print(f"  Attempting: policy.select_action(observation)")
                         action = policy.select_action(observation)
-                    except AttributeError:
+                        if DEBUG_THIS_ITERATION:
+                            print(f"  ✓ select_action() succeeded")
+                    except AttributeError as e:
                         # If select_action doesn't exist, try calling the policy directly
+                        if DEBUG_THIS_ITERATION:
+                            print(f"  ✗ select_action() failed: {e}")
+                            print(f"  Attempting: policy(observation)")
                         action = policy(observation)
+                        if DEBUG_THIS_ITERATION:
+                            print(f"  ✓ policy() call succeeded")
+                    except Exception as e:
+                        print(f"  ✗ Policy call failed with exception: {type(e).__name__}: {e}")
+                        raise
                 
                 # Convert action to numpy if it's a tensor
                 if torch.is_tensor(action):
                     action = action.cpu().numpy().squeeze()
+                
+                # DEBUG: Print action values to verify range
+                if DEBUG_THIS_ITERATION:
+                    print(f"\n[Action Output Debug]")
+                    print(f"  Raw action: {action}")
+                    print(f"  Action shape: {action.shape}")
+                    print(f"  Action range: min={action.min():.4f}, max={action.max():.4f}")
+                    print(f"  Action per joint: {[f'{a:.4f}' for a in action]}")
                 
                 # Map action to robot control using utility functions
                 # Assuming action is 6D: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
@@ -113,6 +178,18 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 
                 # Convert action from radians (MuJoCo) to degrees (SO101 format) using utility function
                 last_action_dict = convert_to_dictionary(action)
+                
+                # DEBUG: Print converted values
+                if DEBUG_THIS_ITERATION:
+                    print(f"  Converted to degrees: {last_action_dict}")
+                    print(f"  Current robot qpos (radians): {d.qpos[:6]}")
+                    print(f"\n{'='*60}\n")
+                
+                # After 3rd inference, print final message
+                if policy_inference_count == 3:
+                    print(f"\n{'='*60}")
+                    print(f"Debug output complete. Policy continuing to run silently...")
+                    print(f"{'='*60}\n")
                 
             except Exception as e:
                 print(f"Error in SmolVLA control loop: {e}")
