@@ -169,3 +169,106 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
         print(f"  State values: {state_tensor[0].tolist()}")
     
     return observation
+
+# ===== RL Training Helper Functions =====
+
+# Store previous positions for velocity-based rewards
+_prev_gripper_pos = None
+_prev_block_pos = None
+
+def compute_reward(d, block_name="red_block", lift_threshold=0.08):
+    """
+    Compute shaped reward for pick-up task.
+    
+    Reward components:
+    1. Linear distance penalty - consistent gradient signal at all distances
+    2. Approach velocity bonus - reward for moving toward block
+    3. Block height bonus - reward for lifting block
+    4. Success bonus - large reward when block is lifted above threshold
+    
+    Returns:
+        reward: float - shaped reward
+        done: bool - True if block is lifted above threshold
+    """
+    global _prev_gripper_pos, _prev_block_pos
+    
+    # Get gripper position (end effector)
+    gripper_pos = d.site("gripperframe").xpos.copy()
+    
+    # Get block position
+    block_pos = d.body(block_name).xpos.copy()
+    
+    # Current distance
+    distance = np.linalg.norm(gripper_pos - block_pos)
+    
+    reward = 0.0
+    
+    # 1. Linear distance penalty (consistent gradient at all distances)
+    # Negative reward proportional to distance - always pushes toward block
+    # At distance=0: penalty=0, at distance=0.3: penalty=-0.6, at distance=0.5: penalty=-1.0
+    distance_penalty = -2.0 * distance
+    reward += distance_penalty
+    
+    # 2. Approach velocity bonus (reward moving toward block)
+    if _prev_gripper_pos is not None:
+        prev_distance = np.linalg.norm(_prev_gripper_pos - _prev_block_pos)
+        distance_delta = prev_distance - distance  # positive if getting closer
+        approach_reward = 5.0 * distance_delta  # scale factor (increased from 4.0)
+        reward += approach_reward
+    
+    # 3. Block height bonus (reward lifting block above initial z=0.025)
+    initial_block_z = 0.025
+    height_gain = max(0, block_pos[2] - initial_block_z)
+    height_reward = 20.0 * height_gain  # stronger reward for any lifting
+    reward += height_reward
+    
+    # 4. Close proximity bonus (extra reward when very close)
+    if distance < 0.05:
+        reward += 0.5  # bonus for being within 5cm
+    
+    # 5. Success bonus (block lifted above threshold)
+    lifted = block_pos[2] > lift_threshold
+    if lifted:
+        reward += 50.0  # large success bonus
+    
+    # Update previous positions for next step
+    _prev_gripper_pos = gripper_pos.copy()
+    _prev_block_pos = block_pos.copy()
+    
+    return reward, lifted
+
+
+def reset_reward_state():
+    """Reset the reward state (call at episode start)."""
+    global _prev_gripper_pos, _prev_block_pos
+    _prev_gripper_pos = None
+    _prev_block_pos = None
+
+
+def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.025)):
+    """
+    Reset robot and block to initial positions.
+    
+    Args:
+        m: MuJoCo model
+        d: MuJoCo data
+        starting_position: dict with joint positions in degrees
+        block_pos: tuple (x, y, z) for block initial position
+    """
+    # Reset all state
+    mujoco.mj_resetData(m, d)
+    
+    # Set robot to starting pose
+    set_initial_pose(d, starting_position)
+    
+    # Reset block position (qpos indices after robot joints)
+    # Block has freejoint: 3 pos + 4 quat = 7 DOF
+    # Robot has 6 joints, so block starts at index 6
+    d.qpos[6:9] = block_pos  # position (x, y, z)
+    d.qpos[9:13] = [1, 0, 0, 0]  # quaternion (w, x, y, z) - upright
+    
+    # Zero out velocities
+    d.qvel[:] = 0
+    
+    # Forward kinematics to update positions
+    mujoco.mj_forward(m, d)

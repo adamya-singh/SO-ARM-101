@@ -27,8 +27,8 @@ renderer = mujoco.Renderer(m, height=256, width=256)
 
 # Load SmolVLA policy
 print("Loading SmolVLA policy...")
-policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
-#policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
+#policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
+policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
 policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
