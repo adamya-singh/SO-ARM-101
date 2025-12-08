@@ -20,6 +20,14 @@ Usage:
         --task "pick up the red block" \
         --num_episodes 50
 
+    # With physical SO-101 arm:
+    mjpython record_dataset.py \
+        --input physical \
+        --port /dev/tty.usbmodem5A680096011 \
+        --output_dir ./datasets/so101_pickplace \
+        --task "pick up the red block" \
+        --num_episodes 50
+
 Keyboard Controls:
     Arrow keys: Move shoulder pan
     W/S: Shoulder lift up/down
@@ -39,6 +47,12 @@ Gamepad Controls (DualShock 4):
     X (Cross): Start/stop episode recording
     Circle: Reset environment
     Options: Quit
+
+Physical Arm Controls:
+    Move the physical arm by hand - simulation mirrors movements
+    Space: Start/stop episode recording
+    R: Reset simulation
+    ESC: Quit
 """
 
 import argparse
@@ -53,6 +67,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from so101_gym_env import SO101PickPlaceEnv
 from teleop_keyboard import KeyboardTeleop
 from teleop_gamepad import GamepadTeleop
+from teleop_physical_arm import PhysicalArmTeleop
 from lerobot_dataset_writer import LeRobotDatasetWriter
 
 
@@ -74,6 +89,7 @@ class TeleopRecorder:
         delta_scale: float = 0.05,
         max_episode_steps: int = 10000,
         randomize_block: bool = False,
+        port: str = "/dev/tty.usbmodem5A680096011",
     ):
         """
         Initialize the teleoperation recorder.
@@ -83,10 +99,11 @@ class TeleopRecorder:
             task: Task description
             num_episodes: Target number of episodes to record
             fps: Recording frame rate
-            input_type: "keyboard" or "gamepad"
+            input_type: "keyboard", "gamepad", or "physical"
             delta_scale: Scale for input-to-joint deltas
             max_episode_steps: Max steps before auto-truncation (default 10000 = ~16min at 10fps)
             randomize_block: Whether to randomize block position each episode
+            port: USB port for physical arm (only used when input_type="physical")
         """
         self.output_dir = output_dir
         self.task = task
@@ -94,6 +111,7 @@ class TeleopRecorder:
         self.fps = fps
         self.frame_duration = 1.0 / fps
         self.input_type = input_type
+        self.use_absolute_positions = (input_type == "physical")
         
         # Create environment with human rendering
         print("Initializing SO-101 environment...")
@@ -111,6 +129,9 @@ class TeleopRecorder:
                 trigger_scale=delta_scale * 1.5,
                 button_scale=delta_scale * 0.8,
             )
+        elif input_type == "physical":
+            print(f"Initializing physical arm controller on {port}...")
+            self.teleop = PhysicalArmTeleop(port=port)
         else:
             print("Initializing keyboard controller...")
             self.teleop = KeyboardTeleop(delta_scale=delta_scale)
@@ -146,6 +167,10 @@ class TeleopRecorder:
         if self.input_type == "gamepad":
             print("\nPress X (Cross) to start recording an episode.")
             print("Press Options to quit.\n")
+        elif self.input_type == "physical":
+            print("\nMove the physical arm - simulation will follow.")
+            print("Press SPACE to start recording an episode.")
+            print("Press ESC to quit.\n")
         else:
             print("\nPress SPACE to start recording an episode.")
             print("Press ESC to quit.\n")
@@ -172,15 +197,22 @@ class TeleopRecorder:
                 if self.teleop.check_episode_toggle():
                     self._handle_episode_toggle()
                 
-                # Get action delta from keyboard
-                delta = self.teleop.get_action_delta()
-                
-                # Update action (current position + delta)
-                self.current_action = np.clip(
-                    self.current_action + delta,
-                    self.env.joint_limits_low,
-                    self.env.joint_limits_high
-                )
+                # Get action from teleop controller
+                if self.use_absolute_positions:
+                    # Physical arm provides absolute joint positions
+                    self.current_action = np.clip(
+                        self.teleop.get_joint_positions(),
+                        self.env.joint_limits_low,
+                        self.env.joint_limits_high
+                    )
+                else:
+                    # Keyboard/gamepad provides delta positions
+                    delta = self.teleop.get_action_delta()
+                    self.current_action = np.clip(
+                        self.current_action + delta,
+                        self.env.joint_limits_low,
+                        self.env.joint_limits_high
+                    )
                 
                 # Step environment
                 obs, reward, terminated, truncated, info = self.env.step(self.current_action)
@@ -298,9 +330,15 @@ def main():
     parser.add_argument(
         "--input",
         type=str,
-        choices=["keyboard", "gamepad"],
+        choices=["keyboard", "gamepad", "physical"],
         default="keyboard",
-        help="Input device: 'keyboard' or 'gamepad' (DualShock 4)"
+        help="Input device: 'keyboard', 'gamepad' (DualShock 4), or 'physical' (SO-101 arm)"
+    )
+    parser.add_argument(
+        "--port",
+        type=str,
+        default="/dev/tty.usbmodem5A680096011",
+        help="USB port for physical arm (only used with --input physical)"
     )
     parser.add_argument(
         "--output_dir",
@@ -356,6 +394,7 @@ def main():
         delta_scale=args.delta_scale,
         max_episode_steps=args.max_steps,
         randomize_block=args.randomize,
+        port=args.port,
     )
     recorder.run()
 
