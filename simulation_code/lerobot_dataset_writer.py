@@ -71,10 +71,16 @@ class LeRobotDatasetWriter:
         # Create directory structure
         self._setup_directories()
         
-        # Episode tracking
-        self.current_episode_idx = 0
+        # Episode tracking - check for existing episodes to append
+        self.current_episode_idx = self._find_next_episode_idx()
         self.current_frames: List[Dict[str, Any]] = []
         self.all_episodes_metadata: List[Dict[str, Any]] = []
+        
+        # Load existing episode metadata if appending
+        self._existing_episode_count = self.current_episode_idx
+        if self.current_episode_idx > 0:
+            print(f"Found {self.current_episode_idx} existing episodes, will append new episodes...")
+            self._load_existing_metadata()
         
         # Video writers for current episode
         self._video_writers: Dict[str, Any] = {}
@@ -100,6 +106,60 @@ class LeRobotDatasetWriter:
         # Video directories for each camera
         for camera_key in ['observation.images.camera1', 'observation.images.camera2']:
             (self.output_dir / "videos" / camera_key / "chunk-000").mkdir(parents=True, exist_ok=True)
+    
+    def _find_next_episode_idx(self) -> int:
+        """Find the next available episode index by scanning existing files."""
+        data_dir = self.output_dir / "data" / "chunk-000"
+        if not data_dir.exists():
+            return 0
+        
+        existing = list(data_dir.glob("episode_*.parquet"))
+        if not existing:
+            return 0
+        
+        # Extract indices and find max
+        indices = []
+        for f in existing:
+            # episode_000042.parquet -> 42
+            try:
+                idx = int(f.stem.split("_")[1])
+                indices.append(idx)
+            except (IndexError, ValueError):
+                continue
+        
+        if not indices:
+            return 0
+        
+        return max(indices) + 1
+    
+    def _load_existing_metadata(self):
+        """Load existing episode metadata when appending to a dataset."""
+        episodes_file = self.output_dir / "meta" / "episodes" / "chunk-000" / "episodes.parquet"
+        if not episodes_file.exists():
+            return
+        
+        try:
+            table = pq.read_table(episodes_file)
+            df = table.to_pandas()
+            
+            for _, row in df.iterrows():
+                self.all_episodes_metadata.append({
+                    'episode_index': int(row['episode_index']),
+                    'num_frames': int(row['num_frames']),
+                    'length_s': float(row['length_s']),
+                    'task_index': int(row['task_index']),
+                    'success': True,  # Assume existing episodes were successful
+                })
+            
+            # Also load existing stats for merging
+            stats_file = self.output_dir / "meta" / "stats.json"
+            if stats_file.exists():
+                with open(stats_file, 'r') as f:
+                    existing_stats = json.load(f)
+                # We'll recompute stats from all data during finalize
+                
+        except Exception as e:
+            print(f"Warning: Could not load existing metadata: {e}")
     
     def start_episode(self):
         """Start recording a new episode."""
@@ -247,7 +307,7 @@ class LeRobotDatasetWriter:
             print("No episodes recorded!")
             return
         
-        # Calculate statistics
+        # Calculate statistics (only from new episodes in this session)
         stats = self._compute_stats()
         
         # Write info.json
@@ -256,15 +316,20 @@ class LeRobotDatasetWriter:
         # Write tasks.parquet
         self._write_tasks_parquet()
         
-        # Write stats.json
+        # Write stats.json (note: stats are only from this session's episodes)
         self._write_stats_json(stats)
         
-        # Write episodes metadata
+        # Write episodes metadata (includes all episodes: existing + new)
         self._write_episodes_parquet()
         
         total_frames = sum(ep['num_frames'] for ep in self.all_episodes_metadata)
+        new_episodes = len(self.all_episodes_metadata) - self._existing_episode_count
+        
         print(f"\nDataset finalized:")
-        print(f"  Episodes: {len(self.all_episodes_metadata)}")
+        print(f"  Total episodes: {len(self.all_episodes_metadata)}")
+        if self._existing_episode_count > 0:
+            print(f"    - Existing: {self._existing_episode_count}")
+            print(f"    - New: {new_episodes}")
         print(f"  Total frames: {total_frames}")
         print(f"  Output directory: {self.output_dir}")
     

@@ -49,8 +49,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         image_size=256,
         max_episode_steps=500,
         randomize_block=True,
-        block_x_range=(-0.1, 0.1),
-        block_y_range=(0.2, 0.4),
+        block_dist_range=(0.1, 0.3),
+        block_angle_range=(-60, 60),
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -60,8 +60,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
             image_size: Size of camera images (default 256x256)
             max_episode_steps: Maximum steps per episode before truncation
             randomize_block: Whether to randomize block position on reset
-            block_x_range: (min, max) x position for block randomization
-            block_y_range: (min, max) y position for block randomization
+            block_dist_range: (min, max) distance from arm base in meters (default 0.1-0.3m)
+            block_angle_range: (min, max) angle from center in degrees (default -60 to +60)
         """
         super().__init__()
         
@@ -69,8 +69,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.image_size = image_size
         self.max_episode_steps = max_episode_steps
         self.randomize_block = randomize_block
-        self.block_x_range = block_x_range
-        self.block_y_range = block_y_range
+        self.block_dist_range = block_dist_range
+        self.block_angle_range = block_angle_range
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -188,12 +188,18 @@ class SO101PickPlaceEnv(gymnasium.Env):
         if options is not None and "block_pos" in options:
             block_pos = options["block_pos"]
         elif self.randomize_block:
-            # Randomize block position within specified ranges
-            block_x = self.np_random.uniform(*self.block_x_range)
-            block_y = self.np_random.uniform(*self.block_y_range)
+            # Randomize block position using polar coordinates
+            # Distance from arm base (at origin)
+            distance = self.np_random.uniform(*self.block_dist_range)
+            # Angle from Y-axis (front of arm), in radians
+            angle_deg = self.np_random.uniform(*self.block_angle_range)
+            angle_rad = np.deg2rad(angle_deg)
+            # Convert to cartesian (x = distance * sin(angle), y = distance * cos(angle))
+            block_x = distance * np.sin(angle_rad)
+            block_y = distance * np.cos(angle_rad)
             block_pos = (block_x, block_y, 0.0125)
         else:
-            # Default position
+            # Default position (directly in front at max distance)
             block_pos = (0, 0.3, 0.0125)
         
         # Reset environment

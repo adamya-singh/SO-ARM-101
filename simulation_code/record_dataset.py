@@ -73,6 +73,7 @@ class TeleopRecorder:
         input_type: str = "keyboard",
         delta_scale: float = 0.05,
         max_episode_steps: int = 10000,
+        randomize_block: bool = False,
     ):
         """
         Initialize the teleoperation recorder.
@@ -85,6 +86,7 @@ class TeleopRecorder:
             input_type: "keyboard" or "gamepad"
             delta_scale: Scale for input-to-joint deltas
             max_episode_steps: Max steps before auto-truncation (default 10000 = ~16min at 10fps)
+            randomize_block: Whether to randomize block position each episode
         """
         self.output_dir = output_dir
         self.task = task
@@ -97,7 +99,7 @@ class TeleopRecorder:
         print("Initializing SO-101 environment...")
         self.env = SO101PickPlaceEnv(
             render_mode='human',
-            randomize_block=False,  # Keep block in same place for consistent teleop
+            randomize_block=randomize_block,
             max_episode_steps=max_episode_steps,  # Long episodes for teleoperation
         )
         
@@ -137,6 +139,7 @@ class TeleopRecorder:
         print(f"Target episodes: {self.num_episodes}")
         print(f"Recording FPS: {self.fps}")
         print(f"Input: {self.input_type}")
+        print(f"Randomize block: {self.env.randomize_block}")
         print(f"Output: {self.output_dir}")
         print("="*60)
         
@@ -335,6 +338,11 @@ def main():
         default=10000,
         help="Max steps per episode before auto-reset (default 10000 = ~16min at 10fps)"
     )
+    parser.add_argument(
+        "--randomize",
+        action="store_true",
+        help="Randomize block position each episode (default: fixed position)"
+    )
     
     args = parser.parse_args()
     
@@ -347,6 +355,7 @@ def main():
         input_type=args.input,
         delta_scale=args.delta_scale,
         max_episode_steps=args.max_steps,
+        randomize_block=args.randomize,
     )
     recorder.run()
 
