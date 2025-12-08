@@ -217,7 +217,7 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
         reward += approach_reward
     
     # 3. Block height bonus (reward lifting block above initial z=0.025)
-    initial_block_z = 0.025
+    initial_block_z = 0.0125  # Half-size block
     height_gain = max(0, block_pos[2] - initial_block_z)
     height_reward = 20.0 * height_gain  # stronger reward for any lifting
     reward += height_reward
@@ -245,7 +245,7 @@ def reset_reward_state():
     _prev_block_pos = None
 
 
-def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.025)):
+def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):
     """
     Reset robot and block to initial positions.
     

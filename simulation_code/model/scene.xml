@@ -21,11 +21,11 @@
         <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
         <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane" />
         
-        <!-- Red block on the ground -->
-        <body name="red_block" pos="0 0.3 0.025">
+        <!-- Red block on the ground (half size: 2.5cm cube) -->
+        <body name="red_block" pos="0 0.3 0.0125">
             <freejoint/>
-            <geom name="red_block_geom" type="box" size="0.025 0.025 0.025" rgba="1 0 0 1" mass="0.1"/>
-            <inertial pos="0 0 0" mass="0.1" diaginertia="0.00004 0.00004 0.00004"/>
+            <geom name="red_block_geom" type="box" size="0.0125 0.0125 0.0125" rgba="1 0 0 1" mass="0.05"/>
+            <inertial pos="0 0 0" mass="0.05" diaginertia="0.00001 0.00001 0.00001"/>
         </body>
     </worldbody>
 </mujoco>
