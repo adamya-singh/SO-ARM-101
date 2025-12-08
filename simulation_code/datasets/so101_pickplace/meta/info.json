@@ -2,12 +2,12 @@
   "codebase_version": "3.0",
   "robot_type": "so101",
   "fps": 10,
-  "total_episodes": 9,
-  "total_frames": 3716,
+  "total_episodes": 10,
+  "total_frames": 4687,
   "total_tasks": 1,
-  "total_videos": 18,
+  "total_videos": 20,
   "total_chunks": 1,
-  "chunks_size": 9,
+  "chunks_size": 10,
   "data_path": "data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet",
   "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/episode_{episode_index:06d}.mp4",
   "features": {
@@ -77,5 +77,5 @@
     }
   },
   "repo_id": "so101_pickplace",
-  "created_at": "2025-12-07T23:56:52.415791"
+  "created_at": "2025-12-08T16:55:25.258938"
 }
