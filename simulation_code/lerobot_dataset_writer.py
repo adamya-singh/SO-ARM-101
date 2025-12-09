@@ -275,24 +275,35 @@ class LeRobotDatasetWriter:
         if not self.current_frames:
             return
         
-        # Convert frames to columnar format
-        data = {
-            'frame_index': [f['frame_index'] for f in self.current_frames],
-            'episode_index': [f['episode_index'] for f in self.current_frames],
-            'timestamp': [f['timestamp'] for f in self.current_frames],
-            'task_index': [f['task_index'] for f in self.current_frames],
-        }
-        
-        # Add state and action as list columns
+        # Get dimensions for fixed-length arrays
         state_dim = self.current_frames[0]['observation.state'].shape[0]
         action_dim = self.current_frames[0]['action'].shape[0]
         
-        # Store as nested arrays
-        data['observation.state'] = [f['observation.state'].tolist() for f in self.current_frames]
-        data['action'] = [f['action'].tolist() for f in self.current_frames]
+        # Define explicit schema with fixed-length float32 arrays
+        # This is critical for LeRobot compatibility
+        schema = pa.schema([
+            ('frame_index', pa.int64()),
+            ('episode_index', pa.int64()),
+            ('timestamp', pa.float64()),
+            ('task_index', pa.int64()),
+            ('observation.state', pa.list_(pa.float32(), state_dim)),
+            ('action', pa.list_(pa.float32(), action_dim)),
+        ])
         
-        # Create table
-        table = pa.table(data)
+        # Create arrays with explicit types
+        arrays = [
+            pa.array([f['frame_index'] for f in self.current_frames], type=pa.int64()),
+            pa.array([f['episode_index'] for f in self.current_frames], type=pa.int64()),
+            pa.array([f['timestamp'] for f in self.current_frames], type=pa.float64()),
+            pa.array([f['task_index'] for f in self.current_frames], type=pa.int64()),
+            pa.array([f['observation.state'].tolist() for f in self.current_frames], 
+                     type=pa.list_(pa.float32(), state_dim)),
+            pa.array([f['action'].tolist() for f in self.current_frames], 
+                     type=pa.list_(pa.float32(), action_dim)),
+        ]
+        
+        # Create table with explicit schema
+        table = pa.table(dict(zip(schema.names, arrays)), schema=schema)
         
         # Save to parquet
         parquet_path = (
