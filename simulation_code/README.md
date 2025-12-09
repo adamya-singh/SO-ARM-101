@@ -26,44 +26,48 @@ python train_reinflow.py
 ## Project Structure
 
 ```
-simulation_code/
-├── model/                          # MuJoCo model files
-│   ├── scene.xml                   # Main scene (robot + block + cameras)
-│   ├── so101_new_calib.xml         # Calibrated SO-101 robot MJCF
-│   ├── assets/                     # STL meshes for robot parts
-│   └── old/                        # Archived model versions
+SO-ARM-101/                         # Repository root
+├── smolvla_modifications/          # Modified LeRobot files for ReinFlow
+│   └── lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py
 │
-├── datasets/                       # Recorded demonstration datasets
-│   ├── so101_pickplace/            # 50 episodes (randomized block)
-│   └── so101_pickplace_fixed/      # 50 episodes (fixed block position)
-│
-├── envs/                           # Gymnasium environment registration
-│   └── __init__.py
-│
-├── # === CORE LIBRARIES ===
-├── so101_gym_env.py                # Gymnasium environment wrapper
-├── so101_mujoco_utils.py           # Utility functions (reward, reset, etc.)
-├── lerobot_dataset_writer.py       # LeRobotDataset v3 format writer
-│
-├── # === SIMULATION SCRIPTS ===
-├── example_run_mujoco_sim.py       # Basic MuJoCo viewer (no policy)
-├── run_mujoco_simulation_startingpose.py  # Hold robot at home position
-├── run_mujoco_simulation.py        # Run SmolVLA policy inference
-│
-├── # === TELEOPERATION ===
-├── teleop_keyboard.py              # Keyboard control handler
-├── teleop_gamepad.py               # DualShock 4 controller handler
-├── teleop_physical_arm.py          # Physical SO-101 arm mirroring
-├── record_dataset.py               # Main recording script
-│
-├── # === RL TRAINING ===
-├── reinflow_smolvla.py             # ReinFlow wrapper for SmolVLA
-├── train_reinflow.py               # Full ReinFlow training script
-│
-├── # === DEPRECATED ===
-├── old-training-scripts/           # Failed training attempts
-│   └── train_reinflow_lite-DIDNTWORK.py
-└── old-checkpoints/                # Old checkpoints
+└── simulation_code/                # Main code directory
+    ├── model/                      # MuJoCo model files
+    │   ├── scene.xml               # Main scene (robot + block + cameras)
+    │   ├── so101_new_calib.xml     # Calibrated SO-101 robot MJCF
+    │   ├── assets/                 # STL meshes for robot parts
+    │   └── old/                    # Archived model versions
+    │
+    ├── datasets/                   # Recorded demonstration datasets
+    │   ├── so101_pickplace/        # 50 episodes (randomized block)
+    │   └── so101_pickplace_fixed/  # 50 episodes (fixed block position)
+    │
+    ├── envs/                       # Gymnasium environment registration
+    │   └── __init__.py
+    │
+    ├── # === CORE LIBRARIES ===
+    ├── so101_gym_env.py            # Gymnasium environment wrapper
+    ├── so101_mujoco_utils.py       # Utility functions (reward, reset, etc.)
+    ├── lerobot_dataset_writer.py   # LeRobotDataset v3 format writer
+    │
+    ├── # === SIMULATION SCRIPTS ===
+    ├── example_run_mujoco_sim.py   # Basic MuJoCo viewer (no policy)
+    ├── run_mujoco_simulation_startingpose.py  # Hold robot at home position
+    ├── run_mujoco_simulation.py    # Run SmolVLA policy inference
+    │
+    ├── # === TELEOPERATION ===
+    ├── teleop_keyboard.py          # Keyboard control handler
+    ├── teleop_gamepad.py           # DualShock 4 controller handler
+    ├── teleop_physical_arm.py      # Physical SO-101 arm mirroring
+    ├── record_dataset.py           # Main recording script
+    │
+    ├── # === RL TRAINING ===
+    ├── reinflow_smolvla.py         # ReinFlow wrapper for SmolVLA
+    ├── train_reinflow.py           # Full ReinFlow training script
+    │
+    ├── # === DEPRECATED ===
+    ├── old-training-scripts/       # Failed training attempts
+    │   └── train_reinflow_lite-DIDNTWORK.py
+    └── old-checkpoints/            # Old checkpoints
 ```
 
 ---
@@ -73,18 +77,47 @@ simulation_code/
 ### Prerequisites
 
 ```bash
-# Create conda environment with LeRobot
+# Create conda environment
 conda create -n lerobot python=3.10
 conda activate lerobot
+```
 
-# Install LeRobot with SmolVLA support
-pip install lerobot[smolvla]
+### Install LeRobot (Editable Mode - Required for ReinFlow)
 
-# Or from source (recommended for development):
-cd /path/to/lerobot
+ReinFlow training requires a modified version of SmolVLA. You must install LeRobot from source in editable mode:
+
+```bash
+# Clone LeRobot repository (place it alongside this repo)
+cd /path/to/your/projects
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+
+# Install in editable mode with SmolVLA support
 pip install -e ".[smolvla]"
+```
 
-# Additional dependencies
+### Apply ReinFlow Modifications to SmolVLA
+
+We provide a modified `modeling_smolvla.py` that adds the `sample_actions_reinflow()` method required for ReinFlow training. Copy it to your LeRobot installation:
+
+```bash
+# From this repo's root directory (SO-ARM-101/):
+cp smolvla_modifications/lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py \
+   /path/to/lerobot/src/lerobot/policies/smolvla/modeling_smolvla.py
+```
+
+Or from the `simulation_code/` directory:
+
+```bash
+cp ../smolvla_modifications/lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py \
+   /path/to/lerobot/src/lerobot/policies/smolvla/modeling_smolvla.py
+```
+
+> **Note**: The modification adds a single method `sample_actions_reinflow()` to the `VLAFlowMatching` class (lines 749-830). This method injects learnable noise at each denoising step for ReinFlow RL training.
+
+### Additional Dependencies
+
+```bash
 pip install mujoco pynput pygame pyarrow imageio
 ```
 
@@ -92,7 +125,13 @@ pip install mujoco pynput pygame pyarrow imageio
 
 ```bash
 cd simulation_code
+
+# Check basic imports
 python -c "import mujoco; import lerobot; print('OK')"
+
+# Verify ReinFlow modification is applied
+python -c "from lerobot.policies.smolvla.modeling_smolvla import VLAFlowMatching; print('sample_actions_reinflow' in dir(VLAFlowMatching))"
+# Should print: True
 ```
 
 ---
@@ -197,6 +236,15 @@ L2/R2           Gripper close/open
 X (Cross)       Start/stop recording
 Circle          Reset environment
 Options         Quit
+```
+
+### Physical Arm Controls
+
+```
+Move arm        Simulation mirrors movements
+Space           Start/stop recording
+R               Reset simulation
+ESC             Quit
 ```
 
 ---
