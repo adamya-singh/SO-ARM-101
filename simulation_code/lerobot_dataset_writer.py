@@ -17,7 +17,10 @@ Directory structure:
         ├── observation.images.camera1/
         │   └── chunk-000/
         │       └── episode_000000.mp4
-        └── observation.images.camera2/
+        ├── observation.images.camera2/
+        │   └── chunk-000/
+        │       └── episode_000000.mp4
+        └── observation.images.camera3/
             └── chunk-000/
                 └── episode_000000.mp4
 """
@@ -95,6 +98,7 @@ class LeRobotDatasetWriter:
         self.camera_keys = [
             'observation.images.camera1',
             'observation.images.camera2',
+            'observation.images.camera3',
         ]
     
     def _setup_directories(self):
@@ -104,7 +108,7 @@ class LeRobotDatasetWriter:
         (self.output_dir / "data" / "chunk-000").mkdir(parents=True, exist_ok=True)
         
         # Video directories for each camera
-        for camera_key in ['observation.images.camera1', 'observation.images.camera2']:
+        for camera_key in ['observation.images.camera1', 'observation.images.camera2', 'observation.images.camera3']:
             (self.output_dir / "videos" / camera_key / "chunk-000").mkdir(parents=True, exist_ok=True)
     
     def _find_next_episode_idx(self) -> int:
@@ -378,8 +382,27 @@ class LeRobotDatasetWriter:
             'total_chunks': 1,
             'chunks_size': total_episodes,
             'data_path': 'data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet',
-            'video_path': 'videos/{video_key}/chunk-{chunk_index:03d}/episode_{episode_index:06d}.mp4',
+            # Use file_index instead of episode_index for video path (LeRobot v3 requirement)
+            'video_path': 'videos/{video_key}/chunk-{chunk_index:03d}/episode_{file_index:06d}.mp4',
             'features': {
+                # Metadata columns (required by LeRobot v3)
+                'timestamp': {
+                    'dtype': 'float64',
+                    'shape': [1],
+                },
+                'frame_index': {
+                    'dtype': 'int64',
+                    'shape': [1],
+                },
+                'episode_index': {
+                    'dtype': 'int64',
+                    'shape': [1],
+                },
+                'task_index': {
+                    'dtype': 'int64',
+                    'shape': [1],
+                },
+                # Video features
                 'observation.images.camera1': {
                     'dtype': 'video',
                     'shape': [self.image_size[0], self.image_size[1], 3],
@@ -400,6 +423,17 @@ class LeRobotDatasetWriter:
                         'video.pix_fmt': 'yuv420p',
                     }
                 },
+                'observation.images.camera3': {
+                    'dtype': 'video',
+                    'shape': [self.image_size[0], self.image_size[1], 3],
+                    'names': ['height', 'width', 'channels'],
+                    'video_info': {
+                        'video.fps': self.fps,
+                        'video.codec': 'libx264',
+                        'video.pix_fmt': 'yuv420p',
+                    }
+                },
+                # State and action features
                 'observation.state': {
                     'dtype': 'float32',
                     'shape': [6],
@@ -431,6 +465,16 @@ class LeRobotDatasetWriter:
     
     def _write_stats_json(self, stats: Dict[str, Dict[str, Any]]):
         """Write stats.json file."""
+        # Add ImageNet normalization stats for camera features (required by LeRobot v3)
+        # These are placeholder stats since videos use ImageNet normalization
+        for camera_key in self.camera_keys:
+            stats[camera_key] = {
+                'mean': [[[0.485]], [[0.456]], [[0.406]]],
+                'std': [[[0.229]], [[0.224]], [[0.225]]],
+                'min': [[[0.0]], [[0.0]], [[0.0]]],
+                'max': [[[1.0]], [[1.0]], [[1.0]]]
+            }
+        
         with open(self.output_dir / "meta" / "stats.json", 'w') as f:
             json.dump(stats, f, indent=2)
     
@@ -439,12 +483,40 @@ class LeRobotDatasetWriter:
         episodes_dir = self.output_dir / "meta" / "episodes" / "chunk-000"
         episodes_dir.mkdir(parents=True, exist_ok=True)
         
+        num_episodes = len(self.all_episodes_metadata)
+        
+        # Calculate dataset_from_index and dataset_to_index
+        # These represent the cumulative frame indices for each episode
+        dataset_from = []
+        dataset_to = []
+        current_idx = 0
+        for ep in self.all_episodes_metadata:
+            dataset_from.append(current_idx)
+            current_idx += ep['num_frames']
+            dataset_to.append(current_idx)
+        
         episodes_data = {
+            # Basic episode metadata
             'episode_index': [ep['episode_index'] for ep in self.all_episodes_metadata],
             'num_frames': [ep['num_frames'] for ep in self.all_episodes_metadata],
             'length_s': [ep['length_s'] for ep in self.all_episodes_metadata],
             'task_index': [ep['task_index'] for ep in self.all_episodes_metadata],
+            
+            # Dataset frame indices (required by LeRobot v3)
+            'dataset_from_index': dataset_from,
+            'dataset_to_index': dataset_to,
         }
+        
+        # Add video metadata columns for each camera (required by LeRobot v3)
+        for camera_key in self.camera_keys:
+            # Video timestamps: each episode's video starts at 0 and ends at length_s
+            episodes_data[f'videos/{camera_key}/from_timestamp'] = [0.0] * num_episodes
+            episodes_data[f'videos/{camera_key}/to_timestamp'] = [ep['length_s'] for ep in self.all_episodes_metadata]
+            # All videos are in chunk 0
+            episodes_data[f'videos/{camera_key}/chunk_index'] = [0] * num_episodes
+            # File index equals episode index (one video file per episode)
+            episodes_data[f'videos/{camera_key}/file_index'] = [ep['episode_index'] for ep in self.all_episodes_metadata]
+        
         table = pa.table(episodes_data)
         pq.write_table(table, episodes_dir / "episodes.parquet")
 
@@ -471,6 +543,7 @@ def test_dataset_writer():
             obs = {
                 'observation.images.camera1': np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8),
                 'observation.images.camera2': np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8),
+                'observation.images.camera3': np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8),
                 'observation.state': np.random.randn(6).astype(np.float32),
             }
             action = np.random.randn(6).astype(np.float32)

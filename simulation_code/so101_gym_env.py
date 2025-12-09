@@ -31,6 +31,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
     Observation space matches SmolVLA format:
     - observation.images.camera1: Top-down camera (256x256 RGB)
     - observation.images.camera2: Wrist camera (256x256 RGB)
+    - observation.images.camera3: Side camera (256x256 RGB)
     - observation.state: Joint positions (6,) in radians
     
     Action space:
@@ -118,6 +119,9 @@ class SO101PickPlaceEnv(gymnasium.Env):
             "observation.images.camera2": spaces.Box(
                 low=0, high=255, shape=(image_size, image_size, 3), dtype=np.uint8
             ),
+            "observation.images.camera3": spaces.Box(
+                low=0, high=255, shape=(image_size, image_size, 3), dtype=np.uint8
+            ),
             "observation.state": spaces.Box(
                 low=self.joint_limits_low,
                 high=self.joint_limits_high,
@@ -145,6 +149,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         # Get camera images
         camera1_image = get_camera_observation(self.renderer, self.data, camera_name="camera_up")
         camera2_image = get_camera_observation(self.renderer, self.data, camera_name="wrist_camera")
+        camera3_image = get_camera_observation(self.renderer, self.data, camera_name="camera_side")
         
         # Get robot state (joint positions in radians)
         state = get_robot_state(self.data).astype(np.float32)
@@ -152,6 +157,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         return {
             "observation.images.camera1": camera1_image,
             "observation.images.camera2": camera2_image,
+            "observation.images.camera3": camera3_image,
             "observation.state": state,
         }
     
