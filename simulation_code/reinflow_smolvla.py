@@ -23,6 +23,7 @@ from transformers import AutoTokenizer
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 from lerobot.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
+from so101_mujoco_utils import normalize_state_for_smolvla
 
 
 class ReinFlowSmolVLA(nn.Module):
@@ -245,8 +246,9 @@ def prepare_observation_for_reinflow(
     image_wrist_tensor = image_wrist_tensor.permute(2, 0, 1)
     image_wrist_tensor = image_wrist_tensor.unsqueeze(0).to(device)
     
-    # Convert robot state to tensor
-    state_tensor = torch.from_numpy(robot_state).float().unsqueeze(0).to(device)
+    # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
+    normalized_state = normalize_state_for_smolvla(robot_state)
+    state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize instruction
     if hasattr(policy.base, 'tokenizer') and policy.base.tokenizer is not None:

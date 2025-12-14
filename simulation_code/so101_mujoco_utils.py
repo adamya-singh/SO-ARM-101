@@ -3,6 +3,14 @@ import mujoco
 import numpy as np
 import torch
 
+# ===== SmolVLA Normalization Stats =====
+# These are the mean/std values from the SO-100 training data (in DEGREES)
+# Used to normalize state inputs and unnormalize action outputs
+SMOLVLA_STATE_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
+SMOLVLA_STATE_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
+SMOLVLA_ACTION_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
+SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
+
 def convert_to_dictionary(qpos):
     return {
             'shoulder_pan': qpos[0]*180.0/3.14159,  # convert radians(mujoco) to degrees(SO101)
@@ -73,6 +81,46 @@ def hold_position(m, d, viewer, duration):
 
 # ===== SmolVLA Helper Functions =====
 
+def normalize_state_for_smolvla(state_radians):
+    """
+    Normalize robot state for SmolVLA input.
+    
+    SmolVLA was trained with states in DEGREES, normalized with mean/std.
+    This function converts radians -> degrees -> normalized.
+    
+    Args:
+        state_radians: numpy array of joint positions in radians (6,)
+    
+    Returns:
+        normalized state as numpy array (6,)
+    """
+    # Convert radians to degrees
+    state_degrees = np.degrees(state_radians)
+    # Normalize using training stats: (x - mean) / std
+    normalized = (state_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+    return normalized
+
+
+def unnormalize_action_from_smolvla(action_normalized):
+    """
+    Unnormalize action output from SmolVLA.
+    
+    SmolVLA outputs normalized actions that need to be converted:
+    normalized -> degrees -> radians for MuJoCo.
+    
+    Args:
+        action_normalized: numpy array of normalized actions (6,)
+    
+    Returns:
+        action in radians as numpy array (6,)
+    """
+    # Unnormalize: action_degrees = normalized * std + mean
+    action_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
+    # Convert degrees to radians for MuJoCo
+    action_radians = np.radians(action_degrees)
+    return action_radians
+
+
 def get_camera_observation(renderer, d, camera_name="wrist_camera"):
     """Render a camera and return RGB image as numpy array."""
     renderer.update_scene(d, camera=camera_name)
@@ -93,7 +141,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
     Args:
         rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
         rgb_image_wrist: numpy array of shape (H, W, C) from wrist camera with values in [0, 255]
-        robot_state: numpy array of robot state (positions + velocities)
+        robot_state: numpy array of robot state in RADIANS (from MuJoCo)
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
         policy: SmolVLA policy object (needed for tokenization)
@@ -117,8 +165,9 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
     image_wrist_tensor = image_wrist_tensor.unsqueeze(0)
     image_wrist_tensor = image_wrist_tensor.to(device)
     
-    # Convert robot state to torch tensor
-    state_tensor = torch.from_numpy(robot_state).float().unsqueeze(0).to(device)
+    # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
+    normalized_state = normalize_state_for_smolvla(robot_state)
+    state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize the instruction if policy is provided
     if policy is not None and hasattr(policy, 'tokenizer'):
@@ -166,7 +215,9 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
         print(f"  Image camera1 (top) shape: {image_top_tensor.shape}, range: [{image_top_tensor.min():.3f}, {image_top_tensor.max():.3f}]")
         print(f"  Image camera2 (wrist) shape: {image_wrist_tensor.shape}, range: [{image_wrist_tensor.min():.3f}, {image_wrist_tensor.max():.3f}]")
         print(f"  State shape: {state_tensor.shape}")
-        print(f"  State values: {state_tensor[0].tolist()}")
+        print(f"  Raw state (radians): {robot_state.tolist()}")
+        print(f"  Raw state (degrees): {np.degrees(robot_state).tolist()}")
+        print(f"  Normalized state: {normalized_state.tolist()}")
     
     return observation
 

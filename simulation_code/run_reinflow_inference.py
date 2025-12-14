@@ -157,14 +157,18 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
 
                 if DEBUG_THIS_ITERATION:
                     print(f"\n[Action Output Debug]")
-                    print(f"  Raw action: {action}")
+                    print(f"  Raw normalized action: {action}")
                     print(f"  Action shape: {action.shape}")
-                    print(f"  Action range: min={action.min():.4f}, max={action.max():.4f}")
+                    print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
 
-                # Convert action to degrees
-                last_action_dict = convert_to_dictionary(action)
+                # Unnormalize action from SmolVLA output (normalized -> degrees -> radians)
+                action_radians = unnormalize_action_from_smolvla(action)
+                
+                # Convert action to degrees dict for SO101
+                last_action_dict = convert_to_dictionary(action_radians)
 
                 if DEBUG_THIS_ITERATION:
+                    print(f"  Unnormalized (radians): {action_radians}")
                     print(f"  Converted to degrees: {last_action_dict}")
                     print(f"\n{'='*60}\n")
 

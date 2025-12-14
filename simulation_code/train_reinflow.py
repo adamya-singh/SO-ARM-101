@@ -44,6 +44,7 @@ from so101_mujoco_utils import (
     compute_reward,
     reset_env,
     reset_reward_state,
+    unnormalize_action_from_smolvla,
 )
 
 
@@ -243,9 +244,10 @@ def train(config=None, args=None):
                 # Get action from ReinFlow policy (with noise at each denoising step!)
                 action, log_prob, _ = rl_policy(observation)
                 
-                # Convert to numpy and execute
+                # Convert to numpy and unnormalize (normalized -> degrees -> radians)
                 action_np = action.detach().cpu().numpy()
-                action_dict = convert_to_dictionary(action_np)
+                action_radians = unnormalize_action_from_smolvla(action_np)
+                action_dict = convert_to_dictionary(action_radians)
                 
                 # Execute action for multiple physics steps
                 for _ in range(config.steps_per_action):

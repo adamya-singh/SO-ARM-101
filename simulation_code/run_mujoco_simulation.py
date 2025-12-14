@@ -1,6 +1,7 @@
 import time
 import mujoco
 import mujoco.viewer
+import numpy as np
 import torch
 from transformers import AutoTokenizer
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
@@ -27,11 +28,49 @@ renderer = mujoco.Renderer(m, height=256, width=256)
 
 # Load SmolVLA policy
 print("Loading SmolVLA policy...")
-#policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
-policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
+policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
+#policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
 policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
+
+# === SMOLVLA CONFIG INSPECTION ===
+print("\n=== SMOLVLA CONFIG INSPECTION ===")
+print(f"Image features: {policy.config.image_features}")
+print(f"Action feature: {policy.config.action_feature}")
+print(f"Max state dim: {policy.config.max_state_dim}")
+print(f"Max action dim: {policy.config.max_action_dim}")
+print(f"Chunk size: {policy.config.chunk_size}")
+print(f"N action steps: {policy.config.n_action_steps}")
+print(f"Adapt to pi_aloha: {policy.config.adapt_to_pi_aloha}")
+print(f"Empty cameras: {policy.config.empty_cameras}")
+print("\nFull config dict:")
+for key, value in vars(policy.config).items():
+    if not key.startswith('_'):
+        print(f"  {key}: {value}")
+print("=================================\n")
+
+# === NORMALIZATION STATS ===
+print("=== NORMALIZATION STATS ===")
+if hasattr(policy, 'normalize_inputs'):
+    print(f"Has normalize_inputs: True")
+if hasattr(policy, 'unnormalize_outputs'):
+    print(f"Has unnormalize_outputs: True")
+if hasattr(policy, 'stats'):
+    print(f"Stats: {policy.stats}")
+if hasattr(policy, 'dataset_stats'):
+    print(f"Dataset stats: {policy.dataset_stats}")
+# Check for normalization in the config
+print("Normalization-related attributes:")
+for attr in dir(policy):
+    if 'norm' in attr.lower() or 'stat' in attr.lower():
+        try:
+            val = getattr(policy, attr, 'N/A')
+            if not callable(val):
+                print(f"  {attr}: {val}")
+        except:
+            pass
+print("===========================\n")
 
 # Load and attach tokenizer if missing
 print("\nChecking tokenizer...")
@@ -188,21 +227,26 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 # DEBUG: Print action values to verify range
                 if DEBUG_THIS_ITERATION:
                     print(f"\n[Action Output Debug]")
-                    print(f"  Raw action: {action}")
+                    print(f"  Raw normalized action: {action}")
                     print(f"  Action shape: {action.shape}")
-                    print(f"  Action range: min={action.min():.4f}, max={action.max():.4f}")
-                    print(f"  Action per joint: {[f'{a:.4f}' for a in action]}")
+                    print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
+                    print(f"  Normalized per joint: {[f'{a:.4f}' for a in action]}")
                 
-                # Map action to robot control using utility functions
-                # Assuming action is 6D: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
-                # SmolVLA actions are likely in radians (MuJoCo format)
+                # Unnormalize action from SmolVLA output
+                # SmolVLA outputs normalized actions (trained on degrees with mean/std normalization)
+                # This converts: normalized -> degrees -> radians
+                action_radians = unnormalize_action_from_smolvla(action)
                 
-                # Convert action from radians (MuJoCo) to degrees (SO101 format) using utility function
-                last_action_dict = convert_to_dictionary(action)
+                if DEBUG_THIS_ITERATION:
+                    print(f"  Unnormalized (radians): {[f'{a:.4f}' for a in action_radians]}")
+                    print(f"  Unnormalized (degrees): {[f'{np.degrees(a):.2f}' for a in action_radians]}")
+                
+                # Convert action from radians to degrees dict (SO101 format) using utility function
+                last_action_dict = convert_to_dictionary(action_radians)
                 
                 # DEBUG: Print converted values
                 if DEBUG_THIS_ITERATION:
-                    print(f"  Converted to degrees: {last_action_dict}")
+                    print(f"  Final action dict (degrees): {last_action_dict}")
                     print(f"  Current robot qpos (radians): {d.qpos[:6]}")
                     print(f"\n{'='*60}\n")
                 

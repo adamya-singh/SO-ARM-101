@@ -21,6 +21,8 @@ from so101_mujoco_utils import (
     set_initial_pose,
     compute_reward,
     reset_reward_state,
+    normalize_state_for_smolvla,
+    unnormalize_action_from_smolvla,
 )
 
 
@@ -52,6 +54,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         randomize_block=True,
         block_dist_range=(0.1, 0.3),
         block_angle_range=(-60, 60),
+        smolvla_normalize=False,
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -63,6 +66,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
             randomize_block: Whether to randomize block position on reset
             block_dist_range: (min, max) distance from arm base in meters (default 0.1-0.3m)
             block_angle_range: (min, max) angle from center in degrees (default -60 to +60)
+            smolvla_normalize: If True, normalize state outputs and unnormalize action inputs
+                               for SmolVLA compatibility (radians <-> degrees <-> normalized)
         """
         super().__init__()
         
@@ -72,6 +77,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.randomize_block = randomize_block
         self.block_dist_range = block_dist_range
         self.block_angle_range = block_angle_range
+        self.smolvla_normalize = smolvla_normalize
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -154,6 +160,10 @@ class SO101PickPlaceEnv(gymnasium.Env):
         # Get robot state (joint positions in radians)
         state = get_robot_state(self.data).astype(np.float32)
         
+        # Normalize state for SmolVLA if flag is set
+        if self.smolvla_normalize:
+            state = normalize_state_for_smolvla(state).astype(np.float32)
+        
         return {
             "observation.images.camera1": camera1_image,
             "observation.images.camera2": camera2_image,
@@ -229,7 +239,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         Execute one environment step.
         
         Args:
-            action: Joint positions (6,) in radians
+            action: Joint positions (6,) - normalized if smolvla_normalize=True, else radians
             
         Returns:
             observation: New observation
@@ -238,6 +248,10 @@ class SO101PickPlaceEnv(gymnasium.Env):
             truncated: True if episode truncated (max steps)
             info: Additional info dict
         """
+        # Unnormalize action from SmolVLA if flag is set
+        if self.smolvla_normalize:
+            action = unnormalize_action_from_smolvla(action)
+        
         # Clip action to valid range
         action = np.clip(action, self.joint_limits_low, self.joint_limits_high)
         
