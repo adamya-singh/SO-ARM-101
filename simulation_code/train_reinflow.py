@@ -72,10 +72,11 @@ class TrainingConfig:
     gamma = 0.99  # Discount factor
     lr = 1e-3
     grad_clip_norm = 1.0
+    batch_size = 10  # Number of episodes to accumulate before gradient update
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
-    init_log_sigma = -1.0    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
+    init_log_sigma = -0.7    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
     entropy_coef = 0.0001      # Entropy bonus to prevent sigma collapse
     
     # What to train
@@ -89,8 +90,8 @@ class TrainingConfig:
     lift_threshold = 0.08
     
     # Logging
-    log_interval = 10
-    save_interval = 100
+    log_interval = 1
+    save_interval = 10
     
     # Rendering
     render = True  # Set False for faster training
@@ -195,6 +196,7 @@ def train(config=None, args=None):
     print(f"Max steps per episode: {config.max_steps_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
     print(f"Learning rate: {config.lr}")
+    print(f"Batch size: {config.batch_size} episodes per update")
     print(f"Gradient clip norm: {config.grad_clip_norm}")
     print(f"Training action head: {config.train_action_head}")
     print(f"Training time MLP: {config.train_time_mlp}")
@@ -208,6 +210,12 @@ def train(config=None, args=None):
         viewer = mujoco.viewer.launch_passive(m, d)
     
     try:
+        # Batch storage for accumulating multiple episodes
+        batch_log_probs = []
+        batch_returns = []
+        batch_episode_rewards = []  # Track rewards for each episode in batch
+        batch_start_time = time.time()
+        
         for episode in range(start_episode, config.num_episodes):
             episode_start_time = time.time()
             
@@ -247,7 +255,7 @@ def train(config=None, args=None):
                         viewer.sync()
                 
                 # Get reward
-                reward, done = compute_reward(d, lift_threshold=config.lift_threshold)
+                reward, done = compute_reward(m, d, lift_threshold=config.lift_threshold)
                 
                 # Store for policy gradient
                 episode_log_probs.append(log_prob)
@@ -257,40 +265,59 @@ def train(config=None, args=None):
                     print(f"  Episode {episode+1}: SUCCESS! Block lifted at step {step+1}")
                     break
             
-            # Compute returns (rewards-to-go)
+            # Compute returns (rewards-to-go) for this episode
             returns = compute_returns(episode_rewards, gamma=config.gamma)
             returns = torch.tensor(returns, device=device, dtype=torch.float32)
             
-            # Stack log probs
+            # Stack log probs for this episode
             log_probs = torch.stack(episode_log_probs)
             
-            # Normalize advantages (returns - baseline)
-            advantages = returns - returns.mean()
-            if returns.std() > 1e-8:
-                advantages = advantages / (returns.std() + 1e-8)
-            
-            # Policy gradient loss: -E[A(s,a) * log π(a|s)]
-            policy_loss = -(advantages * log_probs).mean()
-            
-            # Entropy bonus: encourage exploration by penalizing low sigma
-            # Higher log_sigma = higher entropy = more exploration
-            entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
-            
-            # Total loss (subtract entropy bonus to encourage higher sigma)
-            loss = policy_loss - entropy_bonus
-            
-            # Update policy
-            optimizer.zero_grad()
-            loss.backward()
-            
-            # Gradient clipping for stability
-            torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
-            
-            optimizer.step()
+            # Add to batch
+            batch_log_probs.append(log_probs)
+            batch_returns.append(returns)
             
             # Track episode reward
             total_reward = sum(episode_rewards)
             episode_rewards_history.append(total_reward)
+            batch_episode_rewards.append(total_reward)
+            
+            # Only update policy every batch_size episodes
+            if (episode + 1) % config.batch_size == 0:
+                # Concatenate all episodes in batch
+                all_log_probs = torch.cat(batch_log_probs)
+                all_returns = torch.cat(batch_returns)
+                
+                # Normalize advantages across entire batch
+                advantages = all_returns - all_returns.mean()
+                if all_returns.std() > 1e-8:
+                    advantages = advantages / (all_returns.std() + 1e-8)
+                
+                # Policy gradient loss: -E[A(s,a) * log π(a|s)]
+                policy_loss = -(advantages * all_log_probs).mean()
+                
+                # Entropy bonus: encourage exploration by penalizing low sigma
+                entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
+                
+                # Total loss (subtract entropy bonus to encourage higher sigma)
+                loss = policy_loss - entropy_bonus
+                
+                # Update policy
+                optimizer.zero_grad()
+                loss.backward()
+                
+                # Gradient clipping for stability
+                torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
+                
+                optimizer.step()
+                
+                # Clear batch
+                batch_log_probs = []
+                batch_returns = []
+                batch_episode_rewards = []
+                batch_start_time = time.time()
+            else:
+                # No update yet, set loss to None for logging
+                loss = None
             
             episode_time = time.time() - episode_start_time
             
@@ -298,12 +325,18 @@ def train(config=None, args=None):
             if (episode + 1) % config.log_interval == 0 or episode == 0:
                 avg_reward = np.mean(episode_rewards_history[-config.log_interval:])
                 current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
+                loss_str = f"{loss.item():8.4f}" if loss is not None else "    N/A "
                 print(f"Episode {episode+1:5d} | "
                       f"Reward: {total_reward:8.2f} | "
                       f"Avg: {avg_reward:8.2f} | "
-                      f"Loss: {loss.item():8.4f} | "
+                      f"Loss: {loss_str} | "
                       f"σ_mean: {current_sigmas.mean():.4f} | "
                       f"Time: {episode_time:.1f}s")
+            
+            # Print 10-episode average every 10 episodes
+            if (episode + 1) % 10 == 0:
+                avg_10 = np.mean(episode_rewards_history[-10:])
+                print(f"  >>> Last 10 episodes avg: {avg_10:.2f}")
             
             # Save checkpoint periodically
             if (episode + 1) % config.save_interval == 0:

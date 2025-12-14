@@ -252,7 +252,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             mujoco.mj_step(self.model, self.data)
         
         # Compute reward
-        reward, success = compute_reward(self.data)
+        reward, success = compute_reward(self.model, self.data)
         
         # Update step count
         self._step_count += 1

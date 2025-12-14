@@ -177,7 +177,36 @@ _prev_gripper_pos = None
 _prev_block_pos = None
 _initial_block_pos = None  # Track where block started (to avoid reward hacking)
 
-def compute_reward(d, block_name="red_block", lift_threshold=0.08):
+
+def check_gripper_block_contact(m, d, block_name="red_block"):
+    """
+    Check if gripper or jaw is touching the block.
+    
+    Args:
+        m: MuJoCo model
+        d: MuJoCo data
+        block_name: Name of the block body
+        
+    Returns:
+        bool: True if gripper/jaw is in contact with the block
+    """
+    block_body_id = m.body(block_name).id
+    gripper_body_id = m.body("gripper").id
+    jaw_body_id = m.body("moving_jaw_so101_v1").id
+    
+    for i in range(d.ncon):
+        contact = d.contact[i]
+        geom1_body = m.geom_bodyid[contact.geom1]
+        geom2_body = m.geom_bodyid[contact.geom2]
+        
+        bodies = {geom1_body, geom2_body}
+        if block_body_id in bodies:
+            if gripper_body_id in bodies or jaw_body_id in bodies:
+                return True
+    return False
+
+
+def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     """
     Compute shaped reward for pick-up task.
     
@@ -188,6 +217,7 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
     4. Close proximity bonus - extra reward when very close
     5. Success bonus - large reward when block is lifted above threshold
     6. Block displacement penalty - exponential penalty for knocking block away (>5cm)
+    7. Contact bonus - reward for gripper touching the block
     
     Note: Distance is measured to the INITIAL block position, not current.
     This prevents the robot from learning to avoid the block (to not knock it away).
@@ -252,6 +282,10 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
             excess = displacement - threshold
             displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
             reward += displacement_penalty
+    
+    # 7. Contact bonus (gripper touching the block!)
+    if check_gripper_block_contact(m, d, block_name):
+        reward += 3.0  # Bonus for making contact
     
     # Update previous positions for next step
     _prev_gripper_pos = gripper_pos.copy()
