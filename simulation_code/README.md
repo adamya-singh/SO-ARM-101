@@ -335,6 +335,12 @@ env = gymnasium.make("SO101PickPlace-v0")
 # - SO101PickPlace-v0: Random block position
 # - SO101PickPlaceNoRandom-v0: Fixed block position
 # - SO101PickPlaceHuman-v0: With viewer, longer episodes
+
+# For SmolVLA inference, enable normalization:
+from so101_gym_env import SO101PickPlaceEnv
+env = SO101PickPlaceEnv(smolvla_normalize=True)
+# This normalizes state outputs and unnormalizes action inputs
+# to match SmolVLA's expected format (degrees with mean/std normalization)
 ```
 
 ### Observation Space

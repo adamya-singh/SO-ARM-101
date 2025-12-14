@@ -82,7 +82,7 @@ if not hasattr(policy, 'tokenizer') or policy.tokenizer is None:
         print(f"✓ Tokenizer loaded successfully: {type(tokenizer).__name__}")
         
         # Test tokenizer
-        test_tokens = tokenizer("pick up the red block", return_tensors="pt")
+        test_tokens = tokenizer("pick up the block", return_tensors="pt")
         print(f"✓ Tokenizer test: input shape {test_tokens['input_ids'].shape}, sample tokens: {test_tokens['input_ids'][0][:10].tolist()}")
     except Exception as e:
         print(f"✗ Failed to load tokenizer: {e}")
@@ -108,7 +108,7 @@ if hasattr(policy, 'input_shapes'):
 print("========================\n")
 
 # Task instruction for SmolVLA
-INSTRUCTION = "pick up the red block"
+INSTRUCTION = "pick up the block"
 
 # ===== End SmolVLA Setup =====
 
