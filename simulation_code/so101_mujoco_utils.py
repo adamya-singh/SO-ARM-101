@@ -133,7 +133,7 @@ def get_robot_state(d):
     state = d.qpos[:6].copy()
     return state
 
-def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction, device, policy=None, debug=False):
+def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, debug=False):
     """
     Prepare observation dict for SmolVLA policy with multiple cameras.
     Format based on LeRobot conventions with SmolVLA standardized camera naming.
@@ -141,6 +141,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
     Args:
         rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
         rgb_image_wrist: numpy array of shape (H, W, C) from wrist camera with values in [0, 255]
+        rgb_image_side: numpy array of shape (H, W, C) from side camera with values in [0, 255]
         robot_state: numpy array of robot state in RADIANS (from MuJoCo)
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
@@ -165,6 +166,12 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
     image_wrist_tensor = image_wrist_tensor.unsqueeze(0)
     image_wrist_tensor = image_wrist_tensor.to(device)
     
+    # Convert side camera image to torch tensor and normalize
+    image_side_tensor = torch.from_numpy(rgb_image_side).float() / 255.0
+    image_side_tensor = image_side_tensor.permute(2, 0, 1)
+    image_side_tensor = image_side_tensor.unsqueeze(0)
+    image_side_tensor = image_side_tensor.to(device)
+    
     # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
     normalized_state = normalize_state_for_smolvla(robot_state)
     state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
@@ -187,13 +194,15 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
         language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
     
-    # Observation dictionary with both cameras
-    # Using camera1/camera2 keys that the pretrained model expects
+    # Observation dictionary with all three cameras
+    # Using camera1/camera2/camera3 keys that the pretrained model expects
     # camera1: Top-down view (corresponds to OBS_IMAGE_1 in documentation)
     # camera2: Wrist-mounted view (corresponds to OBS_IMAGE_2 in documentation)
+    # camera3: Side view (corresponds to OBS_IMAGE_3 in documentation)
     observation = {
         "observation.images.camera1": image_top_tensor,
         "observation.images.camera2": image_wrist_tensor,
+        "observation.images.camera3": image_side_tensor,
         "observation.state": state_tensor,
         "observation.language.tokens": language_tokens,
         "observation.language.attention_mask": attention_mask,
@@ -214,6 +223,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
                 print(f"  ⚠️  WARNING: Policy has no tokenizer! Using dummy tokens.")
         print(f"  Image camera1 (top) shape: {image_top_tensor.shape}, range: [{image_top_tensor.min():.3f}, {image_top_tensor.max():.3f}]")
         print(f"  Image camera2 (wrist) shape: {image_wrist_tensor.shape}, range: [{image_wrist_tensor.min():.3f}, {image_wrist_tensor.max():.3f}]")
+        print(f"  Image camera3 (side) shape: {image_side_tensor.shape}, range: [{image_side_tensor.min():.3f}, {image_side_tensor.max():.3f}]")
         print(f"  State shape: {state_tensor.shape}")
         print(f"  Raw state (radians): {robot_state.tolist()}")
         print(f"  Raw state (degrees): {np.degrees(robot_state).tolist()}")

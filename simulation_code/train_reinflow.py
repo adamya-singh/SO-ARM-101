@@ -230,14 +230,15 @@ def train(config=None, args=None):
             
             # Run episode
             for step in range(config.max_steps_per_episode):
-                # Get observations
+                # Get all three camera observations (top, wrist, and side for SmolVLA)
                 rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
                 rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
                 robot_state = get_robot_state(d)
                 
                 # Prepare observation for ReinFlow policy
                 observation = prepare_observation_for_reinflow(
-                    rgb_top, rgb_wrist, robot_state,
+                    rgb_top, rgb_wrist, rgb_side, robot_state,
                     config.instruction, device, rl_policy
                 )
                 

@@ -212,6 +212,7 @@ def setup_reinflow_policy(
 def prepare_observation_for_reinflow(
     rgb_image_top,
     rgb_image_wrist,
+    rgb_image_side,
     robot_state,
     instruction: str,
     device,
@@ -226,6 +227,7 @@ def prepare_observation_for_reinflow(
     Args:
         rgb_image_top: (H, W, C) numpy array from top camera [0, 255]
         rgb_image_wrist: (H, W, C) numpy array from wrist camera [0, 255]
+        rgb_image_side: (H, W, C) numpy array from side camera [0, 255]
         robot_state: (6,) numpy array of joint positions
         instruction: Task instruction string
         device: Torch device
@@ -245,6 +247,11 @@ def prepare_observation_for_reinflow(
     image_wrist_tensor = torch.from_numpy(rgb_image_wrist).float() / 255.0
     image_wrist_tensor = image_wrist_tensor.permute(2, 0, 1)
     image_wrist_tensor = image_wrist_tensor.unsqueeze(0).to(device)
+    
+    # Convert side camera image to tensor
+    image_side_tensor = torch.from_numpy(rgb_image_side).float() / 255.0
+    image_side_tensor = image_side_tensor.permute(2, 0, 1)
+    image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
     
     # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
     normalized_state = normalize_state_for_smolvla(robot_state)
@@ -268,6 +275,7 @@ def prepare_observation_for_reinflow(
     observation = {
         "observation.images.camera1": image_top_tensor,
         "observation.images.camera2": image_wrist_tensor,
+        "observation.images.camera3": image_side_tensor,
         OBS_STATE: state_tensor,
         OBS_LANGUAGE_TOKENS: language_tokens,
         OBS_LANGUAGE_ATTENTION_MASK: attention_mask,

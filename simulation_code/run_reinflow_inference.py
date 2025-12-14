@@ -110,9 +110,10 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 policy_inference_count += 1
                 DEBUG_THIS_ITERATION = (policy_inference_count <= 3)
 
-                # Get both camera observations
+                # Get all three camera observations (top, wrist, and side for SmolVLA)
                 rgb_image_top = get_camera_observation(renderer, d, camera_name="camera_up")
                 rgb_image_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                rgb_image_side = get_camera_observation(renderer, d, camera_name="camera_side")
 
                 if DEBUG_THIS_ITERATION:
                     print(f"\n{'='*60}")
@@ -121,12 +122,13 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"\n[Camera Debug]")
                     print(f"  Top camera shape: {rgb_image_top.shape}, dtype: {rgb_image_top.dtype}")
                     print(f"  Wrist camera shape: {rgb_image_wrist.shape}, dtype: {rgb_image_wrist.dtype}")
+                    print(f"  Side camera shape: {rgb_image_side.shape}, dtype: {rgb_image_side.dtype}")
 
                 # Get robot state
                 robot_state = get_robot_state(d)
 
                 # Prepare observation for policy
-                observation = prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
+                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
 
                 if DEBUG_THIS_ITERATION:
                     print(f"\n[Observation Structure Debug]")

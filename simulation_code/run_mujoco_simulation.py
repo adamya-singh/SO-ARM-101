@@ -163,9 +163,10 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 policy_inference_count += 1
                 DEBUG_THIS_ITERATION = (policy_inference_count <= 3)  # Only debug first 3 inferences
                 
-                # Get both camera observations (top and wrist for SmolVLA)
+                # Get all three camera observations (top, wrist, and side for SmolVLA)
                 rgb_image_top = get_camera_observation(renderer, d, camera_name="camera_up")
                 rgb_image_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                rgb_image_side = get_camera_observation(renderer, d, camera_name="camera_side")
                 
                 # DEBUG: Check camera images (first inference only)
                 if DEBUG_THIS_ITERATION:
@@ -177,12 +178,14 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Top camera range: [{rgb_image_top.min()}, {rgb_image_top.max()}]")
                     print(f"  Wrist camera shape: {rgb_image_wrist.shape}, dtype: {rgb_image_wrist.dtype}")
                     print(f"  Wrist camera range: [{rgb_image_wrist.min()}, {rgb_image_wrist.max()}]")
+                    print(f"  Side camera shape: {rgb_image_side.shape}, dtype: {rgb_image_side.dtype}")
+                    print(f"  Side camera range: [{rgb_image_side.min()}, {rgb_image_side.max()}]")
                 
                 # Get robot state
                 robot_state = get_robot_state(d)
                 
                 # Prepare observation for policy (includes tokenized instruction)
-                observation = prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
+                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
                 
                 # DEBUG: Verify observation structure matches policy expectations
                 if DEBUG_THIS_ITERATION:
