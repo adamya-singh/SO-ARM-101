@@ -375,12 +375,13 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     if check_gripper_block_contact(m, d, block_name):
         reward += 3.0  # Bonus for making contact
     
-    # 8. Floor contact penalty (exponential with force magnitude)
+    # 8. Floor contact penalty (exponential with force magnitude, CLAMPED)
     floor_force = get_floor_contact_force(m, d)
     if floor_force > 0:
-        # Base penalty for any floor contact + exponential scaling with force
-        # At 1N: penalty ~= -2.7, at 5N: penalty ~= -150, at 10N: penalty ~= -22026
-        floor_penalty = -1.0 * np.exp(floor_force)
+        # Exponential scaling but capped to prevent reward explosion
+        # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
+        raw_penalty = -1.0 * np.exp(floor_force)
+        floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
         reward += floor_penalty
     
     # Update previous positions for next step
