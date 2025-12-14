@@ -67,15 +67,16 @@ class TrainingConfig:
     }
     
     # Training hyperparameters
-    num_episodes = 100000
+    num_episodes = 20000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor
-    lr = 3e-4
+    lr = 1e-3
     grad_clip_norm = 1.0
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
-    init_log_sigma = -2.0    # Initial noise scale (exp(-2) ≈ 0.135)
+    init_log_sigma = -1.0    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
+    entropy_coef = 0.0001      # Entropy bonus to prevent sigma collapse
     
     # What to train
     train_action_head = True   # Train action_out_proj (23K params)
@@ -197,6 +198,7 @@ def train(config=None, args=None):
     print(f"Gradient clip norm: {config.grad_clip_norm}")
     print(f"Training action head: {config.train_action_head}")
     print(f"Training time MLP: {config.train_time_mlp}")
+    print(f"Entropy coefficient: {config.entropy_coef}")
     print(f"Initial sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
     print(f"{'='*60}\n")
     
@@ -268,7 +270,14 @@ def train(config=None, args=None):
                 advantages = advantages / (returns.std() + 1e-8)
             
             # Policy gradient loss: -E[A(s,a) * log π(a|s)]
-            loss = -(advantages * log_probs).mean()
+            policy_loss = -(advantages * log_probs).mean()
+            
+            # Entropy bonus: encourage exploration by penalizing low sigma
+            # Higher log_sigma = higher entropy = more exploration
+            entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
+            
+            # Total loss (subtract entropy bonus to encourage higher sigma)
+            loss = policy_loss - entropy_bonus
             
             # Update policy
             optimizer.zero_grad()

@@ -19,6 +19,12 @@ python record_dataset.py --input keyboard --output_dir ./datasets/my_dataset --t
 
 # 5. Train with ReinFlow RL
 python train_reinflow.py
+
+# 6. Run inference with trained checkpoint
+python run_reinflow_inference.py
+
+# 7. View training statistics from checkpoint
+python print_checkpoint_stats.py
 ```
 
 ---
@@ -63,6 +69,9 @@ SO-ARM-101/                         # Repository root
     ├── # === RL TRAINING ===
     ├── reinflow_smolvla.py         # ReinFlow wrapper for SmolVLA
     ├── train_reinflow.py           # Full ReinFlow training script
+    ├── run_reinflow_inference.py   # Run inference with trained checkpoint
+    ├── print_checkpoint_stats.py   # View training stats from checkpoint
+    ├── reinflow_checkpoint.pt      # Trained checkpoint file
     │
     ├── # === DEPRECATED ===
     ├── old-training-scripts/       # Failed training attempts
@@ -163,6 +172,26 @@ python run_mujoco_simulation.py
 ```
 
 The script loads either `lerobot/smolvla_base` (pretrained) or a fine-tuned checkpoint and executes the policy in a loop.
+
+### ReinFlow Trained Policy Inference
+
+Runs inference using the trained ReinFlow checkpoint:
+
+```bash
+python run_reinflow_inference.py
+```
+
+This script loads the base SmolVLA policy and applies the trained `action_out_proj` and `action_time_mlp_out` weights from `reinflow_checkpoint.pt`. Debug output is shown for the first 3 policy inferences.
+
+### View Training Statistics
+
+Print training statistics from a saved checkpoint:
+
+```bash
+python print_checkpoint_stats.py
+```
+
+Outputs episode rewards, sigma values, and training progress summary.
 
 ---
 
@@ -273,6 +302,8 @@ python train_reinflow.py --episodes 50000 --lr 1e-4
 - Injects learnable noise at each of 10 denoising steps
 - Computes exact log-probabilities for REINFORCE
 - Optionally trains action head (~23K params)
+- Entropy bonus (default 0.0001) prevents sigma collapse and encourages exploration
+- Initial log-sigma of -1.0 (σ ≈ 0.37) provides good exploration-exploitation balance
 
 ### Fine-tuning SmolVLA (Behavioral Cloning)
 
@@ -331,11 +362,14 @@ The reward function in `so101_mujoco_utils.py` includes:
 
 | Component | Weight | Description |
 |-----------|--------|-------------|
-| Distance penalty | -2.0 | Linear penalty for gripper-to-block distance |
+| Distance penalty | -2.0 | Linear penalty for gripper-to-initial-block distance |
 | Approach bonus | +5.0 | Reward for moving toward block |
 | Height bonus | +20.0 | Reward for lifting block |
 | Proximity bonus | +0.5 | Bonus when within 5cm of block |
 | Success bonus | +50.0 | Large reward when block lifted above threshold |
+| Displacement penalty | -5.0 × exp | Exponential penalty for knocking block >5cm away |
+
+> **Note**: Distance is measured to the *initial* block position, not current. This prevents the robot from learning to avoid the block (to not knock it away).
 
 ---
 
@@ -383,8 +417,10 @@ The reward function in `so101_mujoco_utils.py` includes:
 | `example_run_mujoco_sim.py` | Basic MuJoCo viewer | `python example_run_mujoco_sim.py` |
 | `run_mujoco_simulation_startingpose.py` | Hold home position | `python run_mujoco_simulation_startingpose.py` |
 | `run_mujoco_simulation.py` | SmolVLA policy inference | `python run_mujoco_simulation.py` |
+| `run_reinflow_inference.py` | Inference with trained checkpoint | `python run_reinflow_inference.py` |
 | `record_dataset.py` | Record demonstrations | `python record_dataset.py --input keyboard` |
 | `train_reinflow.py` | ReinFlow RL training | `python train_reinflow.py` |
+| `print_checkpoint_stats.py` | View training stats | `python print_checkpoint_stats.py` |
 | `teleop_keyboard.py` | Test keyboard input | `python teleop_keyboard.py` |
 | `teleop_gamepad.py` | Test gamepad input | `python teleop_gamepad.py` |
 

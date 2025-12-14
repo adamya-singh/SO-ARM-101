@@ -175,6 +175,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, robot_state, instruction
 # Store previous positions for velocity-based rewards
 _prev_gripper_pos = None
 _prev_block_pos = None
+_initial_block_pos = None  # Track where block started (to avoid reward hacking)
 
 def compute_reward(d, block_name="red_block", lift_threshold=0.08):
     """
@@ -184,13 +185,18 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
     1. Linear distance penalty - consistent gradient signal at all distances
     2. Approach velocity bonus - reward for moving toward block
     3. Block height bonus - reward for lifting block
-    4. Success bonus - large reward when block is lifted above threshold
+    4. Close proximity bonus - extra reward when very close
+    5. Success bonus - large reward when block is lifted above threshold
+    6. Block displacement penalty - exponential penalty for knocking block away (>5cm)
+    
+    Note: Distance is measured to the INITIAL block position, not current.
+    This prevents the robot from learning to avoid the block (to not knock it away).
     
     Returns:
         reward: float - shaped reward
         done: bool - True if block is lifted above threshold
     """
-    global _prev_gripper_pos, _prev_block_pos
+    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
     
     # Get gripper position (end effector)
     gripper_pos = d.site("gripperframe").xpos.copy()
@@ -198,8 +204,13 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
     # Get block position
     block_pos = d.body(block_name).xpos.copy()
     
-    # Current distance
-    distance = np.linalg.norm(gripper_pos - block_pos)
+    # Store initial block position on first call of episode
+    if _initial_block_pos is None:
+        _initial_block_pos = block_pos.copy()
+    
+    # Current distance to INITIAL block position (not current position)
+    # This encourages going to where the block started, not chasing it if knocked
+    distance = np.linalg.norm(gripper_pos - _initial_block_pos)
     
     reward = 0.0
     
@@ -231,6 +242,17 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
     if lifted:
         reward += 50.0  # large success bonus
     
+    # 6. Block displacement penalty (exponential, kicks in after 5cm)
+    # Penalizes knocking the block away, but allows small nudges
+    # Only applies when block isn't being lifted (Z < 5cm)
+    if block_pos[2] < 0.05:
+        displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
+        threshold = 0.05  # 5cm tolerance
+        if displacement > threshold:
+            excess = displacement - threshold
+            displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
+            reward += displacement_penalty
+    
     # Update previous positions for next step
     _prev_gripper_pos = gripper_pos.copy()
     _prev_block_pos = block_pos.copy()
@@ -240,9 +262,10 @@ def compute_reward(d, block_name="red_block", lift_threshold=0.08):
 
 def reset_reward_state():
     """Reset the reward state (call at episode start)."""
-    global _prev_gripper_pos, _prev_block_pos
+    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
     _prev_gripper_pos = None
     _prev_block_pos = None
+    _initial_block_pos = None
 
 
 def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):
