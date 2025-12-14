@@ -267,6 +267,32 @@ def check_gripper_block_contact(m, d, block_name="red_block"):
     return False
 
 
+def get_floor_contact_force(m, d, floor_geom_name="floor"):
+    """
+    Measure total contact force between robot and floor.
+    
+    Returns:
+        force_magnitude: float - total force magnitude (Newtons)
+    """
+    floor_geom_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, floor_geom_name)
+    
+    total_force = np.zeros(3)
+    
+    for i in range(d.ncon):
+        contact = d.contact[i]
+        if contact.geom1 == floor_geom_id or contact.geom2 == floor_geom_id:
+            # Skip floor-block contacts (we only care about robot-floor)
+            block_geom_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "red_block_geom")
+            if contact.geom1 == block_geom_id or contact.geom2 == block_geom_id:
+                continue
+            
+            wrench = np.zeros(6)
+            mujoco.mj_contactForce(m, d, i, wrench)
+            total_force += wrench[:3]
+    
+    return np.linalg.norm(total_force)
+
+
 def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     """
     Compute shaped reward for pick-up task.
@@ -279,6 +305,7 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     5. Success bonus - large reward when block is lifted above threshold
     6. Block displacement penalty - exponential penalty for knocking block away (>5cm)
     7. Contact bonus - reward for gripper touching the block
+    8. Floor contact penalty - exponential penalty for pressing against the floor
     
     Note: Distance is measured to the INITIAL block position, not current.
     This prevents the robot from learning to avoid the block (to not knock it away).
@@ -347,6 +374,14 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     # 7. Contact bonus (gripper touching the block!)
     if check_gripper_block_contact(m, d, block_name):
         reward += 3.0  # Bonus for making contact
+    
+    # 8. Floor contact penalty (exponential with force magnitude)
+    floor_force = get_floor_contact_force(m, d)
+    if floor_force > 0:
+        # Base penalty for any floor contact + exponential scaling with force
+        # At 1N: penalty ~= -2.7, at 5N: penalty ~= -150, at 10N: penalty ~= -22026
+        floor_penalty = -1.0 * np.exp(floor_force)
+        reward += floor_penalty
     
     # Update previous positions for next step
     _prev_gripper_pos = gripper_pos.copy()
