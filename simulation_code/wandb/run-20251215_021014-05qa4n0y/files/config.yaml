@@ -1,0 +1,80 @@
+_wandb:
+    value:
+        cli_version: 0.21.4
+        e:
+            b4umrkivh7y8pcz4cdmdgxzxxovj998z:
+                apple:
+                    ecpuCores: 2
+                    gpuCores: 14
+                    memoryGb: 16
+                    name: Apple M1 Pro
+                    pcpuCores: 6
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "11811160064"
+                args:
+                    - --no-render
+                codePath: simulation_code/train_reinflow.py
+                codePathLocal: train_reinflow.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "438409220096"
+                email: 7adamyasingh@gmail.com
+                executable: /opt/homebrew/anaconda3/envs/lerobot/bin/python3.10
+                git:
+                    commit: eabb4e8e7b1d404fccaf8d4525fc8f612e1fb022
+                    remote: https://github.com/adamya-singh/SO-ARM-101.git
+                host: Adamyas-MacBook-Pro.local
+                memory:
+                    total: "17179869184"
+                os: macOS-15.5-arm64-arm-64bit
+                program: /Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/simulation_code/train_reinflow.py
+                python: CPython 3.10.18
+                root: /Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/simulation_code
+                startedAt: "2025-12-15T07:10:14.310525Z"
+                writerId: b4umrkivh7y8pcz4cdmdgxzxxovj998z
+        m: []
+        python_version: 3.10.18
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+            "3":
+                - 2
+                - 16
+            "4": 3.10.18
+            "5": 0.21.4
+            "6": 4.57.1
+            "12": 0.21.4
+            "13": darwin-arm64
+batch_size:
+    value: 10
+entropy_coef:
+    value: 0.0001
+gamma:
+    value: 0.99
+init_log_sigma:
+    value: -0.7
+lr:
+    value: 0.005
+max_steps_per_episode:
+    value: 50
+num_denoising_steps:
+    value: 10
+train_action_head:
+    value: true
+train_time_mlp:
+    value: false

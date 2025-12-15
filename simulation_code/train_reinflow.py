@@ -37,6 +37,7 @@ import mujoco.viewer
 import torch
 import torch.nn as nn
 import numpy as np
+import wandb
 
 from reinflow_smolvla import (
     ReinFlowSmolVLA,
@@ -118,6 +119,10 @@ class TrainingConfig:
     # Default 1 = sequential mode (best for M1 Mac)
     #unfortunately this is pretty much useless because our bottleneck is the rendering of the 3 cameras each step (CPU only)
     num_parallel_envs = 1
+    
+    # Weights & Biases
+    wandb_project = "reinflow-smolvla"
+    wandb_enabled = True
 
 
 def parse_args():
@@ -137,6 +142,8 @@ def parse_args():
                         help='Path to pretrained SmolVLA model')
     parser.add_argument('--parallel-envs', type=int, default=None,
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
+    parser.add_argument('--no-wandb', action='store_true',
+                        help='Disable Weights & Biases logging')
     return parser.parse_args()
 
 
@@ -315,6 +322,20 @@ def train_parallel(config, args, device):
                   f"σ_mean: {current_sigmas.mean():.4f} | "
                   f"Time: {batch_time:.1f}s ({batch_time/num_envs:.2f}s/ep)")
             
+            # Log to Weights & Biases
+            if config.wandb_enabled:
+                wandb.log({
+                    "batch": batch_idx + 1,
+                    "episodes_total": total_episodes,
+                    "reward/batch_avg": avg_reward,
+                    "reward/batch_min": np.min(batch_total_rewards),
+                    "reward/batch_max": np.max(batch_total_rewards),
+                    "loss/policy": loss.item(),
+                    "exploration/sigma_mean": current_sigmas.mean(),
+                    "time/batch_seconds": batch_time,
+                    "time/per_episode": batch_time / num_envs,
+                })
+            
             # Save checkpoint periodically
             if (batch_idx + 1) % (config.save_interval // num_envs + 1) == 0:
                 save_reinflow_checkpoint(
@@ -326,6 +347,8 @@ def train_parallel(config, args, device):
     
     finally:
         vec_env.close()
+        if config.wandb_enabled:
+            wandb.finish()
     
     # Save final checkpoint
     save_reinflow_checkpoint(
@@ -538,6 +561,20 @@ def train_sequential(config, args, device):
                       f"Loss: {loss_str} | "
                       f"σ_mean: {current_sigmas.mean():.4f} | "
                       f"Time: {episode_time:.1f}s")
+                
+                # Log to Weights & Biases
+                if config.wandb_enabled:
+                    wandb.log({
+                        "episode": episode + 1,
+                        "reward/episode": total_reward,
+                        "reward/avg": avg_reward,
+                        "loss/policy": loss.item() if loss is not None else None,
+                        "exploration/sigma_mean": current_sigmas.mean(),
+                        "exploration/sigma_min": current_sigmas.min(),
+                        "exploration/sigma_max": current_sigmas.max(),
+                        "time/episode_seconds": episode_time,
+                        "steps/episode": len(episode_rewards),
+                    })
             
             # Print 10-episode average every 10 episodes
             if (episode + 1) % 10 == 0:
@@ -556,6 +593,8 @@ def train_sequential(config, args, device):
     finally:
         if viewer is not None:
             viewer.close()
+        if config.wandb_enabled:
+            wandb.finish()
     
     # Save final checkpoint
     save_reinflow_checkpoint(
@@ -600,6 +639,8 @@ def train(config=None, args=None):
             config.pretrained_path = args.pretrained
         if args.parallel_envs is not None:
             config.num_parallel_envs = args.parallel_envs
+        if args.no_wandb:
+            config.wandb_enabled = False
     
     # Device setup
     if torch.backends.mps.is_available():
@@ -611,6 +652,24 @@ def train(config=None, args=None):
     else:
         device = torch.device("cpu")
         print(f"Using device: {device}")
+    
+    # Initialize Weights & Biases
+    if config.wandb_enabled:
+        wandb.init(
+            project=config.wandb_project,
+            config={
+                "lr": config.lr,
+                "gamma": config.gamma,
+                "batch_size": config.batch_size,
+                "num_denoising_steps": config.num_denoising_steps,
+                "init_log_sigma": config.init_log_sigma,
+                "entropy_coef": config.entropy_coef,
+                "max_steps_per_episode": config.max_steps_per_episode,
+                "train_action_head": config.train_action_head,
+                "train_time_mlp": config.train_time_mlp,
+            },
+            resume="allow",
+        )
     
     # Dispatch to appropriate training loop
     if config.num_parallel_envs > 1:

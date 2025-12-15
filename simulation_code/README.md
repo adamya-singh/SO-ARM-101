@@ -268,14 +268,17 @@ ESC             Quit
 ReinFlow is a flow-based RL method that injects learnable noise at each denoising step, enabling proper policy gradient training:
 
 ```bash
-# Start training
+# Start training (with viewer)
 python train_reinflow.py
 
 # Resume from checkpoint
 python train_reinflow.py --resume reinflow_checkpoint.pt
 
-# Headless (faster, no visualization)
-python train_reinflow.py --no-render
+# Headless mode (for Colab/SSH, no visualization)
+python train_reinflow.py --no-render --headless
+
+# Parallel mode with 10 environments (optimized for A100 GPU)
+python train_reinflow.py --parallel-envs 10 --no-render --headless
 
 # Custom settings
 python train_reinflow.py --episodes 50000 --lr 1e-4
@@ -436,8 +439,11 @@ For headless environments (Colab, SSH sessions, cloud VMs), MuJoCo needs a softw
 ### Running Training Headless
 
 ```bash
-# Use --headless flag to force EGL/OSMesa backend
+# Sequential mode (best for most cases)
 python train_reinflow.py --no-render --headless
+
+# Parallel mode with 10 environments (for A100 GPU)
+python train_reinflow.py --parallel-envs 10 --no-render --headless
 
 # Or set environment variable directly
 MUJOCO_GL=osmesa python train_reinflow.py --no-render

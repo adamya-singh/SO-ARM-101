@@ -1,0 +1,45 @@
+
+Loading MuJoCo model from model/scene.xml
+
+============================================================
+Setting up ReinFlow SmolVLA
+============================================================
+[ReinFlow] Loading SmolVLA from lerobot/smolvla_base...
+[ReinFlow] Using device: mps
+WARNING:root:Device 'cuda' is not available. Switching to 'mps'.
+WARNING:root:Device 'cuda' is not available. Switching to 'mps'.
+Loading  HuggingFaceTB/SmolVLM2-500M-Video-Instruct weights ...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Reducing the number of VLM layers to 16 ...
+[ReinFlow] Loading tokenizer...
+[ReinFlow] SmolVLA loaded successfully!
+[ReinFlow] Setting up ReinFlow wrapper with 10 denoising steps...
+  [ReinFlow] Unfroze action_out_proj: 23,072 params
+  [ReinFlow] Total trainable parameters: 23,082
+  [ReinFlow] Initial sigmas: [0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853
+ 0.4965853 0.4965853 0.4965853]
+[ReinFlow] Loading checkpoint from reinflow_checkpoint.pt
+[ReinFlow] Resuming from episode 253
+[ReinFlow] Loaded sigmas: [0.4900023 0.4900023 0.4900023 0.4900023 0.4900023 0.4900023 0.4900023
+ 0.4900023 0.4900023 0.4900023]
+
+============================================================
+Starting ReinFlow Training
+============================================================
+Instruction: 'pick up the block'
+Episodes: 20000
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Batch size: 10 episodes per update
+Gradient clip norm: 1.0
+Training action head: True
+Training time MLP: False
+Entropy coefficient: 0.0001
+Initial sigmas: [0.4900023 0.4900023 0.4900023 0.4900023 0.4900023 0.4900023 0.4900023
+ 0.4900023 0.4900023 0.4900023]
+============================================================
+
+
+
+Training interrupted by user.
