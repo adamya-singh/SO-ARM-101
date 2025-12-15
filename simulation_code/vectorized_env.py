@@ -1,0 +1,292 @@
+"""
+Vectorized MuJoCo Environment for Parallel RL Training
+
+Manages N parallel MuJoCo environments for batched policy inference,
+enabling efficient GPU utilization on A100 and similar hardware.
+
+Usage:
+    vec_env = VectorizedMuJoCoEnv(num_envs=16, model_path='model/scene.xml', ...)
+    vec_env.reset_all()
+    
+    for step in range(max_steps):
+        obs = vec_env.get_batched_observations(device)
+        actions = policy(obs)  # Batched inference
+        rewards, dones = vec_env.step_all(actions)
+"""
+
+import numpy as np
+import torch
+import mujoco
+
+from so101_mujoco_utils import (
+    set_initial_pose,
+    send_position_command,
+    convert_to_list,
+    convert_to_dictionary,
+    normalize_state_for_smolvla,
+    check_gripper_block_contact,
+    get_floor_contact_force,
+)
+
+
+class VectorizedMuJoCoEnv:
+    """
+    Vectorized MuJoCo environment for parallel RL training.
+    
+    Manages N independent simulation states sharing a single model,
+    enabling batched observations for efficient GPU inference.
+    
+    Args:
+        num_envs: Number of parallel environments
+        model_path: Path to MuJoCo XML model file
+        starting_position: Dict of joint positions in degrees
+        block_pos: Initial (x, y, z) position of the block
+        lift_threshold: Height threshold for successful lift
+    """
+    
+    def __init__(
+        self,
+        num_envs: int,
+        model_path: str,
+        starting_position: dict,
+        block_pos: tuple = (0, 0.3, 0.0125),
+        lift_threshold: float = 0.08,
+    ):
+        self.num_envs = num_envs
+        self.starting_position = starting_position
+        self.block_pos = block_pos
+        self.lift_threshold = lift_threshold
+        
+        # Single model shared across all environments (memory efficient)
+        self.model = mujoco.MjModel.from_xml_path(model_path)
+        
+        # Separate data and renderer per environment
+        self.datas = [mujoco.MjData(self.model) for _ in range(num_envs)]
+        self.renderers = [mujoco.Renderer(self.model, height=256, width=256) for _ in range(num_envs)]
+        
+        # Per-environment state tracking for rewards
+        self.prev_gripper_pos = [None] * num_envs
+        self.prev_block_pos = [None] * num_envs
+        self.initial_block_pos = [None] * num_envs
+        
+        # Episode status
+        self.dones = np.zeros(num_envs, dtype=bool)
+        self.episode_steps = np.zeros(num_envs, dtype=int)
+        
+        print(f"[VectorizedEnv] Created {num_envs} parallel environments")
+    
+    def reset_all(self):
+        """Reset all environments to starting state."""
+        for i in range(self.num_envs):
+            self._reset_env(i)
+        self.dones[:] = False
+        self.episode_steps[:] = 0
+    
+    def reset_done_envs(self):
+        """Reset only environments that are done (for continuous training)."""
+        for i in range(self.num_envs):
+            if self.dones[i]:
+                self._reset_env(i)
+        self.dones[:] = False
+    
+    def _reset_env(self, env_idx: int):
+        """Reset a single environment."""
+        d = self.datas[env_idx]
+        
+        # Reset MuJoCo state
+        mujoco.mj_resetData(self.model, d)
+        
+        # Set robot to starting pose
+        set_initial_pose(d, self.starting_position)
+        
+        # Reset block position
+        d.qpos[6:9] = self.block_pos
+        d.qpos[9:13] = [1, 0, 0, 0]  # Quaternion (upright)
+        d.qvel[:] = 0
+        
+        # Forward kinematics
+        mujoco.mj_forward(self.model, d)
+        
+        # Reset reward tracking state
+        self.prev_gripper_pos[env_idx] = None
+        self.prev_block_pos[env_idx] = None
+        self.initial_block_pos[env_idx] = None
+        self.episode_steps[env_idx] = 0
+    
+    def get_batched_observations(self, device: torch.device) -> dict:
+        """
+        Get observations from all environments as batched tensors.
+        
+        Returns:
+            dict with batched observation tensors:
+                - observation.images.camera1: (N, 3, 256, 256) top camera
+                - observation.images.camera2: (N, 3, 256, 256) wrist camera
+                - observation.images.camera3: (N, 3, 256, 256) side camera
+                - observation.state: (N, 6) joint positions (normalized)
+        """
+        batch_top = []
+        batch_wrist = []
+        batch_side = []
+        batch_state = []
+        
+        for i in range(self.num_envs):
+            d = self.datas[i]
+            renderer = self.renderers[i]
+            
+            # Render all three cameras
+            renderer.update_scene(d, camera="camera_up")
+            rgb_top = renderer.render().copy()
+            
+            renderer.update_scene(d, camera="wrist_camera")
+            rgb_wrist = renderer.render().copy()
+            
+            renderer.update_scene(d, camera="camera_side")
+            rgb_side = renderer.render().copy()
+            
+            # Get robot state (radians)
+            state = d.qpos[:6].copy()
+            
+            batch_top.append(rgb_top)
+            batch_wrist.append(rgb_wrist)
+            batch_side.append(rgb_side)
+            batch_state.append(state)
+        
+        # Stack into batched tensors
+        # Images: (N, H, W, C) -> (N, C, H, W), normalized to [0, 1]
+        batch_top = torch.from_numpy(np.stack(batch_top)).float().permute(0, 3, 1, 2) / 255.0
+        batch_wrist = torch.from_numpy(np.stack(batch_wrist)).float().permute(0, 3, 1, 2) / 255.0
+        batch_side = torch.from_numpy(np.stack(batch_side)).float().permute(0, 3, 1, 2) / 255.0
+        
+        # State: normalize for SmolVLA (radians -> degrees -> normalized)
+        batch_state_np = np.stack(batch_state)
+        batch_state_normalized = np.stack([
+            normalize_state_for_smolvla(s) for s in batch_state_np
+        ])
+        batch_state = torch.from_numpy(batch_state_normalized).float()
+        
+        return {
+            "observation.images.camera1": batch_top.to(device),
+            "observation.images.camera2": batch_wrist.to(device),
+            "observation.images.camera3": batch_side.to(device),
+            "observation.state": batch_state.to(device),
+        }
+    
+    def step_all(self, actions_radians: np.ndarray, steps_per_action: int = 10) -> tuple:
+        """
+        Step all environments with given actions.
+        
+        Args:
+            actions_radians: (N, 6) array of actions in radians
+            steps_per_action: Number of physics steps per action
+        
+        Returns:
+            rewards: (N,) array of rewards
+            dones: (N,) boolean array indicating episode termination
+        """
+        rewards = np.zeros(self.num_envs)
+        
+        for i in range(self.num_envs):
+            if self.dones[i]:
+                # Skip done environments
+                continue
+            
+            d = self.datas[i]
+            action = actions_radians[i]
+            
+            # Convert to dictionary and execute
+            action_dict = convert_to_dictionary(action)
+            
+            for _ in range(steps_per_action):
+                send_position_command(d, action_dict)
+                mujoco.mj_step(self.model, d)
+            
+            # Compute reward
+            reward, done = self._compute_reward(i)
+            rewards[i] = reward
+            self.dones[i] = done
+            self.episode_steps[i] += 1
+        
+        return rewards, self.dones.copy()
+    
+    def _compute_reward(self, env_idx: int) -> tuple:
+        """
+        Compute reward for a single environment (stateless version).
+        
+        Uses per-environment state tracking instead of global variables.
+        """
+        d = self.datas[env_idx]
+        
+        # Get positions
+        gripper_pos = d.site("gripperframe").xpos.copy()
+        block_pos = d.body("red_block").xpos.copy()
+        
+        # Initialize tracking on first call
+        if self.initial_block_pos[env_idx] is None:
+            self.initial_block_pos[env_idx] = block_pos.copy()
+        
+        initial_block = self.initial_block_pos[env_idx]
+        prev_gripper = self.prev_gripper_pos[env_idx]
+        prev_block = self.prev_block_pos[env_idx]
+        
+        # Distance to initial block position
+        distance = np.linalg.norm(gripper_pos - initial_block)
+        
+        reward = 0.0
+        
+        # 1. Linear distance penalty
+        reward += -2.0 * distance
+        
+        # 2. Approach velocity bonus
+        if prev_gripper is not None and prev_block is not None:
+            prev_distance = np.linalg.norm(prev_gripper - prev_block)
+            distance_delta = prev_distance - distance
+            reward += 5.0 * distance_delta
+        
+        # 3. Block height bonus
+        initial_block_z = 0.0125
+        height_gain = max(0, block_pos[2] - initial_block_z)
+        reward += 20.0 * height_gain
+        
+        # 4. Close proximity bonus
+        if distance < 0.05:
+            reward += 0.5
+        
+        # 5. Success bonus
+        lifted = block_pos[2] > self.lift_threshold
+        if lifted:
+            reward += 50.0
+        
+        # 6. Block displacement penalty
+        if block_pos[2] < 0.05:
+            displacement = np.linalg.norm(block_pos[:2] - initial_block[:2])
+            threshold = 0.05
+            if displacement > threshold:
+                excess = displacement - threshold
+                reward += -5.0 * (np.exp(10.0 * excess) - 1)
+        
+        # 7. Contact bonus
+        if check_gripper_block_contact(self.model, d, "red_block"):
+            reward += 3.0
+        
+        # 8. Floor contact penalty
+        floor_force = get_floor_contact_force(self.model, d)
+        if floor_force > 0:
+            raw_penalty = -1.0 * np.exp(floor_force)
+            reward += max(raw_penalty, -50.0)
+        
+        # Update tracking state
+        self.prev_gripper_pos[env_idx] = gripper_pos.copy()
+        self.prev_block_pos[env_idx] = block_pos.copy()
+        
+        return reward, lifted
+    
+    def get_episode_steps(self) -> np.ndarray:
+        """Get current step count for each environment."""
+        return self.episode_steps.copy()
+    
+    def close(self):
+        """Clean up renderers."""
+        for renderer in self.renderers:
+            renderer.close()
+        self.renderers = []
+

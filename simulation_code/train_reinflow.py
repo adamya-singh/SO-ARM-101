@@ -18,6 +18,9 @@ Usage:
     
     # Headless mode (for Colab/SSH):
     python train_reinflow.py --no-render --headless
+    
+    # Parallel mode for A100 GPU (8 environments):
+    python train_reinflow.py --parallel-envs 8 --no-render --headless
 """
 
 import os
@@ -39,6 +42,7 @@ from reinflow_smolvla import (
     ReinFlowSmolVLA,
     setup_reinflow_policy,
     prepare_observation_for_reinflow,
+    prepare_batched_observation,
     compute_returns,
     save_reinflow_checkpoint,
     load_reinflow_checkpoint,
@@ -108,6 +112,11 @@ class TrainingConfig:
     # Checkpointing
     checkpoint_path = "reinflow_checkpoint.pt"
     pretrained_path = "lerobot/smolvla_base"
+    
+    # Parallelization (A100 optimization)
+    # Set >1 to run multiple environments in parallel for GPU efficiency
+    # Default 1 = sequential mode (best for M1 Mac)
+    num_parallel_envs = 1
 
 
 def parse_args():
@@ -125,48 +134,228 @@ def parse_args():
                         help='Learning rate')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='Path to pretrained SmolVLA model')
+    parser.add_argument('--parallel-envs', type=int, default=None,
+                        help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
     return parser.parse_args()
 
 
-# ===== Main Training Loop =====
+# ===== Parallel Training Loop (for A100) =====
 
-def train(config=None, args=None):
+def train_parallel(config, args, device):
     """
-    Main training loop for ReinFlow.
+    Parallel training loop using vectorized environments.
+    
+    Runs N environments in parallel, batching observations for efficient
+    GPU inference. Best for A100/CUDA where batch processing is fast.
+    """
+    from vectorized_env import VectorizedMuJoCoEnv
+    
+    num_envs = config.num_parallel_envs
+    print(f"\n[Parallel Mode] Running {num_envs} environments in parallel")
+    
+    # Create vectorized environment
+    vec_env = VectorizedMuJoCoEnv(
+        num_envs=num_envs,
+        model_path=config.model_path,
+        starting_position=config.starting_position,
+        lift_threshold=config.lift_threshold,
+    )
+    
+    # Setup ReinFlow policy
+    print("\n" + "="*60)
+    print("Setting up ReinFlow SmolVLA")
+    print("="*60)
+    
+    rl_policy = setup_reinflow_policy(
+        pretrained_path=config.pretrained_path,
+        device=str(device),
+        num_steps=config.num_denoising_steps,
+        init_log_sigma=config.init_log_sigma,
+        train_action_head=config.train_action_head,
+        train_time_mlp=config.train_time_mlp,
+    )
+    
+    # Load checkpoint if resuming
+    start_episode = 0
+    episode_rewards_history = []
+    
+    checkpoint_to_load = args.resume if args else None
+    if checkpoint_to_load is None and os.path.exists(config.checkpoint_path):
+        checkpoint_to_load = config.checkpoint_path
+    
+    if checkpoint_to_load and os.path.exists(checkpoint_to_load):
+        start_episode = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+    
+    # Optimizer
+    trainable_params = rl_policy.get_trainable_params()
+    optimizer = torch.optim.Adam(trainable_params, lr=config.lr)
+    
+    print(f"\n{'='*60}")
+    print(f"Starting ReinFlow Training (PARALLEL MODE)")
+    print(f"{'='*60}")
+    print(f"Instruction: '{config.instruction}'")
+    print(f"Parallel environments: {num_envs}")
+    print(f"Episodes per batch: {num_envs} (each batch = {num_envs} parallel episodes)")
+    print(f"Total batches: {config.num_episodes // num_envs}")
+    print(f"Max steps per episode: {config.max_steps_per_episode}")
+    print(f"Denoising steps: {config.num_denoising_steps}")
+    print(f"Learning rate: {config.lr}")
+    print(f"Gradient clip norm: {config.grad_clip_norm}")
+    print(f"Initial sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
+    print(f"{'='*60}\n")
+    
+    # Calculate number of batches
+    num_batches = config.num_episodes // num_envs
+    total_episodes = 0
+    
+    try:
+        for batch_idx in range(num_batches):
+            batch_start_time = time.time()
+            
+            # Reset all environments
+            vec_env.reset_all()
+            
+            # Storage for all environments: list of lists
+            # all_log_probs[env_idx] = [log_prob_step0, log_prob_step1, ...]
+            all_log_probs = [[] for _ in range(num_envs)]
+            all_rewards = [[] for _ in range(num_envs)]
+            
+            # Track which envs are still running
+            active_envs = np.ones(num_envs, dtype=bool)
+            
+            # Run episode steps
+            for step in range(config.max_steps_per_episode):
+                # Get batched observations from all environments
+                obs_dict = vec_env.get_batched_observations(device)
+                
+                # Add language tokens
+                observation = prepare_batched_observation(
+                    obs_dict, config.instruction, device, rl_policy, num_envs
+                )
+                
+                # BATCHED INFERENCE - single GPU call for all N environments!
+                actions, log_probs = rl_policy.forward_batched(observation)
+                
+                # Unnormalize actions (batched)
+                actions_np = actions.detach().cpu().numpy()
+                actions_radians = np.stack([
+                    unnormalize_action_from_smolvla(a) for a in actions_np
+                ])
+                
+                # Step all environments
+                rewards, dones = vec_env.step_all(actions_radians, config.steps_per_action)
+                
+                # Store results for active environments
+                for i in range(num_envs):
+                    if active_envs[i]:
+                        all_log_probs[i].append(log_probs[i])
+                        all_rewards[i].append(rewards[i])
+                        if dones[i]:
+                            active_envs[i] = False
+                
+                # Check if all environments are done
+                if not active_envs.any():
+                    break
+            
+            # Compute returns and losses for all environments
+            batch_log_probs = []
+            batch_returns = []
+            batch_total_rewards = []
+            
+            for i in range(num_envs):
+                if len(all_rewards[i]) > 0:
+                    # Compute returns
+                    returns = compute_returns(all_rewards[i], gamma=config.gamma)
+                    returns = torch.tensor(returns, device=device, dtype=torch.float32)
+                    
+                    # Stack log probs
+                    log_probs = torch.stack(all_log_probs[i])
+                    
+                    batch_log_probs.append(log_probs)
+                    batch_returns.append(returns)
+                    batch_total_rewards.append(sum(all_rewards[i]))
+            
+            # Concatenate all environments
+            all_log_probs_tensor = torch.cat(batch_log_probs)
+            all_returns_tensor = torch.cat(batch_returns)
+            
+            # Normalize advantages
+            advantages = all_returns_tensor - all_returns_tensor.mean()
+            if all_returns_tensor.std() > 1e-8:
+                advantages = advantages / (all_returns_tensor.std() + 1e-8)
+            
+            # Policy gradient loss
+            policy_loss = -(advantages * all_log_probs_tensor).mean()
+            
+            # Entropy bonus
+            entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
+            
+            # Total loss
+            loss = policy_loss - entropy_bonus
+            
+            # Update policy
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
+            optimizer.step()
+            
+            # Track episode rewards
+            episode_rewards_history.extend(batch_total_rewards)
+            total_episodes += num_envs
+            
+            batch_time = time.time() - batch_start_time
+            
+            # Logging
+            avg_reward = np.mean(batch_total_rewards)
+            current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
+            print(f"Batch {batch_idx+1:4d} ({total_episodes:5d} eps) | "
+                  f"Avg Reward: {avg_reward:8.2f} | "
+                  f"Loss: {loss.item():8.4f} | "
+                  f"σ_mean: {current_sigmas.mean():.4f} | "
+                  f"Time: {batch_time:.1f}s ({batch_time/num_envs:.2f}s/ep)")
+            
+            # Save checkpoint periodically
+            if (batch_idx + 1) % (config.save_interval // num_envs + 1) == 0:
+                save_reinflow_checkpoint(
+                    rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path
+                )
+    
+    except KeyboardInterrupt:
+        print("\n\nTraining interrupted by user.")
+    
+    finally:
+        vec_env.close()
+    
+    # Save final checkpoint
+    save_reinflow_checkpoint(
+        rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path
+    )
+    
+    print("\n" + "="*60)
+    print("Training Complete!")
+    print("="*60)
+    print(f"Final sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
+    print(f"Total episodes: {len(episode_rewards_history)}")
+    if episode_rewards_history:
+        print(f"Best reward: {max(episode_rewards_history):.2f}")
+        print(f"Final avg reward (last 100): {np.mean(episode_rewards_history[-100:]):.2f}")
+    
+    return rl_policy, episode_rewards_history
+
+
+# ===== Sequential Training Loop (for M1/CPU) =====
+
+def train_sequential(config, args, device):
+    """
+    Sequential training loop for ReinFlow (original implementation).
+    
+    Best for M1 Mac and CPU where single-sample inference is efficient.
     
     Key differences from ReinFlow-lite:
     1. Noise injected at EACH denoising step (not just output)
     2. Log-probabilities computed through Markov chain
     3. Exact REINFORCE gradient (not approximation)
     """
-    if config is None:
-        config = TrainingConfig()
-    
-    # Apply command line overrides
-    if args is not None:
-        if args.no_render:
-            config.render = False
-        if args.headless:
-            # Headless mode: disable viewer (requires display)
-            config.render = False
-        if args.episodes is not None:
-            config.num_episodes = args.episodes
-        if args.lr is not None:
-            config.lr = args.lr
-        if args.pretrained is not None:
-            config.pretrained_path = args.pretrained
-    
-    # Device setup
-    if torch.backends.mps.is_available():
-        device = torch.device("mps")
-        print(f"Using device: {device} (Apple Silicon GPU)")
-    elif torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f"Using device: {device}")
-    else:
-        device = torch.device("cpu")
-        print(f"Using device: {device}")
-    
     # Load MuJoCo environment
     print(f"\nLoading MuJoCo model from {config.model_path}")
     m = mujoco.MjModel.from_xml_path(config.model_path)
@@ -382,6 +571,54 @@ def train(config=None, args=None):
         print(f"Final avg reward (last 100): {np.mean(episode_rewards_history[-100:]):.2f}")
     
     return rl_policy, episode_rewards_history
+
+
+# ===== Main Entry Point =====
+
+def train(config=None, args=None):
+    """
+    Main training entry point - dispatches to parallel or sequential training.
+    
+    Automatically chooses parallel mode on CUDA with --parallel-envs flag,
+    otherwise uses sequential mode (best for M1/CPU).
+    """
+    if config is None:
+        config = TrainingConfig()
+    
+    # Apply command line overrides
+    if args is not None:
+        if args.no_render:
+            config.render = False
+        if args.headless:
+            config.render = False
+        if args.episodes is not None:
+            config.num_episodes = args.episodes
+        if args.lr is not None:
+            config.lr = args.lr
+        if args.pretrained is not None:
+            config.pretrained_path = args.pretrained
+        if args.parallel_envs is not None:
+            config.num_parallel_envs = args.parallel_envs
+    
+    # Device setup
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+        print(f"Using device: {device} (Apple Silicon GPU)")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f"Using device: {device}")
+    else:
+        device = torch.device("cpu")
+        print(f"Using device: {device}")
+    
+    # Dispatch to appropriate training loop
+    if config.num_parallel_envs > 1:
+        if not torch.cuda.is_available():
+            print("WARNING: Parallel mode is optimized for CUDA. "
+                  "On M1/CPU, sequential mode is usually faster.")
+        return train_parallel(config, args, device)
+    else:
+        return train_sequential(config, args, device)
 
 
 if __name__ == "__main__":

@@ -146,6 +146,50 @@ class ReinFlowSmolVLA(nn.Module):
     def get_sigmas(self) -> Tensor:
         """Return current noise scales (for logging)."""
         return self.log_sigmas.exp()
+    
+    def forward_batched(self, observation: dict) -> tuple[Tensor, Tensor]:
+        """
+        Batched forward pass for N parallel environments.
+        
+        Unlike forward() which returns a single action, this returns
+        actions for all N environments in the batch.
+        
+        Args:
+            observation: dict with batched observation tensors:
+                - observation.images.camera1: (N, C, H, W)
+                - observation.images.camera2: (N, C, H, W)
+                - observation.images.camera3: (N, C, H, W)
+                - observation.state: (N, 6)
+                - observation.language.tokens: (N, seq_len)
+                - observation.language.attention_mask: (N, seq_len)
+            
+        Returns:
+            actions: (N, action_dim) sampled actions for all environments
+            log_probs: (N,) log probabilities for policy gradient
+        """
+        # Prepare inputs using SmolVLA's preprocessing
+        images, img_masks = self.base.prepare_images(observation)
+        state = self.base.prepare_state(observation)
+        lang_tokens = observation[OBS_LANGUAGE_TOKENS]
+        lang_masks = observation[OBS_LANGUAGE_ATTENTION_MASK]
+        
+        # Call ReinFlow sampling (with noise injection at each step)
+        # action_chunk: (N, chunk_size, action_dim)
+        # log_prob: (N,)
+        action_chunk, log_prob = self.base.model.sample_actions_reinflow(
+            images, img_masks, lang_tokens, lang_masks, state,
+            log_sigmas=self.log_sigmas
+        )
+        
+        # Unpad actions to original dimension
+        original_action_dim = self.base.config.action_feature.shape[0]
+        action_chunk = action_chunk[:, :, :original_action_dim]
+        
+        # Return first action from chunk for each environment
+        # action_chunk is (N, chunk_size, action_dim) -> (N, action_dim)
+        actions = action_chunk[:, 0, :]
+        
+        return actions, log_prob
 
 
 def setup_reinflow_policy(
@@ -277,6 +321,61 @@ def prepare_observation_for_reinflow(
         "observation.images.camera2": image_wrist_tensor,
         "observation.images.camera3": image_side_tensor,
         OBS_STATE: state_tensor,
+        OBS_LANGUAGE_TOKENS: language_tokens,
+        OBS_LANGUAGE_ATTENTION_MASK: attention_mask,
+    }
+    
+    return observation
+
+
+def prepare_batched_observation(
+    obs_dict: dict,
+    instruction: str,
+    device,
+    policy: ReinFlowSmolVLA,
+    num_envs: int,
+):
+    """
+    Add language tokens to batched observation from VectorizedMuJoCoEnv.
+    
+    The VectorizedMuJoCoEnv already provides batched images and states,
+    this function adds the tokenized instruction repeated for each env.
+    
+    Args:
+        obs_dict: Dict from vec_env.get_batched_observations() with:
+            - observation.images.camera1: (N, C, H, W)
+            - observation.images.camera2: (N, C, H, W)
+            - observation.images.camera3: (N, C, H, W)
+            - observation.state: (N, 6) already normalized
+        instruction: Task instruction string
+        device: Torch device
+        policy: ReinFlowSmolVLA policy (for tokenizer access)
+        num_envs: Number of parallel environments
+    
+    Returns:
+        observation: dict ready for policy.forward_batched()
+    """
+    # Tokenize instruction once
+    if hasattr(policy.base, 'tokenizer') and policy.base.tokenizer is not None:
+        tokens = policy.base.tokenizer(
+            instruction,
+            return_tensors="pt",
+            padding=True,
+            truncation=True
+        )
+        # Repeat for all environments in batch
+        language_tokens = tokens['input_ids'].repeat(num_envs, 1).to(device)
+        attention_mask = tokens['attention_mask'].bool().repeat(num_envs, 1).to(device)
+    else:
+        # Fallback dummy tokens
+        language_tokens = torch.zeros((num_envs, 1), dtype=torch.long, device=device)
+        attention_mask = torch.ones((num_envs, 1), dtype=torch.bool, device=device)
+    
+    observation = {
+        "observation.images.camera1": obs_dict["observation.images.camera1"],
+        "observation.images.camera2": obs_dict["observation.images.camera2"],
+        "observation.images.camera3": obs_dict["observation.images.camera3"],
+        OBS_STATE: obs_dict["observation.state"],
         OBS_LANGUAGE_TOKENS: language_tokens,
         OBS_LANGUAGE_ATTENTION_MASK: attention_mask,
     }
