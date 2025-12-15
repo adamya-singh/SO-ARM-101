@@ -406,7 +406,8 @@ def save_reinflow_checkpoint(
     policy: ReinFlowSmolVLA,
     episode: int,
     episode_rewards: list,
-    save_path: str = "reinflow_checkpoint.pt"
+    save_path: str = "reinflow_checkpoint.pt",
+    wandb_run_id: str = None
 ):
     """Save ReinFlow training checkpoint."""
     checkpoint = {
@@ -417,6 +418,10 @@ def save_reinflow_checkpoint(
         'train_action_head': policy.train_action_head,
         'train_time_mlp': policy.train_time_mlp,
     }
+    
+    # Save wandb run ID for resuming
+    if wandb_run_id is not None:
+        checkpoint['wandb_run_id'] = wandb_run_id
     
     # Save action head weights if trained
     if policy.train_action_head:
@@ -432,12 +437,12 @@ def load_reinflow_checkpoint(
     policy: ReinFlowSmolVLA,
     checkpoint_path: str,
     device: str = 'cpu'
-) -> int:
+) -> tuple[int, str]:
     """
     Load ReinFlow checkpoint.
     
     Returns:
-        Starting episode number
+        Tuple of (starting_episode, wandb_run_id or None)
     """
     print(f"[ReinFlow] Loading checkpoint from {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -451,8 +456,12 @@ def load_reinflow_checkpoint(
         policy.base.model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
     
     start_episode = checkpoint.get('episode', 0) + 1
+    wandb_run_id = checkpoint.get('wandb_run_id', None)
+    
     print(f"[ReinFlow] Resuming from episode {start_episode}")
     print(f"[ReinFlow] Loaded sigmas: {policy.log_sigmas.exp().data.cpu().numpy()}")
+    if wandb_run_id:
+        print(f"[ReinFlow] Will resume wandb run: {wandb_run_id}")
     
-    return start_episode
+    return start_episode, wandb_run_id
 

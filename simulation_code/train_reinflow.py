@@ -91,7 +91,7 @@ class TrainingConfig:
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
     init_log_sigma = -0.7    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
-    entropy_coef = 0.0005      # Entropy bonus to prevent sigma collapse
+    entropy_coef = 0.0000      # Entropy bonus to prevent sigma collapse #temp set to 0 to salvage current run
     
     # What to train
     train_action_head = True   # Train action_out_proj (23K params)
@@ -186,13 +186,35 @@ def train_parallel(config, args, device):
     # Load checkpoint if resuming
     start_episode = 0
     episode_rewards_history = []
+    wandb_run_id = None
     
     checkpoint_to_load = args.resume if args else None
     if checkpoint_to_load is None and os.path.exists(config.checkpoint_path):
         checkpoint_to_load = config.checkpoint_path
     
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
-        start_episode = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+    
+    # Initialize wandb AFTER loading checkpoint so we can resume the same run
+    if config.wandb_enabled:
+        wandb.init(
+            project=config.wandb_project,
+            id=wandb_run_id,
+            resume="allow",
+            config={
+                "lr": config.lr,
+                "gamma": config.gamma,
+                "batch_size": config.batch_size,
+                "num_denoising_steps": config.num_denoising_steps,
+                "init_log_sigma": config.init_log_sigma,
+                "entropy_coef": config.entropy_coef,
+                "max_steps_per_episode": config.max_steps_per_episode,
+                "train_action_head": config.train_action_head,
+                "train_time_mlp": config.train_time_mlp,
+                "num_parallel_envs": config.num_parallel_envs,
+            },
+        )
+        wandb_run_id = wandb.run.id  # Update to current run ID for saving
     
     # Optimizer
     trainable_params = rl_policy.get_trainable_params()
@@ -339,7 +361,7 @@ def train_parallel(config, args, device):
             # Save checkpoint periodically
             if (batch_idx + 1) % (config.save_interval // num_envs + 1) == 0:
                 save_reinflow_checkpoint(
-                    rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path
+                    rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path, wandb_run_id
                 )
     
     except KeyboardInterrupt:
@@ -352,7 +374,7 @@ def train_parallel(config, args, device):
     
     # Save final checkpoint
     save_reinflow_checkpoint(
-        rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path
+        rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path, wandb_run_id
     )
     
     print("\n" + "="*60)
@@ -403,13 +425,34 @@ def train_sequential(config, args, device):
     # Load checkpoint if resuming or if specified
     start_episode = 0
     episode_rewards_history = []
+    wandb_run_id = None
     
     checkpoint_to_load = args.resume if args else None
     if checkpoint_to_load is None and os.path.exists(config.checkpoint_path):
         checkpoint_to_load = config.checkpoint_path
     
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
-        start_episode = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+    
+    # Initialize wandb AFTER loading checkpoint so we can resume the same run
+    if config.wandb_enabled:
+        wandb.init(
+            project=config.wandb_project,
+            id=wandb_run_id,
+            resume="allow",
+            config={
+                "lr": config.lr,
+                "gamma": config.gamma,
+                "batch_size": config.batch_size,
+                "num_denoising_steps": config.num_denoising_steps,
+                "init_log_sigma": config.init_log_sigma,
+                "entropy_coef": config.entropy_coef,
+                "max_steps_per_episode": config.max_steps_per_episode,
+                "train_action_head": config.train_action_head,
+                "train_time_mlp": config.train_time_mlp,
+            },
+        )
+        wandb_run_id = wandb.run.id  # Update to current run ID for saving
     
     # Optimizer with all trainable parameters
     trainable_params = rl_policy.get_trainable_params()
@@ -584,7 +627,7 @@ def train_sequential(config, args, device):
             # Save checkpoint periodically
             if (episode + 1) % config.save_interval == 0:
                 save_reinflow_checkpoint(
-                    rl_policy, episode, episode_rewards_history, config.checkpoint_path
+                    rl_policy, episode, episode_rewards_history, config.checkpoint_path, wandb_run_id
                 )
     
     except KeyboardInterrupt:
@@ -598,7 +641,7 @@ def train_sequential(config, args, device):
     
     # Save final checkpoint
     save_reinflow_checkpoint(
-        rl_policy, episode, episode_rewards_history, config.checkpoint_path
+        rl_policy, episode, episode_rewards_history, config.checkpoint_path, wandb_run_id
     )
     
     print("\n" + "="*60)
@@ -652,24 +695,6 @@ def train(config=None, args=None):
     else:
         device = torch.device("cpu")
         print(f"Using device: {device}")
-    
-    # Initialize Weights & Biases
-    if config.wandb_enabled:
-        wandb.init(
-            project=config.wandb_project,
-            config={
-                "lr": config.lr,
-                "gamma": config.gamma,
-                "batch_size": config.batch_size,
-                "num_denoising_steps": config.num_denoising_steps,
-                "init_log_sigma": config.init_log_sigma,
-                "entropy_coef": config.entropy_coef,
-                "max_steps_per_episode": config.max_steps_per_episode,
-                "train_action_head": config.train_action_head,
-                "train_time_mlp": config.train_time_mlp,
-            },
-            resume="allow",
-        )
     
     # Dispatch to appropriate training loop
     if config.num_parallel_envs > 1:
