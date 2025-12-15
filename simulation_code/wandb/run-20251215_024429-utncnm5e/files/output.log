@@ -1,0 +1,38 @@
+
+[Parallel Mode] Running 20 environments in parallel
+[VectorizedEnv] Created 20 parallel environments
+
+============================================================
+Setting up ReinFlow SmolVLA
+============================================================
+[ReinFlow] Loading SmolVLA from lerobot/smolvla_base...
+[ReinFlow] Using device: cuda
+Loading  HuggingFaceTB/SmolVLM2-500M-Video-Instruct weights ...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Reducing the number of VLM layers to 16 ...
+[ReinFlow] Loading tokenizer...
+[ReinFlow] SmolVLA loaded successfully!
+[ReinFlow] Setting up ReinFlow wrapper with 10 denoising steps...
+  [ReinFlow] Unfroze action_out_proj: 23,072 params
+  [ReinFlow] Total trainable parameters: 23,082
+  [ReinFlow] Initial sigmas: [0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853
+ 0.4965853 0.4965853 0.4965853]
+[ReinFlow] Loading checkpoint from reinflow_checkpoint.pt
+[ReinFlow] Resuming from episode 70
+[ReinFlow] Loaded sigmas: [0.50234616 0.50234616 0.50234616 0.50234616 0.50234616 0.50234616
+ 0.50234616 0.50234616 0.50234616 0.50234616]
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 20
+Episodes per batch: 20 (each batch = 20 parallel episodes)
+Total batches: 1000
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.50234616 0.50234616 0.50234616 0.50234616 0.50234616 0.50234616
+ 0.50234616 0.50234616 0.50234616 0.50234616]
+============================================================

@@ -1,0 +1,48 @@
+
+[Parallel Mode] Running 10 environments in parallel
+[VectorizedEnv] Created 10 parallel environments
+
+============================================================
+Setting up ReinFlow SmolVLA
+============================================================
+[ReinFlow] Loading SmolVLA from lerobot/smolvla_base...
+[ReinFlow] Using device: cuda
+Loading  HuggingFaceTB/SmolVLM2-500M-Video-Instruct weights ...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Reducing the number of VLM layers to 16 ...
+[ReinFlow] Loading tokenizer...
+[ReinFlow] SmolVLA loaded successfully!
+[ReinFlow] Setting up ReinFlow wrapper with 10 denoising steps...
+  [ReinFlow] Unfroze action_out_proj: 23,072 params
+  [ReinFlow] Total trainable parameters: 23,082
+  [ReinFlow] Initial sigmas: [0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853
+ 0.4965853 0.4965853 0.4965853]
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Episodes per batch: 10 (each batch = 10 parallel episodes)
+Total batches: 2000
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853
+ 0.4965853 0.4965853 0.4965853]
+============================================================
+
+Batch    1 (   10 eps) | Avg Reward:  -736.84 | Loss:  -2.8652 | σ_mean: 0.4991 | Time: 24.6s (2.46s/ep)
+Batch    2 (   20 eps) | Avg Reward:  -682.32 | Loss:  -3.5291 | σ_mean: 0.5007 | Time: 23.2s (2.32s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 (   30 eps) | Avg Reward:  -643.07 | Loss:  -8.0777 | σ_mean: 0.5021 | Time: 23.3s (2.33s/ep)
+Batch    4 (   40 eps) | Avg Reward:  -758.16 | Loss:   5.3421 | σ_mean: 0.5033 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    5 (   50 eps) | Avg Reward:  -671.12 | Loss:  -2.3313 | σ_mean: 0.5032 | Time: 23.7s (2.37s/ep)
+Batch    6 (   60 eps) | Avg Reward:  -689.11 | Loss:   3.0967 | σ_mean: 0.5025 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 (   70 eps) | Avg Reward:  -709.12 | Loss:  -3.2269 | σ_mean: 0.5023 | Time: 23.9s (2.39s/ep)
+
+
+Training interrupted by user.
