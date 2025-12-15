@@ -33,7 +33,7 @@ python print_checkpoint_stats.py
 
 ```
 SO-ARM-101/                         # Repository root
-├── smolvla_modifications/          # Modified LeRobot files for ReinFlow
+├── smolvla_modifications/          # Reference copy of modified LeRobot files (already in fork)
 │   └── lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py
 │
 └── simulation_code/                # Main code directory
@@ -91,38 +91,21 @@ conda create -n lerobot python=3.10
 conda activate lerobot
 ```
 
-### Install LeRobot (Editable Mode - Required for ReinFlow)
+### Install LeRobot Fork (Editable Mode - Required for ReinFlow)
 
-ReinFlow training requires a modified version of SmolVLA. You must install LeRobot from source in editable mode:
+ReinFlow training requires a modified version of SmolVLA. Install our LeRobot fork which includes the necessary `sample_actions_reinflow()` method:
 
 ```bash
-# Clone LeRobot repository (place it alongside this repo)
+# Clone our LeRobot fork (place it alongside this repo)
 cd /path/to/your/projects
-git clone https://github.com/huggingface/lerobot.git
+git clone https://github.com/adamyasingh/lerobot-fork.git
 cd lerobot
 
 # Install in editable mode with SmolVLA support
 pip install -e ".[smolvla]"
 ```
 
-### Apply ReinFlow Modifications to SmolVLA
-
-We provide a modified `modeling_smolvla.py` that adds the `sample_actions_reinflow()` method required for ReinFlow training. Copy it to your LeRobot installation:
-
-```bash
-# From this repo's root directory (SO-ARM-101/):
-cp smolvla_modifications/lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py \
-   /path/to/lerobot/src/lerobot/policies/smolvla/modeling_smolvla.py
-```
-
-Or from the `simulation_code/` directory:
-
-```bash
-cp ../smolvla_modifications/lerobot-src-lerobot-policies-smolvla-modeling_smolvla.py \
-   /path/to/lerobot/src/lerobot/policies/smolvla/modeling_smolvla.py
-```
-
-> **Note**: The modification adds a single method `sample_actions_reinflow()` to the `VLAFlowMatching` class (lines 749-830). This method injects learnable noise at each denoising step for ReinFlow RL training.
+> **Note**: Our fork adds the `sample_actions_reinflow()` method to the `VLAFlowMatching` class in `src/lerobot/policies/smolvla/modeling_smolvla.py`. This method injects learnable noise at each denoising step for ReinFlow RL training.
 
 ### Additional Dependencies
 
