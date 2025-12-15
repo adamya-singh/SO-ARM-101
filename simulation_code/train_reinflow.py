@@ -329,6 +329,10 @@ def train_parallel(config, args, device):
             torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
             optimizer.step()
             
+            # Clamp sigma to [0.1, 1.0] - allows natural learning within bounds
+            with torch.no_grad():
+                rl_policy.log_sigmas.clamp_(min=-2.3, max=0.0)
+            
             # Track episode rewards
             episode_rewards_history.extend(batch_total_rewards)
             total_episodes += num_envs
@@ -581,6 +585,10 @@ def train_sequential(config, args, device):
                 torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
                 
                 optimizer.step()
+                
+                # Clamp sigma to [0.1, 1.0] - allows natural learning within bounds
+                with torch.no_grad():
+                    rl_policy.log_sigmas.clamp_(min=-2.3, max=0.0)
                 
                 # Clear batch
                 batch_log_probs = []
