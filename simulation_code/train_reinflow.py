@@ -85,7 +85,7 @@ class TrainingConfig:
     gamma = 0.99  # Discount factor
     lr = 5e-3
     grad_clip_norm = 1.0
-    batch_size = 20  # Number of episodes to accumulate before gradient update
+    batch_size = 10  # Number of episodes to accumulate before gradient update
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
@@ -107,7 +107,7 @@ class TrainingConfig:
     save_interval = 10
     
     # Rendering
-    render = True  # Set False for faster training
+    render = False  # Set False for faster training
     
     # Checkpointing
     checkpoint_path = "reinflow_checkpoint.pt"
@@ -116,6 +116,7 @@ class TrainingConfig:
     # Parallelization (A100 optimization)
     # Set >1 to run multiple environments in parallel for GPU efficiency
     # Default 1 = sequential mode (best for M1 Mac)
+    #unfortunately this is pretty much useless because our bottleneck is the rendering of the 3 cameras each step (CPU only)
     num_parallel_envs = 1
 
 
