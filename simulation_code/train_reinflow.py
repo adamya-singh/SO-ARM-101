@@ -90,7 +90,7 @@ class TrainingConfig:
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
     init_log_sigma = -0.7    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
-    entropy_coef = 0.0001      # Entropy bonus to prevent sigma collapse
+    entropy_coef = 0.001      # Entropy bonus to prevent sigma collapse
     
     # What to train
     train_action_head = True   # Train action_out_proj (23K params)
