@@ -432,6 +432,67 @@ The reward function in `so101_mujoco_utils.py` includes:
 
 ---
 
+## Running in Google Colab / Headless Environments
+
+For headless environments (Colab, SSH sessions, cloud VMs), MuJoCo needs a software rendering backend since there's no display.
+
+### Setup in Colab
+
+```bash
+# Install headless rendering dependencies
+!apt-get update && apt-get install -y libgl1-mesa-glx libosmesa6-dev libglfw3
+
+# Clone the repo
+!git clone https://github.com/your-username/SO-ARM-101.git
+%cd SO-ARM-101/simulation_code
+
+# Install Python dependencies
+!pip install mujoco torch transformers
+```
+
+### Running Training Headless
+
+```bash
+# Use --headless flag to force EGL/OSMesa backend
+python train_reinflow.py --no-render --headless
+
+# Or set environment variable directly
+MUJOCO_GL=osmesa python train_reinflow.py --no-render
+```
+
+### How It Works
+
+The scripts automatically detect the best rendering backend:
+
+1. **Native OpenGL** - Used when a display is available (default on desktop)
+2. **EGL** - Headless GPU rendering (preferred on Colab with GPU runtime)
+3. **OSMesa** - Software rendering (fallback, works anywhere)
+
+The `mujoco_rendering.py` module handles this detection automatically. You can also force a specific backend:
+
+```python
+import os
+os.environ['MUJOCO_GL'] = 'egl'  # or 'osmesa'
+# Must be set BEFORE importing mujoco
+```
+
+### Verifying Headless Rendering
+
+```python
+import os
+os.environ['MUJOCO_GL'] = 'osmesa'
+import mujoco
+
+model = mujoco.MjModel.from_xml_string('<mujoco><worldbody/></mujoco>')
+data = mujoco.MjData(model)
+renderer = mujoco.Renderer(model, 256, 256)
+renderer.update_scene(data)
+img = renderer.render()
+print(f"Rendered image shape: {img.shape}")  # Should print (256, 256, 3)
+```
+
+---
+
 ## Troubleshooting
 
 ### MuJoCo Renderer Error on macOS
@@ -439,6 +500,20 @@ The reward function in `so101_mujoco_utils.py` includes:
 If you get `CGLError: invalid CoreGraphics connection`:
 - Run with `mjpython` instead of `python` for scripts that need rendering
 - Or use `--no-render` flag for training scripts
+
+### Headless Rendering Errors
+
+If you get rendering errors in headless mode:
+
+```bash
+# Install OSMesa
+sudo apt-get install libosmesa6-dev
+
+# Verify it works
+MUJOCO_GL=osmesa python -c "import mujoco; print('OK')"
+```
+
+For Colab with GPU, EGL should work automatically. If not, fall back to OSMesa.
 
 ### Controller Not Detected
 

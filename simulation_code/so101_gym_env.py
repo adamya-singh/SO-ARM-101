@@ -9,6 +9,11 @@ import os
 import numpy as np
 import gymnasium
 from gymnasium import spaces
+
+# Setup headless rendering BEFORE importing mujoco
+from mujoco_rendering import setup_mujoco_rendering
+setup_mujoco_rendering()
+
 import mujoco
 import mujoco.viewer
 

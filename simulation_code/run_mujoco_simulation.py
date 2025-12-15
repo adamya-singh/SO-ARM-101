@@ -1,4 +1,9 @@
 import time
+
+# Setup headless rendering BEFORE importing mujoco
+from mujoco_rendering import setup_mujoco_rendering
+setup_mujoco_rendering()
+
 import mujoco
 import mujoco.viewer
 import numpy as np

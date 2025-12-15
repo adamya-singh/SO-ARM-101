@@ -15,12 +15,20 @@ Usage:
 
     # Resume from checkpoint:
     python train_reinflow.py --resume reinflow_checkpoint.pt
+    
+    # Headless mode (for Colab/SSH):
+    python train_reinflow.py --no-render --headless
 """
 
 import os
 import sys
 import time
 import argparse
+
+# Setup headless rendering BEFORE importing mujoco
+from mujoco_rendering import setup_mujoco_rendering
+setup_mujoco_rendering()
+
 import mujoco
 import mujoco.viewer
 import torch
@@ -71,7 +79,7 @@ class TrainingConfig:
     num_episodes = 20000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor
-    lr = 1e-3
+    lr = 5e-3
     grad_clip_norm = 1.0
     batch_size = 10  # Number of episodes to accumulate before gradient update
     
@@ -109,6 +117,8 @@ def parse_args():
                         help='Path to checkpoint to resume from')
     parser.add_argument('--no-render', action='store_true',
                         help='Disable visualization for faster training')
+    parser.add_argument('--headless', action='store_true',
+                        help='Force headless rendering (EGL/OSMesa) for Colab/SSH')
     parser.add_argument('--episodes', type=int, default=None,
                         help='Number of episodes to train')
     parser.add_argument('--lr', type=float, default=None,
@@ -135,6 +145,9 @@ def train(config=None, args=None):
     # Apply command line overrides
     if args is not None:
         if args.no_render:
+            config.render = False
+        if args.headless:
+            # Headless mode: disable viewer (requires display)
             config.render = False
         if args.episodes is not None:
             config.num_episodes = args.episodes

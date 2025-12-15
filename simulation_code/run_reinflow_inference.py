@@ -6,10 +6,18 @@ action_out_proj weights from a ReinFlow checkpoint for deterministic inference.
 
 Usage:
     python run_reinflow_inference.py
+    
+    # Headless mode (for Colab/SSH):
+    MUJOCO_GL=osmesa python run_reinflow_inference.py
 """
 
 import os
 import time
+
+# Setup headless rendering BEFORE importing mujoco
+from mujoco_rendering import setup_mujoco_rendering
+setup_mujoco_rendering()
+
 import mujoco
 import mujoco.viewer
 import torch
