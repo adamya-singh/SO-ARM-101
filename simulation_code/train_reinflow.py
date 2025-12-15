@@ -85,7 +85,7 @@ class TrainingConfig:
     gamma = 0.99  # Discount factor
     lr = 5e-3
     grad_clip_norm = 1.0
-    batch_size = 10  # Number of episodes to accumulate before gradient update
+    batch_size = 20  # Number of episodes to accumulate before gradient update
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
