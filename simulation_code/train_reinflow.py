@@ -86,12 +86,12 @@ class TrainingConfig:
     gamma = 0.99  # Discount factor
     lr = 5e-3
     grad_clip_norm = 1.0
-    batch_size = 15  # Number of episodes to accumulate before gradient update
+    batch_size = 10  # Number of episodes to accumulate before gradient update
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
     init_log_sigma = -0.7    # Initial noise scale (exp(-1) ≈ 0.37, more exploration)
-    entropy_coef = 0.0005      # Entropy bonus to prevent sigma collapse #temp set to 0 to salvage current run
+    entropy_coef = 0.001      # Entropy bonus to prevent sigma collapse
     
     # What to train
     train_action_head = True   # Train action_out_proj (23K params)
