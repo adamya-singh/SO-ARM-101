@@ -1,0 +1,63 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 15
+Episodes per batch: 15 (each batch = 15 parallel episodes)
+Total batches: 1333
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.4935909 0.4935909 0.4935909 0.4935909 0.4935909 0.4935909 0.4935909
+ 0.4935909 0.4935909 0.4935909]
+============================================================
+
+Batch    1 (   15 eps) | Avg Reward:  -600.87 | Loss:   2.5829 | σ_mean: 0.4911 | Time: 29.7s (1.98s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    2 (   30 eps) | Avg Reward:  -647.87 | Loss:   0.0455 | σ_mean: 0.4898 | Time: 28.8s (1.92s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 (   45 eps) | Avg Reward:  -647.31 | Loss:   0.8388 | σ_mean: 0.4906 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    4 (   60 eps) | Avg Reward:  -731.57 | Loss:  -1.5512 | σ_mean: 0.4908 | Time: 29.0s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    5 (   75 eps) | Avg Reward:  -541.72 | Loss:  -0.5403 | σ_mean: 0.4917 | Time: 29.3s (1.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    6 (   90 eps) | Avg Reward:  -713.72 | Loss:  -0.8157 | σ_mean: 0.4930 | Time: 29.8s (1.99s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 (  105 eps) | Avg Reward:  -581.61 | Loss:   0.5581 | σ_mean: 0.4938 | Time: 29.3s (1.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    8 (  120 eps) | Avg Reward:  -790.06 | Loss:  -2.2937 | σ_mean: 0.4943 | Time: 28.9s (1.93s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    9 (  135 eps) | Avg Reward:  -675.24 | Loss:  -2.1481 | σ_mean: 0.4952 | Time: 29.2s (1.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   10 (  150 eps) | Avg Reward:  -626.46 | Loss:  -0.3213 | σ_mean: 0.4961 | Time: 29.2s (1.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   11 (  165 eps) | Avg Reward:  -944.60 | Loss:   1.9636 | σ_mean: 0.4971 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   12 (  180 eps) | Avg Reward:  -859.22 | Loss:   4.4557 | σ_mean: 0.4986 | Time: 28.8s (1.92s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   13 (  195 eps) | Avg Reward:  -626.42 | Loss:  -2.2503 | σ_mean: 0.5002 | Time: 29.2s (1.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   14 (  210 eps) | Avg Reward:  -700.41 | Loss:   0.2276 | σ_mean: 0.5015 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   15 (  225 eps) | Avg Reward:  -717.81 | Loss:   5.6412 | σ_mean: 0.5023 | Time: 28.9s (1.93s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   16 (  240 eps) | Avg Reward:  -567.90 | Loss:  -0.2902 | σ_mean: 0.5030 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   17 (  255 eps) | Avg Reward:  -780.88 | Loss:  -2.4070 | σ_mean: 0.5036 | Time: 29.9s (1.99s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   18 (  270 eps) | Avg Reward:  -628.71 | Loss:  -1.1222 | σ_mean: 0.5046 | Time: 29.5s (1.97s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   19 (  285 eps) | Avg Reward:  -677.54 | Loss:   6.8372 | σ_mean: 0.5053 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   20 (  300 eps) | Avg Reward:  -581.19 | Loss:  -8.1853 | σ_mean: 0.5060 | Time: 28.8s (1.92s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   21 (  315 eps) | Avg Reward:  -614.74 | Loss:  -2.3367 | σ_mean: 0.5068 | Time: 29.0s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   22 (  330 eps) | Avg Reward:  -692.67 | Loss:   1.4970 | σ_mean: 0.5075 | Time: 29.1s (1.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+
+
+Training interrupted by user.

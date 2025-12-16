@@ -1,0 +1,13 @@
+{"time":"2025-12-15T14:39:28.491802834-05:00","level":"INFO","msg":"stream: starting","core version":"0.21.4"}
+{"time":"2025-12-15T14:39:28.702485541-05:00","level":"INFO","msg":"stream: created new stream","id":"i59zbzpw"}
+{"time":"2025-12-15T14:39:28.702567311-05:00","level":"INFO","msg":"stream: started","id":"i59zbzpw"}
+{"time":"2025-12-15T14:39:28.702608421-05:00","level":"INFO","msg":"writer: started","stream_id":"i59zbzpw"}
+{"time":"2025-12-15T14:39:28.702677721-05:00","level":"INFO","msg":"sender: started","stream_id":"i59zbzpw"}
+{"time":"2025-12-15T14:39:28.702654481-05:00","level":"INFO","msg":"handler: started","stream_id":"i59zbzpw"}
+{"time":"2025-12-15T18:55:14.450053623-05:00","level":"INFO","msg":"api: retrying HTTP error","status":502,"url":"https://api.wandb.ai/files/7adamyasingh-rutgers-university/reinflow-smolvla/i59zbzpw/file_stream","body":"\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>502 Server Error</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Server Error</h1>\n<h2>The server encountered a temporary error and could not complete your request.<p>Please try again in 30 seconds.</h2>\n<h2></h2>\n</body></html>\n"}
+{"time":"2025-12-15T19:56:27.106109005-05:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"updating run metadata","runtime_seconds":0.000730871}],"total_operations":1}}
+{"time":"2025-12-15T19:56:27.512444027-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-15T19:56:27.843288552-05:00","level":"INFO","msg":"stream: closing","id":"i59zbzpw"}
+{"time":"2025-12-15T19:56:27.843554383-05:00","level":"INFO","msg":"handler: closed","stream_id":"i59zbzpw"}
+{"time":"2025-12-15T19:56:27.843805173-05:00","level":"INFO","msg":"sender: closed","stream_id":"i59zbzpw"}
+{"time":"2025-12-15T19:56:27.843881193-05:00","level":"INFO","msg":"stream: closed","id":"i59zbzpw"}

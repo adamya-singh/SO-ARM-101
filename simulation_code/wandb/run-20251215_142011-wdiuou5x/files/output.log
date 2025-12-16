@@ -1,0 +1,20 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 15
+Episodes per batch: 15 (each batch = 15 parallel episodes)
+Total batches: 1333
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853 0.4965853
+ 0.4965853 0.4965853 0.4965853]
+============================================================
+
+Batch    1 (   15 eps) | Avg Reward:  -790.82 | Loss:  -4.2867 | σ_mean: 0.4941 | Time: 30.0s (2.00s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    2 (   30 eps) | Avg Reward:  -736.01 | Loss:  -2.4076 | σ_mean: 0.4936 | Time: 28.8s (1.92s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
