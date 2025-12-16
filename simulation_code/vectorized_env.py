@@ -25,6 +25,7 @@ from so101_mujoco_utils import (
     convert_to_dictionary,
     normalize_state_for_smolvla,
     check_gripper_block_contact,
+    check_block_gripped_with_force,
     get_floor_contact_force,
 )
 
@@ -268,7 +269,12 @@ class VectorizedMuJoCoEnv:
         if check_gripper_block_contact(self.model, d, "red_block"):
             reward += 3.0
         
-        # 8. Floor contact penalty
+        # 8. Grip bonus (block squeezed between both gripper parts!)
+        is_gripped, _ = check_block_gripped_with_force(self.model, d, "red_block")
+        if is_gripped:
+            reward += 5.0
+        
+        # 9. Floor contact penalty
         floor_force = get_floor_contact_force(self.model, d)
         if floor_force > 0:
             raw_penalty = -1.0 * np.exp(floor_force)

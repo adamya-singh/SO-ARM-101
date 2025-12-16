@@ -267,6 +267,50 @@ def check_gripper_block_contact(m, d, block_name="red_block"):
     return False
 
 
+def check_block_gripped_with_force(m, d, block_name="red_block", min_force=0.1):
+    """
+    Check if block is gripped by analyzing contact forces from both gripper parts.
+    
+    Args:
+        m: MuJoCo model
+        d: MuJoCo data
+        block_name: Name of the block body
+        min_force: Minimum force threshold (Newtons) to consider as contact
+        
+    Returns:
+        gripped: bool - True if block is being squeezed by both sides
+        grip_force: float - magnitude of the weaker grip force (N)
+    """
+    block_body_id = m.body(block_name).id
+    gripper_body_id = m.body("gripper").id
+    jaw_body_id = m.body("moving_jaw_so101_v1").id
+    
+    gripper_force_mag = 0.0
+    jaw_force_mag = 0.0
+    
+    for i in range(d.ncon):
+        contact = d.contact[i]
+        geom1_body = m.geom_bodyid[contact.geom1]
+        geom2_body = m.geom_bodyid[contact.geom2]
+        
+        bodies = {geom1_body, geom2_body}
+        if block_body_id in bodies:
+            wrench = np.zeros(6)
+            mujoco.mj_contactForce(m, d, i, wrench)
+            force_mag = np.linalg.norm(wrench[:3])
+            
+            if gripper_body_id in bodies:
+                gripper_force_mag += force_mag
+            if jaw_body_id in bodies:
+                jaw_force_mag += force_mag
+    
+    # Gripped if both sides have sufficient force
+    if gripper_force_mag > min_force and jaw_force_mag > min_force:
+        return True, min(gripper_force_mag, jaw_force_mag)
+    
+    return False, 0.0
+
+
 def get_floor_contact_force(m, d, floor_geom_name="floor"):
     """
     Measure total contact force between robot and floor.
@@ -305,7 +349,8 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     5. Success bonus - large reward when block is lifted above threshold
     6. Block displacement penalty - exponential penalty for knocking block away (>5cm)
     7. Contact bonus - reward for gripper touching the block
-    8. Floor contact penalty - exponential penalty for pressing against the floor
+    8. Grip bonus - additional reward for block squeezed between both gripper parts
+    9. Floor contact penalty - exponential penalty for pressing against the floor
     
     Note: Distance is measured to the INITIAL block position, not current.
     This prevents the robot from learning to avoid the block (to not knock it away).
@@ -375,7 +420,12 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     if check_gripper_block_contact(m, d, block_name):
         reward += 3.0  # Bonus for making contact
     
-    # 8. Floor contact penalty (exponential with force magnitude, CLAMPED)
+    # 8. Grip bonus (block squeezed between both gripper parts!)
+    is_gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
+    if is_gripped:
+        reward += 5.0  # Additional bonus for actual grip
+    
+    # 9. Floor contact penalty (exponential with force magnitude, CLAMPED)
     floor_force = get_floor_contact_force(m, d)
     if floor_force > 0:
         # Exponential scaling but capped to prevent reward explosion
