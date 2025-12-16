@@ -1,0 +1,38 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Episodes per batch: 10 (each batch = 10 parallel episodes)
+Total batches: 2000
+Max steps per episode: 30
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.31614378 0.31614378 0.31614378 0.31614378 0.31614378 0.31614378
+ 0.31614378 0.31614378 0.31614378 0.31614378]
+============================================================
+
+Batch    1 (   10 eps) | Avg Reward:  -432.14 | Loss:  -2.4922 | σ_mean: 0.3177 | Time: 14.4s (1.44s/ep)
+Batch    2 (   20 eps) | Avg Reward:  -316.97 | Loss:   3.7111 | σ_mean: 0.3192 | Time: 13.7s (1.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 (   30 eps) | Avg Reward:  -325.67 | Loss:  -4.9588 | σ_mean: 0.3205 | Time: 13.5s (1.35s/ep)
+Batch    4 (   40 eps) | Avg Reward:  -374.57 | Loss:  -3.0360 | σ_mean: 0.3216 | Time: 13.6s (1.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    5 (   50 eps) | Avg Reward:  -426.61 | Loss:  -0.0733 | σ_mean: 0.3228 | Time: 13.6s (1.36s/ep)
+Batch    6 (   60 eps) | Avg Reward:  -370.11 | Loss:   1.9123 | σ_mean: 0.3242 | Time: 13.7s (1.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 (   70 eps) | Avg Reward:  -355.79 | Loss:  -5.8298 | σ_mean: 0.3255 | Time: 13.7s (1.37s/ep)
+Batch    8 (   80 eps) | Avg Reward:  -391.21 | Loss:  -1.6927 | σ_mean: 0.3269 | Time: 13.7s (1.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    9 (   90 eps) | Avg Reward:  -382.71 | Loss:  -1.6572 | σ_mean: 0.3283 | Time: 14.0s (1.40s/ep)
+Batch   10 (  100 eps) | Avg Reward:  -364.88 | Loss:  -1.1560 | σ_mean: 0.3297 | Time: 14.0s (1.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   11 (  110 eps) | Avg Reward:  -323.69 | Loss:   7.5087 | σ_mean: 0.3310 | Time: 13.9s (1.39s/ep)
+Batch   12 (  120 eps) | Avg Reward:  -369.00 | Loss:   0.4224 | σ_mean: 0.3324 | Time: 13.8s (1.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   13 (  130 eps) | Avg Reward:  -415.09 | Loss:   5.0140 | σ_mean: 0.3338 | Time: 13.7s (1.37s/ep)
+
+
+Training interrupted by user.
