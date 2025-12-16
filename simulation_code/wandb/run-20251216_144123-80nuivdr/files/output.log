@@ -1,0 +1,689 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Episodes per batch: 10 (each batch = 10 parallel episodes)
+Total batches: 2000
+Max steps per episode: 50
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.36787948 0.36787948 0.36787948 0.36787948 0.36787948 0.36787948
+ 0.36787948 0.36787948 0.36787948 0.36787948]
+============================================================
+
+Batch    1 (   10 eps) | Avg Reward:  -816.85 | Loss:  -3.3118 | σ_mean: 0.3660 | Time: 24.8s (2.48s/ep)
+Batch    2 (   20 eps) | Avg Reward:  -776.13 | Loss:   1.5330 | σ_mean: 0.3642 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 (   30 eps) | Avg Reward:  -701.84 | Loss:   4.7869 | σ_mean: 0.3652 | Time: 23.6s (2.36s/ep)
+Batch    4 (   40 eps) | Avg Reward:  -544.86 | Loss:   3.5821 | σ_mean: 0.3652 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    5 (   50 eps) | Avg Reward:  -599.32 | Loss:  -3.7549 | σ_mean: 0.3650 | Time: 23.9s (2.39s/ep)
+Batch    6 (   60 eps) | Avg Reward:  -640.33 | Loss:   0.0205 | σ_mean: 0.3647 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 (   70 eps) | Avg Reward:  -603.63 | Loss:   1.3792 | σ_mean: 0.3643 | Time: 23.7s (2.37s/ep)
+Batch    8 (   80 eps) | Avg Reward:  -656.03 | Loss:   3.0938 | σ_mean: 0.3644 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    9 (   90 eps) | Avg Reward:  -610.59 | Loss:  -3.6620 | σ_mean: 0.3645 | Time: 23.5s (2.35s/ep)
+Batch   10 (  100 eps) | Avg Reward:  -620.49 | Loss:  -0.5726 | σ_mean: 0.3647 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   11 (  110 eps) | Avg Reward:  -858.64 | Loss:   4.1844 | σ_mean: 0.3651 | Time: 23.7s (2.37s/ep)
+Batch   12 (  120 eps) | Avg Reward:  -813.06 | Loss:   1.0089 | σ_mean: 0.3657 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   13 (  130 eps) | Avg Reward:  -713.60 | Loss:  12.8566 | σ_mean: 0.3658 | Time: 24.0s (2.40s/ep)
+Batch   14 (  140 eps) | Avg Reward:  -650.24 | Loss:  -5.3003 | σ_mean: 0.3658 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   15 (  150 eps) | Avg Reward:  -644.35 | Loss:  -1.2396 | σ_mean: 0.3655 | Time: 23.9s (2.39s/ep)
+Batch   16 (  160 eps) | Avg Reward:  -646.40 | Loss:   3.6379 | σ_mean: 0.3652 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   17 (  170 eps) | Avg Reward:  -768.29 | Loss:   0.2744 | σ_mean: 0.3650 | Time: 23.7s (2.37s/ep)
+Batch   18 (  180 eps) | Avg Reward:  -808.24 | Loss:   5.6678 | σ_mean: 0.3647 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   19 (  190 eps) | Avg Reward:  -748.96 | Loss:   0.2185 | σ_mean: 0.3649 | Time: 23.6s (2.36s/ep)
+Batch   20 (  200 eps) | Avg Reward:  -626.28 | Loss:  -2.9214 | σ_mean: 0.3653 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   21 (  210 eps) | Avg Reward:  -660.19 | Loss:   4.8020 | σ_mean: 0.3657 | Time: 24.4s (2.44s/ep)
+Batch   22 (  220 eps) | Avg Reward:  -802.66 | Loss:  -6.6641 | σ_mean: 0.3664 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   23 (  230 eps) | Avg Reward:  -747.27 | Loss:   3.0419 | σ_mean: 0.3666 | Time: 23.5s (2.35s/ep)
+Batch   24 (  240 eps) | Avg Reward:  -818.86 | Loss:   9.1038 | σ_mean: 0.3671 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   25 (  250 eps) | Avg Reward:  -668.93 | Loss:  -9.9359 | σ_mean: 0.3674 | Time: 23.9s (2.39s/ep)
+Batch   26 (  260 eps) | Avg Reward:  -688.40 | Loss:   3.1309 | σ_mean: 0.3677 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   27 (  270 eps) | Avg Reward:  -688.80 | Loss:   3.3341 | σ_mean: 0.3682 | Time: 23.9s (2.39s/ep)
+Batch   28 (  280 eps) | Avg Reward:  -779.87 | Loss:   1.2132 | σ_mean: 0.3684 | Time: 24.9s (2.49s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   29 (  290 eps) | Avg Reward:  -668.43 | Loss:   2.1452 | σ_mean: 0.3685 | Time: 24.3s (2.43s/ep)
+Batch   30 (  300 eps) | Avg Reward:  -762.84 | Loss:   4.0776 | σ_mean: 0.3689 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   31 (  310 eps) | Avg Reward:  -546.34 | Loss:   0.0369 | σ_mean: 0.3693 | Time: 23.9s (2.39s/ep)
+Batch   32 (  320 eps) | Avg Reward:  -690.43 | Loss:  -6.8356 | σ_mean: 0.3699 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   33 (  330 eps) | Avg Reward:  -759.68 | Loss:  -1.1548 | σ_mean: 0.3706 | Time: 23.9s (2.39s/ep)
+Batch   34 (  340 eps) | Avg Reward:  -673.07 | Loss:  -3.0042 | σ_mean: 0.3710 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   35 (  350 eps) | Avg Reward:  -575.98 | Loss:   2.8775 | σ_mean: 0.3714 | Time: 23.7s (2.37s/ep)
+Batch   36 (  360 eps) | Avg Reward:  -891.72 | Loss:   0.4540 | σ_mean: 0.3720 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   37 (  370 eps) | Avg Reward:  -754.86 | Loss:   0.8537 | σ_mean: 0.3729 | Time: 23.7s (2.37s/ep)
+Batch   38 (  380 eps) | Avg Reward:  -514.28 | Loss:   5.9640 | σ_mean: 0.3735 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   39 (  390 eps) | Avg Reward:  -808.58 | Loss:   6.1578 | σ_mean: 0.3741 | Time: 23.5s (2.35s/ep)
+Batch   40 (  400 eps) | Avg Reward:  -663.80 | Loss:  -3.9098 | σ_mean: 0.3749 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   41 (  410 eps) | Avg Reward:  -789.10 | Loss:  -9.7843 | σ_mean: 0.3754 | Time: 23.6s (2.36s/ep)
+Batch   42 (  420 eps) | Avg Reward:  -714.67 | Loss:  -3.9256 | σ_mean: 0.3755 | Time: 23.4s (2.34s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   43 (  430 eps) | Avg Reward:  -785.76 | Loss:  -5.7258 | σ_mean: 0.3755 | Time: 23.7s (2.37s/ep)
+Batch   44 (  440 eps) | Avg Reward:  -848.29 | Loss:   6.1692 | σ_mean: 0.3750 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   45 (  450 eps) | Avg Reward:  -697.18 | Loss:   1.6521 | σ_mean: 0.3744 | Time: 23.7s (2.37s/ep)
+Batch   46 (  460 eps) | Avg Reward:  -482.86 | Loss:  -5.0931 | σ_mean: 0.3738 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   47 (  470 eps) | Avg Reward:  -661.67 | Loss:   0.8509 | σ_mean: 0.3733 | Time: 23.8s (2.38s/ep)
+Batch   48 (  480 eps) | Avg Reward:  -690.28 | Loss:  -1.4237 | σ_mean: 0.3728 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   49 (  490 eps) | Avg Reward:  -755.00 | Loss:   2.7262 | σ_mean: 0.3725 | Time: 23.6s (2.36s/ep)
+Batch   50 (  500 eps) | Avg Reward:  -710.05 | Loss:   2.3995 | σ_mean: 0.3723 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   51 (  510 eps) | Avg Reward:  -585.76 | Loss:   1.2987 | σ_mean: 0.3719 | Time: 23.6s (2.36s/ep)
+Batch   52 (  520 eps) | Avg Reward:  -788.87 | Loss:   3.9305 | σ_mean: 0.3715 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   53 (  530 eps) | Avg Reward:  -505.21 | Loss:   1.4170 | σ_mean: 0.3714 | Time: 23.5s (2.35s/ep)
+Batch   54 (  540 eps) | Avg Reward:  -702.36 | Loss:  -5.1046 | σ_mean: 0.3714 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   55 (  550 eps) | Avg Reward:  -727.03 | Loss:  -0.1436 | σ_mean: 0.3711 | Time: 23.5s (2.35s/ep)
+Batch   56 (  560 eps) | Avg Reward:  -713.38 | Loss:   1.0096 | σ_mean: 0.3712 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   57 (  570 eps) | Avg Reward:  -662.82 | Loss:   3.2748 | σ_mean: 0.3711 | Time: 23.9s (2.39s/ep)
+Batch   58 (  580 eps) | Avg Reward:  -737.67 | Loss:   3.8126 | σ_mean: 0.3713 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   59 (  590 eps) | Avg Reward:  -551.40 | Loss:  -1.9982 | σ_mean: 0.3716 | Time: 23.7s (2.37s/ep)
+Batch   60 (  600 eps) | Avg Reward:  -686.28 | Loss:   0.9831 | σ_mean: 0.3715 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   61 (  610 eps) | Avg Reward:  -610.13 | Loss:  -3.3589 | σ_mean: 0.3715 | Time: 23.9s (2.39s/ep)
+Batch   62 (  620 eps) | Avg Reward:  -727.94 | Loss:   3.8996 | σ_mean: 0.3712 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   63 (  630 eps) | Avg Reward:  -635.06 | Loss:  -3.0643 | σ_mean: 0.3706 | Time: 23.7s (2.37s/ep)
+Batch   64 (  640 eps) | Avg Reward:  -582.76 | Loss:   0.6925 | σ_mean: 0.3705 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   65 (  650 eps) | Avg Reward:  -849.28 | Loss:   0.5063 | σ_mean: 0.3703 | Time: 23.7s (2.37s/ep)
+Batch   66 (  660 eps) | Avg Reward:  -624.72 | Loss:   2.5359 | σ_mean: 0.3700 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   67 (  670 eps) | Avg Reward:  -637.30 | Loss:  -6.0176 | σ_mean: 0.3699 | Time: 23.7s (2.37s/ep)
+Batch   68 (  680 eps) | Avg Reward:  -702.66 | Loss:   1.1347 | σ_mean: 0.3699 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   69 (  690 eps) | Avg Reward:  -740.49 | Loss:   5.2049 | σ_mean: 0.3699 | Time: 23.6s (2.36s/ep)
+Batch   70 (  700 eps) | Avg Reward:  -646.35 | Loss:  -1.7762 | σ_mean: 0.3697 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   71 (  710 eps) | Avg Reward:  -675.29 | Loss:  -1.3363 | σ_mean: 0.3699 | Time: 23.7s (2.37s/ep)
+Batch   72 (  720 eps) | Avg Reward:  -724.69 | Loss:   0.8384 | σ_mean: 0.3699 | Time: 23.4s (2.34s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   73 (  730 eps) | Avg Reward:  -650.05 | Loss:   0.5186 | σ_mean: 0.3700 | Time: 23.5s (2.35s/ep)
+Batch   74 (  740 eps) | Avg Reward:  -578.44 | Loss:   4.5454 | σ_mean: 0.3703 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   75 (  750 eps) | Avg Reward:  -528.47 | Loss:   6.3500 | σ_mean: 0.3708 | Time: 24.0s (2.40s/ep)
+Batch   76 (  760 eps) | Avg Reward:  -650.75 | Loss:   0.8530 | σ_mean: 0.3710 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   77 (  770 eps) | Avg Reward:  -746.63 | Loss:   2.5119 | σ_mean: 0.3714 | Time: 23.4s (2.34s/ep)
+Batch   78 (  780 eps) | Avg Reward:  -737.54 | Loss:   7.8401 | σ_mean: 0.3719 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   79 (  790 eps) | Avg Reward:  -814.21 | Loss:  -6.4834 | σ_mean: 0.3723 | Time: 23.6s (2.36s/ep)
+Batch   80 (  800 eps) | Avg Reward:  -649.11 | Loss:   3.6507 | σ_mean: 0.3727 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   81 (  810 eps) | Avg Reward:  -618.93 | Loss:   3.7094 | σ_mean: 0.3730 | Time: 23.6s (2.36s/ep)
+Batch   82 (  820 eps) | Avg Reward:  -786.93 | Loss:   4.1792 | σ_mean: 0.3732 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   83 (  830 eps) | Avg Reward:  -747.00 | Loss:   6.0449 | σ_mean: 0.3736 | Time: 23.8s (2.38s/ep)
+Batch   84 (  840 eps) | Avg Reward:  -522.76 | Loss:   0.0885 | σ_mean: 0.3740 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   85 (  850 eps) | Avg Reward:  -773.97 | Loss:  -7.4090 | σ_mean: 0.3744 | Time: 23.7s (2.37s/ep)
+Batch   86 (  860 eps) | Avg Reward:  -601.41 | Loss:   4.6049 | σ_mean: 0.3747 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   87 (  870 eps) | Avg Reward:  -604.43 | Loss:   2.7684 | σ_mean: 0.3750 | Time: 23.5s (2.35s/ep)
+Batch   88 (  880 eps) | Avg Reward:  -762.76 | Loss:   0.1368 | σ_mean: 0.3754 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   89 (  890 eps) | Avg Reward:  -659.94 | Loss:  -1.2645 | σ_mean: 0.3759 | Time: 23.9s (2.39s/ep)
+Batch   90 (  900 eps) | Avg Reward:  -586.43 | Loss:  -3.1477 | σ_mean: 0.3763 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   91 (  910 eps) | Avg Reward:  -789.23 | Loss:  -6.5330 | σ_mean: 0.3767 | Time: 23.9s (2.39s/ep)
+Batch   92 (  920 eps) | Avg Reward:  -710.30 | Loss:   1.2716 | σ_mean: 0.3769 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   93 (  930 eps) | Avg Reward:  -762.12 | Loss:   5.3897 | σ_mean: 0.3768 | Time: 23.7s (2.37s/ep)
+Batch   94 (  940 eps) | Avg Reward:  -571.89 | Loss:   2.3703 | σ_mean: 0.3767 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   95 (  950 eps) | Avg Reward:  -822.14 | Loss:  -1.3174 | σ_mean: 0.3763 | Time: 23.9s (2.39s/ep)
+Batch   96 (  960 eps) | Avg Reward:  -740.56 | Loss:  -3.7853 | σ_mean: 0.3760 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   97 (  970 eps) | Avg Reward:  -682.79 | Loss:   0.2959 | σ_mean: 0.3757 | Time: 23.6s (2.36s/ep)
+Batch   98 (  980 eps) | Avg Reward:  -686.40 | Loss:   2.0786 | σ_mean: 0.3752 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   99 (  990 eps) | Avg Reward:  -628.83 | Loss:  -0.0356 | σ_mean: 0.3741 | Time: 23.8s (2.38s/ep)
+Batch  100 ( 1000 eps) | Avg Reward:  -689.46 | Loss:   2.9104 | σ_mean: 0.3732 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  101 ( 1010 eps) | Avg Reward:  -649.85 | Loss:  -0.5194 | σ_mean: 0.3727 | Time: 23.7s (2.37s/ep)
+Batch  102 ( 1020 eps) | Avg Reward:  -735.61 | Loss:  -1.9598 | σ_mean: 0.3721 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  103 ( 1030 eps) | Avg Reward:  -715.82 | Loss:   3.3801 | σ_mean: 0.3714 | Time: 23.6s (2.36s/ep)
+Batch  104 ( 1040 eps) | Avg Reward:  -620.17 | Loss:  -5.3955 | σ_mean: 0.3708 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  105 ( 1050 eps) | Avg Reward:  -576.75 | Loss:  -1.1663 | σ_mean: 0.3701 | Time: 23.6s (2.36s/ep)
+Batch  106 ( 1060 eps) | Avg Reward:  -692.45 | Loss:   3.9929 | σ_mean: 0.3694 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  107 ( 1070 eps) | Avg Reward:  -600.25 | Loss:  -0.2810 | σ_mean: 0.3690 | Time: 23.7s (2.37s/ep)
+Batch  108 ( 1080 eps) | Avg Reward:  -671.79 | Loss:  -1.1859 | σ_mean: 0.3687 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  109 ( 1090 eps) | Avg Reward:  -918.05 | Loss:  -1.0053 | σ_mean: 0.3682 | Time: 24.0s (2.40s/ep)
+Batch  110 ( 1100 eps) | Avg Reward:  -650.61 | Loss:   8.4556 | σ_mean: 0.3675 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  111 ( 1110 eps) | Avg Reward:  -786.49 | Loss:   4.6390 | σ_mean: 0.3667 | Time: 23.9s (2.39s/ep)
+Batch  112 ( 1120 eps) | Avg Reward:  -750.79 | Loss:  -0.3217 | σ_mean: 0.3660 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  113 ( 1130 eps) | Avg Reward:  -680.04 | Loss:   1.5558 | σ_mean: 0.3652 | Time: 23.8s (2.38s/ep)
+Batch  114 ( 1140 eps) | Avg Reward:  -624.92 | Loss:  -0.2637 | σ_mean: 0.3641 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  115 ( 1150 eps) | Avg Reward:  -628.95 | Loss:  -1.5988 | σ_mean: 0.3633 | Time: 23.6s (2.36s/ep)
+Batch  116 ( 1160 eps) | Avg Reward:  -707.87 | Loss:  -3.3143 | σ_mean: 0.3624 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  117 ( 1170 eps) | Avg Reward:  -638.38 | Loss:   8.0697 | σ_mean: 0.3616 | Time: 24.0s (2.40s/ep)
+Batch  118 ( 1180 eps) | Avg Reward:  -522.46 | Loss:   2.0670 | σ_mean: 0.3609 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  119 ( 1190 eps) | Avg Reward:  -781.26 | Loss:   0.8425 | σ_mean: 0.3602 | Time: 23.7s (2.37s/ep)
+Batch  120 ( 1200 eps) | Avg Reward:  -683.45 | Loss:  -0.4407 | σ_mean: 0.3595 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  121 ( 1210 eps) | Avg Reward:  -725.46 | Loss:   1.2324 | σ_mean: 0.3588 | Time: 23.5s (2.35s/ep)
+Batch  122 ( 1220 eps) | Avg Reward:  -584.30 | Loss:   4.2771 | σ_mean: 0.3583 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  123 ( 1230 eps) | Avg Reward:  -775.38 | Loss:  -3.4800 | σ_mean: 0.3575 | Time: 23.6s (2.36s/ep)
+Batch  124 ( 1240 eps) | Avg Reward:  -625.20 | Loss:   2.8059 | σ_mean: 0.3569 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  125 ( 1250 eps) | Avg Reward:  -660.08 | Loss:   1.3914 | σ_mean: 0.3563 | Time: 23.7s (2.37s/ep)
+Batch  126 ( 1260 eps) | Avg Reward:  -676.12 | Loss:   1.4516 | σ_mean: 0.3559 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  127 ( 1270 eps) | Avg Reward:  -849.79 | Loss:   2.9985 | σ_mean: 0.3557 | Time: 23.8s (2.38s/ep)
+Batch  128 ( 1280 eps) | Avg Reward:  -703.98 | Loss:  -7.3401 | σ_mean: 0.3554 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  129 ( 1290 eps) | Avg Reward:  -726.01 | Loss:  -4.8507 | σ_mean: 0.3550 | Time: 23.5s (2.35s/ep)
+Batch  130 ( 1300 eps) | Avg Reward:  -587.98 | Loss:   0.4318 | σ_mean: 0.3545 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  131 ( 1310 eps) | Avg Reward:  -570.45 | Loss:  -4.2888 | σ_mean: 0.3542 | Time: 23.5s (2.35s/ep)
+Batch  132 ( 1320 eps) | Avg Reward:  -674.96 | Loss:  -9.1374 | σ_mean: 0.3542 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  133 ( 1330 eps) | Avg Reward:  -711.27 | Loss:  -4.8068 | σ_mean: 0.3539 | Time: 23.8s (2.38s/ep)
+Batch  134 ( 1340 eps) | Avg Reward:  -654.68 | Loss:  -3.8923 | σ_mean: 0.3536 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  135 ( 1350 eps) | Avg Reward:  -783.12 | Loss:  -0.1557 | σ_mean: 0.3532 | Time: 23.7s (2.37s/ep)
+Batch  136 ( 1360 eps) | Avg Reward:  -687.13 | Loss:   9.2646 | σ_mean: 0.3528 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  137 ( 1370 eps) | Avg Reward:  -819.87 | Loss:  -2.9451 | σ_mean: 0.3525 | Time: 23.7s (2.37s/ep)
+Batch  138 ( 1380 eps) | Avg Reward:  -555.11 | Loss:  -2.0172 | σ_mean: 0.3521 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  139 ( 1390 eps) | Avg Reward:  -819.04 | Loss:   4.0876 | σ_mean: 0.3515 | Time: 23.8s (2.38s/ep)
+Batch  140 ( 1400 eps) | Avg Reward:  -716.60 | Loss:   2.2971 | σ_mean: 0.3510 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  141 ( 1410 eps) | Avg Reward:  -659.73 | Loss:  -3.2883 | σ_mean: 0.3504 | Time: 23.7s (2.37s/ep)
+Batch  142 ( 1420 eps) | Avg Reward:  -602.01 | Loss:   4.0321 | σ_mean: 0.3499 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  143 ( 1430 eps) | Avg Reward:  -822.21 | Loss:  -1.7357 | σ_mean: 0.3498 | Time: 23.5s (2.35s/ep)
+Batch  144 ( 1440 eps) | Avg Reward:  -677.57 | Loss:  -1.6317 | σ_mean: 0.3498 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  145 ( 1450 eps) | Avg Reward:  -777.54 | Loss:   3.9307 | σ_mean: 0.3497 | Time: 23.4s (2.34s/ep)
+Batch  146 ( 1460 eps) | Avg Reward:  -747.87 | Loss:   3.2701 | σ_mean: 0.3495 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  147 ( 1470 eps) | Avg Reward:  -694.84 | Loss:   7.7322 | σ_mean: 0.3492 | Time: 23.4s (2.34s/ep)
+Batch  148 ( 1480 eps) | Avg Reward:  -787.67 | Loss:   9.4657 | σ_mean: 0.3488 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  149 ( 1490 eps) | Avg Reward:  -873.21 | Loss:   1.3740 | σ_mean: 0.3485 | Time: 23.7s (2.37s/ep)
+Batch  150 ( 1500 eps) | Avg Reward:  -755.76 | Loss:  -2.7109 | σ_mean: 0.3484 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  151 ( 1510 eps) | Avg Reward:  -774.19 | Loss:  -2.7540 | σ_mean: 0.3483 | Time: 23.5s (2.35s/ep)
+Batch  152 ( 1520 eps) | Avg Reward:  -723.68 | Loss:   1.6403 | σ_mean: 0.3482 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  153 ( 1530 eps) | Avg Reward:  -742.78 | Loss:  -8.4088 | σ_mean: 0.3480 | Time: 23.8s (2.38s/ep)
+Batch  154 ( 1540 eps) | Avg Reward:  -770.88 | Loss:  -5.3801 | σ_mean: 0.3480 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  155 ( 1550 eps) | Avg Reward:  -671.25 | Loss:  -4.6845 | σ_mean: 0.3480 | Time: 24.1s (2.41s/ep)
+Batch  156 ( 1560 eps) | Avg Reward:  -663.84 | Loss:  -3.3028 | σ_mean: 0.3484 | Time: 23.4s (2.34s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  157 ( 1570 eps) | Avg Reward:  -775.70 | Loss:  -3.3872 | σ_mean: 0.3486 | Time: 23.5s (2.35s/ep)
+Batch  158 ( 1580 eps) | Avg Reward:  -592.23 | Loss:   0.2799 | σ_mean: 0.3487 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  159 ( 1590 eps) | Avg Reward:  -706.30 | Loss:   1.3465 | σ_mean: 0.3490 | Time: 23.5s (2.35s/ep)
+Batch  160 ( 1600 eps) | Avg Reward:  -632.97 | Loss:   2.9776 | σ_mean: 0.3490 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  161 ( 1610 eps) | Avg Reward:  -712.57 | Loss:   9.4286 | σ_mean: 0.3491 | Time: 23.7s (2.37s/ep)
+Batch  162 ( 1620 eps) | Avg Reward:  -698.85 | Loss:  -4.4022 | σ_mean: 0.3492 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  163 ( 1630 eps) | Avg Reward:  -674.39 | Loss:  -4.6264 | σ_mean: 0.3495 | Time: 23.7s (2.37s/ep)
+Batch  164 ( 1640 eps) | Avg Reward:  -821.51 | Loss:  -4.2073 | σ_mean: 0.3498 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  165 ( 1650 eps) | Avg Reward:  -527.24 | Loss:  -4.8926 | σ_mean: 0.3500 | Time: 23.5s (2.35s/ep)
+Batch  166 ( 1660 eps) | Avg Reward:  -655.57 | Loss:   0.4940 | σ_mean: 0.3501 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  167 ( 1670 eps) | Avg Reward:  -558.19 | Loss:  -1.5704 | σ_mean: 0.3504 | Time: 23.9s (2.39s/ep)
+Batch  168 ( 1680 eps) | Avg Reward:  -489.23 | Loss:  -5.6090 | σ_mean: 0.3506 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  169 ( 1690 eps) | Avg Reward:  -601.32 | Loss:   7.6637 | σ_mean: 0.3509 | Time: 23.8s (2.38s/ep)
+Batch  170 ( 1700 eps) | Avg Reward:  -655.96 | Loss:  -0.1930 | σ_mean: 0.3509 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  171 ( 1710 eps) | Avg Reward:  -720.42 | Loss:   6.0183 | σ_mean: 0.3508 | Time: 23.5s (2.35s/ep)
+Batch  172 ( 1720 eps) | Avg Reward:  -773.55 | Loss:   0.3021 | σ_mean: 0.3507 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  173 ( 1730 eps) | Avg Reward:  -781.26 | Loss:  -3.3556 | σ_mean: 0.3506 | Time: 23.4s (2.34s/ep)
+Batch  174 ( 1740 eps) | Avg Reward:  -761.30 | Loss:   2.2355 | σ_mean: 0.3503 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  175 ( 1750 eps) | Avg Reward:  -758.78 | Loss:   3.6541 | σ_mean: 0.3502 | Time: 23.7s (2.37s/ep)
+Batch  176 ( 1760 eps) | Avg Reward:  -511.97 | Loss:  12.8291 | σ_mean: 0.3504 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  177 ( 1770 eps) | Avg Reward:  -785.20 | Loss:   0.4915 | σ_mean: 0.3505 | Time: 23.7s (2.37s/ep)
+Batch  178 ( 1780 eps) | Avg Reward:  -749.30 | Loss:  -2.2510 | σ_mean: 0.3508 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  179 ( 1790 eps) | Avg Reward:  -779.55 | Loss:   0.2510 | σ_mean: 0.3507 | Time: 23.6s (2.36s/ep)
+Batch  180 ( 1800 eps) | Avg Reward:  -673.36 | Loss:  -7.7676 | σ_mean: 0.3503 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  181 ( 1810 eps) | Avg Reward:  -596.71 | Loss:  -5.9562 | σ_mean: 0.3503 | Time: 23.5s (2.35s/ep)
+Batch  182 ( 1820 eps) | Avg Reward:  -763.49 | Loss:  -0.4873 | σ_mean: 0.3501 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  183 ( 1830 eps) | Avg Reward:  -752.68 | Loss:  -2.3482 | σ_mean: 0.3499 | Time: 23.7s (2.37s/ep)
+Batch  184 ( 1840 eps) | Avg Reward:  -642.98 | Loss:  -1.6796 | σ_mean: 0.3497 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  185 ( 1850 eps) | Avg Reward:  -602.53 | Loss:   3.0235 | σ_mean: 0.3496 | Time: 23.6s (2.36s/ep)
+Batch  186 ( 1860 eps) | Avg Reward:  -739.71 | Loss:   3.8028 | σ_mean: 0.3498 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  187 ( 1870 eps) | Avg Reward:  -832.34 | Loss:  -2.8242 | σ_mean: 0.3500 | Time: 23.6s (2.36s/ep)
+Batch  188 ( 1880 eps) | Avg Reward:  -655.92 | Loss:  -5.7943 | σ_mean: 0.3503 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  189 ( 1890 eps) | Avg Reward:  -627.57 | Loss:  -5.1437 | σ_mean: 0.3505 | Time: 23.6s (2.36s/ep)
+Batch  190 ( 1900 eps) | Avg Reward:  -725.03 | Loss:   5.1415 | σ_mean: 0.3505 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  191 ( 1910 eps) | Avg Reward:  -835.80 | Loss:  -4.6653 | σ_mean: 0.3508 | Time: 23.6s (2.36s/ep)
+Batch  192 ( 1920 eps) | Avg Reward:  -632.56 | Loss:  -3.3659 | σ_mean: 0.3513 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  193 ( 1930 eps) | Avg Reward:  -904.58 | Loss:  -3.4857 | σ_mean: 0.3515 | Time: 23.7s (2.37s/ep)
+Batch  194 ( 1940 eps) | Avg Reward:  -763.13 | Loss:   2.3830 | σ_mean: 0.3518 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  195 ( 1950 eps) | Avg Reward:  -871.72 | Loss:  -4.6055 | σ_mean: 0.3523 | Time: 23.6s (2.36s/ep)
+Batch  196 ( 1960 eps) | Avg Reward:  -757.86 | Loss:  -0.1135 | σ_mean: 0.3525 | Time: 24.5s (2.45s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  197 ( 1970 eps) | Avg Reward:  -642.14 | Loss:  -4.1446 | σ_mean: 0.3526 | Time: 24.2s (2.42s/ep)
+Batch  198 ( 1980 eps) | Avg Reward:  -669.55 | Loss:   3.2553 | σ_mean: 0.3528 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  199 ( 1990 eps) | Avg Reward:  -825.48 | Loss:   5.7027 | σ_mean: 0.3528 | Time: 23.7s (2.37s/ep)
+Batch  200 ( 2000 eps) | Avg Reward:  -577.91 | Loss:  -5.0860 | σ_mean: 0.3528 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  201 ( 2010 eps) | Avg Reward:  -702.64 | Loss:  -1.1337 | σ_mean: 0.3529 | Time: 23.7s (2.37s/ep)
+Batch  202 ( 2020 eps) | Avg Reward:  -765.62 | Loss:   3.4535 | σ_mean: 0.3529 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  203 ( 2030 eps) | Avg Reward:  -697.34 | Loss:   2.0919 | σ_mean: 0.3527 | Time: 23.6s (2.36s/ep)
+Batch  204 ( 2040 eps) | Avg Reward:  -546.43 | Loss:  -4.5121 | σ_mean: 0.3526 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  205 ( 2050 eps) | Avg Reward:  -777.84 | Loss:   2.2620 | σ_mean: 0.3528 | Time: 23.8s (2.38s/ep)
+Batch  206 ( 2060 eps) | Avg Reward:  -658.28 | Loss:  -1.2827 | σ_mean: 0.3530 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  207 ( 2070 eps) | Avg Reward:  -646.42 | Loss:   4.6430 | σ_mean: 0.3531 | Time: 23.7s (2.37s/ep)
+Batch  208 ( 2080 eps) | Avg Reward:  -722.28 | Loss:   4.5549 | σ_mean: 0.3527 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  209 ( 2090 eps) | Avg Reward:  -786.94 | Loss:  -1.6599 | σ_mean: 0.3527 | Time: 23.8s (2.38s/ep)
+Batch  210 ( 2100 eps) | Avg Reward:  -577.64 | Loss:  -2.2701 | σ_mean: 0.3528 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  211 ( 2110 eps) | Avg Reward:  -642.36 | Loss:   0.3539 | σ_mean: 0.3526 | Time: 23.7s (2.37s/ep)
+Batch  212 ( 2120 eps) | Avg Reward:  -628.27 | Loss:  -0.2034 | σ_mean: 0.3524 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  213 ( 2130 eps) | Avg Reward:  -748.69 | Loss:  -1.2786 | σ_mean: 0.3521 | Time: 23.6s (2.36s/ep)
+Batch  214 ( 2140 eps) | Avg Reward:  -577.40 | Loss:  -2.3221 | σ_mean: 0.3517 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  215 ( 2150 eps) | Avg Reward:  -671.07 | Loss:   0.2898 | σ_mean: 0.3512 | Time: 23.7s (2.37s/ep)
+Batch  216 ( 2160 eps) | Avg Reward:  -638.87 | Loss:   4.0582 | σ_mean: 0.3507 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  217 ( 2170 eps) | Avg Reward:  -745.00 | Loss:  -4.4146 | σ_mean: 0.3503 | Time: 23.6s (2.36s/ep)
+Batch  218 ( 2180 eps) | Avg Reward:  -643.27 | Loss:  -0.2031 | σ_mean: 0.3497 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  219 ( 2190 eps) | Avg Reward:  -827.83 | Loss:   4.2038 | σ_mean: 0.3490 | Time: 23.8s (2.38s/ep)
+Batch  220 ( 2200 eps) | Avg Reward:  -635.81 | Loss:  -0.5248 | σ_mean: 0.3483 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  221 ( 2210 eps) | Avg Reward:  -718.62 | Loss:  -9.6234 | σ_mean: 0.3477 | Time: 23.6s (2.36s/ep)
+Batch  222 ( 2220 eps) | Avg Reward:  -662.96 | Loss:   3.3325 | σ_mean: 0.3472 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  223 ( 2230 eps) | Avg Reward:  -464.02 | Loss:  -4.0418 | σ_mean: 0.3466 | Time: 23.8s (2.38s/ep)
+Batch  224 ( 2240 eps) | Avg Reward:  -589.67 | Loss:  -1.2154 | σ_mean: 0.3461 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  225 ( 2250 eps) | Avg Reward:  -678.82 | Loss:   3.8271 | σ_mean: 0.3461 | Time: 23.9s (2.39s/ep)
+Batch  226 ( 2260 eps) | Avg Reward:  -665.01 | Loss:   7.9114 | σ_mean: 0.3460 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  227 ( 2270 eps) | Avg Reward:  -396.68 | Loss:  -2.3525 | σ_mean: 0.3460 | Time: 23.8s (2.38s/ep)
+Batch  228 ( 2280 eps) | Avg Reward:  -634.13 | Loss:  -1.0411 | σ_mean: 0.3461 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  229 ( 2290 eps) | Avg Reward:  -722.09 | Loss:   2.3645 | σ_mean: 0.3464 | Time: 23.6s (2.36s/ep)
+Batch  230 ( 2300 eps) | Avg Reward:  -828.25 | Loss:  -0.7264 | σ_mean: 0.3466 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  231 ( 2310 eps) | Avg Reward:  -738.07 | Loss:  -3.6796 | σ_mean: 0.3465 | Time: 23.9s (2.39s/ep)
+Batch  232 ( 2320 eps) | Avg Reward:  -745.65 | Loss:  -4.7121 | σ_mean: 0.3461 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  233 ( 2330 eps) | Avg Reward:  -527.75 | Loss:   0.4437 | σ_mean: 0.3459 | Time: 23.7s (2.37s/ep)
+Batch  234 ( 2340 eps) | Avg Reward:  -704.52 | Loss:  -1.5676 | σ_mean: 0.3454 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  235 ( 2350 eps) | Avg Reward:  -691.07 | Loss:   3.8836 | σ_mean: 0.3450 | Time: 23.5s (2.35s/ep)
+Batch  236 ( 2360 eps) | Avg Reward:  -711.69 | Loss:  -0.6152 | σ_mean: 0.3444 | Time: 23.4s (2.34s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  237 ( 2370 eps) | Avg Reward:  -676.69 | Loss:   2.0884 | σ_mean: 0.3437 | Time: 23.6s (2.36s/ep)
+Batch  238 ( 2380 eps) | Avg Reward:  -647.08 | Loss:   3.3396 | σ_mean: 0.3430 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  239 ( 2390 eps) | Avg Reward:  -640.18 | Loss:   0.1928 | σ_mean: 0.3424 | Time: 23.5s (2.35s/ep)
+Batch  240 ( 2400 eps) | Avg Reward:  -616.26 | Loss:  -4.1760 | σ_mean: 0.3421 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  241 ( 2410 eps) | Avg Reward:  -784.59 | Loss:   0.8144 | σ_mean: 0.3415 | Time: 23.8s (2.38s/ep)
+Batch  242 ( 2420 eps) | Avg Reward:  -661.91 | Loss:   5.3922 | σ_mean: 0.3411 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  243 ( 2430 eps) | Avg Reward:  -804.37 | Loss:  -7.6230 | σ_mean: 0.3407 | Time: 23.8s (2.38s/ep)
+Batch  244 ( 2440 eps) | Avg Reward:  -686.35 | Loss:   0.3574 | σ_mean: 0.3404 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  245 ( 2450 eps) | Avg Reward:  -595.66 | Loss:   2.9251 | σ_mean: 0.3401 | Time: 23.8s (2.38s/ep)
+Batch  246 ( 2460 eps) | Avg Reward:  -564.95 | Loss:  -8.4210 | σ_mean: 0.3399 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  247 ( 2470 eps) | Avg Reward:  -677.05 | Loss:  -1.4807 | σ_mean: 0.3396 | Time: 23.7s (2.37s/ep)
+Batch  248 ( 2480 eps) | Avg Reward:  -790.06 | Loss:   0.5420 | σ_mean: 0.3392 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  249 ( 2490 eps) | Avg Reward:  -767.03 | Loss:  -3.4037 | σ_mean: 0.3387 | Time: 23.6s (2.36s/ep)
+Batch  250 ( 2500 eps) | Avg Reward:  -729.42 | Loss:  -7.0953 | σ_mean: 0.3378 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  251 ( 2510 eps) | Avg Reward:  -717.10 | Loss:  -4.1929 | σ_mean: 0.3373 | Time: 24.1s (2.41s/ep)
+Batch  252 ( 2520 eps) | Avg Reward:  -619.79 | Loss:   3.4878 | σ_mean: 0.3366 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  253 ( 2530 eps) | Avg Reward:  -630.69 | Loss:   0.4349 | σ_mean: 0.3359 | Time: 23.6s (2.36s/ep)
+Batch  254 ( 2540 eps) | Avg Reward:  -673.27 | Loss:  -5.9187 | σ_mean: 0.3353 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  255 ( 2550 eps) | Avg Reward:  -494.69 | Loss:  -3.6641 | σ_mean: 0.3348 | Time: 23.5s (2.35s/ep)
+Batch  256 ( 2560 eps) | Avg Reward:  -543.92 | Loss:  -1.5803 | σ_mean: 0.3346 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  257 ( 2570 eps) | Avg Reward:  -860.89 | Loss:  -7.5434 | σ_mean: 0.3342 | Time: 23.8s (2.38s/ep)
+Batch  258 ( 2580 eps) | Avg Reward:  -530.87 | Loss:   0.7232 | σ_mean: 0.3340 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  259 ( 2590 eps) | Avg Reward:  -869.37 | Loss:   3.5785 | σ_mean: 0.3337 | Time: 23.7s (2.37s/ep)
+Batch  260 ( 2600 eps) | Avg Reward:  -776.32 | Loss:  -3.3409 | σ_mean: 0.3332 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  261 ( 2610 eps) | Avg Reward:  -669.02 | Loss:   1.8043 | σ_mean: 0.3325 | Time: 23.8s (2.38s/ep)
+Batch  262 ( 2620 eps) | Avg Reward:  -900.20 | Loss:   1.0126 | σ_mean: 0.3318 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  263 ( 2630 eps) | Avg Reward:  -713.79 | Loss:   4.2841 | σ_mean: 0.3311 | Time: 23.7s (2.37s/ep)
+Batch  264 ( 2640 eps) | Avg Reward:  -587.27 | Loss:   0.4484 | σ_mean: 0.3303 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  265 ( 2650 eps) | Avg Reward:  -446.49 | Loss:  -6.8336 | σ_mean: 0.3298 | Time: 23.7s (2.37s/ep)
+Batch  266 ( 2660 eps) | Avg Reward:  -648.56 | Loss:   3.8948 | σ_mean: 0.3293 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  267 ( 2670 eps) | Avg Reward:  -584.26 | Loss:   1.8843 | σ_mean: 0.3289 | Time: 23.4s (2.34s/ep)
+Batch  268 ( 2680 eps) | Avg Reward:  -698.24 | Loss:  -2.0944 | σ_mean: 0.3285 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  269 ( 2690 eps) | Avg Reward:  -777.78 | Loss:   4.7721 | σ_mean: 0.3278 | Time: 23.6s (2.36s/ep)
+Batch  270 ( 2700 eps) | Avg Reward:  -655.91 | Loss:   6.2885 | σ_mean: 0.3271 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  271 ( 2710 eps) | Avg Reward:  -657.02 | Loss:   2.4127 | σ_mean: 0.3263 | Time: 23.7s (2.37s/ep)
+Batch  272 ( 2720 eps) | Avg Reward:  -700.86 | Loss:  -3.1734 | σ_mean: 0.3253 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  273 ( 2730 eps) | Avg Reward:  -634.22 | Loss:  -1.3053 | σ_mean: 0.3245 | Time: 23.6s (2.36s/ep)
+Batch  274 ( 2740 eps) | Avg Reward:  -771.62 | Loss:  -2.0517 | σ_mean: 0.3237 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  275 ( 2750 eps) | Avg Reward:  -667.36 | Loss:  -4.6599 | σ_mean: 0.3229 | Time: 23.7s (2.37s/ep)
+Batch  276 ( 2760 eps) | Avg Reward:  -641.96 | Loss:  -3.4940 | σ_mean: 0.3221 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  277 ( 2770 eps) | Avg Reward:  -746.22 | Loss:  -2.4521 | σ_mean: 0.3211 | Time: 23.6s (2.36s/ep)
+Batch  278 ( 2780 eps) | Avg Reward:  -759.86 | Loss:  -0.2755 | σ_mean: 0.3202 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  279 ( 2790 eps) | Avg Reward:  -605.79 | Loss:   1.5378 | σ_mean: 0.3193 | Time: 23.7s (2.37s/ep)
+Batch  280 ( 2800 eps) | Avg Reward:  -734.01 | Loss:   1.2252 | σ_mean: 0.3186 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  281 ( 2810 eps) | Avg Reward:  -647.28 | Loss:  -0.9432 | σ_mean: 0.3180 | Time: 23.7s (2.37s/ep)
+Batch  282 ( 2820 eps) | Avg Reward:  -702.04 | Loss:   0.1802 | σ_mean: 0.3175 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  283 ( 2830 eps) | Avg Reward:  -608.36 | Loss:   1.8765 | σ_mean: 0.3171 | Time: 23.7s (2.37s/ep)
+Batch  284 ( 2840 eps) | Avg Reward:  -801.75 | Loss:  -5.0809 | σ_mean: 0.3165 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  285 ( 2850 eps) | Avg Reward:  -705.42 | Loss:  -1.2220 | σ_mean: 0.3160 | Time: 23.8s (2.38s/ep)
+Batch  286 ( 2860 eps) | Avg Reward:  -593.12 | Loss:  -0.0033 | σ_mean: 0.3155 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  287 ( 2870 eps) | Avg Reward:  -588.69 | Loss:   1.5599 | σ_mean: 0.3152 | Time: 23.7s (2.37s/ep)
+Batch  288 ( 2880 eps) | Avg Reward:  -568.76 | Loss:  -1.0688 | σ_mean: 0.3149 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  289 ( 2890 eps) | Avg Reward:  -581.42 | Loss:  -4.7505 | σ_mean: 0.3147 | Time: 23.6s (2.36s/ep)
+Batch  290 ( 2900 eps) | Avg Reward:  -629.22 | Loss:  -1.4031 | σ_mean: 0.3143 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  291 ( 2910 eps) | Avg Reward:  -514.37 | Loss:  -3.8922 | σ_mean: 0.3140 | Time: 23.6s (2.36s/ep)
+Batch  292 ( 2920 eps) | Avg Reward:  -613.64 | Loss:   1.6739 | σ_mean: 0.3137 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  293 ( 2930 eps) | Avg Reward:  -636.88 | Loss:   0.9325 | σ_mean: 0.3136 | Time: 23.7s (2.37s/ep)
+Batch  294 ( 2940 eps) | Avg Reward:  -624.59 | Loss:   2.3520 | σ_mean: 0.3137 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  295 ( 2950 eps) | Avg Reward:  -788.18 | Loss:  -0.8929 | σ_mean: 0.3138 | Time: 23.6s (2.36s/ep)
+Batch  296 ( 2960 eps) | Avg Reward:  -560.11 | Loss:  -5.1157 | σ_mean: 0.3138 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  297 ( 2970 eps) | Avg Reward:  -805.27 | Loss:   2.1905 | σ_mean: 0.3137 | Time: 23.7s (2.37s/ep)
+Batch  298 ( 2980 eps) | Avg Reward:  -768.68 | Loss:   5.0277 | σ_mean: 0.3138 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  299 ( 2990 eps) | Avg Reward:  -713.45 | Loss:   4.6787 | σ_mean: 0.3141 | Time: 24.0s (2.40s/ep)
+Batch  300 ( 3000 eps) | Avg Reward:  -798.62 | Loss:  -1.5048 | σ_mean: 0.3144 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  301 ( 3010 eps) | Avg Reward:  -558.94 | Loss:  -4.2456 | σ_mean: 0.3146 | Time: 23.8s (2.38s/ep)
+Batch  302 ( 3020 eps) | Avg Reward:  -760.93 | Loss:   3.4976 | σ_mean: 0.3148 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  303 ( 3030 eps) | Avg Reward:  -649.55 | Loss:  -4.5410 | σ_mean: 0.3148 | Time: 23.7s (2.37s/ep)
+Batch  304 ( 3040 eps) | Avg Reward:  -760.55 | Loss:  -6.2637 | σ_mean: 0.3147 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  305 ( 3050 eps) | Avg Reward:  -696.05 | Loss:   1.1976 | σ_mean: 0.3146 | Time: 24.0s (2.40s/ep)
+Batch  306 ( 3060 eps) | Avg Reward:  -641.83 | Loss:  -2.8237 | σ_mean: 0.3147 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  307 ( 3070 eps) | Avg Reward:  -727.53 | Loss:  -2.1019 | σ_mean: 0.3148 | Time: 24.2s (2.42s/ep)
+Batch  308 ( 3080 eps) | Avg Reward:  -626.93 | Loss:  -3.4186 | σ_mean: 0.3149 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  309 ( 3090 eps) | Avg Reward:  -759.83 | Loss:   2.3473 | σ_mean: 0.3151 | Time: 24.0s (2.40s/ep)
+Batch  310 ( 3100 eps) | Avg Reward:  -798.68 | Loss:   0.2415 | σ_mean: 0.3153 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  311 ( 3110 eps) | Avg Reward:  -636.62 | Loss:   4.5223 | σ_mean: 0.3154 | Time: 23.9s (2.39s/ep)
+Batch  312 ( 3120 eps) | Avg Reward:  -539.56 | Loss:  -3.2676 | σ_mean: 0.3154 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  313 ( 3130 eps) | Avg Reward:  -732.54 | Loss:  -5.1106 | σ_mean: 0.3154 | Time: 23.8s (2.38s/ep)
+Batch  314 ( 3140 eps) | Avg Reward:  -464.66 | Loss:   1.3258 | σ_mean: 0.3154 | Time: 23.5s (2.35s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  315 ( 3150 eps) | Avg Reward:  -712.43 | Loss:  -0.0774 | σ_mean: 0.3156 | Time: 23.6s (2.36s/ep)
+Batch  316 ( 3160 eps) | Avg Reward:  -590.65 | Loss:   1.6023 | σ_mean: 0.3155 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  317 ( 3170 eps) | Avg Reward:  -650.75 | Loss:   1.7055 | σ_mean: 0.3151 | Time: 23.5s (2.35s/ep)
+Batch  318 ( 3180 eps) | Avg Reward:  -539.41 | Loss:  -1.3737 | σ_mean: 0.3147 | Time: 23.3s (2.33s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  319 ( 3190 eps) | Avg Reward:  -752.62 | Loss:   3.9147 | σ_mean: 0.3146 | Time: 23.5s (2.35s/ep)
+Batch  320 ( 3200 eps) | Avg Reward:  -729.94 | Loss:  -1.4637 | σ_mean: 0.3144 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  321 ( 3210 eps) | Avg Reward:  -676.55 | Loss:   4.4252 | σ_mean: 0.3141 | Time: 24.2s (2.42s/ep)
+Batch  322 ( 3220 eps) | Avg Reward:  -541.12 | Loss:   2.7560 | σ_mean: 0.3138 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  323 ( 3230 eps) | Avg Reward:  -826.17 | Loss:  -2.8157 | σ_mean: 0.3138 | Time: 23.7s (2.37s/ep)
+Batch  324 ( 3240 eps) | Avg Reward:  -822.18 | Loss:   7.9201 | σ_mean: 0.3136 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  325 ( 3250 eps) | Avg Reward:  -666.97 | Loss:  -3.5532 | σ_mean: 0.3136 | Time: 23.8s (2.38s/ep)
+Batch  326 ( 3260 eps) | Avg Reward:  -598.76 | Loss:  -1.6364 | σ_mean: 0.3139 | Time: 27.6s (2.76s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  327 ( 3270 eps) | Avg Reward:  -762.19 | Loss:   5.0416 | σ_mean: 0.3142 | Time: 32.3s (3.23s/ep)
+Batch  328 ( 3280 eps) | Avg Reward:  -706.76 | Loss:  -3.3749 | σ_mean: 0.3145 | Time: 35.0s (3.50s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  329 ( 3290 eps) | Avg Reward:  -664.40 | Loss:   2.6525 | σ_mean: 0.3147 | Time: 33.1s (3.31s/ep)
+Batch  330 ( 3300 eps) | Avg Reward:  -717.51 | Loss:   1.1596 | σ_mean: 0.3151 | Time: 29.4s (2.94s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  331 ( 3310 eps) | Avg Reward:  -716.94 | Loss:  -8.6457 | σ_mean: 0.3155 | Time: 27.7s (2.77s/ep)
+Batch  332 ( 3320 eps) | Avg Reward:  -724.97 | Loss:  -9.1844 | σ_mean: 0.3156 | Time: 26.6s (2.66s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  333 ( 3330 eps) | Avg Reward:  -710.90 | Loss:  -0.6493 | σ_mean: 0.3158 | Time: 28.7s (2.87s/ep)
+Batch  334 ( 3340 eps) | Avg Reward:  -717.71 | Loss:   9.0258 | σ_mean: 0.3161 | Time: 32.8s (3.28s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  335 ( 3350 eps) | Avg Reward:  -842.53 | Loss:   2.0388 | σ_mean: 0.3161 | Time: 32.2s (3.22s/ep)
+Batch  336 ( 3360 eps) | Avg Reward:  -492.12 | Loss:  -4.2378 | σ_mean: 0.3162 | Time: 29.7s (2.97s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  337 ( 3370 eps) | Avg Reward:  -575.62 | Loss: -10.2828 | σ_mean: 0.3160 | Time: 29.2s (2.92s/ep)
+Batch  338 ( 3380 eps) | Avg Reward:  -686.31 | Loss:   0.9588 | σ_mean: 0.3159 | Time: 29.3s (2.93s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  339 ( 3390 eps) | Avg Reward:  -814.52 | Loss:  -0.5128 | σ_mean: 0.3160 | Time: 29.5s (2.95s/ep)
+Batch  340 ( 3400 eps) | Avg Reward:  -788.04 | Loss:   2.2378 | σ_mean: 0.3159 | Time: 29.9s (2.99s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  341 ( 3410 eps) | Avg Reward:  -780.29 | Loss:   3.7570 | σ_mean: 0.3157 | Time: 28.3s (2.83s/ep)
+Batch  342 ( 3420 eps) | Avg Reward:  -829.26 | Loss:   7.1159 | σ_mean: 0.3155 | Time: 28.6s (2.86s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  343 ( 3430 eps) | Avg Reward:  -592.63 | Loss:   0.6607 | σ_mean: 0.3154 | Time: 28.7s (2.87s/ep)
+Batch  344 ( 3440 eps) | Avg Reward:  -547.00 | Loss:  -5.1159 | σ_mean: 0.3152 | Time: 28.7s (2.87s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  345 ( 3450 eps) | Avg Reward:  -576.33 | Loss:  -2.9100 | σ_mean: 0.3151 | Time: 28.6s (2.86s/ep)
+Batch  346 ( 3460 eps) | Avg Reward:  -794.54 | Loss:  -0.0332 | σ_mean: 0.3149 | Time: 29.1s (2.91s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  347 ( 3470 eps) | Avg Reward:  -713.66 | Loss:   8.4575 | σ_mean: 0.3146 | Time: 29.8s (2.98s/ep)
+Batch  348 ( 3480 eps) | Avg Reward:  -523.30 | Loss:  -0.9113 | σ_mean: 0.3145 | Time: 30.2s (3.02s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  349 ( 3490 eps) | Avg Reward:  -634.76 | Loss:  -2.5186 | σ_mean: 0.3143 | Time: 29.4s (2.94s/ep)
+Batch  350 ( 3500 eps) | Avg Reward:  -609.15 | Loss:   4.7961 | σ_mean: 0.3142 | Time: 28.9s (2.89s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  351 ( 3510 eps) | Avg Reward:  -640.15 | Loss:   4.7692 | σ_mean: 0.3140 | Time: 28.8s (2.88s/ep)
+Batch  352 ( 3520 eps) | Avg Reward:  -681.62 | Loss:  -3.6556 | σ_mean: 0.3136 | Time: 29.5s (2.95s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  353 ( 3530 eps) | Avg Reward:  -475.50 | Loss:  -0.7566 | σ_mean: 0.3133 | Time: 30.1s (3.01s/ep)
+Batch  354 ( 3540 eps) | Avg Reward:  -739.16 | Loss:   1.6231 | σ_mean: 0.3130 | Time: 29.2s (2.92s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  355 ( 3550 eps) | Avg Reward:  -482.30 | Loss:  -5.1423 | σ_mean: 0.3127 | Time: 35.2s (3.52s/ep)
+Batch  356 ( 3560 eps) | Avg Reward:  -669.91 | Loss:   7.7494 | σ_mean: 0.3124 | Time: 37.8s (3.78s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  357 ( 3570 eps) | Avg Reward:  -661.82 | Loss:   1.4584 | σ_mean: 0.3121 | Time: 42.3s (4.23s/ep)
+Batch  358 ( 3580 eps) | Avg Reward:  -751.27 | Loss:  -4.6580 | σ_mean: 0.3120 | Time: 43.8s (4.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  359 ( 3590 eps) | Avg Reward:  -677.19 | Loss:   0.3878 | σ_mean: 0.3119 | Time: 41.2s (4.12s/ep)
+Batch  360 ( 3600 eps) | Avg Reward:  -854.62 | Loss:   1.7112 | σ_mean: 0.3118 | Time: 40.9s (4.09s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  361 ( 3610 eps) | Avg Reward:  -583.88 | Loss:  -3.3064 | σ_mean: 0.3117 | Time: 41.8s (4.18s/ep)
+Batch  362 ( 3620 eps) | Avg Reward:  -619.61 | Loss:   9.6704 | σ_mean: 0.3117 | Time: 41.1s (4.11s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  363 ( 3630 eps) | Avg Reward:  -539.73 | Loss:   7.6062 | σ_mean: 0.3117 | Time: 36.9s (3.69s/ep)
+Batch  364 ( 3640 eps) | Avg Reward:  -651.99 | Loss:  -1.6652 | σ_mean: 0.3117 | Time: 28.6s (2.86s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  365 ( 3650 eps) | Avg Reward:  -766.17 | Loss:  -7.0875 | σ_mean: 0.3116 | Time: 29.6s (2.96s/ep)
+Batch  366 ( 3660 eps) | Avg Reward:  -610.65 | Loss:   1.1814 | σ_mean: 0.3115 | Time: 29.0s (2.90s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  367 ( 3670 eps) | Avg Reward:  -565.23 | Loss:   0.2974 | σ_mean: 0.3116 | Time: 29.5s (2.95s/ep)
+Batch  368 ( 3680 eps) | Avg Reward:  -696.28 | Loss:  -0.9786 | σ_mean: 0.3118 | Time: 29.1s (2.91s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  369 ( 3690 eps) | Avg Reward:  -684.21 | Loss:  -5.5400 | σ_mean: 0.3117 | Time: 30.3s (3.03s/ep)
+Batch  370 ( 3700 eps) | Avg Reward:  -750.15 | Loss:   6.4445 | σ_mean: 0.3115 | Time: 29.6s (2.96s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  371 ( 3710 eps) | Avg Reward:  -743.87 | Loss:   4.4706 | σ_mean: 0.3114 | Time: 30.1s (3.01s/ep)
+Batch  372 ( 3720 eps) | Avg Reward:  -612.48 | Loss:   3.1494 | σ_mean: 0.3113 | Time: 27.4s (2.74s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  373 ( 3730 eps) | Avg Reward:  -819.35 | Loss:  -3.6963 | σ_mean: 0.3112 | Time: 26.5s (2.65s/ep)
+Batch  374 ( 3740 eps) | Avg Reward:  -803.67 | Loss:  -0.9052 | σ_mean: 0.3110 | Time: 26.7s (2.67s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  375 ( 3750 eps) | Avg Reward:  -434.82 | Loss:   3.5723 | σ_mean: 0.3108 | Time: 37.1s (3.71s/ep)
+Batch  376 ( 3760 eps) | Avg Reward:  -790.62 | Loss:   1.7477 | σ_mean: 0.3107 | Time: 37.2s (3.72s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  377 ( 3770 eps) | Avg Reward:  -643.01 | Loss:  -0.2121 | σ_mean: 0.3105 | Time: 35.3s (3.53s/ep)
+Batch  378 ( 3780 eps) | Avg Reward:  -825.34 | Loss:   0.1859 | σ_mean: 0.3104 | Time: 34.1s (3.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  379 ( 3790 eps) | Avg Reward:  -618.52 | Loss:   4.9276 | σ_mean: 0.3103 | Time: 34.1s (3.41s/ep)
+Batch  380 ( 3800 eps) | Avg Reward:  -708.90 | Loss:  -2.4783 | σ_mean: 0.3102 | Time: 29.0s (2.90s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  381 ( 3810 eps) | Avg Reward:  -691.71 | Loss:   6.2912 | σ_mean: 0.3102 | Time: 23.8s (2.38s/ep)
+Batch  382 ( 3820 eps) | Avg Reward:  -557.72 | Loss:   1.1132 | σ_mean: 0.3099 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  383 ( 3830 eps) | Avg Reward:  -804.69 | Loss:  -1.9235 | σ_mean: 0.3098 | Time: 23.5s (2.35s/ep)
+Batch  384 ( 3840 eps) | Avg Reward:  -493.84 | Loss:  11.0724 | σ_mean: 0.3097 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  385 ( 3850 eps) | Avg Reward:  -601.62 | Loss:  -5.8261 | σ_mean: 0.3096 | Time: 23.7s (2.37s/ep)
+Batch  386 ( 3860 eps) | Avg Reward:  -663.21 | Loss:   1.8837 | σ_mean: 0.3094 | Time: 24.3s (2.43s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  387 ( 3870 eps) | Avg Reward:  -610.97 | Loss:  -2.2811 | σ_mean: 0.3093 | Time: 23.7s (2.37s/ep)
+Batch  388 ( 3880 eps) | Avg Reward:  -752.00 | Loss:   3.9805 | σ_mean: 0.3091 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  389 ( 3890 eps) | Avg Reward:  -677.70 | Loss:   5.9501 | σ_mean: 0.3090 | Time: 23.9s (2.39s/ep)
+Batch  390 ( 3900 eps) | Avg Reward:  -779.13 | Loss:   0.1229 | σ_mean: 0.3092 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  391 ( 3910 eps) | Avg Reward:  -602.20 | Loss:   3.2362 | σ_mean: 0.3094 | Time: 24.0s (2.40s/ep)
+Batch  392 ( 3920 eps) | Avg Reward:  -601.58 | Loss:  -5.8504 | σ_mean: 0.3097 | Time: 23.6s (2.36s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  393 ( 3930 eps) | Avg Reward:  -721.78 | Loss:   4.5475 | σ_mean: 0.3099 | Time: 24.3s (2.43s/ep)
+Batch  394 ( 3940 eps) | Avg Reward:  -705.44 | Loss:   3.0317 | σ_mean: 0.3099 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  395 ( 3950 eps) | Avg Reward:  -768.41 | Loss:  -2.5227 | σ_mean: 0.3100 | Time: 23.9s (2.39s/ep)
+Batch  396 ( 3960 eps) | Avg Reward:  -629.46 | Loss:   1.9992 | σ_mean: 0.3101 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  397 ( 3970 eps) | Avg Reward:  -762.77 | Loss:   1.1386 | σ_mean: 0.3100 | Time: 23.8s (2.38s/ep)
+Batch  398 ( 3980 eps) | Avg Reward:  -746.48 | Loss:   1.2318 | σ_mean: 0.3100 | Time: 24.3s (2.43s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  399 ( 3990 eps) | Avg Reward:  -795.10 | Loss:   4.4535 | σ_mean: 0.3101 | Time: 24.1s (2.41s/ep)
+Batch  400 ( 4000 eps) | Avg Reward:  -655.01 | Loss:   2.0209 | σ_mean: 0.3104 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  401 ( 4010 eps) | Avg Reward:  -714.35 | Loss:   2.0680 | σ_mean: 0.3110 | Time: 24.2s (2.42s/ep)
+Batch  402 ( 4020 eps) | Avg Reward:  -628.58 | Loss:   4.8046 | σ_mean: 0.3116 | Time: 24.5s (2.45s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  403 ( 4030 eps) | Avg Reward:  -622.06 | Loss:  -2.9088 | σ_mean: 0.3120 | Time: 24.5s (2.45s/ep)
+Batch  404 ( 4040 eps) | Avg Reward:  -708.19 | Loss:   3.6491 | σ_mean: 0.3123 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  405 ( 4050 eps) | Avg Reward:  -698.02 | Loss:  -0.5468 | σ_mean: 0.3124 | Time: 23.9s (2.39s/ep)
+Batch  406 ( 4060 eps) | Avg Reward:  -518.53 | Loss:  -0.4835 | σ_mean: 0.3125 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  407 ( 4070 eps) | Avg Reward:  -760.46 | Loss:  -0.6210 | σ_mean: 0.3125 | Time: 24.6s (2.46s/ep)
+Batch  408 ( 4080 eps) | Avg Reward:  -827.77 | Loss:   1.8281 | σ_mean: 0.3129 | Time: 24.3s (2.43s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  409 ( 4090 eps) | Avg Reward:  -789.00 | Loss:   2.0066 | σ_mean: 0.3134 | Time: 24.2s (2.42s/ep)
+Batch  410 ( 4100 eps) | Avg Reward:  -691.93 | Loss:   1.0906 | σ_mean: 0.3138 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  411 ( 4110 eps) | Avg Reward:  -664.45 | Loss:   0.1579 | σ_mean: 0.3142 | Time: 24.1s (2.41s/ep)
+Batch  412 ( 4120 eps) | Avg Reward:  -666.56 | Loss:  -4.6299 | σ_mean: 0.3147 | Time: 24.3s (2.43s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  413 ( 4130 eps) | Avg Reward:  -580.66 | Loss:   9.9824 | σ_mean: 0.3152 | Time: 23.9s (2.39s/ep)
+Batch  414 ( 4140 eps) | Avg Reward:  -656.08 | Loss:  -4.4810 | σ_mean: 0.3154 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  415 ( 4150 eps) | Avg Reward:  -765.02 | Loss:  -2.4542 | σ_mean: 0.3154 | Time: 24.5s (2.45s/ep)
+Batch  416 ( 4160 eps) | Avg Reward:  -672.70 | Loss:   5.5964 | σ_mean: 0.3155 | Time: 24.9s (2.49s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  417 ( 4170 eps) | Avg Reward:  -641.46 | Loss:   5.3200 | σ_mean: 0.3156 | Time: 24.3s (2.43s/ep)
+Batch  418 ( 4180 eps) | Avg Reward:  -652.12 | Loss:   0.9909 | σ_mean: 0.3156 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  419 ( 4190 eps) | Avg Reward:  -726.65 | Loss:  -1.5225 | σ_mean: 0.3154 | Time: 24.1s (2.41s/ep)
+Batch  420 ( 4200 eps) | Avg Reward:  -743.96 | Loss:   3.3495 | σ_mean: 0.3150 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  421 ( 4210 eps) | Avg Reward:  -766.28 | Loss:   1.2153 | σ_mean: 0.3144 | Time: 24.0s (2.40s/ep)
+Batch  422 ( 4220 eps) | Avg Reward:  -647.52 | Loss:  -0.1684 | σ_mean: 0.3140 | Time: 24.4s (2.44s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  423 ( 4230 eps) | Avg Reward:  -537.17 | Loss:  -2.1453 | σ_mean: 0.3135 | Time: 24.1s (2.41s/ep)
+Batch  424 ( 4240 eps) | Avg Reward:  -871.64 | Loss:   2.4777 | σ_mean: 0.3130 | Time: 24.0s (2.40s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  425 ( 4250 eps) | Avg Reward:  -989.99 | Loss:  11.1139 | σ_mean: 0.3126 | Time: 24.2s (2.42s/ep)
+Batch  426 ( 4260 eps) | Avg Reward:  -791.85 | Loss:  -3.6167 | σ_mean: 0.3122 | Time: 24.3s (2.43s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  427 ( 4270 eps) | Avg Reward:  -751.31 | Loss:   3.5479 | σ_mean: 0.3118 | Time: 24.5s (2.45s/ep)
+Batch  428 ( 4280 eps) | Avg Reward:  -643.27 | Loss:   1.1531 | σ_mean: 0.3113 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  429 ( 4290 eps) | Avg Reward:  -741.83 | Loss:  -1.7416 | σ_mean: 0.3111 | Time: 23.8s (2.38s/ep)
+Batch  430 ( 4300 eps) | Avg Reward:  -714.77 | Loss:  -9.8423 | σ_mean: 0.3109 | Time: 24.4s (2.44s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  431 ( 4310 eps) | Avg Reward:  -489.87 | Loss:   1.1976 | σ_mean: 0.3107 | Time: 23.9s (2.39s/ep)
+Batch  432 ( 4320 eps) | Avg Reward:  -680.44 | Loss:   5.5903 | σ_mean: 0.3106 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  433 ( 4330 eps) | Avg Reward:  -608.97 | Loss:  -1.1972 | σ_mean: 0.3106 | Time: 23.6s (2.36s/ep)
+Batch  434 ( 4340 eps) | Avg Reward:  -552.02 | Loss:  -0.4924 | σ_mean: 0.3107 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  435 ( 4350 eps) | Avg Reward:  -747.52 | Loss:   8.0036 | σ_mean: 0.3110 | Time: 23.9s (2.39s/ep)
+Batch  436 ( 4360 eps) | Avg Reward:  -634.37 | Loss:  -0.2564 | σ_mean: 0.3113 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  437 ( 4370 eps) | Avg Reward:  -613.23 | Loss:   1.0299 | σ_mean: 0.3115 | Time: 23.8s (2.38s/ep)
+Batch  438 ( 4380 eps) | Avg Reward:  -581.29 | Loss:  -0.7697 | σ_mean: 0.3119 | Time: 24.1s (2.41s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  439 ( 4390 eps) | Avg Reward:  -668.88 | Loss:   0.9692 | σ_mean: 0.3125 | Time: 23.8s (2.38s/ep)
+Batch  440 ( 4400 eps) | Avg Reward:  -563.39 | Loss:  -1.3553 | σ_mean: 0.3128 | Time: 24.2s (2.42s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  441 ( 4410 eps) | Avg Reward:  -619.97 | Loss:  -1.6122 | σ_mean: 0.3130 | Time: 23.7s (2.37s/ep)
+Batch  442 ( 4420 eps) | Avg Reward:  -887.82 | Loss:   0.4580 | σ_mean: 0.3133 | Time: 23.8s (2.38s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  443 ( 4430 eps) | Avg Reward:  -645.12 | Loss:  -1.0265 | σ_mean: 0.3139 | Time: 24.3s (2.43s/ep)
+Batch  444 ( 4440 eps) | Avg Reward:  -672.01 | Loss:   2.0228 | σ_mean: 0.3145 | Time: 23.9s (2.39s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  445 ( 4450 eps) | Avg Reward:  -716.25 | Loss:   7.5107 | σ_mean: 0.3152 | Time: 23.7s (2.37s/ep)
+Batch  446 ( 4460 eps) | Avg Reward:  -605.70 | Loss:   0.4988 | σ_mean: 0.3157 | Time: 23.7s (2.37s/ep)
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  447 ( 4470 eps) | Avg Reward:  -726.56 | Loss:   4.1356 | σ_mean: 0.3161 | Time: 23.7s (2.37s/ep)
+
+
+Training interrupted by user.
