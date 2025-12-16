@@ -1,0 +1,19 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Episodes per batch: 10 (each batch = 10 parallel episodes)
+Total batches: 2000
+Max steps per episode: 150
+Denoising steps: 10
+Learning rate: 0.005
+Gradient clip norm: 1.0
+Initial sigmas: [0.33382934 0.33382934 0.33382934 0.33382934 0.33382934 0.33382934
+ 0.33382934 0.33382934 0.33382934 0.33382934]
+============================================================
+
+
+
+Training interrupted by user.
