@@ -101,8 +101,8 @@ cd /path/to/your/projects
 git clone https://github.com/adamyasingh/lerobot-fork.git
 cd lerobot
 
-# Install in editable mode with SmolVLA support
-pip install -e ".[smolvla]"
+# Install in editable mode with SmolVLA support and NO CACHING (needed for my university cluster)
+pip install -e ".[smolvla]" --no-cache-dir
 ```
 
 > **Note**: Our fork adds the `sample_actions_reinflow()` method to the `VLAFlowMatching` class in `src/lerobot/policies/smolvla/modeling_smolvla.py`. This method injects learnable noise at each denoising step for ReinFlow RL training.

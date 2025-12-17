@@ -21,6 +21,9 @@ Usage:
     
     # Parallel mode for A100 GPU (8 environments):
     python train_reinflow.py --parallel-envs 8 --no-render --headless
+    
+    # Parallel mode with subprocess-based rendering (true CPU parallelism):
+    python train_reinflow.py --parallel-envs 4 --subproc --no-render --headless
 """
 
 import os
@@ -117,8 +120,12 @@ class TrainingConfig:
     # Parallelization (A100 optimization)
     # Set >1 to run multiple environments in parallel for GPU efficiency
     # Default 1 = sequential mode (best for M1 Mac)
-    #unfortunately this is pretty much useless because our bottleneck is the rendering of the 3 cameras each step (CPU only)
     num_parallel_envs = 1
+    
+    # Use subprocess-based environment for parallel CPU rendering
+    # When True, each environment runs in a separate process for true parallel rendering
+    # This can significantly speed up training on multi-core CPUs
+    use_subproc_env = False
     
     # Weights & Biases
     wandb_project = "reinflow-smolvla"
@@ -142,6 +149,8 @@ def parse_args():
                         help='Path to pretrained SmolVLA model')
     parser.add_argument('--parallel-envs', type=int, default=None,
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
+    parser.add_argument('--subproc', action='store_true',
+                        help='Use subprocess-based parallel rendering (true parallelism across CPU cores)')
     parser.add_argument('--no-wandb', action='store_true',
                         help='Disable Weights & Biases logging')
     return parser.parse_args()
@@ -155,19 +164,32 @@ def train_parallel(config, args, device):
     
     Runs N environments in parallel, batching observations for efficient
     GPU inference. Best for A100/CUDA where batch processing is fast.
+    
+    With --subproc flag, uses subprocess-based parallelism for true parallel
+    CPU rendering across multiple cores.
     """
-    from vectorized_env import VectorizedMuJoCoEnv
-    
     num_envs = config.num_parallel_envs
-    print(f"\n[Parallel Mode] Running {num_envs} environments in parallel")
     
-    # Create vectorized environment
-    vec_env = VectorizedMuJoCoEnv(
-        num_envs=num_envs,
-        model_path=config.model_path,
-        starting_position=config.starting_position,
-        lift_threshold=config.lift_threshold,
-    )
+    # Choose environment implementation based on config
+    if config.use_subproc_env:
+        from subproc_vectorized_env import SubprocMuJoCoEnv
+        print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
+        print("  (True parallel CPU rendering enabled)")
+        vec_env = SubprocMuJoCoEnv(
+            num_envs=num_envs,
+            model_path=config.model_path,
+            starting_position=config.starting_position,
+            lift_threshold=config.lift_threshold,
+        )
+    else:
+        from vectorized_env import VectorizedMuJoCoEnv
+        print(f"\n[Parallel Mode] Running {num_envs} environments in parallel")
+        vec_env = VectorizedMuJoCoEnv(
+            num_envs=num_envs,
+            model_path=config.model_path,
+            starting_position=config.starting_position,
+            lift_threshold=config.lift_threshold,
+        )
     
     # Setup ReinFlow policy
     print("\n" + "="*60)
@@ -212,6 +234,7 @@ def train_parallel(config, args, device):
                 "train_action_head": config.train_action_head,
                 "train_time_mlp": config.train_time_mlp,
                 "num_parallel_envs": config.num_parallel_envs,
+                "use_subproc_env": config.use_subproc_env,
             },
         )
         wandb_run_id = wandb.run.id  # Update to current run ID for saving
@@ -220,11 +243,13 @@ def train_parallel(config, args, device):
     trainable_params = rl_policy.get_trainable_params()
     optimizer = torch.optim.Adam(trainable_params, lr=config.lr)
     
+    env_mode = "PARALLEL MODE - SUBPROC" if config.use_subproc_env else "PARALLEL MODE"
     print(f"\n{'='*60}")
-    print(f"Starting ReinFlow Training (PARALLEL MODE)")
+    print(f"Starting ReinFlow Training ({env_mode})")
     print(f"{'='*60}")
     print(f"Instruction: '{config.instruction}'")
     print(f"Parallel environments: {num_envs}")
+    print(f"Subproc rendering: {config.use_subproc_env}")
     print(f"Episodes per batch: {num_envs} (each batch = {num_envs} parallel episodes)")
     print(f"Total batches: {config.num_episodes // num_envs}")
     print(f"Max steps per episode: {config.max_steps_per_episode}")
@@ -690,6 +715,8 @@ def train(config=None, args=None):
             config.pretrained_path = args.pretrained
         if args.parallel_envs is not None:
             config.num_parallel_envs = args.parallel_envs
+        if args.subproc:
+            config.use_subproc_env = True
         if args.no_wandb:
             config.wandb_enabled = False
     
