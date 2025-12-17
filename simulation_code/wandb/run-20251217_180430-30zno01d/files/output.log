@@ -1,0 +1,19 @@
+
+============================================================
+Starting ReinFlow Training (PARALLEL MODE - SUBPROC)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 30
+Subproc rendering: True
+Episodes per batch: 30 (each batch = 30 parallel episodes)
+Total batches: 666
+Max steps per episode: 100
+Denoising steps: 10
+Learning rate: 0.001
+Gradient clip norm: 1.0
+Initial sigmas: [0.49396417 0.49396417 0.49396417 0.49396417 0.49396417 0.49396417
+ 0.49396417 0.49396417 0.49396417 0.49396417]
+============================================================
+
+[SubprocVecEnv] Closing worker processes...
+[SubprocVecEnv] All workers closed

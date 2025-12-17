@@ -1,0 +1,7 @@
+{"time":"2025-12-16T19:47:21.57993632-05:00","level":"INFO","msg":"stream: starting","core version":"0.21.4"}
+{"time":"2025-12-16T19:47:22.271151764-05:00","level":"INFO","msg":"stream: created new stream","id":"30zno01d"}
+{"time":"2025-12-16T19:47:22.271177267-05:00","level":"INFO","msg":"stream: started","id":"30zno01d"}
+{"time":"2025-12-16T19:47:22.27118976-05:00","level":"INFO","msg":"writer: started","stream_id":"30zno01d"}
+{"time":"2025-12-16T19:47:22.271195076-05:00","level":"INFO","msg":"handler: started","stream_id":"30zno01d"}
+{"time":"2025-12-16T19:47:22.271209189-05:00","level":"INFO","msg":"sender: started","stream_id":"30zno01d"}
+{"time":"2025-12-16T19:56:37.72410373-05:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}

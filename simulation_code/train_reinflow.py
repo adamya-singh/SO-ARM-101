@@ -84,8 +84,8 @@ class TrainingConfig:
     }
     
     # Training hyperparameters
-    num_episodes = 20000
-    max_steps_per_episode = 100
+    num_episodes = 10000
+    max_steps_per_episode = 50
     gamma = 0.95  # Discount factor
     lr = 0.001
     grad_clip_norm = 1.0
