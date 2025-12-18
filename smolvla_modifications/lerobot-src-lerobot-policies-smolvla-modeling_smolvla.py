@@ -795,7 +795,10 @@ class VLAFlowMatching(nn.Module):
         x_t = noise
         time = torch.tensor(1.0, dtype=torch.float32, device=device)
         
-        log_prob = torch.zeros(bsize, device=device)
+        # FIX 1: Include log prob of initial noise: log N(x_1 | 0, I)
+        d = noise.shape[-1] * noise.shape[-2]  # action_dim * chunk_size
+        log_prob = -0.5 * ((noise ** 2).sum(dim=(-1, -2)) + d * math.log(2 * math.pi))
+        
         step_idx = 0
 
         while time >= -dt_tensor / 2:
@@ -811,12 +814,12 @@ class VLAFlowMatching(nn.Module):
                 eps = torch.randn_like(x_t)
                 x_next = mu + sigma * eps
                 
-                # Accumulate log prob: log N(x_next | mu, σ²I)
-                # = -0.5 * (||eps||² + d*log(2π) + d*log(σ²))
-                # = -0.5 * (||eps||² + d*log(2π) + 2*d*log(σ))
-                d = x_t.shape[-1] * x_t.shape[-2]  # action_dim * chunk_size
+                # FIX 2: Compute diff to create gradient path through mu
+                # diff = x_next - mu creates gradient through mu -> v_t -> network
+                # Mathematically diff == sigma * eps, but mu is now in the computation graph
+                diff = x_next - mu
                 log_prob = log_prob + (-0.5 * (
-                    (eps ** 2).sum(dim=(-1, -2)) + 
+                    (diff ** 2).sum(dim=(-1, -2)) / (sigma ** 2) + 
                     d * (math.log(2 * math.pi) + 2 * log_sigmas[step_idx])
                 ))
             else:

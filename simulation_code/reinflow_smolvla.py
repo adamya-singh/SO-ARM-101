@@ -244,6 +244,48 @@ class ReinFlowSmolVLA(nn.Module):
         actions = action_chunk[:, 0, :]
         
         return actions, log_prob
+    
+    def forward_batched_chunks(self, observation: dict) -> tuple[Tensor, Tensor]:
+        """
+        Batched forward pass returning FULL action chunks for N parallel environments.
+        
+        Unlike forward_batched() which returns only the first action from each chunk,
+        this returns the complete action chunk for executing multiple actions before
+        re-querying the policy. This is ~50x more efficient for training.
+        
+        Args:
+            observation: dict with batched observation tensors:
+                - observation.images.camera1: (N, C, H, W)
+                - observation.images.camera2: (N, C, H, W)
+                - observation.images.camera3: (N, C, H, W)
+                - observation.state: (N, 6)
+                - observation.language.tokens: (N, seq_len)
+                - observation.language.attention_mask: (N, seq_len)
+            
+        Returns:
+            action_chunks: (N, chunk_size, action_dim) full action chunks for all environments
+            log_probs: (N,) log probabilities for policy gradient
+        """
+        # Prepare inputs using SmolVLA's preprocessing
+        images, img_masks = self.base.prepare_images(observation)
+        state = self.base.prepare_state(observation)
+        lang_tokens = observation[OBS_LANGUAGE_TOKENS]
+        lang_masks = observation[OBS_LANGUAGE_ATTENTION_MASK]
+        
+        # Call ReinFlow sampling (with noise injection at each step)
+        # action_chunk: (N, chunk_size, action_dim)
+        # log_prob: (N,)
+        action_chunk, log_prob = self.base.model.sample_actions_reinflow(
+            images, img_masks, lang_tokens, lang_masks, state,
+            log_sigmas=self.log_sigmas
+        )
+        
+        # Unpad actions to original dimension
+        original_action_dim = self.base.config.action_feature.shape[0]
+        action_chunks = action_chunk[:, :, :original_action_dim]
+        
+        # Return FULL action chunks (N, chunk_size, action_dim)
+        return action_chunks, log_prob
 
 
 def setup_reinflow_policy(

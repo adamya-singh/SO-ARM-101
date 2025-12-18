@@ -281,69 +281,40 @@ def train_parallel(config, args, device):
             # Reset all environments
             vec_env.reset_all()
             
-            # Storage for all environments: list of lists
-            # all_log_probs[env_idx] = [log_prob_step0, log_prob_step1, ...]
-            all_log_probs = [[] for _ in range(num_envs)]
-            all_rewards = [[] for _ in range(num_envs)]
+            # Get batched observations from all environments (initial state)
+            obs_dict = vec_env.get_batched_observations(device)
             
-            # Track which envs are still running
-            active_envs = np.ones(num_envs, dtype=bool)
+            # Add language tokens
+            observation = prepare_batched_observation(
+                obs_dict, config.instruction, device, rl_policy, num_envs
+            )
             
-            # Run episode steps
-            for step in range(config.max_steps_per_episode):
-                # Get batched observations from all environments
-                obs_dict = vec_env.get_batched_observations(device)
-                
-                # Add language tokens
-                observation = prepare_batched_observation(
-                    obs_dict, config.instruction, device, rl_policy, num_envs
-                )
-                
-                # BATCHED INFERENCE - single GPU call for all N environments!
-                actions, log_probs = rl_policy.forward_batched(observation)
-                
-                # Unnormalize actions (batched)
-                actions_np = actions.detach().cpu().numpy()
-                actions_radians = np.stack([
-                    unnormalize_action_from_smolvla(a) for a in actions_np
-                ])
-                
-                # Step all environments
-                rewards, dones = vec_env.step_all(actions_radians, config.steps_per_action)
-                
-                # Store results for active environments
-                for i in range(num_envs):
-                    if active_envs[i]:
-                        all_log_probs[i].append(log_probs[i])
-                        all_rewards[i].append(rewards[i])
-                        if dones[i]:
-                            active_envs[i] = False
-                
-                # Check if all environments are done
-                if not active_envs.any():
-                    break
+            # SINGLE BATCHED INFERENCE - get FULL action chunks for all N environments!
+            # action_chunks: (N, chunk_size, action_dim) - all 50 actions per env
+            # log_probs: (N,) - one log prob per env for the entire chunk
+            action_chunks, log_probs = rl_policy.forward_batched_chunks(observation)
             
-            # Compute returns and losses for all environments
-            batch_log_probs = []
-            batch_returns = []
-            batch_total_rewards = []
+            # Unnormalize all actions in chunks (batched)
+            action_chunks_np = action_chunks.detach().cpu().numpy()
+            # action_chunks_np is (N, chunk_size, action_dim)
+            action_chunks_radians = np.stack([
+                np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
+                for chunk in action_chunks_np
+            ])
             
-            for i in range(num_envs):
-                if len(all_rewards[i]) > 0:
-                    # Compute returns
-                    returns = compute_returns(all_rewards[i], gamma=config.gamma)
-                    returns = torch.tensor(returns, device=device, dtype=torch.float32)
-                    
-                    # Stack log probs
-                    log_probs = torch.stack(all_log_probs[i])
-                    
-                    batch_log_probs.append(log_probs)
-                    batch_returns.append(returns)
-                    batch_total_rewards.append(sum(all_rewards[i]))
+            # Execute ALL 50 actions for each environment, accumulating rewards
+            # This is ~50x more efficient than querying policy each step!
+            total_rewards, dones = vec_env.step_all_chunk(
+                action_chunks_radians, config.steps_per_action
+            )
             
-            # Concatenate all environments
-            all_log_probs_tensor = torch.cat(batch_log_probs)
-            all_returns_tensor = torch.cat(batch_returns)
+            # Simplified: one log_prob and one total_reward per environment
+            batch_log_probs = log_probs  # (N,) tensor
+            batch_total_rewards = total_rewards.tolist()  # List of N floats
+            
+            # For REINFORCE, we treat total_reward as the return for the chunk
+            all_log_probs_tensor = batch_log_probs
+            all_returns_tensor = torch.tensor(batch_total_rewards, device=device, dtype=torch.float32)
             
             # Update running baseline (exponential moving average)
             batch_mean = all_returns_tensor.mean().item()
@@ -356,8 +327,7 @@ def train_parallel(config, args, device):
             # This tells the policy "is this better or worse than average?"
             advantages = all_returns_tensor - baseline
             advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
-            if advantages.std() > 1e-8:
-                advantages = advantages / (advantages.std() + 1e-8)
+            # Do NOT normalize - magnitude matters for learning rate scaling
             
             # Policy gradient loss
             policy_loss = -(advantages * all_log_probs_tensor).mean()
@@ -550,28 +520,33 @@ def train_sequential(config, args, device):
             reset_env(m, d, config.starting_position)
             reset_reward_state()
             
-            # Episode storage
-            episode_log_probs = []
-            episode_rewards = []
+            # Get initial observation
+            rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
+            rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+            rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
+            robot_state = get_robot_state(d)
             
-            # Run episode
-            for step in range(config.max_steps_per_episode):
-                # Get all three camera observations (top, wrist, and side for SmolVLA)
-                rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
-                rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
-                rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
-                robot_state = get_robot_state(d)
-                
-                # Prepare observation for ReinFlow policy
-                observation = prepare_observation_for_reinflow(
-                    rgb_top, rgb_wrist, rgb_side, robot_state,
-                    config.instruction, device, rl_policy
-                )
-                
-                # Get action from ReinFlow policy (with noise at each denoising step!)
-                action, log_prob, _ = rl_policy(observation)
-                
-                # Convert to numpy and unnormalize (normalized -> degrees -> radians)
+            # Prepare observation for ReinFlow policy
+            observation = prepare_observation_for_reinflow(
+                rgb_top, rgb_wrist, rgb_side, robot_state,
+                config.instruction, device, rl_policy
+            )
+            
+            # Get FULL action chunk from ReinFlow policy (with noise at each denoising step!)
+            # action: first action, log_prob: log prob for entire chunk, action_chunk: all 50 actions
+            _, log_prob, action_chunk = rl_policy(observation)
+            
+            # Execute ALL actions in the chunk, accumulating rewards
+            total_reward = 0.0
+            done = False
+            chunk_size = action_chunk.shape[0]  # Should be 50
+            
+            for action_idx in range(chunk_size):
+                if done:
+                    break
+                    
+                # Get action for this timestep
+                action = action_chunk[action_idx]
                 action_np = action.detach().cpu().numpy()
                 action_radians = unnormalize_action_from_smolvla(action_np)
                 action_dict = convert_to_dictionary(action_radians)
@@ -583,38 +558,27 @@ def train_sequential(config, args, device):
                     if viewer is not None:
                         viewer.sync()
                 
-                # Get reward
+                # Get reward for this step
                 reward, done = compute_reward(m, d, lift_threshold=config.lift_threshold)
-                
-                # Store for policy gradient
-                episode_log_probs.append(log_prob)
-                episode_rewards.append(reward)
+                total_reward += reward
                 
                 if done:
-                    print(f"  Episode {episode+1}: SUCCESS! Block lifted at step {step+1}")
-                    break
+                    print(f"  Episode {episode+1}: SUCCESS! Block lifted at action {action_idx+1}/{chunk_size}")
             
-            # Compute returns (rewards-to-go) for this episode
-            returns = compute_returns(episode_rewards, gamma=config.gamma)
-            returns = torch.tensor(returns, device=device, dtype=torch.float32)
-            
-            # Stack log probs for this episode
-            log_probs = torch.stack(episode_log_probs)
-            
-            # Add to batch
-            batch_log_probs.append(log_probs)
-            batch_returns.append(returns)
+            # Simplified: one log_prob and one total_reward per episode
+            # Add to batch (single values, not lists)
+            batch_log_probs.append(log_prob)
+            batch_returns.append(torch.tensor(total_reward, device=device, dtype=torch.float32))
             
             # Track episode reward
-            total_reward = sum(episode_rewards)
             episode_rewards_history.append(total_reward)
             batch_episode_rewards.append(total_reward)
             
             # Only update policy every batch_size episodes
             if (episode + 1) % config.batch_size == 0:
-                # Concatenate all episodes in batch
-                all_log_probs = torch.cat(batch_log_probs)
-                all_returns = torch.cat(batch_returns)
+                # Stack all episodes in batch (each is a single value now)
+                all_log_probs = torch.stack(batch_log_probs)
+                all_returns = torch.stack(batch_returns)
                 
                 # Update running baseline (exponential moving average)
                 batch_mean = all_returns.mean().item()
@@ -626,8 +590,7 @@ def train_sequential(config, args, device):
                 # Compute advantages using baseline (key for REINFORCE variance reduction!)
                 advantages = all_returns - baseline
                 advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
-                if advantages.std() > 1e-8:
-                    advantages = advantages / (advantages.std() + 1e-8)
+                # Do NOT normalize - magnitude matters for learning rate scaling
                 
                 # Policy gradient loss: -E[A(s,a) * log π(a|s)]
                 policy_loss = -(advantages * all_log_probs).mean()
@@ -667,10 +630,11 @@ def train_sequential(config, args, device):
                 avg_reward = np.mean(episode_rewards_history[-config.log_interval:])
                 current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
                 loss_str = f"{loss.item():8.4f}" if loss is not None else "    N/A "
+                baseline_str = f"{baseline:8.2f}" if baseline is not None else "    N/A "
                 print(f"Episode {episode+1:5d} | "
                       f"Reward: {total_reward:8.2f} | "
                       f"Avg: {avg_reward:8.2f} | "
-                      f"Baseline: {baseline:8.2f} | "
+                      f"Baseline: {baseline_str} | "
                       f"Loss: {loss_str} | "
                       f"σ_mean: {current_sigmas.mean():.4f} | "
                       f"Time: {episode_time:.1f}s")
@@ -687,7 +651,7 @@ def train_sequential(config, args, device):
                         "exploration/sigma_min": current_sigmas.min(),
                         "exploration/sigma_max": current_sigmas.max(),
                         "time/episode_seconds": episode_time,
-                        "steps/episode": len(episode_rewards),
+                        "steps/episode": chunk_size,  # Full chunk executed
                     })
             
             # Print 10-episode average every 10 episodes

@@ -302,6 +302,51 @@ class VectorizedMuJoCoEnv:
         
         return reward, lifted
     
+    def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
+        """
+        Execute full action chunk for each environment.
+        
+        This executes ALL actions in the chunk sequentially, accumulating rewards.
+        Much more efficient than querying the policy for each action.
+        
+        Args:
+            action_chunks: (N, chunk_size, 6) array of actions in radians
+            steps_per_action: Number of physics steps per action
+        
+        Returns:
+            total_rewards: (N,) array of accumulated rewards over all chunk actions
+            dones: (N,) boolean array indicating episode termination
+        """
+        num_envs, chunk_size, _ = action_chunks.shape
+        total_rewards = np.zeros(num_envs)
+        
+        for action_idx in range(chunk_size):
+            # Get actions for this timestep across all environments
+            actions_radians = action_chunks[:, action_idx, :]
+            
+            for i in range(num_envs):
+                if self.dones[i]:
+                    # Skip done environments
+                    continue
+                
+                d = self.datas[i]
+                action = actions_radians[i]
+                
+                # Convert to dictionary and execute
+                action_dict = convert_to_dictionary(action)
+                
+                for _ in range(steps_per_action):
+                    send_position_command(d, action_dict)
+                    mujoco.mj_step(self.model, d)
+                
+                # Compute reward for this step
+                reward, done = self._compute_reward(i)
+                total_rewards[i] += reward
+                self.dones[i] = done
+                self.episode_steps[i] += 1
+        
+        return total_rewards, self.dones.copy()
+    
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""
         return self.episode_steps.copy()

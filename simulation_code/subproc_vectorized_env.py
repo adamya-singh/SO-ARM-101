@@ -431,6 +431,41 @@ class SubprocMuJoCoEnv:
         
         return rewards, self.dones.copy()
     
+    def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
+        """
+        Execute full action chunk for each environment.
+        
+        This executes ALL actions in the chunk sequentially, accumulating rewards.
+        Much more efficient than querying the policy for each action.
+        
+        Args:
+            action_chunks: (N, chunk_size, 6) array of actions in radians
+            steps_per_action: Number of physics steps per action
+        
+        Returns:
+            total_rewards: (N,) array of accumulated rewards over all chunk actions
+            dones: (N,) boolean array indicating episode termination
+        """
+        num_envs, chunk_size, _ = action_chunks.shape
+        total_rewards = np.zeros(num_envs)
+        
+        # Execute each action in the chunk sequentially across all envs
+        for action_idx in range(chunk_size):
+            # Get actions for this timestep across all environments
+            actions_radians = action_chunks[:, action_idx, :]
+            
+            # Step all active environments
+            step_rewards, _ = self.step_all(actions_radians, steps_per_action)
+            
+            # Accumulate rewards
+            total_rewards += step_rewards
+            
+            # If all environments are done, stop early
+            if self.dones.all():
+                break
+        
+        return total_rewards, self.dones.copy()
+    
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""
         return self.episode_steps.copy()
