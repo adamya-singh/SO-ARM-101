@@ -270,6 +270,9 @@ def train_parallel(config, args, device):
     num_batches = config.num_episodes // num_envs
     total_episodes = 0
     
+    # Running baseline for variance reduction (key for REINFORCE!)
+    baseline = 0.0
+    
     try:
         for batch_idx in range(num_batches):
             batch_start_time = time.time()
@@ -341,10 +344,15 @@ def train_parallel(config, args, device):
             all_log_probs_tensor = torch.cat(batch_log_probs)
             all_returns_tensor = torch.cat(batch_returns)
             
-            # Normalize advantages
-            advantages = all_returns_tensor - all_returns_tensor.mean()
-            if all_returns_tensor.std() > 1e-8:
-                advantages = advantages / (all_returns_tensor.std() + 1e-8)
+            # Update running baseline (exponential moving average)
+            batch_mean = all_returns_tensor.mean().item()
+            baseline = 0.95 * baseline + 0.05 * batch_mean
+            
+            # Compute advantages using baseline (key for REINFORCE variance reduction!)
+            # This tells the policy "is this better or worse than average?"
+            advantages = all_returns_tensor - baseline
+            if advantages.std() > 1e-8:
+                advantages = advantages / (advantages.std() + 1e-8)
             
             # Policy gradient loss
             policy_loss = -(advantages * all_log_probs_tensor).mean()
@@ -376,6 +384,7 @@ def train_parallel(config, args, device):
             current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
             print(f"Batch {batch_idx+1:4d} ({total_episodes:5d} eps) | "
                   f"Avg Reward: {avg_reward:8.2f} | "
+                  f"Baseline: {baseline:8.2f} | "
                   f"Loss: {loss.item():8.4f} | "
                   f"σ_mean: {current_sigmas.mean():.4f} | "
                   f"Time: {batch_time:.1f}s ({batch_time/num_envs:.2f}s/ep)")
@@ -388,6 +397,7 @@ def train_parallel(config, args, device):
                     "reward/batch_avg": avg_reward,
                     "reward/batch_min": np.min(batch_total_rewards),
                     "reward/batch_max": np.max(batch_total_rewards),
+                    "reward/baseline": baseline,
                     "loss/policy": loss.item(),
                     "exploration/sigma_mean": current_sigmas.mean(),
                     "time/batch_seconds": batch_time,
@@ -524,6 +534,9 @@ def train_sequential(config, args, device):
         batch_episode_rewards = []  # Track rewards for each episode in batch
         batch_start_time = time.time()
         
+        # Running baseline for variance reduction (key for REINFORCE!)
+        baseline = 0.0
+        
         for episode in range(start_episode, config.num_episodes):
             episode_start_time = time.time()
             
@@ -597,10 +610,14 @@ def train_sequential(config, args, device):
                 all_log_probs = torch.cat(batch_log_probs)
                 all_returns = torch.cat(batch_returns)
                 
-                # Normalize advantages across entire batch
-                advantages = all_returns - all_returns.mean()
-                if all_returns.std() > 1e-8:
-                    advantages = advantages / (all_returns.std() + 1e-8)
+                # Update running baseline (exponential moving average)
+                batch_mean = all_returns.mean().item()
+                baseline = 0.95 * baseline + 0.05 * batch_mean
+                
+                # Compute advantages using baseline (key for REINFORCE variance reduction!)
+                advantages = all_returns - baseline
+                if advantages.std() > 1e-8:
+                    advantages = advantages / (advantages.std() + 1e-8)
                 
                 # Policy gradient loss: -E[A(s,a) * log π(a|s)]
                 policy_loss = -(advantages * all_log_probs).mean()
@@ -643,6 +660,7 @@ def train_sequential(config, args, device):
                 print(f"Episode {episode+1:5d} | "
                       f"Reward: {total_reward:8.2f} | "
                       f"Avg: {avg_reward:8.2f} | "
+                      f"Baseline: {baseline:8.2f} | "
                       f"Loss: {loss_str} | "
                       f"σ_mean: {current_sigmas.mean():.4f} | "
                       f"Time: {episode_time:.1f}s")
@@ -653,6 +671,7 @@ def train_sequential(config, args, device):
                         "episode": episode + 1,
                         "reward/episode": total_reward,
                         "reward/avg": avg_reward,
+                        "reward/baseline": baseline,
                         "loss/policy": loss.item() if loss is not None else None,
                         "exploration/sigma_mean": current_sigmas.mean(),
                         "exploration/sigma_min": current_sigmas.min(),
