@@ -350,11 +350,12 @@ def train_parallel(config, args, device):
             if baseline is None:
                 baseline = batch_mean  # Initialize from first batch!
             else:
-                baseline = 0.95 * baseline + 0.05 * batch_mean
+                baseline = 0.9 * baseline + 0.1 * batch_mean  # Faster adaptation
             
             # Compute advantages using baseline (key for REINFORCE variance reduction!)
             # This tells the policy "is this better or worse than average?"
             advantages = all_returns_tensor - baseline
+            advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
             if advantages.std() > 1e-8:
                 advantages = advantages / (advantages.std() + 1e-8)
             
@@ -620,10 +621,11 @@ def train_sequential(config, args, device):
                 if baseline is None:
                     baseline = batch_mean  # Initialize from first batch!
                 else:
-                    baseline = 0.95 * baseline + 0.05 * batch_mean
+                    baseline = 0.9 * baseline + 0.1 * batch_mean  # Faster adaptation
                 
                 # Compute advantages using baseline (key for REINFORCE variance reduction!)
                 advantages = all_returns - baseline
+                advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
                 if advantages.std() > 1e-8:
                     advantages = advantages / (advantages.std() + 1e-8)
                 
