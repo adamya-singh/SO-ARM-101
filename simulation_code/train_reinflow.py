@@ -98,7 +98,7 @@ class TrainingConfig:
     
     # What to train
     train_action_head = True   # Train action_out_proj (23K params)
-    train_time_mlp = False     # Disabled for Phase 1 (fewer params = more stable)
+    train_time_mlp = True
     
     # Policy execution
     steps_per_action = 10  # Physics steps per policy action
