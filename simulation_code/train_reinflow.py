@@ -271,7 +271,8 @@ def train_parallel(config, args, device):
     total_episodes = 0
     
     # Running baseline for variance reduction (key for REINFORCE!)
-    baseline = 0.0
+    # Initialize as None - will be set from first batch's mean
+    baseline = None
     
     try:
         for batch_idx in range(num_batches):
@@ -346,7 +347,10 @@ def train_parallel(config, args, device):
             
             # Update running baseline (exponential moving average)
             batch_mean = all_returns_tensor.mean().item()
-            baseline = 0.95 * baseline + 0.05 * batch_mean
+            if baseline is None:
+                baseline = batch_mean  # Initialize from first batch!
+            else:
+                baseline = 0.95 * baseline + 0.05 * batch_mean
             
             # Compute advantages using baseline (key for REINFORCE variance reduction!)
             # This tells the policy "is this better or worse than average?"
@@ -535,7 +539,8 @@ def train_sequential(config, args, device):
         batch_start_time = time.time()
         
         # Running baseline for variance reduction (key for REINFORCE!)
-        baseline = 0.0
+        # Initialize as None - will be set from first batch's mean
+        baseline = None
         
         for episode in range(start_episode, config.num_episodes):
             episode_start_time = time.time()
@@ -612,7 +617,10 @@ def train_sequential(config, args, device):
                 
                 # Update running baseline (exponential moving average)
                 batch_mean = all_returns.mean().item()
-                baseline = 0.95 * baseline + 0.05 * batch_mean
+                if baseline is None:
+                    baseline = batch_mean  # Initialize from first batch!
+                else:
+                    baseline = 0.95 * baseline + 0.05 * batch_mean
                 
                 # Compute advantages using baseline (key for REINFORCE variance reduction!)
                 advantages = all_returns - baseline
