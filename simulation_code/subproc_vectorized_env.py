@@ -159,46 +159,62 @@ def _worker(
             distance_delta = prev_distance - distance
             reward += 5.0 * distance_delta
         
-        # 3. Block height bonus
-        initial_block_z = 0.0125
-        height_gain = max(0, block_pos_current[2] - initial_block_z)
-        reward += 20.0 * height_gain
+        # ===== PHASE 1: Keep only basic rewards =====
         
-        # 4. Close proximity bonus
+        # 3. Close proximity bonus
         if distance < 0.05:
-            reward += 0.5
+            reward += 1.0  # increased from 0.5
         
-        # 5. Success bonus
-        lifted = block_pos_current[2] > lift_threshold
-        if lifted:
-            reward += 50.0
+        # ===== PHASE 2: Uncomment after approach behavior works =====
+        # (Commented out for Phase 1 - validate approach learning first)
         
-        # 6. Block displacement penalty
-        if block_pos_current[2] < 0.05:
-            displacement = np.linalg.norm(block_pos_current[:2] - initial_block_pos[:2])
-            threshold = 0.05
-            if displacement > threshold:
-                excess = displacement - threshold
-                reward += -5.0 * (np.exp(10.0 * excess) - 1)
+        # # 4. Block height bonus
+        # initial_block_z = 0.0125
+        # height_gain = max(0, block_pos_current[2] - initial_block_z)
+        # reward += 20.0 * height_gain
         
-        # 7. Contact bonus
-        if check_gripper_block_contact(model, data, "red_block"):
-            reward += 3.0
+        # # 5. Contact bonus
+        # if check_gripper_block_contact(model, data, "red_block"):
+        #     reward += 3.0
         
-        # 8. Grip bonus
-        is_gripped, _ = check_block_gripped_with_force(model, data, "red_block")
-        if is_gripped:
-            reward += 5.0
+        # # 6. Grip bonus
+        # is_gripped, _ = check_block_gripped_with_force(model, data, "red_block")
+        # if is_gripped:
+        #     reward += 5.0
         
-        # 9. Floor contact penalty
-        floor_force = get_floor_contact_force(model, data)
-        if floor_force > 0:
-            raw_penalty = -1.0 * np.exp(floor_force)
-            reward += max(raw_penalty, -50.0)
+        # ===== PHASE 3: Uncomment after contact/grip learning works =====
+        # (Commented out for Phase 1)
+        
+        # # 7. Success bonus
+        # lifted = block_pos_current[2] > lift_threshold
+        # if lifted:
+        #     reward += 50.0
+        
+        # ===== PHASE 4: Add penalties last (volatile) =====
+        # (Commented out for Phase 1)
+        
+        # # 8. Block displacement penalty
+        # if block_pos_current[2] < 0.05:
+        #     displacement = np.linalg.norm(block_pos_current[:2] - initial_block_pos[:2])
+        #     threshold = 0.05
+        #     if displacement > threshold:
+        #         excess = displacement - threshold
+        #         reward += -5.0 * (np.exp(10.0 * excess) - 1)
+        
+        # # 9. Floor contact penalty
+        # floor_force = get_floor_contact_force(model, data)
+        # if floor_force > 0:
+        #     raw_penalty = -1.0 * np.exp(floor_force)
+        #     reward += max(raw_penalty, -50.0)
+        
+        # ===== END PHASE SECTIONS =====
         
         # Update tracking state
         prev_gripper_pos = gripper_pos.copy()
         prev_block_pos = block_pos_current.copy()
+        
+        # Phase 1: Never done - let episodes run full length to learn approach
+        lifted = False
         
         return reward, lifted
     

@@ -390,53 +390,69 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
         approach_reward = 5.0 * distance_delta  # scale factor (increased from 4.0)
         reward += approach_reward
     
-    # 3. Block height bonus (reward lifting block above initial z=0.025)
-    initial_block_z = 0.0125  # Half-size block
-    height_gain = max(0, block_pos[2] - initial_block_z)
-    height_reward = 20.0 * height_gain  # stronger reward for any lifting
-    reward += height_reward
+    # ===== PHASE 1: Keep only these basic rewards =====
     
-    # 4. Close proximity bonus (extra reward when very close)
+    # 3. Close proximity bonus (extra reward when very close)
     if distance < 0.05:
-        reward += 0.5  # bonus for being within 5cm
+        reward += 1.0  # bonus for being within 5cm (increased from 0.5)
     
-    # 5. Success bonus (block lifted above threshold)
-    lifted = block_pos[2] > lift_threshold
-    if lifted:
-        reward += 50.0  # large success bonus
+    # ===== PHASE 2: Uncomment after approach behavior works =====
+    # (Commented out for Phase 1 - validate approach learning first)
     
-    # 6. Block displacement penalty (exponential, kicks in after 5cm)
-    # Penalizes knocking the block away, but allows small nudges
-    # Only applies when block isn't being lifted (Z < 5cm)
-    if block_pos[2] < 0.05:
-        displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
-        threshold = 0.05  # 5cm tolerance
-        if displacement > threshold:
-            excess = displacement - threshold
-            displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
-            reward += displacement_penalty
+    # # 4. Block height bonus (reward lifting block above initial z=0.025)
+    # initial_block_z = 0.0125  # Half-size block
+    # height_gain = max(0, block_pos[2] - initial_block_z)
+    # height_reward = 20.0 * height_gain  # stronger reward for any lifting
+    # reward += height_reward
     
-    # 7. Contact bonus (gripper touching the block!)
-    if check_gripper_block_contact(m, d, block_name):
-        reward += 3.0  # Bonus for making contact
+    # # 5. Contact bonus (gripper touching the block!)
+    # if check_gripper_block_contact(m, d, block_name):
+    #     reward += 3.0  # Bonus for making contact
     
-    # 8. Grip bonus (block squeezed between both gripper parts!)
-    is_gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
-    if is_gripped:
-        reward += 5.0  # Additional bonus for actual grip
+    # # 6. Grip bonus (block squeezed between both gripper parts!)
+    # is_gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
+    # if is_gripped:
+    #     reward += 5.0  # Additional bonus for actual grip
     
-    # 9. Floor contact penalty (exponential with force magnitude, CLAMPED)
-    floor_force = get_floor_contact_force(m, d)
-    if floor_force > 0:
-        # Exponential scaling but capped to prevent reward explosion
-        # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
-        raw_penalty = -1.0 * np.exp(floor_force)
-        floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
-        reward += floor_penalty
+    # ===== PHASE 3: Uncomment after contact/grip learning works =====
+    # (Commented out for Phase 1)
+    
+    # # 7. Success bonus (block lifted above threshold)
+    # lifted = block_pos[2] > lift_threshold
+    # if lifted:
+    #     reward += 50.0  # large success bonus
+    
+    # ===== PHASE 4: Add penalties last (volatile, can destabilize training) =====
+    # (Commented out for Phase 1)
+    
+    # # 8. Block displacement penalty (exponential, kicks in after 5cm)
+    # # Penalizes knocking the block away, but allows small nudges
+    # # Only applies when block isn't being lifted (Z < 5cm)
+    # if block_pos[2] < 0.05:
+    #     displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
+    #     threshold = 0.05  # 5cm tolerance
+    #     if displacement > threshold:
+    #         excess = displacement - threshold
+    #         displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
+    #         reward += displacement_penalty
+    
+    # # 9. Floor contact penalty (exponential with force magnitude, CLAMPED)
+    # floor_force = get_floor_contact_force(m, d)
+    # if floor_force > 0:
+    #     # Exponential scaling but capped to prevent reward explosion
+    #     # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
+    #     raw_penalty = -1.0 * np.exp(floor_force)
+    #     floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
+    #     reward += floor_penalty
+    
+    # ===== END PHASE SECTIONS =====
     
     # Update previous positions for next step
     _prev_gripper_pos = gripper_pos.copy()
     _prev_block_pos = block_pos.copy()
+    
+    # Phase 1: Never done - let episodes run full length to learn approach
+    lifted = False
     
     return reward, lifted
 
