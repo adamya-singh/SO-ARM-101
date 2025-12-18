@@ -87,18 +87,19 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.95  # Discount factor
-    lr = 0.0003
-    grad_clip_norm = 1.0
+    lr = 0.00003  # Lower LR for full expert training (was 0.0003)
+    grad_clip_norm = 0.5  # Tighter clipping for stability (was 1.0)
     batch_size = 30  # Number of episodes to accumulate before gradient update
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
     init_log_sigma = -0.7    # Initial noise scale (exp(-0.7) ≈ 0.5, good exploration)
-    entropy_coef = 0.05       # Entropy bonus to prevent sigma collapse (raised from 0.001)
+    entropy_coef = 0.01       # Reduced for full expert (was 0.05)
     
     # What to train
-    train_action_head = True   # Train action_out_proj (23K params)
-    train_time_mlp = True
+    train_action_head = True   # Train action_out_proj (23K params) - ignored if train_full_expert=True
+    train_time_mlp = True      # Ignored if train_full_expert=True
+    train_full_expert = True   # Train entire Action Expert (~100M params)
     
     # Policy execution
     steps_per_action = 10  # Physics steps per policy action
@@ -153,6 +154,10 @@ def parse_args():
                         help='Use subprocess-based parallel rendering (true parallelism across CPU cores)')
     parser.add_argument('--no-wandb', action='store_true',
                         help='Disable Weights & Biases logging')
+    parser.add_argument('--full-expert', action='store_true',
+                        help='Train entire Action Expert (~100M params) instead of just output layers')
+    parser.add_argument('--no-full-expert', action='store_true',
+                        help='Disable full expert training (train only output layers ~540K params)')
     return parser.parse_args()
 
 
@@ -203,6 +208,7 @@ def train_parallel(config, args, device):
         init_log_sigma=config.init_log_sigma,
         train_action_head=config.train_action_head,
         train_time_mlp=config.train_time_mlp,
+        train_full_expert=config.train_full_expert,
     )
     
     # Load checkpoint if resuming
@@ -233,6 +239,7 @@ def train_parallel(config, args, device):
                 "max_steps_per_episode": config.max_steps_per_episode,
                 "train_action_head": config.train_action_head,
                 "train_time_mlp": config.train_time_mlp,
+                "train_full_expert": config.train_full_expert,
                 "num_parallel_envs": config.num_parallel_envs,
                 "use_subproc_env": config.use_subproc_env,
             },
@@ -449,6 +456,7 @@ def train_sequential(config, args, device):
         init_log_sigma=config.init_log_sigma,
         train_action_head=config.train_action_head,
         train_time_mlp=config.train_time_mlp,
+        train_full_expert=config.train_full_expert,
     )
     
     # Load checkpoint if resuming or if specified
@@ -479,6 +487,7 @@ def train_sequential(config, args, device):
                 "max_steps_per_episode": config.max_steps_per_episode,
                 "train_action_head": config.train_action_head,
                 "train_time_mlp": config.train_time_mlp,
+                "train_full_expert": config.train_full_expert,
             },
         )
         wandb_run_id = wandb.run.id  # Update to current run ID for saving
@@ -719,6 +728,10 @@ def train(config=None, args=None):
             config.use_subproc_env = True
         if args.no_wandb:
             config.wandb_enabled = False
+        if args.full_expert:
+            config.train_full_expert = True
+        if args.no_full_expert:
+            config.train_full_expert = False
     
     # Device setup
     if torch.backends.mps.is_available():
