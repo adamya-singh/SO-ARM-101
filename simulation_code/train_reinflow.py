@@ -87,7 +87,7 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.95  # Discount factor
-    lr = 0.0001
+    lr = 0.0003
     grad_clip_norm = 1.0
     batch_size = 30  # Number of episodes to accumulate before gradient update
     
