@@ -814,10 +814,11 @@ class VLAFlowMatching(nn.Module):
                 eps = torch.randn_like(x_t)
                 x_next = mu + sigma * eps
                 
-                # FIX 2: Compute diff to create gradient path through mu
-                # diff = x_next - mu creates gradient through mu -> v_t -> network
-                # Mathematically diff == sigma * eps, but mu is now in the computation graph
-                diff = x_next - mu
+                # Reparameterization trick: detach x_next so gradient flows through mu
+                # Without detach: diff = x_next - mu = sigma*eps, so ∂diff/∂mu = 0
+                # With detach: diff = x_next.detach() - mu, so ∂diff/∂mu = -1
+                x_next_stopped = x_next.detach()
+                diff = x_next_stopped - mu
                 log_prob = log_prob + (-0.5 * (
                     (diff ** 2).sum(dim=(-1, -2)) / (sigma ** 2) + 
                     d * (math.log(2 * math.pi) + 2 * log_sigmas[step_idx])
