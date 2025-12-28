@@ -348,6 +348,11 @@ class ReinFlowSmolVLA(nn.Module):
         This runs the VLM prefix encoding and pools the output to get a
         fixed-size feature vector that represents the observation state.
         
+        Note: We pass dummy action embeddings to satisfy the cross-attention
+        expert layers. The critic only uses the prefix_out (observation features),
+        matching the ReinFlow paper's approach where "the critic only receives
+        features from time and condition."
+        
         Args:
             observation: dict with observation tensors (images, state, language)
             
@@ -369,12 +374,20 @@ class ReinFlowSmolVLA(nn.Module):
         prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
         
-        # Forward through VLM (just prefix, no action suffix)
+        # Create dummy action embeddings for the expert cross-attention layers
+        # Shape: (batch, 1, expert_hidden_size) - minimal dummy to satisfy forward pass
+        batch_size = prefix_embs.shape[0]
+        device = prefix_embs.device
+        dtype = prefix_embs.dtype
+        expert_hidden_size = self.base.model.vlm_with_expert.expert_hidden_size
+        dummy_expert_embs = torch.zeros(batch_size, 1, expert_hidden_size, device=device, dtype=dtype)
+        
+        # Forward through VLM (with dummy expert embeddings to avoid None error)
         (prefix_out, _), _ = self.base.model.vlm_with_expert.forward(
             attention_mask=prefix_att_2d_masks,
             position_ids=prefix_position_ids,
             past_key_values=None,
-            inputs_embeds=[prefix_embs, None],
+            inputs_embeds=[prefix_embs, dummy_expert_embs],
             use_cache=False,
             fill_kv_cache=False,
         )
