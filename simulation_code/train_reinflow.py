@@ -104,8 +104,8 @@ class TrainingConfig:
     chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
     # ReinFlow noise bounds (paper Table 7b)
-    sigma_min = 0.08  # Minimum noise std
-    sigma_max = 0.16  # Maximum noise std
+    sigma_min = 0.02  # Minimum noise std (reduced for visual tasks)
+    sigma_max = 0.04  # Maximum noise std (reduced for visual tasks)
     
     # Noise decay schedule (paper Appendix D)
     noise_decay_start = 0.35    # Hold sigma_max for 35% of training
