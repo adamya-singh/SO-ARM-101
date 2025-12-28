@@ -504,8 +504,9 @@ class VLAFlowMatching(nn.Module):
         )
         
         # Hyperparameters for bounded noise (tanh squashing as per ReinFlow paper)
-        self.sigma_min = 0.01  # Minimum noise std
-        self.sigma_max = 0.5   # Maximum noise std
+        # Paper Table 7b: sigma_min=0.08-0.10, sigma_max=0.16-0.24 for state tasks
+        self.sigma_min = 0.08  # Minimum noise std (was 0.01)
+        self.sigma_max = 0.16  # Maximum noise std (was 0.5)
 
         self.action_time_mlp_in = nn.Linear(
             self.vlm_with_expert.expert_hidden_size * 2, self.vlm_with_expert.expert_hidden_size
@@ -835,6 +836,10 @@ class VLAFlowMatching(nn.Module):
             # Inject noise from the noise network (ReinFlow core!)
             eps = torch.randn_like(x_t)
             x_next = mu + sigma_t * eps
+            
+            # Clip denoised actions to [-1, 1] (paper Appendix D.2)
+            # "we clip the denoised actions to prevent noise from interrupting the path too violently"
+            x_next = torch.clamp(x_next, -1.0, 1.0)
             
             # Store trajectory and sigma
             trajectory.append(x_next.clone())  # Store a^{k+1}

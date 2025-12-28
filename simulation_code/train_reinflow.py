@@ -42,6 +42,7 @@ import mujoco
 import mujoco.viewer
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import wandb
 
@@ -93,14 +94,28 @@ class TrainingConfig:
     # Training hyperparameters
     num_episodes = 3000
     max_steps_per_episode = 50
-    gamma = 0.95  # Discount factor
+    gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
     policy_lr = 0.00003  # Policy learning rate (lower for stability)
     critic_lr = 0.0001   # Critic learning rate (can be higher)
     grad_clip_norm = 0.5  # Gradient clipping for stability
     
     # ReinFlow specific
-    num_denoising_steps = 10  # Must match SmolVLA config
+    num_denoising_steps = 4  # Paper uses K=4 for most tasks (was 10)
     chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
+    
+    # ReinFlow noise bounds (paper Table 7b)
+    sigma_min = 0.08  # Minimum noise std
+    sigma_max = 0.16  # Maximum noise std
+    
+    # Noise decay schedule (paper Appendix D)
+    noise_decay_start = 0.35    # Hold sigma_max for 35% of training
+    noise_decay_ratio = 0.7     # Decay to 0.3*sigma_min + 0.7*sigma_max
+    
+    # Entropy regularization (paper Section 4.4)
+    entropy_coeff = 0.03  # Paper default for state tasks
+    
+    # Critic warmup (paper Appendix D.2)
+    critic_warmup_iters = 2  # Paper uses 2-5 iterations
     
     # What to train
     train_action_head = True   # Train action_out_proj (velocity head)
@@ -137,10 +152,38 @@ class TrainingConfig:
     # PPO Hyperparameters (paper-faithful)
     num_ppo_epochs = 4          # Number of PPO epochs per update
     minibatch_size = 8          # Mini-batch size for PPO updates
-    clip_epsilon = 0.2          # PPO clip range for policy ratio
+    clip_epsilon = 0.01         # PPO clip range (paper uses 0.01 for state tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 0.01            # KL divergence threshold for early stopping
+    target_kl = 1.0             # KL divergence threshold (paper uses 1.0 for state tasks)
+
+
+def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
+    """
+    Get current noise bounds with decay schedule (paper Appendix D).
+    
+    The paper holds sigma_max constant for the first portion of training,
+    then decays it linearly to improve precision in later stages.
+    
+    Args:
+        episode: Current episode number
+        total_episodes: Total number of episodes
+        config: TrainingConfig with sigma_min, sigma_max, noise_decay_start, noise_decay_ratio
+        
+    Returns:
+        (sigma_min, sigma_max): Current noise bounds
+    """
+    progress = episode / total_episodes if total_episodes > 0 else 0.0
+    
+    if progress < config.noise_decay_start:
+        # Hold at initial bounds for first portion of training
+        return config.sigma_min, config.sigma_max
+    else:
+        # Decay sigma_max linearly
+        decay_progress = (progress - config.noise_decay_start) / (1.0 - config.noise_decay_start)
+        # Decay from sigma_max to sigma_max * noise_decay_ratio
+        new_sigma_max = config.sigma_max * (1.0 - decay_progress * (1.0 - config.noise_decay_ratio))
+        return config.sigma_min, max(new_sigma_max, config.sigma_min)
 
 
 def parse_args():
@@ -294,14 +337,74 @@ def train_parallel(config, args, device):
     print(f"Clip epsilon: {config.clip_epsilon}")
     print(f"GAE lambda: {config.gae_lambda}")
     print(f"Target KL: {config.target_kl}")
+    print(f"Entropy coeff: {config.entropy_coeff}")
+    print(f"Critic warmup iters: {config.critic_warmup_iters}")
     print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
     
     total_episodes = 0
     
+    # ===== CRITIC WARMUP (paper Appendix D.2) =====
+    # Train critic for a few iterations before updating actor
+    # This ensures value estimates are reasonable before policy gradients
+    if config.critic_warmup_iters > 0:
+        print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
+        for warmup_iter in range(config.critic_warmup_iters):
+            vec_env.reset_all()
+            
+            # Collect one episode worth of data
+            warmup_observations = []
+            warmup_rewards = []
+            
+            for chunk_idx in range(config.chunks_per_episode):
+                obs_dict = vec_env.get_batched_observations(device)
+                observation = prepare_batched_observation(
+                    obs_dict, config.instruction, device, rl_policy, num_envs
+                )
+                warmup_observations.append(observation)
+                
+                action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
+                action_chunks_np = action_chunks.detach().cpu().numpy()
+                action_chunks_radians = np.stack([
+                    np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
+                    for chunk in action_chunks_np
+                ])
+                
+                chunk_rewards, dones = vec_env.step_all_chunk(
+                    action_chunks_radians, config.steps_per_action
+                )
+                warmup_rewards.extend(chunk_rewards.tolist())
+                
+                if dones.all():
+                    break
+            
+            # Only update critic (not actor)
+            if len(warmup_observations) > 0:
+                # Stack observations and compute critic loss
+                obs_batch = warmup_observations[0]  # Use first observation
+                rewards_tensor = torch.tensor(warmup_rewards[:num_envs], device=device, dtype=torch.float32)
+                
+                values = rl_policy.get_value(obs_batch)
+                critic_loss = F.mse_loss(values, rewards_tensor)
+                
+                critic_optimizer.zero_grad()
+                critic_loss.backward()
+                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                critic_optimizer.step()
+                
+                print(f"  [Warmup {warmup_iter+1}/{config.critic_warmup_iters}] Critic loss: {critic_loss.item():.4f}")
+        
+        print(f"[Critic Warmup] Complete!\n")
+    
     try:
         for episode_batch in range(config.num_episodes // num_envs):
             batch_start_time = time.time()
+            
+            # Update noise bounds with decay schedule (paper Appendix D)
+            current_episode = episode_batch * num_envs
+            sigma_min, sigma_max = get_noise_bounds(current_episode, config.num_episodes, config)
+            rl_policy.base.model.sigma_min = sigma_min
+            rl_policy.base.model.sigma_max = sigma_max
             
             # Reset all environments
             vec_env.reset_all()
@@ -424,7 +527,7 @@ def train_parallel(config, args, device):
                         mb_old_log_probs = old_log_probs[mb_indices]
                         mb_old_values = old_values[mb_indices]
                         
-                        # Compute PPO loss
+                        # Compute PPO loss with entropy regularization
                         policy_loss, critic_loss, loss_info = compute_ppo_loss(
                             rl_policy,
                             mb_trajectories,
@@ -435,6 +538,7 @@ def train_parallel(config, args, device):
                             clip_epsilon=config.clip_epsilon,
                             value_clip_epsilon=config.value_clip_epsilon,
                             old_values=mb_old_values,
+                            entropy_coeff=config.entropy_coeff,
                         )
                         
                         # Check KL divergence for early stopping
@@ -495,11 +599,14 @@ def train_parallel(config, args, device):
                     "reward/batch_max": np.max(episode_rewards),
                     "loss/policy": avg_policy_loss,
                     "loss/critic": avg_critic_loss,
+                    "loss/entropy": loss_info.get('entropy', 0),
                     "training/kl_divergence": avg_kl_div,
                     "training/clip_fraction": loss_info.get('clip_fraction', 0),
                     "training/value_mean": loss_info.get('value_mean', 0),
                     "training/advantage_mean": loss_info.get('advantage_mean', 0),
                     "training/learning_rate": current_lr,
+                    "training/sigma_min": sigma_min,
+                    "training/sigma_max": sigma_max,
                     "time/batch_seconds": batch_time,
                 }
                 wandb.log(log_dict)
@@ -639,6 +746,8 @@ def train_sequential(config, args, device):
     print(f"Clip epsilon: {config.clip_epsilon}")
     print(f"GAE lambda: {config.gae_lambda}")
     print(f"Target KL: {config.target_kl}")
+    print(f"Entropy coeff: {config.entropy_coeff}")
+    print(f"Critic warmup iters: {config.critic_warmup_iters}")
     print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
     
@@ -647,9 +756,85 @@ def train_sequential(config, args, device):
     if config.render:
         viewer = mujoco.viewer.launch_passive(m, d)
     
+    # ===== CRITIC WARMUP (paper Appendix D.2) =====
+    # Train critic for a few iterations before updating actor
+    if config.critic_warmup_iters > 0:
+        print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
+        for warmup_iter in range(config.critic_warmup_iters):
+            reset_env(m, d, config.starting_position)
+            reset_reward_state()
+            
+            # Collect one episode worth of data
+            warmup_rewards = []
+            warmup_done = False
+            warmup_observation = None
+            
+            for chunk_idx in range(config.chunks_per_episode):
+                if warmup_done:
+                    break
+                    
+                rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
+                rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
+                robot_state = get_robot_state(d)
+                
+                warmup_observation = prepare_observation_for_reinflow(
+                    rgb_top, rgb_wrist, rgb_side, robot_state,
+                    config.instruction, device, rl_policy
+                )
+                
+                action_chunk, _, _ = rl_policy.forward_with_trajectory(warmup_observation)
+                
+                # Execute chunk and collect rewards
+                chunk_reward = 0.0
+                chunk_size = action_chunk.shape[1]
+                
+                for action_idx in range(chunk_size):
+                    if warmup_done:
+                        break
+                    
+                    action = action_chunk[0, action_idx]
+                    action_np = action.detach().cpu().numpy()
+                    action_radians = unnormalize_action_from_smolvla(action_np)
+                    action_dict = convert_to_dictionary(action_radians)
+                    
+                    # Execute action
+                    for _ in range(config.steps_per_action):
+                        send_position_command(d, action_dict)
+                        mujoco.mj_step(m, d)
+                        if viewer is not None:
+                            viewer.sync()
+                    
+                    # Get reward
+                    reward, warmup_done = compute_reward(m, d, lift_threshold=config.lift_threshold)
+                    chunk_reward += reward
+                
+                warmup_rewards.append(chunk_reward)
+            
+            # Only update critic (not actor)
+            if len(warmup_rewards) > 0 and warmup_observation is not None:
+                total_reward = sum(warmup_rewards)
+                value = rl_policy.get_value(warmup_observation)
+                target = torch.tensor([total_reward], device=device, dtype=torch.float32)
+                critic_loss = F.mse_loss(value, target)
+                
+                critic_optimizer.zero_grad()
+                critic_loss.backward()
+                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                critic_optimizer.step()
+                
+                print(f"  [Warmup {warmup_iter+1}/{config.critic_warmup_iters}] Critic loss: {critic_loss.item():.4f}, Reward: {total_reward:.4f}")
+        
+        print(f"[Critic Warmup] Complete!\n")
+    
     try:
         for episode in range(start_episode, config.num_episodes):
             episode_start_time = time.time()
+            
+            # Update noise bounds with decay schedule (paper Appendix D)
+            sigma_min, sigma_max = get_noise_bounds(episode, config.num_episodes, config)
+            rl_policy.base.model.sigma_min = sigma_min
+            rl_policy.base.model.sigma_max = sigma_max
             
             # Reset environment
             reset_env(m, d, config.starting_position)
@@ -790,7 +975,7 @@ def train_sequential(config, args, device):
                         mb_old_log_probs = old_log_probs[mb_indices]
                         mb_old_values = old_values[mb_indices]
                         
-                        # Compute PPO loss
+                        # Compute PPO loss with entropy regularization
                         policy_loss, critic_loss, loss_info = compute_ppo_loss(
                             rl_policy,
                             mb_trajectories,
@@ -801,6 +986,7 @@ def train_sequential(config, args, device):
                             clip_epsilon=config.clip_epsilon,
                             value_clip_epsilon=config.value_clip_epsilon,
                             old_values=mb_old_values,
+                            entropy_coeff=config.entropy_coeff,
                         )
                         
                         # Check KL divergence for early stopping
@@ -859,11 +1045,14 @@ def train_sequential(config, args, device):
                         "reward/avg": avg_reward,
                         "loss/policy": avg_policy_loss,
                         "loss/critic": avg_critic_loss,
+                        "loss/entropy": loss_info.get('entropy', 0),
                         "training/kl_divergence": avg_kl_div,
                         "training/clip_fraction": loss_info.get('clip_fraction', 0),
                         "training/value_mean": loss_info.get('value_mean', 0),
                         "training/advantage_mean": loss_info.get('advantage_mean', 0),
                         "training/learning_rate": current_lr,
+                        "training/sigma_min": sigma_min,
+                        "training/sigma_max": sigma_max,
                         "time/episode_seconds": episode_time,
                     })
             

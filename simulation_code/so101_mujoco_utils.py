@@ -405,9 +405,9 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     # height_reward = 20.0 * height_gain  # stronger reward for any lifting
     # reward += height_reward
     
-    # # 5. Contact bonus (gripper touching the block!)
-    # if check_gripper_block_contact(m, d, block_name):
-    #     reward += 3.0  # Bonus for making contact
+    # 5. Contact bonus (gripper touching the block!)
+    if check_gripper_block_contact(m, d, block_name):
+        reward += 3.0  # Bonus for making contact
     
     # # 6. Grip bonus (block squeezed between both gripper parts!)
     # is_gripped, grip_force = check_block_gripped_with_force(m, d, block_name)

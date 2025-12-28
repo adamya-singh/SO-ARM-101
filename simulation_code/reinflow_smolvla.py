@@ -30,6 +30,43 @@ from so101_mujoco_utils import normalize_state_for_smolvla
 import torch.nn.functional as F
 
 
+def compute_entropy_regularization(sigmas: List[Tensor], K: int) -> Tensor:
+    """
+    Compute per-symbol entropy rate for ReinFlow (paper Section 4.4).
+    
+    R_h = -1/(K+1) * E[h(a^0, ..., a^K | o, θ̄)]
+    
+    For Gaussian noise at each step:
+    h(N(μ, σ²)) = 0.5 * log(2πe * σ²) = 0.5 * (1 + log(2π) + 2*log(σ))
+    
+    Args:
+        sigmas: List of K tensors, each (batch, chunk_size, action_dim)
+        K: Number of denoising steps
+        
+    Returns:
+        entropy: Scalar tensor representing average entropy (higher = more exploration)
+    """
+    if len(sigmas) == 0:
+        return torch.tensor(0.0)
+    
+    device = sigmas[0].device
+    total_entropy = torch.tensor(0.0, device=device)
+    
+    for sigma in sigmas:
+        # Entropy of multivariate Gaussian with diagonal covariance
+        # h(N(μ, Σ)) = 0.5 * d * (1 + log(2π)) + 0.5 * log(det(Σ))
+        # For diagonal Σ: log(det(Σ)) = sum(log(σ_i²)) = 2 * sum(log(σ_i))
+        d = sigma.shape[-1] * sigma.shape[-2]  # action_dim * chunk_size
+        
+        # Per-sample entropy: 0.5 * d * (1 + log(2π)) + sum(log(σ))
+        log_sigma_sum = torch.log(sigma + 1e-8).sum(dim=(-1, -2))  # (batch,)
+        entropy_per_sample = 0.5 * d * (1 + math.log(2 * math.pi)) + log_sigma_sum
+        total_entropy = total_entropy + entropy_per_sample.mean()
+    
+    # Normalize by (K+1) as per paper (per-symbol entropy rate)
+    return total_entropy / (K + 1)
+
+
 class ReinFlowCritic(nn.Module):
     """
     Value function V(s) for actor-critic ReinFlow training.
@@ -459,6 +496,7 @@ def compute_trajectory_log_probs_onpolicy(
     policy: ReinFlowSmolVLA,
     trajectories: List[Tensor],
     observations: Dict[str, Tensor],
+    return_sigmas: bool = False,
 ) -> Tensor:
     """
     On-policy log probability computation - recomputes BOTH velocity AND sigma.
@@ -477,9 +515,11 @@ def compute_trajectory_log_probs_onpolicy(
         trajectories: List of K+1 tensors [a^0, a^1, ..., a^K] for single trajectory
                      OR batched tensor of shape (batch, K+1, chunk, action_dim)
         observations: Dict of observation tensors (can be batched)
+        return_sigmas: If True, also return list of sigmas for entropy computation
             
     Returns:
         log_probs: (batch_size,) tensor of summed log probabilities
+        sigmas: (optional) List of K sigma tensors if return_sigmas=True
     """
     # Handle both list and tensor formats
     if isinstance(trajectories, list):
@@ -517,6 +557,7 @@ def compute_trajectory_log_probs_onpolicy(
     
     dt = -1.0 / num_steps
     total_log_probs = torch.zeros(batch_size, device=device)
+    collected_sigmas = []  # For entropy regularization
     
     for k in range(num_steps):
         t_k = 1.0 + k * dt
@@ -531,6 +572,10 @@ def compute_trajectory_log_probs_onpolicy(
         v_k, sigma_k = policy.base.model.denoise_step(
             prefix_pad_masks, past_key_values, a_k, t_k_tensor, return_sigma=True
         )
+        
+        # Collect sigma for entropy computation
+        if return_sigmas:
+            collected_sigmas.append(sigma_k)
         
         # Mean of transition: μ_k = a^k + v_θ(t_k, a^k, o) * Δt
         mu_k = a_k + dt * v_k
@@ -549,6 +594,8 @@ def compute_trajectory_log_probs_onpolicy(
         
         total_log_probs = total_log_probs + log_prob_k
     
+    if return_sigmas:
+        return total_log_probs, collected_sigmas
     return total_log_probs
 
 
@@ -634,6 +681,7 @@ def compute_ppo_loss(
     clip_epsilon: float = 0.2,
     value_clip_epsilon: float = 0.2,
     old_values: Optional[Tensor] = None,
+    entropy_coeff: float = 0.0,
 ) -> Tuple[Tensor, Tensor, Dict[str, float]]:
     """
     Compute PPO clipped surrogate objective for ReinFlow training.
@@ -642,6 +690,7 @@ def compute_ppo_loss(
     - Policy loss: clipped surrogate objective
     - Critic loss: MSE between value estimates and returns (optionally clipped)
     - KL divergence monitoring for early stopping
+    - Entropy regularization for exploration (paper Section 4.4)
     
     Args:
         policy: ReinFlowSmolVLA policy with critic
@@ -653,6 +702,7 @@ def compute_ppo_loss(
         clip_epsilon: PPO clip range for policy ratio
         value_clip_epsilon: Clip range for value function (0 to disable)
         old_values: (batch_size,) tensor of old value estimates (for value clipping)
+        entropy_coeff: Coefficient for entropy regularization (paper uses 0.03)
         
     Returns:
         policy_loss: Scalar PPO clipped policy loss
@@ -661,9 +711,19 @@ def compute_ppo_loss(
     """
     batch_size = advantages.shape[0]
     device = advantages.device
+    num_steps = trajectories.shape[1] - 1  # K steps
     
     # Compute new log probs with gradients through both velocity and noise networks
-    new_log_probs = compute_trajectory_log_probs_onpolicy(policy, trajectories, observations)
+    # Also get sigmas for entropy regularization
+    if entropy_coeff > 0:
+        new_log_probs, sigmas = compute_trajectory_log_probs_onpolicy(
+            policy, trajectories, observations, return_sigmas=True
+        )
+    else:
+        new_log_probs = compute_trajectory_log_probs_onpolicy(
+            policy, trajectories, observations, return_sigmas=False
+        )
+        sigmas = []
     
     # Probability ratio: r(θ) = π_θ(a|s) / π_θ_old(a|s)
     log_ratio = new_log_probs - old_log_probs
@@ -675,6 +735,15 @@ def compute_ppo_loss(
     policy_loss_unclipped = ratio * advantages
     policy_loss_clipped = clipped_ratio * advantages
     policy_loss = -torch.min(policy_loss_unclipped, policy_loss_clipped).mean()
+    
+    # Entropy regularization (paper Section 4.4)
+    # Higher entropy = more exploration
+    entropy_bonus = torch.tensor(0.0, device=device)
+    if entropy_coeff > 0 and len(sigmas) > 0:
+        entropy_bonus = compute_entropy_regularization(sigmas, num_steps)
+        # Subtract entropy_coeff * entropy_bonus to encourage higher entropy
+        # (since we're minimizing loss, and higher entropy is better)
+        policy_loss = policy_loss - entropy_coeff * entropy_bonus
     
     # Value loss with optional clipping
     values = policy.get_value(observations)
@@ -713,6 +782,7 @@ def compute_ppo_loss(
         'old_log_prob_mean': old_log_probs.mean().item(),
         'value_mean': values.mean().item(),
         'return_mean': returns.mean().item(),
+        'entropy': entropy_bonus.item() if isinstance(entropy_bonus, Tensor) else entropy_bonus,
     }
     
     return policy_loss, critic_loss, info
