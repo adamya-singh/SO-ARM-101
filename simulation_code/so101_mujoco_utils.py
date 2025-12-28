@@ -385,7 +385,7 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     
     # 2. Approach velocity bonus (reward moving toward block)
     if _prev_gripper_pos is not None:
-        prev_distance = np.linalg.norm(_prev_gripper_pos - _prev_block_pos)
+        prev_distance = np.linalg.norm(_prev_gripper_pos - _initial_block_pos)
         distance_delta = prev_distance - distance  # positive if getting closer
         approach_reward = 5.0 * distance_delta  # scale factor (increased from 4.0)
         reward += approach_reward
