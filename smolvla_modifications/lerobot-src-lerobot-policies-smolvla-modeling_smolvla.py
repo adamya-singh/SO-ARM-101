@@ -492,9 +492,16 @@ class VLAFlowMatching(nn.Module):
         self.action_in_proj = nn.Linear(self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size)
         self.action_out_proj = nn.Linear(self.vlm_with_expert.expert_hidden_size, self.config.max_action_dim)
         
-        # ReinFlow: Noise network that shares features with velocity head
+        # ReinFlow: Noise MLP network that shares features with velocity head
         # Outputs sigma conditioned on observation, time, and current action (via shared suffix_out)
-        self.noise_out_proj = nn.Linear(self.vlm_with_expert.expert_hidden_size, self.config.max_action_dim)
+        # Using MLP instead of linear for better noise modeling (paper-faithful)
+        self.noise_mlp = nn.Sequential(
+            nn.Linear(self.vlm_with_expert.expert_hidden_size, 256),
+            nn.SiLU(),
+            nn.Linear(256, 128),
+            nn.SiLU(),
+            nn.Linear(128, self.config.max_action_dim)
+        )
         
         # Hyperparameters for bounded noise (tanh squashing as per ReinFlow paper)
         self.sigma_min = 0.01  # Minimum noise std
@@ -891,7 +898,7 @@ class VLAFlowMatching(nn.Module):
         if return_sigma:
             # ReinFlow: Compute sigma from same features (shared representation)
             # This is the key insight - noise network shares features with velocity head
-            sigma_raw = self.noise_out_proj(suffix_out)
+            sigma_raw = self.noise_mlp(suffix_out)
             # Tanh bounding: differentiable mapping to [sigma_min, sigma_max]
             sigma_t = self.sigma_min + (self.sigma_max - self.sigma_min) * (torch.tanh(sigma_raw) + 1) / 2
             return v_t, sigma_t

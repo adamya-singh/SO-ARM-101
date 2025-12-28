@@ -52,6 +52,8 @@ from reinflow_smolvla import (
     prepare_batched_observation,
     compute_trajectory_log_probs_onpolicy,
     compute_actor_critic_loss,
+    compute_ppo_loss,
+    compute_gae,
     compute_returns,
     save_reinflow_checkpoint,
     load_reinflow_checkpoint,
@@ -104,7 +106,7 @@ class TrainingConfig:
     train_action_head = True   # Train action_out_proj (velocity head)
     train_time_mlp = True      # Train time MLP
     train_full_expert = True   # Train entire Action Expert (~100M params)
-    train_noise_head = True    # Train noise_out_proj (σ_θ' network) - always True for ReinFlow
+    train_noise_head = True    # Train noise_mlp (σ_θ' network) - always True for ReinFlow
     train_critic = True        # Train critic network for actor-critic
     
     # Policy execution
@@ -131,6 +133,14 @@ class TrainingConfig:
     # Weights & Biases
     wandb_project = "reinflow-smolvla"
     wandb_enabled = True
+    
+    # PPO Hyperparameters (paper-faithful)
+    num_ppo_epochs = 4          # Number of PPO epochs per update
+    minibatch_size = 8          # Mini-batch size for PPO updates
+    clip_epsilon = 0.2          # PPO clip range for policy ratio
+    value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
+    gae_lambda = 0.95           # GAE lambda parameter
+    target_kl = 0.01            # KL divergence threshold for early stopping
 
 
 def parse_args():
@@ -167,13 +177,14 @@ def parse_args():
 
 def train_parallel(config, args, device):
     """
-    Parallel ON-POLICY training loop with actor-critic.
+    Parallel ON-POLICY PPO training loop with GAE, mini-batching, and KL early stopping.
     
-    Key features:
-    1. Gets fresh observations between action chunks
-    2. On-policy updates after each batch of episodes
-    3. Uses learned critic V(s) for variance reduction
-    4. Recomputes sigma at training time (gradients through noise network)
+    Key features (paper-faithful):
+    1. PPO clipped surrogate objective
+    2. GAE (Generalized Advantage Estimation) for better credit assignment
+    3. Multiple epochs with mini-batching for sample efficiency
+    4. KL divergence monitoring with early stopping
+    5. Learning rate scheduling
     """
     num_envs = config.num_parallel_envs
     
@@ -199,7 +210,7 @@ def train_parallel(config, args, device):
     
     # Setup ReinFlow policy with critic
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA (Actor-Critic, On-Policy)")
+    print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
     print("="*60)
     
     rl_policy = setup_reinflow_policy(
@@ -225,7 +236,7 @@ def train_parallel(config, args, device):
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
         start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
-    # Initialize wandb
+    # Initialize wandb with PPO config
     if config.wandb_enabled:
         wandb.init(
             project=config.wandb_project,
@@ -235,6 +246,11 @@ def train_parallel(config, args, device):
                 "policy_lr": config.policy_lr,
                 "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
+                "gae_lambda": config.gae_lambda,
+                "clip_epsilon": config.clip_epsilon,
+                "num_ppo_epochs": config.num_ppo_epochs,
+                "minibatch_size": config.minibatch_size,
+                "target_kl": config.target_kl,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -243,28 +259,42 @@ def train_parallel(config, args, device):
                 "train_noise_head": config.train_noise_head,
                 "train_critic": config.train_critic,
                 "num_parallel_envs": config.num_parallel_envs,
-                "training_mode": "on-policy-actor-critic",
+                "training_mode": "ppo-on-policy",
             },
         )
         wandb_run_id = wandb.run.id
     
     # Separate optimizers for actor and critic
-    policy_params = rl_policy.get_trainable_params()
-    critic_params = rl_policy.get_critic_params()
+    policy_params = list(rl_policy.get_trainable_params())
+    critic_params = list(rl_policy.get_critic_params())
     
     policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
     critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
     
+    # Learning rate schedulers
+    total_batches = config.num_episodes // num_envs
+    policy_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        policy_optimizer, T_max=total_batches, eta_min=config.policy_lr * 0.1
+    )
+    critic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        critic_optimizer, T_max=total_batches, eta_min=config.critic_lr * 0.1
+    )
+    
     print(f"\n{'='*60}")
-    print(f"Starting ReinFlow Training (On-Policy Actor-Critic, Parallel)")
+    print(f"Starting ReinFlow Training (PPO, Parallel)")
     print(f"{'='*60}")
     print(f"Instruction: '{config.instruction}'")
     print(f"Parallel environments: {num_envs}")
     print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Policy LR: {config.policy_lr}")
-    print(f"Critic LR: {config.critic_lr}")
-    print(f"Training mode: ON-POLICY (no replay buffer)")
+    print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
+    print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"PPO epochs: {config.num_ppo_epochs}")
+    print(f"Mini-batch size: {config.minibatch_size}")
+    print(f"Clip epsilon: {config.clip_epsilon}")
+    print(f"GAE lambda: {config.gae_lambda}")
+    print(f"Target KL: {config.target_kl}")
+    print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
     
     total_episodes = 0
@@ -281,6 +311,7 @@ def train_parallel(config, args, device):
             batch_trajectories = []  # List of trajectories across all envs and chunks
             batch_observations = []  # List of observations
             batch_chunk_rewards = []  # Rewards for each chunk
+            batch_dones = []  # Done flags for GAE
             
             # Execute multiple chunks per episode (getting fresh observations!)
             for chunk_idx in range(config.chunks_per_episode):
@@ -317,6 +348,7 @@ def train_parallel(config, args, device):
                     obs_i = {k: v[i:i+1] for k, v in observation.items()}  # Keep batch dim
                     batch_observations.append(obs_i)
                     batch_chunk_rewards.append(chunk_rewards[i])
+                    batch_dones.append(float(dones[i]))
                 
                 # Early termination if all done
                 if dones.all():
@@ -326,52 +358,131 @@ def train_parallel(config, args, device):
             episode_rewards_history.extend(episode_rewards.tolist())
             total_episodes += num_envs
             
-            # ===== ON-POLICY UPDATE =====
+            # ===== PPO UPDATE WITH MINI-BATCHING =====
             if len(batch_trajectories) > 0:
                 # Stack all trajectories: (total_chunks, K+1, chunk, action)
                 all_trajectories = torch.stack(batch_trajectories, dim=0)
+                batch_size = all_trajectories.shape[0]
                 
                 # Stack observations
                 all_observations = {}
                 for key in batch_observations[0].keys():
                     all_observations[key] = torch.cat([obs[key] for obs in batch_observations], dim=0)
                 
-                # Rewards tensor
+                # Rewards and dones tensors
                 all_rewards = torch.tensor(batch_chunk_rewards, device=device, dtype=torch.float32)
+                all_dones = torch.tensor(batch_dones, device=device, dtype=torch.float32)
                 
-                # Compute actor-critic loss (on-policy, fresh sigma computation)
-                policy_loss, critic_loss, loss_info = compute_actor_critic_loss(
-                    rl_policy,
-                    all_trajectories,
-                    all_observations,
-                    all_rewards,
-                    gamma=config.gamma,
+                # Compute values for GAE
+                with torch.no_grad():
+                    all_values = rl_policy.get_value(all_observations)
+                    # For next values, use current values shifted (simplified for chunk-level)
+                    # In practice, for terminal states, next_value = 0
+                    all_next_values = torch.zeros_like(all_values)
+                    all_next_values[:-1] = all_values[1:]
+                    all_next_values = all_next_values * (1.0 - all_dones)  # Zero out terminal states
+                
+                # Compute GAE advantages and returns
+                advantages, returns = compute_gae(
+                    all_rewards, all_values, all_next_values, all_dones,
+                    gamma=config.gamma, gae_lambda=config.gae_lambda
                 )
                 
-                # Update critic
-                critic_optimizer.zero_grad()
-                critic_loss.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
-                critic_optimizer.step()
+                # Normalize advantages
+                if batch_size > 1:
+                    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 
-                # Update policy
-                policy_optimizer.zero_grad()
-                policy_loss.backward()
-                torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
-                policy_optimizer.step()
+                # Compute old log probabilities (detached for PPO ratio)
+                with torch.no_grad():
+                    old_log_probs = compute_trajectory_log_probs_onpolicy(
+                        rl_policy, all_trajectories, all_observations
+                    )
+                    old_values = all_values.clone()
+                
+                # PPO epochs with mini-batching
+                kl_early_stop = False
+                epoch_policy_losses = []
+                epoch_critic_losses = []
+                epoch_kl_divs = []
+                
+                for epoch in range(config.num_ppo_epochs):
+                    if kl_early_stop:
+                        break
+                    
+                    # Shuffle indices for mini-batching
+                    indices = torch.randperm(batch_size, device=device)
+                    
+                    for start in range(0, batch_size, config.minibatch_size):
+                        end = min(start + config.minibatch_size, batch_size)
+                        mb_indices = indices[start:end]
+                        
+                        # Get mini-batch data
+                        mb_trajectories = all_trajectories[mb_indices]
+                        mb_observations = {k: v[mb_indices] for k, v in all_observations.items()}
+                        mb_advantages = advantages[mb_indices]
+                        mb_returns = returns[mb_indices]
+                        mb_old_log_probs = old_log_probs[mb_indices]
+                        mb_old_values = old_values[mb_indices]
+                        
+                        # Compute PPO loss
+                        policy_loss, critic_loss, loss_info = compute_ppo_loss(
+                            rl_policy,
+                            mb_trajectories,
+                            mb_observations,
+                            mb_old_log_probs,
+                            mb_advantages,
+                            mb_returns,
+                            clip_epsilon=config.clip_epsilon,
+                            value_clip_epsilon=config.value_clip_epsilon,
+                            old_values=mb_old_values,
+                        )
+                        
+                        # Check KL divergence for early stopping
+                        if loss_info['kl_div'] > config.target_kl * 1.5:
+                            print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
+                            kl_early_stop = True
+                            break
+                        
+                        # Update critic
+                        critic_optimizer.zero_grad()
+                        critic_loss.backward(retain_graph=True)
+                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        critic_optimizer.step()
+                        
+                        # Update policy
+                        policy_optimizer.zero_grad()
+                        policy_loss.backward()
+                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        policy_optimizer.step()
+                        
+                        epoch_policy_losses.append(policy_loss.item())
+                        epoch_critic_losses.append(critic_loss.item())
+                        epoch_kl_divs.append(loss_info['kl_div'])
+                
+                # Step LR schedulers
+                policy_scheduler.step()
+                critic_scheduler.step()
+                
+                # Aggregate loss info
+                avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
+                avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
+                avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
+                
             else:
-                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0}
-                policy_loss = torch.tensor(0.0)
-                critic_loss = torch.tensor(0.0)
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0, 'clip_fraction': 0}
+                avg_policy_loss = 0.0
+                avg_critic_loss = 0.0
+                avg_kl_div = 0.0
             
             batch_time = time.time() - batch_start_time
             
             # Logging
             avg_reward = np.mean(episode_rewards)
+            current_lr = policy_scheduler.get_last_lr()[0]
             print(f"Batch {episode_batch+1:4d} ({total_episodes:5d} eps) | "
-                  f"Avg Reward: {avg_reward:8.2f} | "
-                  f"V(s): {loss_info['value_mean']:7.2f} | "
-                  f"Adv: {loss_info['advantage_mean']:6.2f} | "
+                  f"Reward: {avg_reward:7.2f} | "
+                  f"KL: {avg_kl_div:.4f} | "
+                  f"LR: {current_lr:.2e} | "
                   f"Time: {batch_time:.1f}s")
             
             # Log to wandb
@@ -382,11 +493,13 @@ def train_parallel(config, args, device):
                     "reward/batch_avg": avg_reward,
                     "reward/batch_min": np.min(episode_rewards),
                     "reward/batch_max": np.max(episode_rewards),
-                    "loss/policy": policy_loss.item() if torch.is_tensor(policy_loss) else policy_loss,
-                    "loss/critic": critic_loss.item() if torch.is_tensor(critic_loss) else critic_loss,
-                    "training/value_mean": loss_info['value_mean'],
-                    "training/advantage_mean": loss_info['advantage_mean'],
-                    "training/log_prob_mean": loss_info['log_prob_mean'],
+                    "loss/policy": avg_policy_loss,
+                    "loss/critic": avg_critic_loss,
+                    "training/kl_divergence": avg_kl_div,
+                    "training/clip_fraction": loss_info.get('clip_fraction', 0),
+                    "training/value_mean": loss_info.get('value_mean', 0),
+                    "training/advantage_mean": loss_info.get('advantage_mean', 0),
+                    "training/learning_rate": current_lr,
                     "time/batch_seconds": batch_time,
                 }
                 wandb.log(log_dict)
@@ -427,13 +540,14 @@ def train_parallel(config, args, device):
 
 def train_sequential(config, args, device):
     """
-    Sequential ON-POLICY training loop with actor-critic.
+    Sequential ON-POLICY PPO training loop with GAE, mini-batching, and KL early stopping.
     
-    Key changes from off-policy version:
-    1. No replay buffer - data is used once and discarded
-    2. Uses learned critic V(s) for variance reduction
-    3. Recomputes sigma at training time (gradients through noise network)
-    4. Proper actor-critic loss computation
+    Key features (paper-faithful):
+    1. PPO clipped surrogate objective
+    2. GAE (Generalized Advantage Estimation) for better credit assignment
+    3. Multiple epochs with mini-batching for sample efficiency
+    4. KL divergence monitoring with early stopping
+    5. Learning rate scheduling
     """
     # Load MuJoCo environment
     print(f"\nLoading MuJoCo model from {config.model_path}")
@@ -443,7 +557,7 @@ def train_sequential(config, args, device):
     
     # Setup ReinFlow policy with critic
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA (Actor-Critic, On-Policy)")
+    print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
     print("="*60)
     
     rl_policy = setup_reinflow_policy(
@@ -469,7 +583,7 @@ def train_sequential(config, args, device):
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
         start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
-    # Initialize wandb
+    # Initialize wandb with PPO config
     if config.wandb_enabled:
         wandb.init(
             project=config.wandb_project,
@@ -479,6 +593,11 @@ def train_sequential(config, args, device):
                 "policy_lr": config.policy_lr,
                 "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
+                "gae_lambda": config.gae_lambda,
+                "clip_epsilon": config.clip_epsilon,
+                "num_ppo_epochs": config.num_ppo_epochs,
+                "minibatch_size": config.minibatch_size,
+                "target_kl": config.target_kl,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -486,28 +605,41 @@ def train_sequential(config, args, device):
                 "train_full_expert": config.train_full_expert,
                 "train_noise_head": config.train_noise_head,
                 "train_critic": config.train_critic,
-                "training_mode": "on-policy-actor-critic",
+                "training_mode": "ppo-on-policy",
             },
         )
         wandb_run_id = wandb.run.id
     
     # Separate optimizers for actor and critic (allows different learning rates)
-    policy_params = rl_policy.get_trainable_params()
-    critic_params = rl_policy.get_critic_params()
+    policy_params = list(rl_policy.get_trainable_params())
+    critic_params = list(rl_policy.get_critic_params())
     
     policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
     critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
     
+    # Learning rate schedulers
+    policy_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        policy_optimizer, T_max=config.num_episodes, eta_min=config.policy_lr * 0.1
+    )
+    critic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        critic_optimizer, T_max=config.num_episodes, eta_min=config.critic_lr * 0.1
+    )
+    
     print(f"\n{'='*60}")
-    print(f"Starting ReinFlow Training (On-Policy Actor-Critic)")
+    print(f"Starting ReinFlow Training (PPO, Sequential)")
     print(f"{'='*60}")
     print(f"Instruction: '{config.instruction}'")
     print(f"Episodes: {config.num_episodes}")
     print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Policy LR: {config.policy_lr}")
-    print(f"Critic LR: {config.critic_lr}")
-    print(f"Training mode: ON-POLICY (no replay buffer)")
+    print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
+    print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"PPO epochs: {config.num_ppo_epochs}")
+    print(f"Mini-batch size: {config.minibatch_size}")
+    print(f"Clip epsilon: {config.clip_epsilon}")
+    print(f"GAE lambda: {config.gae_lambda}")
+    print(f"Target KL: {config.target_kl}")
+    print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
     
     # Optional viewer
@@ -530,6 +662,7 @@ def train_sequential(config, args, device):
             episode_trajectories = []  # List of trajectories for each chunk
             episode_observations = []  # List of observations for each chunk
             episode_chunk_rewards = []  # Reward for each chunk
+            episode_dones = []  # Done flags for GAE
             
             # Execute multiple chunks per episode (getting fresh observations!)
             for chunk_idx in range(config.chunks_per_episode):
@@ -585,64 +718,138 @@ def train_sequential(config, args, device):
                 episode_trajectories.append(traj_tensor)
                 episode_observations.append(observation)
                 episode_chunk_rewards.append(chunk_reward)
+                episode_dones.append(float(done))
             
             # Track episode reward
             episode_rewards_history.append(episode_reward)
             
-            # ===== ON-POLICY UPDATE =====
+            # ===== PPO UPDATE WITH MINI-BATCHING =====
             # Only update if we collected at least one chunk
             if len(episode_trajectories) > 0:
                 # Stack all chunk data into batches
                 # Each trajectory: (K+1, chunk_size, action_dim) -> stack to (num_chunks, K+1, chunk, action)
                 batch_trajectories = torch.stack(episode_trajectories, dim=0)  # (num_chunks, K+1, chunk, action)
+                batch_size = batch_trajectories.shape[0]
                 
                 # Stack observations - need to handle dict
                 batch_observations = {}
                 for key in episode_observations[0].keys():
                     batch_observations[key] = torch.stack([obs[key].squeeze(0) for obs in episode_observations], dim=0)
                 
-                # Rewards tensor
+                # Rewards and dones tensors
                 batch_rewards = torch.tensor(episode_chunk_rewards, device=device, dtype=torch.float32)
+                batch_dones = torch.tensor(episode_dones, device=device, dtype=torch.float32)
                 
-                # Spread chunk rewards across denoising steps (credit assignment)
-                # Each chunk reward is divided by K steps
-                per_step_reward = batch_rewards / config.num_denoising_steps
+                # Compute values for GAE
+                with torch.no_grad():
+                    batch_values = rl_policy.get_value(batch_observations)
+                    # For next values, use current values shifted (simplified for chunk-level)
+                    batch_next_values = torch.zeros_like(batch_values)
+                    batch_next_values[:-1] = batch_values[1:]
+                    batch_next_values = batch_next_values * (1.0 - batch_dones)
                 
-                # Compute actor-critic loss (on-policy, fresh sigma computation)
-                policy_loss, critic_loss, loss_info = compute_actor_critic_loss(
-                    rl_policy,
-                    batch_trajectories,
-                    batch_observations,
-                    batch_rewards,
-                    gamma=config.gamma,
+                # Compute GAE advantages and returns
+                advantages, returns = compute_gae(
+                    batch_rewards, batch_values, batch_next_values, batch_dones,
+                    gamma=config.gamma, gae_lambda=config.gae_lambda
                 )
                 
-                # Update critic
-                critic_optimizer.zero_grad()
-                critic_loss.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
-                critic_optimizer.step()
+                # Normalize advantages
+                if batch_size > 1:
+                    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 
-                # Update policy
-                policy_optimizer.zero_grad()
-                policy_loss.backward()
-                torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
-                policy_optimizer.step()
+                # Compute old log probabilities (detached for PPO ratio)
+                with torch.no_grad():
+                    old_log_probs = compute_trajectory_log_probs_onpolicy(
+                        rl_policy, batch_trajectories, batch_observations
+                    )
+                    old_values = batch_values.clone()
+                
+                # PPO epochs with mini-batching
+                kl_early_stop = False
+                epoch_policy_losses = []
+                epoch_critic_losses = []
+                epoch_kl_divs = []
+                
+                for ppo_epoch in range(config.num_ppo_epochs):
+                    if kl_early_stop:
+                        break
+                    
+                    # Shuffle indices for mini-batching
+                    indices = torch.randperm(batch_size, device=device)
+                    
+                    for start in range(0, batch_size, config.minibatch_size):
+                        end = min(start + config.minibatch_size, batch_size)
+                        mb_indices = indices[start:end]
+                        
+                        # Get mini-batch data
+                        mb_trajectories = batch_trajectories[mb_indices]
+                        mb_observations = {k: v[mb_indices] for k, v in batch_observations.items()}
+                        mb_advantages = advantages[mb_indices]
+                        mb_returns = returns[mb_indices]
+                        mb_old_log_probs = old_log_probs[mb_indices]
+                        mb_old_values = old_values[mb_indices]
+                        
+                        # Compute PPO loss
+                        policy_loss, critic_loss, loss_info = compute_ppo_loss(
+                            rl_policy,
+                            mb_trajectories,
+                            mb_observations,
+                            mb_old_log_probs,
+                            mb_advantages,
+                            mb_returns,
+                            clip_epsilon=config.clip_epsilon,
+                            value_clip_epsilon=config.value_clip_epsilon,
+                            old_values=mb_old_values,
+                        )
+                        
+                        # Check KL divergence for early stopping
+                        if loss_info['kl_div'] > config.target_kl * 1.5:
+                            kl_early_stop = True
+                            break
+                        
+                        # Update critic
+                        critic_optimizer.zero_grad()
+                        critic_loss.backward(retain_graph=True)
+                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        critic_optimizer.step()
+                        
+                        # Update policy
+                        policy_optimizer.zero_grad()
+                        policy_loss.backward()
+                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        policy_optimizer.step()
+                        
+                        epoch_policy_losses.append(policy_loss.item())
+                        epoch_critic_losses.append(critic_loss.item())
+                        epoch_kl_divs.append(loss_info['kl_div'])
+                
+                # Step LR schedulers
+                policy_scheduler.step()
+                critic_scheduler.step()
+                
+                # Aggregate loss info
+                avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
+                avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
+                avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
+                
             else:
-                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0}
-                policy_loss = torch.tensor(0.0)
-                critic_loss = torch.tensor(0.0)
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0}
+                avg_policy_loss = 0.0
+                avg_critic_loss = 0.0
+                avg_kl_div = 0.0
             
             episode_time = time.time() - episode_start_time
             
             # Logging
             if (episode + 1) % config.log_interval == 0:
                 avg_reward = np.mean(episode_rewards_history[-min(100, len(episode_rewards_history)):])
+                current_lr = policy_scheduler.get_last_lr()[0]
                 print(f"Episode {episode+1:5d} | "
-                      f"Reward: {episode_reward:8.2f} | "
-                      f"Avg: {avg_reward:8.2f} | "
-                      f"V(s): {loss_info['value_mean']:7.2f} | "
-                      f"Adv: {loss_info['advantage_mean']:6.2f} | "
+                      f"Reward: {episode_reward:7.2f} | "
+                      f"Avg: {avg_reward:7.2f} | "
+                      f"KL: {avg_kl_div:.4f} | "
+                      f"LR: {current_lr:.2e} | "
                       f"Time: {episode_time:.1f}s")
                 
                 if config.wandb_enabled:
@@ -650,11 +857,13 @@ def train_sequential(config, args, device):
                         "episode": episode + 1,
                         "reward/episode": episode_reward,
                         "reward/avg": avg_reward,
-                        "loss/policy": policy_loss.item() if torch.is_tensor(policy_loss) else policy_loss,
-                        "loss/critic": critic_loss.item() if torch.is_tensor(critic_loss) else critic_loss,
-                        "training/value_mean": loss_info['value_mean'],
-                        "training/advantage_mean": loss_info['advantage_mean'],
-                        "training/log_prob_mean": loss_info['log_prob_mean'],
+                        "loss/policy": avg_policy_loss,
+                        "loss/critic": avg_critic_loss,
+                        "training/kl_divergence": avg_kl_div,
+                        "training/clip_fraction": loss_info.get('clip_fraction', 0),
+                        "training/value_mean": loss_info.get('value_mean', 0),
+                        "training/advantage_mean": loss_info.get('advantage_mean', 0),
+                        "training/learning_rate": current_lr,
                         "time/episode_seconds": episode_time,
                     })
             

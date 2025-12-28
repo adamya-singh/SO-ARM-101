@@ -172,10 +172,10 @@ class ReinFlowSmolVLA(nn.Module):
         
         # ReinFlow: Always train the noise head (this is the σ_θ' network)
         if train_noise_head:
-            for p in self.base.model.noise_out_proj.parameters():
+            for p in self.base.model.noise_mlp.parameters():
                 p.requires_grad = True
-            print(f"  [ReinFlow] Unfroze noise_out_proj (σ_θ'): "
-                  f"{sum(p.numel() for p in self.base.model.noise_out_proj.parameters()):,} params")
+            print(f"  [ReinFlow] Unfroze noise_mlp (σ_θ'): "
+                  f"{sum(p.numel() for p in self.base.model.noise_mlp.parameters()):,} params")
         
         # Count total trainable params
         total_trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -209,7 +209,7 @@ class ReinFlowSmolVLA(nn.Module):
         
         # Always include noise head for ReinFlow
         if self.train_noise_head:
-            params.extend(self.base.model.noise_out_proj.parameters())
+            params.extend(self.base.model.noise_mlp.parameters())
         
         return params
     
@@ -562,6 +562,8 @@ def compute_actor_critic_loss(
     """
     Compute actor-critic loss for on-policy ReinFlow training.
     
+    DEPRECATED: Use compute_ppo_loss for paper-faithful training.
+    
     This implements the full actor-critic update:
     - Critic loss: MSE between value estimates and returns
     - Policy loss: -advantage * log_prob (REINFORCE with baseline)
@@ -615,6 +617,100 @@ def compute_actor_critic_loss(
         'advantage_mean': advantages.mean().item(),
         'advantage_std': advantages.std().item() if batch_size > 1 else 0.0,
         'log_prob_mean': log_probs.mean().item(),
+        'value_mean': values.mean().item(),
+        'return_mean': returns.mean().item(),
+    }
+    
+    return policy_loss, critic_loss, info
+
+
+def compute_ppo_loss(
+    policy: ReinFlowSmolVLA,
+    trajectories: Tensor,
+    observations: Dict[str, Tensor],
+    old_log_probs: Tensor,
+    advantages: Tensor,
+    returns: Tensor,
+    clip_epsilon: float = 0.2,
+    value_clip_epsilon: float = 0.2,
+    old_values: Optional[Tensor] = None,
+) -> Tuple[Tensor, Tensor, Dict[str, float]]:
+    """
+    Compute PPO clipped surrogate objective for ReinFlow training.
+    
+    This implements the paper-faithful PPO update:
+    - Policy loss: clipped surrogate objective
+    - Critic loss: MSE between value estimates and returns (optionally clipped)
+    - KL divergence monitoring for early stopping
+    
+    Args:
+        policy: ReinFlowSmolVLA policy with critic
+        trajectories: (batch, K+1, chunk, action_dim) tensor of denoising trajectories
+        observations: Dict of observation tensors (batched)
+        old_log_probs: (batch_size,) tensor of log probs from behavior policy (detached)
+        advantages: (batch_size,) tensor of GAE advantages (pre-normalized)
+        returns: (batch_size,) tensor of target returns for value function
+        clip_epsilon: PPO clip range for policy ratio
+        value_clip_epsilon: Clip range for value function (0 to disable)
+        old_values: (batch_size,) tensor of old value estimates (for value clipping)
+        
+    Returns:
+        policy_loss: Scalar PPO clipped policy loss
+        critic_loss: Scalar critic MSE loss
+        info: Dict with metrics including KL divergence
+    """
+    batch_size = advantages.shape[0]
+    device = advantages.device
+    
+    # Compute new log probs with gradients through both velocity and noise networks
+    new_log_probs = compute_trajectory_log_probs_onpolicy(policy, trajectories, observations)
+    
+    # Probability ratio: r(θ) = π_θ(a|s) / π_θ_old(a|s)
+    log_ratio = new_log_probs - old_log_probs
+    ratio = torch.exp(log_ratio)
+    
+    # Clipped surrogate objective
+    # L^CLIP = min(r_t * A_t, clip(r_t, 1-ε, 1+ε) * A_t)
+    clipped_ratio = torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon)
+    policy_loss_unclipped = ratio * advantages
+    policy_loss_clipped = clipped_ratio * advantages
+    policy_loss = -torch.min(policy_loss_unclipped, policy_loss_clipped).mean()
+    
+    # Value loss with optional clipping
+    values = policy.get_value(observations)
+    if old_values is not None and value_clip_epsilon > 0:
+        # Clipped value loss to prevent large value updates
+        values_clipped = old_values + torch.clamp(
+            values - old_values, -value_clip_epsilon, value_clip_epsilon
+        )
+        critic_loss_unclipped = (values - returns) ** 2
+        critic_loss_clipped = (values_clipped - returns) ** 2
+        critic_loss = 0.5 * torch.max(critic_loss_unclipped, critic_loss_clipped).mean()
+    else:
+        critic_loss = 0.5 * F.mse_loss(values, returns)
+    
+    # KL divergence approximation for monitoring and early stopping
+    # Using the approximation: KL ≈ (r - 1) - log(r) = exp(log_ratio) - 1 - log_ratio
+    # Or simpler: KL ≈ 0.5 * (log_ratio)^2 for small changes
+    with torch.no_grad():
+        approx_kl = ((ratio - 1) - log_ratio).mean().item()
+        # Also compute simple KL approximation
+        kl_simple = (old_log_probs - new_log_probs).mean().item()
+        
+        # Clip fraction: how often the ratio was clipped
+        clip_fraction = ((ratio - 1.0).abs() > clip_epsilon).float().mean().item()
+    
+    # Info for logging
+    info = {
+        'kl_div': approx_kl,
+        'kl_simple': kl_simple,
+        'clip_fraction': clip_fraction,
+        'ratio_mean': ratio.mean().item(),
+        'ratio_std': ratio.std().item() if batch_size > 1 else 0.0,
+        'advantage_mean': advantages.mean().item(),
+        'advantage_std': advantages.std().item() if batch_size > 1 else 0.0,
+        'log_prob_mean': new_log_probs.mean().item(),
+        'old_log_prob_mean': old_log_probs.mean().item(),
         'value_mean': values.mean().item(),
         'return_mean': returns.mean().item(),
     }
@@ -838,6 +934,52 @@ def compute_returns(rewards: list, gamma: float = 0.99) -> list:
     return returns
 
 
+def compute_gae(
+    rewards: Tensor,
+    values: Tensor,
+    next_values: Tensor,
+    dones: Tensor,
+    gamma: float = 0.99,
+    gae_lambda: float = 0.95,
+) -> Tuple[Tensor, Tensor]:
+    """
+    Compute Generalized Advantage Estimation (GAE).
+    
+    GAE provides better credit assignment by balancing bias and variance
+    in advantage estimates using a lambda parameter.
+    
+    Args:
+        rewards: (batch_size,) tensor of rewards
+        values: (batch_size,) tensor of value estimates V(s)
+        next_values: (batch_size,) tensor of next state values V(s')
+        dones: (batch_size,) tensor of done flags (1 if terminal, 0 otherwise)
+        gamma: Discount factor
+        gae_lambda: GAE lambda parameter (0=TD(0), 1=MC)
+        
+    Returns:
+        advantages: (batch_size,) tensor of GAE advantages
+        returns: (batch_size,) tensor of target returns for value function
+    """
+    batch_size = rewards.shape[0]
+    device = rewards.device
+    
+    advantages = torch.zeros(batch_size, device=device, dtype=rewards.dtype)
+    gae = 0.0
+    
+    # Compute GAE in reverse order
+    for t in reversed(range(batch_size)):
+        # TD error: δ_t = r_t + γ * V(s_{t+1}) * (1 - done_t) - V(s_t)
+        delta = rewards[t] + gamma * next_values[t] * (1.0 - dones[t]) - values[t]
+        # GAE: A_t = δ_t + γ * λ * (1 - done_t) * A_{t+1}
+        gae = delta + gamma * gae_lambda * (1.0 - dones[t]) * gae
+        advantages[t] = gae
+    
+    # Returns are advantages + values (for value function training)
+    returns = advantages + values
+    
+    return advantages, returns
+
+
 def save_reinflow_checkpoint(
     policy: ReinFlowSmolVLA,
     episode: int,
@@ -862,7 +1004,7 @@ def save_reinflow_checkpoint(
         checkpoint['wandb_run_id'] = wandb_run_id
     
     # Always save noise head (core of ReinFlow)
-    checkpoint['noise_out_proj'] = policy.base.model.noise_out_proj.state_dict()
+    checkpoint['noise_mlp'] = policy.base.model.noise_mlp.state_dict()
     
     # Save critic network (new for actor-critic)
     checkpoint['critic'] = policy.critic.state_dict()
@@ -902,9 +1044,12 @@ def load_reinflow_checkpoint(
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
     # Load noise head (core of ReinFlow)
-    if 'noise_out_proj' in checkpoint:
-        policy.base.model.noise_out_proj.load_state_dict(checkpoint['noise_out_proj'])
-        print("  [ReinFlow] Loaded noise_out_proj weights")
+    if 'noise_mlp' in checkpoint:
+        policy.base.model.noise_mlp.load_state_dict(checkpoint['noise_mlp'])
+        print("  [ReinFlow] Loaded noise_mlp weights")
+    elif 'noise_out_proj' in checkpoint:
+        # Legacy support for old checkpoints with linear noise layer
+        print("  [ReinFlow] Warning: Old checkpoint with linear noise layer, skipping (architecture changed to MLP)")
     
     # Load critic network (new for actor-critic)
     if 'critic' in checkpoint:
