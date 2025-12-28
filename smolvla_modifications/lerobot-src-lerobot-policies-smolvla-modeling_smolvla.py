@@ -491,6 +491,14 @@ class VLAFlowMatching(nn.Module):
         )
         self.action_in_proj = nn.Linear(self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size)
         self.action_out_proj = nn.Linear(self.vlm_with_expert.expert_hidden_size, self.config.max_action_dim)
+        
+        # ReinFlow: Noise network that shares features with velocity head
+        # Outputs sigma conditioned on observation, time, and current action (via shared suffix_out)
+        self.noise_out_proj = nn.Linear(self.vlm_with_expert.expert_hidden_size, self.config.max_action_dim)
+        
+        # Hyperparameters for bounded noise (tanh squashing as per ReinFlow paper)
+        self.sigma_min = 0.01  # Minimum noise std
+        self.sigma_max = 0.5   # Maximum noise std
 
         self.action_time_mlp_in = nn.Linear(
             self.vlm_with_expert.expert_hidden_size * 2, self.vlm_with_expert.expert_hidden_size
@@ -747,12 +755,17 @@ class VLAFlowMatching(nn.Module):
         return x_t
 
     def sample_actions_reinflow(self, images, img_masks, lang_tokens, lang_masks, state,
-                                noise=None, log_sigmas=None) -> tuple[Tensor, Tensor]:
+                                noise=None) -> tuple[Tensor, list, list]:
         """
         ReinFlow-style sampling with noise injection at each denoising step.
         
         This converts the deterministic ODE into a stochastic SDE, enabling
         exact log-probability computation for REINFORCE-style policy gradients.
+        
+        Key differences from old implementation:
+        1. Uses noise NETWORK (conditioned on obs/time/action) instead of scalar sigmas
+        2. Returns full denoising trajectory [a^0, a^1, ..., a^K] for replay buffer
+        3. Returns sigmas used at each step for log-prob computation during training
         
         Args:
             images: List of image tensors
@@ -761,11 +774,11 @@ class VLAFlowMatching(nn.Module):
             lang_masks: Language attention mask
             state: Robot state tensor
             noise: Optional initial noise (batch, chunk_size, action_dim)
-            log_sigmas: (num_steps,) learnable log noise scales for each denoising step
         
         Returns:
-            actions: (batch, chunk_size, action_dim) sampled actions
-            log_prob: (batch,) log probability for policy gradient
+            actions: (batch, chunk_size, action_dim) final sampled actions (a^K)
+            trajectory: List of K+1 tensors [a^0, a^1, ..., a^K] for each denoising step
+            sigmas_used: List of K tensors, sigma used at each denoising step
         """
         bsize = state.shape[0]
         device = state.device
@@ -795,42 +808,37 @@ class VLAFlowMatching(nn.Module):
         x_t = noise
         time = torch.tensor(1.0, dtype=torch.float32, device=device)
         
-        # FIX 1: Include log prob of initial noise: log N(x_1 | 0, I)
-        d = noise.shape[-1] * noise.shape[-2]  # action_dim * chunk_size
-        log_prob = -0.5 * ((noise ** 2).sum(dim=(-1, -2)) + d * math.log(2 * math.pi))
+        # Store full denoising trajectory and sigmas (ReinFlow requirement)
+        trajectory = [x_t.clone()]  # Store a^0 (initial noise)
+        sigmas_used = []            # Store sigma at each step
         
         step_idx = 0
 
         while time >= -dt_tensor / 2:
             expanded_time = time.expand(bsize)
-            v_t = self.denoise_step(prefix_pad_masks, past_key_values, x_t, expanded_time)
+            
+            # Get BOTH velocity and sigma from the same forward pass (shared features!)
+            v_t, sigma_t = self.denoise_step(
+                prefix_pad_masks, past_key_values, x_t, expanded_time, return_sigma=True
+            )
             
             # Deterministic Euler step = mean of transition
             mu = x_t + dt_tensor * v_t
             
-            # Inject learnable noise (ReinFlow core!)
-            if log_sigmas is not None and step_idx < len(log_sigmas):
-                sigma = log_sigmas[step_idx].exp()
-                eps = torch.randn_like(x_t)
-                x_next = mu + sigma * eps
-                
-                # Reparameterization trick: detach x_next so gradient flows through mu
-                # Without detach: diff = x_next - mu = sigma*eps, so ∂diff/∂mu = 0
-                # With detach: diff = x_next.detach() - mu, so ∂diff/∂mu = -1
-                x_next_stopped = x_next.detach()
-                diff = x_next_stopped - mu
-                log_prob = log_prob + (-0.5 * (
-                    (diff ** 2).sum(dim=(-1, -2)) / (sigma ** 2) + 
-                    d * (math.log(2 * math.pi) + 2 * log_sigmas[step_idx])
-                ))
-            else:
-                x_next = mu  # Fallback to deterministic
+            # Inject noise from the noise network (ReinFlow core!)
+            eps = torch.randn_like(x_t)
+            x_next = mu + sigma_t * eps
+            
+            # Store trajectory and sigma
+            trajectory.append(x_next.clone())  # Store a^{k+1}
+            sigmas_used.append(sigma_t.clone())
             
             x_t = x_next
             time = time + dt_tensor
             step_idx += 1
 
-        return x_t, log_prob
+        # Return: final action (a^K), full trajectory, and sigmas used
+        return x_t, trajectory, sigmas_used
 
     def denoise_step(
         self,
@@ -838,8 +846,22 @@ class VLAFlowMatching(nn.Module):
         past_key_values,
         x_t,
         timestep,
+        return_sigma: bool = False,
     ):
-        """Apply one denoising step of the noise `x_t` at a given timestep."""
+        """
+        Apply one denoising step of the noise `x_t` at a given timestep.
+        
+        Args:
+            prefix_pad_masks: Padding masks for prefix
+            past_key_values: Cached key-values from prefix encoding
+            x_t: Current noisy actions (batch, chunk_size, action_dim)
+            timestep: Current timestep in denoising process
+            return_sigma: If True, also return sigma from noise network (for ReinFlow)
+        
+        Returns:
+            v_t: Velocity prediction (batch, chunk_size, action_dim)
+            sigma_t: (optional) Noise std from noise network, only if return_sigma=True
+        """
         suffix_embs, suffix_pad_masks, suffix_att_masks = self.embed_suffix(x_t, timestep)
 
         suffix_len = suffix_pad_masks.shape[1]
@@ -865,4 +887,13 @@ class VLAFlowMatching(nn.Module):
         suffix_out = suffix_out[:, -self.config.chunk_size :]
         suffix_out = suffix_out.to(dtype=torch.float32)
         v_t = self.action_out_proj(suffix_out)
+        
+        if return_sigma:
+            # ReinFlow: Compute sigma from same features (shared representation)
+            # This is the key insight - noise network shares features with velocity head
+            sigma_raw = self.noise_out_proj(suffix_out)
+            # Tanh bounding: differentiable mapping to [sigma_min, sigma_max]
+            sigma_t = self.sigma_min + (self.sigma_max - self.sigma_min) * (torch.tanh(sigma_raw) + 1) / 2
+            return v_t, sigma_t
+        
         return v_t

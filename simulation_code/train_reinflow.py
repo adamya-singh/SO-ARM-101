@@ -1,13 +1,19 @@
 """
-ReinFlow Training Script for SmolVLA
+ReinFlow Training Script for SmolVLA (On-Policy Actor-Critic)
 
 Full ReinFlow-style flow-based RL training that:
-1. Injects learnable noise at each of the 10 denoising steps
-2. Computes exact log-probabilities through the Markov chain
-3. Uses REINFORCE policy gradient for fine-tuning
+1. Uses a NOISE NETWORK σ_θ'(t, a, o) conditioned on time, action, and observation
+2. Collects trajectories and updates ON-POLICY (no replay buffer)
+3. Uses actor-critic with learned value function baseline
+4. Computes exact per-step log-probabilities with gradients through both networks
 
-This is the CORRECT way to do RL with flow-matching policies, unlike
-the "ReinFlow-lite" approach which only added noise at the output.
+Reference: https://reinflow.github.io/
+
+Key features:
+- ON-POLICY training (collect rollout -> compute loss -> discard data)
+- Actor-Critic architecture with learned V(s) baseline
+- Gradients flow through both velocity AND noise networks
+- Fresh sigma computation at training time (not stored)
 
 Usage:
     conda activate lerobot
@@ -21,9 +27,6 @@ Usage:
     
     # Parallel mode for A100 GPU (8 environments):
     python train_reinflow.py --parallel-envs 8 --no-render --headless
-    
-    # Parallel mode with subprocess-based rendering (true CPU parallelism):
-    python train_reinflow.py --parallel-envs 4 --subproc --no-render --headless
 """
 
 import os
@@ -47,6 +50,8 @@ from reinflow_smolvla import (
     setup_reinflow_policy,
     prepare_observation_for_reinflow,
     prepare_batched_observation,
+    compute_trajectory_log_probs_onpolicy,
+    compute_actor_critic_loss,
     compute_returns,
     save_reinflow_checkpoint,
     load_reinflow_checkpoint,
@@ -67,7 +72,7 @@ from so101_mujoco_utils import (
 # ===== Training Configuration =====
 
 class TrainingConfig:
-    """Configuration for ReinFlow RL training."""
+    """Configuration for ReinFlow RL training (On-Policy Actor-Critic)."""
     
     # Environment
     model_path = 'model/scene.xml'
@@ -87,19 +92,20 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.95  # Discount factor
-    lr = 0.00003  # Lower LR for full expert training (was 0.0003)
-    grad_clip_norm = 0.5  # Tighter clipping for stability (was 1.0)
-    batch_size = 30  # Number of episodes to accumulate before gradient update
+    policy_lr = 0.00003  # Policy learning rate (lower for stability)
+    critic_lr = 0.0001   # Critic learning rate (can be higher)
+    grad_clip_norm = 0.5  # Gradient clipping for stability
     
     # ReinFlow specific
     num_denoising_steps = 10  # Must match SmolVLA config
-    init_log_sigma = -0.7    # Initial noise scale (exp(-0.7) ≈ 0.5, good exploration)
-    entropy_coef = 0.01       # Reduced for full expert (was 0.05)
+    chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
     # What to train
-    train_action_head = True   # Train action_out_proj (23K params) - ignored if train_full_expert=True
-    train_time_mlp = True      # Ignored if train_full_expert=True
+    train_action_head = True   # Train action_out_proj (velocity head)
+    train_time_mlp = True      # Train time MLP
     train_full_expert = True   # Train entire Action Expert (~100M params)
+    train_noise_head = True    # Train noise_out_proj (σ_θ' network) - always True for ReinFlow
+    train_critic = True        # Train critic network for actor-critic
     
     # Policy execution
     steps_per_action = 10  # Physics steps per policy action
@@ -118,14 +124,8 @@ class TrainingConfig:
     checkpoint_path = "reinflow_checkpoint.pt"
     pretrained_path = "lerobot/smolvla_base"
     
-    # Parallelization (A100 optimization)
-    # Set >1 to run multiple environments in parallel for GPU efficiency
-    # Default 1 = sequential mode (best for M1 Mac)
+    # Parallelization
     num_parallel_envs = 1
-    
-    # Use subprocess-based environment for parallel CPU rendering
-    # When True, each environment runs in a separate process for true parallel rendering
-    # This can significantly speed up training on multi-core CPUs
     use_subproc_env = False
     
     # Weights & Biases
@@ -135,7 +135,7 @@ class TrainingConfig:
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='ReinFlow Training for SmolVLA')
+    parser = argparse.ArgumentParser(description='ReinFlow Training for SmolVLA (On-Policy Actor-Critic)')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume from')
     parser.add_argument('--no-render', action='store_true',
@@ -144,20 +144,22 @@ def parse_args():
                         help='Force headless rendering (EGL/OSMesa) for Colab/SSH')
     parser.add_argument('--episodes', type=int, default=None,
                         help='Number of episodes to train')
-    parser.add_argument('--lr', type=float, default=None,
-                        help='Learning rate')
+    parser.add_argument('--policy-lr', type=float, default=None,
+                        help='Policy learning rate')
+    parser.add_argument('--critic-lr', type=float, default=None,
+                        help='Critic learning rate')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='Path to pretrained SmolVLA model')
     parser.add_argument('--parallel-envs', type=int, default=None,
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
     parser.add_argument('--subproc', action='store_true',
-                        help='Use subprocess-based parallel rendering (true parallelism across CPU cores)')
+                        help='Use subprocess-based parallel rendering')
     parser.add_argument('--no-wandb', action='store_true',
                         help='Disable Weights & Biases logging')
     parser.add_argument('--full-expert', action='store_true',
-                        help='Train entire Action Expert (~100M params) instead of just output layers')
+                        help='Train entire Action Expert (~100M params)')
     parser.add_argument('--no-full-expert', action='store_true',
-                        help='Disable full expert training (train only output layers ~540K params)')
+                        help='Disable full expert training')
     return parser.parse_args()
 
 
@@ -165,21 +167,20 @@ def parse_args():
 
 def train_parallel(config, args, device):
     """
-    Parallel training loop using vectorized environments.
+    Parallel ON-POLICY training loop with actor-critic.
     
-    Runs N environments in parallel, batching observations for efficient
-    GPU inference. Best for A100/CUDA where batch processing is fast.
-    
-    With --subproc flag, uses subprocess-based parallelism for true parallel
-    CPU rendering across multiple cores.
+    Key features:
+    1. Gets fresh observations between action chunks
+    2. On-policy updates after each batch of episodes
+    3. Uses learned critic V(s) for variance reduction
+    4. Recomputes sigma at training time (gradients through noise network)
     """
     num_envs = config.num_parallel_envs
     
-    # Choose environment implementation based on config
+    # Choose environment implementation
     if config.use_subproc_env:
         from subproc_vectorized_env import SubprocMuJoCoEnv
         print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
-        print("  (True parallel CPU rendering enabled)")
         vec_env = SubprocMuJoCoEnv(
             num_envs=num_envs,
             model_path=config.model_path,
@@ -196,19 +197,20 @@ def train_parallel(config, args, device):
             lift_threshold=config.lift_threshold,
         )
     
-    # Setup ReinFlow policy
+    # Setup ReinFlow policy with critic
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA")
+    print("Setting up ReinFlow SmolVLA (Actor-Critic, On-Policy)")
     print("="*60)
     
     rl_policy = setup_reinflow_policy(
         pretrained_path=config.pretrained_path,
         device=str(device),
         num_steps=config.num_denoising_steps,
-        init_log_sigma=config.init_log_sigma,
         train_action_head=config.train_action_head,
         train_time_mlp=config.train_time_mlp,
         train_full_expert=config.train_full_expert,
+        train_noise_head=config.train_noise_head,
+        train_critic=config.train_critic,
     )
     
     # Load checkpoint if resuming
@@ -223,166 +225,177 @@ def train_parallel(config, args, device):
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
         start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
-    # Initialize wandb AFTER loading checkpoint so we can resume the same run
+    # Initialize wandb
     if config.wandb_enabled:
         wandb.init(
             project=config.wandb_project,
             id=wandb_run_id,
             resume="allow",
             config={
-                "lr": config.lr,
+                "policy_lr": config.policy_lr,
+                "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
-                "batch_size": config.batch_size,
                 "num_denoising_steps": config.num_denoising_steps,
-                "init_log_sigma": config.init_log_sigma,
-                "entropy_coef": config.entropy_coef,
-                "max_steps_per_episode": config.max_steps_per_episode,
+                "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
                 "train_time_mlp": config.train_time_mlp,
                 "train_full_expert": config.train_full_expert,
+                "train_noise_head": config.train_noise_head,
+                "train_critic": config.train_critic,
                 "num_parallel_envs": config.num_parallel_envs,
-                "use_subproc_env": config.use_subproc_env,
+                "training_mode": "on-policy-actor-critic",
             },
         )
-        wandb_run_id = wandb.run.id  # Update to current run ID for saving
+        wandb_run_id = wandb.run.id
     
-    # Optimizer
-    trainable_params = rl_policy.get_trainable_params()
-    optimizer = torch.optim.Adam(trainable_params, lr=config.lr)
+    # Separate optimizers for actor and critic
+    policy_params = rl_policy.get_trainable_params()
+    critic_params = rl_policy.get_critic_params()
     
-    env_mode = "PARALLEL MODE - SUBPROC" if config.use_subproc_env else "PARALLEL MODE"
+    policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
+    critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
+    
     print(f"\n{'='*60}")
-    print(f"Starting ReinFlow Training ({env_mode})")
+    print(f"Starting ReinFlow Training (On-Policy Actor-Critic, Parallel)")
     print(f"{'='*60}")
     print(f"Instruction: '{config.instruction}'")
     print(f"Parallel environments: {num_envs}")
-    print(f"Subproc rendering: {config.use_subproc_env}")
-    print(f"Episodes per batch: {num_envs} (each batch = {num_envs} parallel episodes)")
-    print(f"Total batches: {config.num_episodes // num_envs}")
-    print(f"Max steps per episode: {config.max_steps_per_episode}")
+    print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Learning rate: {config.lr}")
-    print(f"Gradient clip norm: {config.grad_clip_norm}")
-    print(f"Initial sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
+    print(f"Policy LR: {config.policy_lr}")
+    print(f"Critic LR: {config.critic_lr}")
+    print(f"Training mode: ON-POLICY (no replay buffer)")
     print(f"{'='*60}\n")
     
-    # Calculate number of batches
-    num_batches = config.num_episodes // num_envs
     total_episodes = 0
     
-    # Running baseline for variance reduction (key for REINFORCE!)
-    # Initialize as None - will be set from first batch's mean
-    baseline = None
-    
     try:
-        for batch_idx in range(num_batches):
+        for episode_batch in range(config.num_episodes // num_envs):
             batch_start_time = time.time()
             
             # Reset all environments
             vec_env.reset_all()
+            episode_rewards = np.zeros(num_envs)
             
-            # Get batched observations from all environments (initial state)
-            obs_dict = vec_env.get_batched_observations(device)
+            # Collect data for this batch (on-policy)
+            batch_trajectories = []  # List of trajectories across all envs and chunks
+            batch_observations = []  # List of observations
+            batch_chunk_rewards = []  # Rewards for each chunk
             
-            # Add language tokens
-            observation = prepare_batched_observation(
-                obs_dict, config.instruction, device, rl_policy, num_envs
-            )
-            
-            # SINGLE BATCHED INFERENCE - get FULL action chunks for all N environments!
-            # action_chunks: (N, chunk_size, action_dim) - all 50 actions per env
-            # log_probs: (N,) - one log prob per env for the entire chunk
-            action_chunks, log_probs = rl_policy.forward_batched_chunks(observation)
-            
-            # Unnormalize all actions in chunks (batched)
-            action_chunks_np = action_chunks.detach().cpu().numpy()
-            # action_chunks_np is (N, chunk_size, action_dim)
-            action_chunks_radians = np.stack([
-                np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
-                for chunk in action_chunks_np
-            ])
-            
-            # Execute ALL 50 actions for each environment, accumulating rewards
-            # This is ~50x more efficient than querying policy each step!
-            total_rewards, dones = vec_env.step_all_chunk(
-                action_chunks_radians, config.steps_per_action
-            )
-            
-            # Simplified: one log_prob and one total_reward per environment
-            batch_log_probs = log_probs  # (N,) tensor
-            batch_total_rewards = total_rewards.tolist()  # List of N floats
-            
-            # For REINFORCE, we treat total_reward as the return for the chunk
-            all_log_probs_tensor = batch_log_probs
-            all_returns_tensor = torch.tensor(batch_total_rewards, device=device, dtype=torch.float32)
-            
-            # Update running baseline (exponential moving average)
-            batch_mean = all_returns_tensor.mean().item()
-            if baseline is None:
-                baseline = batch_mean  # Initialize from first batch!
-            else:
-                baseline = 0.9 * baseline + 0.1 * batch_mean  # Faster adaptation
-            
-            # Compute advantages using baseline (key for REINFORCE variance reduction!)
-            # This tells the policy "is this better or worse than average?"
-            advantages = all_returns_tensor - baseline
-            advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
-            # Do NOT normalize - magnitude matters for learning rate scaling
-            
-            # Policy gradient loss
-            policy_loss = -(advantages * all_log_probs_tensor).mean()
-            
-            # Entropy bonus
-            entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
-            
-            # Total loss
-            loss = policy_loss - entropy_bonus
-            
-            # Update policy
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
-            optimizer.step()
-            
-            # Clamp sigma to [0.1, 1.0] - allows natural learning within bounds
-            with torch.no_grad():
-                rl_policy.log_sigmas.clamp_(min=-2.3, max=0.0)
+            # Execute multiple chunks per episode (getting fresh observations!)
+            for chunk_idx in range(config.chunks_per_episode):
+                # Get FRESH observation for this chunk
+                obs_dict = vec_env.get_batched_observations(device)
+                observation = prepare_batched_observation(
+                    obs_dict, config.instruction, device, rl_policy, num_envs
+                )
+                
+                # Forward pass with trajectory storage
+                action_chunks, trajectory, sigmas = rl_policy.forward_batched_with_trajectory(observation)
+                
+                # Unnormalize actions for execution
+                action_chunks_np = action_chunks.detach().cpu().numpy()
+                action_chunks_radians = np.stack([
+                    np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
+                    for chunk in action_chunks_np
+                ])
+                
+                # Execute chunk and get rewards
+                chunk_rewards, dones = vec_env.step_all_chunk(
+                    action_chunks_radians, config.steps_per_action
+                )
+                episode_rewards += chunk_rewards
+                
+                # Store data for on-policy update (one entry per environment)
+                # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
+                # Stack to (num_envs, K+1, chunk, action_dim)
+                traj_tensor = torch.stack(trajectory, dim=1)  # (num_envs, K+1, chunk, action)
+                
+                for i in range(num_envs):
+                    batch_trajectories.append(traj_tensor[i])  # (K+1, chunk, action)
+                    # Store observation for env i
+                    obs_i = {k: v[i:i+1] for k, v in observation.items()}  # Keep batch dim
+                    batch_observations.append(obs_i)
+                    batch_chunk_rewards.append(chunk_rewards[i])
+                
+                # Early termination if all done
+                if dones.all():
+                    break
             
             # Track episode rewards
-            episode_rewards_history.extend(batch_total_rewards)
+            episode_rewards_history.extend(episode_rewards.tolist())
             total_episodes += num_envs
+            
+            # ===== ON-POLICY UPDATE =====
+            if len(batch_trajectories) > 0:
+                # Stack all trajectories: (total_chunks, K+1, chunk, action)
+                all_trajectories = torch.stack(batch_trajectories, dim=0)
+                
+                # Stack observations
+                all_observations = {}
+                for key in batch_observations[0].keys():
+                    all_observations[key] = torch.cat([obs[key] for obs in batch_observations], dim=0)
+                
+                # Rewards tensor
+                all_rewards = torch.tensor(batch_chunk_rewards, device=device, dtype=torch.float32)
+                
+                # Compute actor-critic loss (on-policy, fresh sigma computation)
+                policy_loss, critic_loss, loss_info = compute_actor_critic_loss(
+                    rl_policy,
+                    all_trajectories,
+                    all_observations,
+                    all_rewards,
+                    gamma=config.gamma,
+                )
+                
+                # Update critic
+                critic_optimizer.zero_grad()
+                critic_loss.backward(retain_graph=True)
+                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                critic_optimizer.step()
+                
+                # Update policy
+                policy_optimizer.zero_grad()
+                policy_loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                policy_optimizer.step()
+            else:
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0}
+                policy_loss = torch.tensor(0.0)
+                critic_loss = torch.tensor(0.0)
             
             batch_time = time.time() - batch_start_time
             
             # Logging
-            avg_reward = np.mean(batch_total_rewards)
-            current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
-            print(f"Batch {batch_idx+1:4d} ({total_episodes:5d} eps) | "
+            avg_reward = np.mean(episode_rewards)
+            print(f"Batch {episode_batch+1:4d} ({total_episodes:5d} eps) | "
                   f"Avg Reward: {avg_reward:8.2f} | "
-                  f"Baseline: {baseline:8.2f} | "
-                  f"Loss: {loss.item():8.4f} | "
-                  f"σ_mean: {current_sigmas.mean():.4f} | "
-                  f"Time: {batch_time:.1f}s ({batch_time/num_envs:.2f}s/ep)")
+                  f"V(s): {loss_info['value_mean']:7.2f} | "
+                  f"Adv: {loss_info['advantage_mean']:6.2f} | "
+                  f"Time: {batch_time:.1f}s")
             
-            # Log to Weights & Biases
+            # Log to wandb
             if config.wandb_enabled:
-                wandb.log({
-                    "batch": batch_idx + 1,
+                log_dict = {
+                    "batch": episode_batch + 1,
                     "episodes_total": total_episodes,
                     "reward/batch_avg": avg_reward,
-                    "reward/batch_min": np.min(batch_total_rewards),
-                    "reward/batch_max": np.max(batch_total_rewards),
-                    "reward/baseline": baseline,
-                    "loss/policy": loss.item(),
-                    "exploration/sigma_mean": current_sigmas.mean(),
+                    "reward/batch_min": np.min(episode_rewards),
+                    "reward/batch_max": np.max(episode_rewards),
+                    "loss/policy": policy_loss.item() if torch.is_tensor(policy_loss) else policy_loss,
+                    "loss/critic": critic_loss.item() if torch.is_tensor(critic_loss) else critic_loss,
+                    "training/value_mean": loss_info['value_mean'],
+                    "training/advantage_mean": loss_info['advantage_mean'],
+                    "training/log_prob_mean": loss_info['log_prob_mean'],
                     "time/batch_seconds": batch_time,
-                    "time/per_episode": batch_time / num_envs,
-                })
+                }
+                wandb.log(log_dict)
             
             # Save checkpoint periodically
-            if (batch_idx + 1) % (config.save_interval // num_envs + 1) == 0:
+            if (episode_batch + 1) % (config.save_interval // num_envs + 1) == 0:
                 save_reinflow_checkpoint(
-                    rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path, wandb_run_id
+                    rl_policy, total_episodes - 1, episode_rewards_history, 
+                    config.checkpoint_path, wandb_run_id
                 )
     
     except KeyboardInterrupt:
@@ -395,13 +408,13 @@ def train_parallel(config, args, device):
     
     # Save final checkpoint
     save_reinflow_checkpoint(
-        rl_policy, total_episodes - 1, episode_rewards_history, config.checkpoint_path, wandb_run_id
+        rl_policy, total_episodes - 1, episode_rewards_history, 
+        config.checkpoint_path, wandb_run_id
     )
     
     print("\n" + "="*60)
     print("Training Complete!")
     print("="*60)
-    print(f"Final sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
     print(f"Total episodes: {len(episode_rewards_history)}")
     if episode_rewards_history:
         print(f"Best reward: {max(episode_rewards_history):.2f}")
@@ -414,14 +427,13 @@ def train_parallel(config, args, device):
 
 def train_sequential(config, args, device):
     """
-    Sequential training loop for ReinFlow (original implementation).
+    Sequential ON-POLICY training loop with actor-critic.
     
-    Best for M1 Mac and CPU where single-sample inference is efficient.
-    
-    Key differences from ReinFlow-lite:
-    1. Noise injected at EACH denoising step (not just output)
-    2. Log-probabilities computed through Markov chain
-    3. Exact REINFORCE gradient (not approximation)
+    Key changes from off-policy version:
+    1. No replay buffer - data is used once and discarded
+    2. Uses learned critic V(s) for variance reduction
+    3. Recomputes sigma at training time (gradients through noise network)
+    4. Proper actor-critic loss computation
     """
     # Load MuJoCo environment
     print(f"\nLoading MuJoCo model from {config.model_path}")
@@ -429,22 +441,23 @@ def train_sequential(config, args, device):
     d = mujoco.MjData(m)
     renderer = mujoco.Renderer(m, height=256, width=256)
     
-    # Setup ReinFlow policy
+    # Setup ReinFlow policy with critic
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA")
+    print("Setting up ReinFlow SmolVLA (Actor-Critic, On-Policy)")
     print("="*60)
     
     rl_policy = setup_reinflow_policy(
         pretrained_path=config.pretrained_path,
         device=str(device),
         num_steps=config.num_denoising_steps,
-        init_log_sigma=config.init_log_sigma,
         train_action_head=config.train_action_head,
         train_time_mlp=config.train_time_mlp,
         train_full_expert=config.train_full_expert,
+        train_noise_head=config.train_noise_head,
+        train_critic=config.train_critic,
     )
     
-    # Load checkpoint if resuming or if specified
+    # Load checkpoint if resuming
     start_episode = 0
     episode_rewards_history = []
     wandb_run_id = None
@@ -456,213 +469,200 @@ def train_sequential(config, args, device):
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
         start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
-    # Initialize wandb AFTER loading checkpoint so we can resume the same run
+    # Initialize wandb
     if config.wandb_enabled:
         wandb.init(
             project=config.wandb_project,
             id=wandb_run_id,
             resume="allow",
             config={
-                "lr": config.lr,
+                "policy_lr": config.policy_lr,
+                "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
-                "batch_size": config.batch_size,
                 "num_denoising_steps": config.num_denoising_steps,
-                "init_log_sigma": config.init_log_sigma,
-                "entropy_coef": config.entropy_coef,
-                "max_steps_per_episode": config.max_steps_per_episode,
+                "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
                 "train_time_mlp": config.train_time_mlp,
                 "train_full_expert": config.train_full_expert,
+                "train_noise_head": config.train_noise_head,
+                "train_critic": config.train_critic,
+                "training_mode": "on-policy-actor-critic",
             },
         )
-        wandb_run_id = wandb.run.id  # Update to current run ID for saving
+        wandb_run_id = wandb.run.id
     
-    # Optimizer with all trainable parameters
-    trainable_params = rl_policy.get_trainable_params()
-    optimizer = torch.optim.Adam(trainable_params, lr=config.lr)
+    # Separate optimizers for actor and critic (allows different learning rates)
+    policy_params = rl_policy.get_trainable_params()
+    critic_params = rl_policy.get_critic_params()
+    
+    policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
+    critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
     
     print(f"\n{'='*60}")
-    print(f"Starting ReinFlow Training")
+    print(f"Starting ReinFlow Training (On-Policy Actor-Critic)")
     print(f"{'='*60}")
     print(f"Instruction: '{config.instruction}'")
     print(f"Episodes: {config.num_episodes}")
-    print(f"Max steps per episode: {config.max_steps_per_episode}")
+    print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Learning rate: {config.lr}")
-    print(f"Batch size: {config.batch_size} episodes per update")
-    print(f"Gradient clip norm: {config.grad_clip_norm}")
-    print(f"Training action head: {config.train_action_head}")
-    print(f"Training time MLP: {config.train_time_mlp}")
-    print(f"Entropy coefficient: {config.entropy_coef}")
-    print(f"Initial sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
+    print(f"Policy LR: {config.policy_lr}")
+    print(f"Critic LR: {config.critic_lr}")
+    print(f"Training mode: ON-POLICY (no replay buffer)")
     print(f"{'='*60}\n")
     
-    # Optional viewer for visualization
+    # Optional viewer
     viewer = None
     if config.render:
         viewer = mujoco.viewer.launch_passive(m, d)
     
     try:
-        # Batch storage for accumulating multiple episodes
-        batch_log_probs = []
-        batch_returns = []
-        batch_episode_rewards = []  # Track rewards for each episode in batch
-        batch_start_time = time.time()
-        
-        # Running baseline for variance reduction (key for REINFORCE!)
-        # Initialize as None - will be set from first batch's mean
-        baseline = None
-        
         for episode in range(start_episode, config.num_episodes):
             episode_start_time = time.time()
             
-            # Reset environment and reward state
+            # Reset environment
             reset_env(m, d, config.starting_position)
             reset_reward_state()
             
-            # Get initial observation
-            rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
-            rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
-            rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
-            robot_state = get_robot_state(d)
-            
-            # Prepare observation for ReinFlow policy
-            observation = prepare_observation_for_reinflow(
-                rgb_top, rgb_wrist, rgb_side, robot_state,
-                config.instruction, device, rl_policy
-            )
-            
-            # Get FULL action chunk from ReinFlow policy (with noise at each denoising step!)
-            # action: first action, log_prob: log prob for entire chunk, action_chunk: all 50 actions
-            _, log_prob, action_chunk = rl_policy(observation)
-            
-            # Execute ALL actions in the chunk, accumulating rewards
-            total_reward = 0.0
+            episode_reward = 0.0
             done = False
-            chunk_size = action_chunk.shape[0]  # Should be 50
             
-            for action_idx in range(chunk_size):
+            # Collect data for this episode (on-policy)
+            episode_trajectories = []  # List of trajectories for each chunk
+            episode_observations = []  # List of observations for each chunk
+            episode_chunk_rewards = []  # Reward for each chunk
+            
+            # Execute multiple chunks per episode (getting fresh observations!)
+            for chunk_idx in range(config.chunks_per_episode):
                 if done:
                     break
+                
+                # Get FRESH observation for this chunk
+                rgb_top = get_camera_observation(renderer, d, camera_name="camera_up")
+                rgb_wrist = get_camera_observation(renderer, d, camera_name="wrist_camera")
+                rgb_side = get_camera_observation(renderer, d, camera_name="camera_side")
+                robot_state = get_robot_state(d)
+                
+                observation = prepare_observation_for_reinflow(
+                    rgb_top, rgb_wrist, rgb_side, robot_state,
+                    config.instruction, device, rl_policy
+                )
+                
+                # Forward pass with trajectory storage
+                action_chunk, trajectory, sigmas = rl_policy.forward_with_trajectory(observation)
+                
+                # Execute chunk and collect rewards
+                chunk_reward = 0.0
+                chunk_size = action_chunk.shape[1]  # (batch=1, chunk_size, action_dim)
+                
+                for action_idx in range(chunk_size):
+                    if done:
+                        break
                     
-                # Get action for this timestep
-                action = action_chunk[action_idx]
-                action_np = action.detach().cpu().numpy()
-                action_radians = unnormalize_action_from_smolvla(action_np)
-                action_dict = convert_to_dictionary(action_radians)
+                    action = action_chunk[0, action_idx]
+                    action_np = action.detach().cpu().numpy()
+                    action_radians = unnormalize_action_from_smolvla(action_np)
+                    action_dict = convert_to_dictionary(action_radians)
+                    
+                    # Execute action
+                    for _ in range(config.steps_per_action):
+                        send_position_command(d, action_dict)
+                        mujoco.mj_step(m, d)
+                        if viewer is not None:
+                            viewer.sync()
+                    
+                    # Get reward
+                    reward, done = compute_reward(m, d, lift_threshold=config.lift_threshold)
+                    chunk_reward += reward
+                    
+                    if done:
+                        print(f"  Episode {episode+1}: SUCCESS! Block lifted at chunk {chunk_idx+1}, action {action_idx+1}")
                 
-                # Execute action for multiple physics steps
-                for _ in range(config.steps_per_action):
-                    send_position_command(d, action_dict)
-                    mujoco.mj_step(m, d)
-                    if viewer is not None:
-                        viewer.sync()
+                episode_reward += chunk_reward
                 
-                # Get reward for this step
-                reward, done = compute_reward(m, d, lift_threshold=config.lift_threshold)
-                total_reward += reward
-                
-                if done:
-                    print(f"  Episode {episode+1}: SUCCESS! Block lifted at action {action_idx+1}/{chunk_size}")
-            
-            # Simplified: one log_prob and one total_reward per episode
-            # Add to batch (single values, not lists)
-            batch_log_probs.append(log_prob)
-            batch_returns.append(torch.tensor(total_reward, device=device, dtype=torch.float32))
+                # Store data for on-policy update (trajectory without batch dim)
+                # Stack trajectory into tensor: (K+1, chunk_size, action_dim)
+                traj_tensor = torch.stack(trajectory, dim=1)[0]  # Remove batch dim -> (K+1, chunk, action)
+                episode_trajectories.append(traj_tensor)
+                episode_observations.append(observation)
+                episode_chunk_rewards.append(chunk_reward)
             
             # Track episode reward
-            episode_rewards_history.append(total_reward)
-            batch_episode_rewards.append(total_reward)
+            episode_rewards_history.append(episode_reward)
             
-            # Only update policy every batch_size episodes
-            if (episode + 1) % config.batch_size == 0:
-                # Stack all episodes in batch (each is a single value now)
-                all_log_probs = torch.stack(batch_log_probs)
-                all_returns = torch.stack(batch_returns)
+            # ===== ON-POLICY UPDATE =====
+            # Only update if we collected at least one chunk
+            if len(episode_trajectories) > 0:
+                # Stack all chunk data into batches
+                # Each trajectory: (K+1, chunk_size, action_dim) -> stack to (num_chunks, K+1, chunk, action)
+                batch_trajectories = torch.stack(episode_trajectories, dim=0)  # (num_chunks, K+1, chunk, action)
                 
-                # Update running baseline (exponential moving average)
-                batch_mean = all_returns.mean().item()
-                if baseline is None:
-                    baseline = batch_mean  # Initialize from first batch!
-                else:
-                    baseline = 0.9 * baseline + 0.1 * batch_mean  # Faster adaptation
+                # Stack observations - need to handle dict
+                batch_observations = {}
+                for key in episode_observations[0].keys():
+                    batch_observations[key] = torch.stack([obs[key].squeeze(0) for obs in episode_observations], dim=0)
                 
-                # Compute advantages using baseline (key for REINFORCE variance reduction!)
-                advantages = all_returns - baseline
-                advantages = torch.clamp(advantages, -10.0, 10.0)  # Clip outliers!
-                # Do NOT normalize - magnitude matters for learning rate scaling
+                # Rewards tensor
+                batch_rewards = torch.tensor(episode_chunk_rewards, device=device, dtype=torch.float32)
                 
-                # Policy gradient loss: -E[A(s,a) * log π(a|s)]
-                policy_loss = -(advantages * all_log_probs).mean()
+                # Spread chunk rewards across denoising steps (credit assignment)
+                # Each chunk reward is divided by K steps
+                per_step_reward = batch_rewards / config.num_denoising_steps
                 
-                # Entropy bonus: encourage exploration by penalizing low sigma
-                entropy_bonus = config.entropy_coef * rl_policy.log_sigmas.mean()
+                # Compute actor-critic loss (on-policy, fresh sigma computation)
+                policy_loss, critic_loss, loss_info = compute_actor_critic_loss(
+                    rl_policy,
+                    batch_trajectories,
+                    batch_observations,
+                    batch_rewards,
+                    gamma=config.gamma,
+                )
                 
-                # Total loss (subtract entropy bonus to encourage higher sigma)
-                loss = policy_loss - entropy_bonus
+                # Update critic
+                critic_optimizer.zero_grad()
+                critic_loss.backward(retain_graph=True)
+                torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                critic_optimizer.step()
                 
                 # Update policy
-                optimizer.zero_grad()
-                loss.backward()
-                
-                # Gradient clipping for stability
-                torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=config.grad_clip_norm)
-                
-                optimizer.step()
-                
-                # Clamp sigma to [0.1, 1.0] - allows natural learning within bounds
-                with torch.no_grad():
-                    rl_policy.log_sigmas.clamp_(min=-2.3, max=0.0)
-                
-                # Clear batch
-                batch_log_probs = []
-                batch_returns = []
-                batch_episode_rewards = []
-                batch_start_time = time.time()
+                policy_optimizer.zero_grad()
+                policy_loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                policy_optimizer.step()
             else:
-                # No update yet, set loss to None for logging
-                loss = None
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0}
+                policy_loss = torch.tensor(0.0)
+                critic_loss = torch.tensor(0.0)
             
             episode_time = time.time() - episode_start_time
             
             # Logging
-            if (episode + 1) % config.log_interval == 0 or episode == 0:
-                avg_reward = np.mean(episode_rewards_history[-config.log_interval:])
-                current_sigmas = rl_policy.get_sigmas().data.cpu().numpy()
-                loss_str = f"{loss.item():8.4f}" if loss is not None else "    N/A "
-                baseline_str = f"{baseline:8.2f}" if baseline is not None else "    N/A "
+            if (episode + 1) % config.log_interval == 0:
+                avg_reward = np.mean(episode_rewards_history[-min(100, len(episode_rewards_history)):])
                 print(f"Episode {episode+1:5d} | "
-                      f"Reward: {total_reward:8.2f} | "
+                      f"Reward: {episode_reward:8.2f} | "
                       f"Avg: {avg_reward:8.2f} | "
-                      f"Baseline: {baseline_str} | "
-                      f"Loss: {loss_str} | "
-                      f"σ_mean: {current_sigmas.mean():.4f} | "
+                      f"V(s): {loss_info['value_mean']:7.2f} | "
+                      f"Adv: {loss_info['advantage_mean']:6.2f} | "
                       f"Time: {episode_time:.1f}s")
                 
-                # Log to Weights & Biases
                 if config.wandb_enabled:
                     wandb.log({
                         "episode": episode + 1,
-                        "reward/episode": total_reward,
+                        "reward/episode": episode_reward,
                         "reward/avg": avg_reward,
-                        "reward/baseline": baseline,
-                        "loss/policy": loss.item() if loss is not None else None,
-                        "exploration/sigma_mean": current_sigmas.mean(),
-                        "exploration/sigma_min": current_sigmas.min(),
-                        "exploration/sigma_max": current_sigmas.max(),
+                        "loss/policy": policy_loss.item() if torch.is_tensor(policy_loss) else policy_loss,
+                        "loss/critic": critic_loss.item() if torch.is_tensor(critic_loss) else critic_loss,
+                        "training/value_mean": loss_info['value_mean'],
+                        "training/advantage_mean": loss_info['advantage_mean'],
+                        "training/log_prob_mean": loss_info['log_prob_mean'],
                         "time/episode_seconds": episode_time,
-                        "steps/episode": chunk_size,  # Full chunk executed
                     })
-            
-            # Print 10-episode average every 10 episodes
-            if (episode + 1) % 10 == 0:
-                avg_10 = np.mean(episode_rewards_history[-10:])
-                print(f"  >>> Last 10 episodes avg: {avg_10:.2f}")
             
             # Save checkpoint periodically
             if (episode + 1) % config.save_interval == 0:
                 save_reinflow_checkpoint(
-                    rl_policy, episode, episode_rewards_history, config.checkpoint_path, wandb_run_id
+                    rl_policy, episode, episode_rewards_history, 
+                    config.checkpoint_path, wandb_run_id
                 )
     
     except KeyboardInterrupt:
@@ -676,13 +676,13 @@ def train_sequential(config, args, device):
     
     # Save final checkpoint
     save_reinflow_checkpoint(
-        rl_policy, episode, episode_rewards_history, config.checkpoint_path, wandb_run_id
+        rl_policy, episode, episode_rewards_history, 
+        config.checkpoint_path, wandb_run_id
     )
     
     print("\n" + "="*60)
     print("Training Complete!")
     print("="*60)
-    print(f"Final sigmas: {rl_policy.get_sigmas().data.cpu().numpy()}")
     print(f"Total episodes: {len(episode_rewards_history)}")
     if episode_rewards_history:
         print(f"Best reward: {max(episode_rewards_history):.2f}")
@@ -696,9 +696,7 @@ def train_sequential(config, args, device):
 def train(config=None, args=None):
     """
     Main training entry point - dispatches to parallel or sequential training.
-    
-    Automatically chooses parallel mode on CUDA with --parallel-envs flag,
-    otherwise uses sequential mode (best for M1/CPU).
+    Uses on-policy actor-critic training.
     """
     if config is None:
         config = TrainingConfig()
@@ -711,8 +709,10 @@ def train(config=None, args=None):
             config.render = False
         if args.episodes is not None:
             config.num_episodes = args.episodes
-        if args.lr is not None:
-            config.lr = args.lr
+        if args.policy_lr is not None:
+            config.policy_lr = args.policy_lr
+        if args.critic_lr is not None:
+            config.critic_lr = args.critic_lr
         if args.pretrained is not None:
             config.pretrained_path = args.pretrained
         if args.parallel_envs is not None:
@@ -750,4 +750,3 @@ def train(config=None, args=None):
 if __name__ == "__main__":
     args = parse_args()
     train(args=args)
-
