@@ -285,12 +285,12 @@ class ReinFlowSmolVLA(nn.Module):
             images, img_masks, lang_tokens, lang_masks, state
         )
         
-        # Unpad actions to original dimension
+        # Unpad actions to original dimension (for execution)
         original_action_dim = self.base.config.action_feature.shape[0]
         action_chunk = action_chunk[:, :, :original_action_dim]
         
-        # Also unpad trajectory and sigmas
-        trajectory = [t[:, :, :original_action_dim] for t in trajectory]
+        # Keep trajectory in padded space (needed for denoise_step in log prob computation)
+        # Only unpad sigmas since they're not used in on-policy mode anyway
         sigmas = [s[:, :, :original_action_dim] for s in sigmas]
         
         return action_chunk, trajectory, sigmas
@@ -520,6 +520,9 @@ def compute_trajectory_log_probs_onpolicy(
     num_steps = trajectory_tensor.shape[1] - 1  # K steps
     device = trajectory_tensor.device
     
+    # Get original action dim for slicing (trajectory is in padded space)
+    original_action_dim = policy.base.config.action_feature.shape[0]
+    
     # Prepare observation features (embed prefix and cache KV)
     images, img_masks = policy.base.prepare_images(observations)
     state = policy.base.prepare_state(observations)
@@ -561,23 +564,32 @@ def compute_trajectory_log_probs_onpolicy(
             prefix_pad_masks, past_key_values, a_k, t_k_tensor, return_sigma=True
         )
         
-        # Collect sigma for entropy computation
+        # Collect sigma for entropy computation (sliced to original dims)
         if return_sigmas:
-            collected_sigmas.append(sigma_k)
+            collected_sigmas.append(sigma_k[:, :, :original_action_dim])
+        
+        # Slice to original action dims for log prob computation
+        # (trajectory is in padded space for denoise_step, but we only compute
+        # log prob on real action dimensions)
+        a_k_slice = a_k[:, :, :original_action_dim]
+        a_k_next_slice = a_k_next[:, :, :original_action_dim]
+        v_k_slice = v_k[:, :, :original_action_dim]
+        sigma_k_slice = sigma_k[:, :, :original_action_dim]
         
         # Mean of transition: μ_k = a^k + v_θ(t_k, a^k, o) * Δt
-        mu_k = a_k + dt * v_k
+        mu_k = a_k_slice + dt * v_k_slice
         
         # Log probability: log N(a^{k+1} | μ_k, σ_k²)
         # = -0.5 * [||a^{k+1} - μ_k||² / σ_k² + d * log(2π) + 2 * log(σ_k)]
-        diff = a_k_next - mu_k
-        d = diff.shape[-1] * diff.shape[-2]  # action_dim * chunk_size
+        diff = a_k_next_slice - mu_k
+        chunk_size = a_k.shape[-2]
+        d = original_action_dim * chunk_size  # real action_dim * chunk_size
         
         # Compute log prob with gradients through sigma
         log_prob_k = -0.5 * (
-            (diff ** 2 / (sigma_k ** 2 + 1e-8)).sum(dim=(-1, -2)) +
+            (diff ** 2 / (sigma_k_slice ** 2 + 1e-8)).sum(dim=(-1, -2)) +
             d * math.log(2 * math.pi) +
-            2 * torch.log(sigma_k + 1e-8).sum(dim=(-1, -2))
+            2 * torch.log(sigma_k_slice + 1e-8).sum(dim=(-1, -2))
         )
         
         total_log_probs = total_log_probs + log_prob_k
