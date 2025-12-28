@@ -266,6 +266,8 @@ def train_parallel(config, args, device):
         train_noise_head=config.train_noise_head,
         train_critic=config.train_critic,
     )
+    rl_policy.base.model.sigma_min = config.sigma_min
+    rl_policy.base.model.sigma_max = config.sigma_max
     
     # Load checkpoint if resuming
     start_episode = 0
@@ -677,6 +679,8 @@ def train_sequential(config, args, device):
         train_noise_head=config.train_noise_head,
         train_critic=config.train_critic,
     )
+    rl_policy.base.model.sigma_min = config.sigma_min
+    rl_policy.base.model.sigma_max = config.sigma_max
     
     # Load checkpoint if resuming
     start_episode = 0
