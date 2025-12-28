@@ -563,6 +563,9 @@ def compute_trajectory_log_probs_onpolicy(
         v_k, sigma_k = policy.base.model.denoise_step(
             prefix_pad_masks, past_key_values, a_k, t_k_tensor, return_sigma=True
         )
+        # #region agent log
+        if k == 0: import json,time as _t; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H3-H5","location":"reinflow_smolvla.py:564","message":"actual_sigma_from_network","data":{"sigma_min_model":float(policy.base.model.sigma_min),"sigma_max_model":float(policy.base.model.sigma_max),"sigma_k_min":float(sigma_k.min()),"sigma_k_max":float(sigma_k.max()),"sigma_k_mean":float(sigma_k.mean())},"timestamp":int(_t.time()*1000)})+'\n')
+        # #endregion
         
         # Collect sigma for entropy computation (sliced to original dims)
         if return_sigmas:
@@ -728,6 +731,9 @@ def compute_ppo_loss(
     # Probability ratio: r(θ) = π_θ(a|s) / π_θ_old(a|s)
     log_ratio = new_log_probs - old_log_probs
     ratio = torch.exp(log_ratio)
+    # #region agent log
+    import json,time as _t; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H4","location":"reinflow_smolvla.py:733","message":"log_prob_ratio","data":{"old_log_probs_mean":float(old_log_probs.mean()),"new_log_probs_mean":float(new_log_probs.mean()),"log_ratio_mean":float(log_ratio.mean()),"log_ratio_max":float(log_ratio.max()),"log_ratio_min":float(log_ratio.min())},"timestamp":int(_t.time()*1000)})+'\n')
+    # #endregion
     
     # Clipped surrogate objective
     # L^CLIP = min(r_t * A_t, clip(r_t, 1-ε, 1+ε) * A_t)
