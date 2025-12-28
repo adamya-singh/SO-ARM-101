@@ -345,12 +345,9 @@ class ReinFlowSmolVLA(nn.Module):
         """
         Extract observation features from VLM prefix encoding for critic.
         
-        This runs the VLM prefix encoding and pools the output to get a
-        fixed-size feature vector that represents the observation state.
-        
-        Note: We pass dummy action embeddings to satisfy the cross-attention
-        expert layers. The critic only uses the prefix_out (observation features),
-        matching the ReinFlow paper's approach where "the critic only receives
+        Uses the embedded prefix features directly (images, language, state)
+        without running through the full VLM forward pass. This matches
+        the ReinFlow paper's approach where "the critic only receives
         features from time and condition."
         
         Args:
@@ -366,36 +363,14 @@ class ReinFlowSmolVLA(nn.Module):
         lang_masks = observation[OBS_LANGUAGE_ATTENTION_MASK]
         
         # Embed prefix (images, language, state)
-        prefix_embs, prefix_pad_masks, prefix_att_masks = self.base.model.embed_prefix(
+        prefix_embs, prefix_pad_masks, _ = self.base.model.embed_prefix(
             images, img_masks, lang_tokens, lang_masks, state=state
-        )
-        
-        # Run through VLM layers to get contextual features
-        prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
-        prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
-        
-        # Create dummy action embeddings for the expert cross-attention layers
-        # Shape: (batch, 1, expert_hidden_size) - minimal dummy to satisfy forward pass
-        batch_size = prefix_embs.shape[0]
-        device = prefix_embs.device
-        dtype = prefix_embs.dtype
-        expert_hidden_size = self.base.model.vlm_with_expert.expert_hidden_size
-        dummy_expert_embs = torch.zeros(batch_size, 1, expert_hidden_size, device=device, dtype=dtype)
-        
-        # Forward through VLM (with dummy expert embeddings to avoid None error)
-        (prefix_out, _), _ = self.base.model.vlm_with_expert.forward(
-            attention_mask=prefix_att_2d_masks,
-            position_ids=prefix_position_ids,
-            past_key_values=None,
-            inputs_embeds=[prefix_embs, dummy_expert_embs],
-            use_cache=False,
-            fill_kv_cache=False,
         )
         
         # Pool over sequence dimension - use mean of valid (non-padded) tokens
         # prefix_pad_masks: (batch, seq_len) - True where valid
         mask_expanded = prefix_pad_masks.unsqueeze(-1).float()  # (batch, seq, 1)
-        pooled = (prefix_out * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1).clamp(min=1)
+        pooled = (prefix_embs * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1).clamp(min=1)
         
         return pooled  # (batch_size, hidden_size)
     
