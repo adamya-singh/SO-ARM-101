@@ -95,7 +95,7 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions)
+    policy_lr = 0.0000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions) (and 10x more since our chunk size is 50 not 4)
     critic_lr = 0.0001   # Critic learning rate (can be higher)
     grad_clip_norm = 0.5  # Gradient clipping for stability
     
