@@ -547,12 +547,7 @@ def train_parallel(config, args, device):
                         # Record KL before checking for early stop
                         epoch_kl_divs.append(loss_info['kl_div'])
                         
-                        # Check KL divergence for early stopping
-                        if loss_info['kl_div'] > config.target_kl * 1.5:
-                            print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
-                            kl_early_stop = True
-                            break
-                        
+                        # ALWAYS do backward passes first to release computation graph
                         # Update critic
                         critic_optimizer.zero_grad()
                         critic_loss.backward(retain_graph=True)
@@ -567,6 +562,12 @@ def train_parallel(config, args, device):
                         
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
+                        
+                        # Check KL AFTER backward - early stop for remaining mini-batches/epochs
+                        if loss_info['kl_div'] > config.target_kl * 1.5:
+                            print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
+                            kl_early_stop = True
+                            break
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -1000,12 +1001,7 @@ def train_sequential(config, args, device):
                         # Record KL before checking for early stop
                         epoch_kl_divs.append(loss_info['kl_div'])
                         
-                        # Check KL divergence for early stopping
-                        if loss_info['kl_div'] > config.target_kl * 1.5:
-                            print(f"  [KL Early Stop] Epoch {ppo_epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
-                            kl_early_stop = True
-                            break
-                        
+                        # ALWAYS do backward passes first to release computation graph
                         # Update critic
                         critic_optimizer.zero_grad()
                         critic_loss.backward(retain_graph=True)
@@ -1020,6 +1016,12 @@ def train_sequential(config, args, device):
                         
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
+                        
+                        # Check KL AFTER backward - early stop for remaining mini-batches/epochs
+                        if loss_info['kl_div'] > config.target_kl * 1.5:
+                            print(f"  [KL Early Stop] Epoch {ppo_epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
+                            kl_early_stop = True
+                            break
                 
                 # Step LR schedulers
                 policy_scheduler.step()
