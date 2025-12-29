@@ -92,27 +92,27 @@ class TrainingConfig:
     }
     
     # Training hyperparameters
-    num_episodes = 3000
+    num_episodes = 20000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions)
+    policy_lr = 0.000005  # Policy learning rate (paper uses 0.000045 for chunks of size 4-8, our chunks are size 50) (reduced 10x for visual tasks with high-dim actions)
     critic_lr = 0.0003   # Critic learning rate (can be higher)
-    grad_clip_norm = 0.5  # Gradient clipping for stability
+    grad_clip_norm = 0.25 #0.5  # Gradient clipping for stability
     
     # ReinFlow specific
-    num_denoising_steps = 4  # Paper uses K=4 for most tasks (was 10)
-    chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
+    num_denoising_steps = 1  # Paper uses K=4 for most tasks (smolvla default was 10)
+    chunks_per_episode = 1   # How many chunks to execute per episode (fresh obs between each)
     
     # ReinFlow noise bounds (paper Table 7b - visual manipulation)
     sigma_min = 0.08  # Minimum noise std (paper: 0.05-0.08 for visual)
     sigma_max = 0.16  # Maximum noise std (paper: 0.10-0.14 for visual)
     
     # Noise decay schedule (paper Appendix D)
-    noise_decay_start = 0.35    # Hold sigma_max for 35% of training
+    noise_decay_start = 1.0 #paper says no decay for visual tasks #0.35    # Hold sigma_max for 35% of training
     noise_decay_ratio = 0.7     # Decay to 0.3*sigma_min + 0.7*sigma_max
     
     # Entropy regularization (paper Section 4.4 - visual tasks)
-    entropy_coeff = 0.01  # Paper uses 0.00-0.01 for visual manipulation
+    entropy_coeff = 0.0  # Paper uses 0.00-0.01 for visual manipulation
     
     # Critic warmup (paper Appendix D.2)
     critic_warmup_iters = 2  # Paper uses 2-5 iterations
@@ -150,12 +150,12 @@ class TrainingConfig:
     wandb_enabled = True
     
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
-    num_ppo_epochs = 10          # Number of PPO epochs per update
+    num_ppo_epochs = 10          # Number of PPO epochs per update (paper uses 10)
     minibatch_size = 8          # Mini-batch size for PPO updates
-    clip_epsilon = 0.001        # PPO clip range (paper uses 0.001 for visual tasks)
+    clip_epsilon = 0.0001        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 1.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    target_kl = 0.02            # KL divergence threshold (paper uses 0.01 for visual tasks)
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
