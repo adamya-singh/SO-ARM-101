@@ -95,8 +95,8 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.0000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions) (and 10x more since our chunk size is 50 not 4)
-    critic_lr = 0.0001   # Critic learning rate (can be higher)
+    policy_lr = 0.000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions)
+    critic_lr = 0.0003   # Critic learning rate (can be higher)
     grad_clip_norm = 0.5  # Gradient clipping for stability
     
     # ReinFlow specific
@@ -150,12 +150,12 @@ class TrainingConfig:
     wandb_enabled = True
     
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
-    num_ppo_epochs = 4          # Number of PPO epochs per update
+    num_ppo_epochs = 10          # Number of PPO epochs per update
     minibatch_size = 8          # Mini-batch size for PPO updates
     clip_epsilon = 0.001        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 0.1            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    target_kl = 1.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
