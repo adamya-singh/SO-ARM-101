@@ -1,0 +1,58 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Chunks per episode: 3
+Denoising steps: 4
+Policy LR: 3e-05 -> 3e-06
+Critic LR: 0.0001 -> 1e-05
+PPO epochs: 4
+Mini-batch size: 8
+Clip epsilon: 0.01
+GAE lambda: 0.95
+Target KL: 1.0
+Entropy coeff: 0.03
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+Traceback (most recent call last):
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1150, in <module>
+    train(args=args)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1143, in train
+    return train_parallel(config, args, device)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 387, in train_parallel
+    values = rl_policy.get_value(obs_batch)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 412, in get_value
+    features = self.extract_observation_features(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 386, in extract_observation_features
+    (prefix_out, _), _ = self.base.model.vlm_with_expert.forward(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 431, in forward
+    att_outputs, past_key_values = self.forward_attn_layer(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 247, in forward_attn_layer
+    query_states = apply_rope(query_states, position_ids_)
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 48, in apply_rope
+    res[..., :d_half] = x1 * cos - x2 * sin
+RuntimeError: The size of tensor a (198) must match the size of tensor b (197) at non-singleton dimension 1
+Traceback (most recent call last):
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1150, in <module>
+    train(args=args)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1143, in train
+    return train_parallel(config, args, device)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 387, in train_parallel
+    values = rl_policy.get_value(obs_batch)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 412, in get_value
+    features = self.extract_observation_features(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 386, in extract_observation_features
+    (prefix_out, _), _ = self.base.model.vlm_with_expert.forward(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 431, in forward
+    att_outputs, past_key_values = self.forward_attn_layer(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 247, in forward_attn_layer
+    query_states = apply_rope(query_states, position_ids_)
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/smolvlm_with_expert.py", line 48, in apply_rope
+    res[..., :d_half] = x1 * cos - x2 * sin
+RuntimeError: The size of tensor a (198) must match the size of tensor b (197) at non-singleton dimension 1

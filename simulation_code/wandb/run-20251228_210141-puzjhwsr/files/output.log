@@ -1,0 +1,42 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 2
+Chunks per episode: 3
+Denoising steps: 4
+Policy LR: 3e-07 -> 3e-08
+Critic LR: 0.0001 -> 1e-05
+PPO epochs: 4
+Mini-batch size: 8
+Clip epsilon: 0.001
+GAE lambda: 0.95
+Target KL: 0.01
+Entropy coeff: 0.01
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 729.8754
+  [Warmup 2/2] Critic loss: 73.9694
+[Critic Warmup] Complete!
+
+  [KL Early Stop] Epoch 2, KL=0.8517 > 0.0150
+Batch    1 (    2 eps) | Reward:  -45.70 | KL: 0.4258 | LR: 3.00e-07 | Time: 4.3s
+  [KL Early Stop] Epoch 2, KL=0.2089 > 0.0150
+Batch    2 (    4 eps) | Reward:  -49.74 | KL: 0.1045 | LR: 3.00e-07 | Time: 3.9s
+  [KL Early Stop] Epoch 2, KL=1.4595 > 0.0150
+Batch    3 (    6 eps) | Reward:  -43.96 | KL: 0.7297 | LR: 3.00e-07 | Time: 3.7s
+  [KL Early Stop] Epoch 2, KL=0.1676 > 0.0150
+Batch    4 (    8 eps) | Reward:  -42.29 | KL: 0.0838 | LR: 3.00e-07 | Time: 3.9s
+  [KL Early Stop] Epoch 2, KL=1.1136 > 0.0150
+Batch    5 (   10 eps) | Reward:  -44.44 | KL: 0.5568 | LR: 3.00e-07 | Time: 3.9s
+  [KL Early Stop] Epoch 2, KL=0.3816 > 0.0150
+Batch    6 (   12 eps) | Reward:  -45.09 | KL: 0.1908 | LR: 3.00e-07 | Time: 3.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+
+
+Training interrupted by user.

@@ -1,0 +1,25 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 2
+Chunks per episode: 3
+Denoising steps: 4
+Policy LR: 3e-05 -> 3e-06
+Critic LR: 0.0001 -> 1e-05
+PPO epochs: 4
+Mini-batch size: 8
+Clip epsilon: 0.01
+GAE lambda: 0.95
+Target KL: 1.0
+Entropy coeff: 0.03
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 290.8083
+  [Warmup 2/2] Critic loss: 4.6942
+[Critic Warmup] Complete!

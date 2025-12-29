@@ -1,0 +1,12 @@
+{"time":"2025-12-29T01:11:36.509633825-05:00","level":"INFO","msg":"stream: starting","core version":"0.21.4"}
+{"time":"2025-12-29T01:11:36.727597263-05:00","level":"INFO","msg":"stream: created new stream","id":"pacjserg"}
+{"time":"2025-12-29T01:11:36.727682223-05:00","level":"INFO","msg":"stream: started","id":"pacjserg"}
+{"time":"2025-12-29T01:11:36.727762733-05:00","level":"INFO","msg":"writer: started","stream_id":"pacjserg"}
+{"time":"2025-12-29T01:11:36.727794573-05:00","level":"INFO","msg":"handler: started","stream_id":"pacjserg"}
+{"time":"2025-12-29T01:11:36.727806253-05:00","level":"INFO","msg":"sender: started","stream_id":"pacjserg"}
+{"time":"2025-12-29T06:57:08.50271123-05:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"updating run metadata","runtime_seconds":0.001009341}],"total_operations":1}}
+{"time":"2025-12-29T06:57:08.894694143-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-29T06:57:09.245755201-05:00","level":"INFO","msg":"stream: closing","id":"pacjserg"}
+{"time":"2025-12-29T06:57:09.245910661-05:00","level":"INFO","msg":"handler: closed","stream_id":"pacjserg"}
+{"time":"2025-12-29T06:57:09.246113362-05:00","level":"INFO","msg":"sender: closed","stream_id":"pacjserg"}
+{"time":"2025-12-29T06:57:09.246145512-05:00","level":"INFO","msg":"stream: closed","id":"pacjserg"}

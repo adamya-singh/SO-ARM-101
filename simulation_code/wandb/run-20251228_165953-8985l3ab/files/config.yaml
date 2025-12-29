@@ -1,0 +1,156 @@
+_wandb:
+    value:
+        cli_version: 0.21.4
+        e:
+            gwdp94tq2s9cearlplurxo2teqh5t65h:
+                args:
+                    - --parallel-envs
+                    - "4"
+                    - --no-render
+                    - --headless
+                codePath: simulation_code/train_reinflow.py
+                codePathLocal: train_reinflow.py
+                cpu_count: 32
+                cpu_count_logical: 64
+                cudaVersion: "12.8"
+                disk:
+                    /:
+                        total: "738673549312"
+                        used: "591288053760"
+                email: 7adamyasingh@gmail.com
+                executable: /freespace/local/as4487/mujoco/lerobot-venv/bin/python
+                git:
+                    commit: 33354e20e9a1adf90c4db5a93d85e5fc9ba09391
+                    remote: git@github.com:adamya-singh/SO-ARM-101.git
+                gpu: NVIDIA RTX A4500
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 7168
+                      memoryTotal: "21464350720"
+                      name: NVIDIA RTX A4500
+                      uuid: GPU-9c3be8bf-7c63-88eb-df2e-dcce81688ede
+                host: ilab1.cs.rutgers.edu
+                memory:
+                    total: "1077483503616"
+                os: Linux-6.8.0-64-generic-x86_64-with-glibc2.39
+                program: /freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py
+                python: CPython 3.10.19
+                root: /freespace/local/as4487/mujoco/SO-ARM-101/simulation_code
+                slurm:
+                    cluster_name: rlab
+                    conf: /etc/slurm/slurm.conf
+                    cpus_on_node: "8"
+                    cpus_per_task: "8"
+                    distribution: block
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_account: root
+                    job_cpus_per_node: "8"
+                    job_end_time: "1767036780"
+                    job_gid: "1905238429"
+                    job_group: as4487
+                    job_id: "111285"
+                    job_name: bash
+                    job_nodelist: ilab1
+                    job_num_nodes: "1"
+                    job_partition: unlimited
+                    job_qos: normal
+                    job_start_time: "1766950379"
+                    job_uid: "1905238429"
+                    job_user: as4487
+                    jobid: "111285"
+                    launch_node_ipaddr: 128.6.13.2
+                    localid: "0"
+                    mem_per_node: "32768"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: ilab1
+                    nprocs: "1"
+                    ntasks: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    pty_port: "43977"
+                    pty_win_col: "171"
+                    pty_win_row: "46"
+                    script_context: prolog_task
+                    srun_comm_host: 128.6.13.2
+                    srun_comm_port: "43401"
+                    step_gpus: "1"
+                    step_id: "0"
+                    step_launcher_port: "43401"
+                    step_nodelist: ilab1
+                    step_num_nodes: "1"
+                    step_num_tasks: "1"
+                    step_tasks_per_node: "1"
+                    stepid: "0"
+                    submit_dir: /common/home/as4487
+                    submit_host: ilab1.cs.rutgers.edu
+                    task_pid: "2607358"
+                    tasks_per_node: "1"
+                    topology_addr: ilab1
+                    topology_addr_pattern: node
+                    tres_per_task: cpu=8
+                    umask: "0027"
+                startedAt: "2025-12-28T21:59:53.768426Z"
+                writerId: gwdp94tq2s9cearlplurxo2teqh5t65h
+        m: []
+        python_version: 3.10.19
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+            "3":
+                - 2
+                - 16
+            "4": 3.10.19
+            "5": 0.21.4
+            "6": 4.57.3
+            "12": 0.21.4
+            "13": linux-x86_64
+chunks_per_episode:
+    value: 3
+clip_epsilon:
+    value: 0.01
+critic_lr:
+    value: 0.0001
+gae_lambda:
+    value: 0.95
+gamma:
+    value: 0.99
+minibatch_size:
+    value: 8
+num_denoising_steps:
+    value: 4
+num_parallel_envs:
+    value: 4
+num_ppo_epochs:
+    value: 4
+policy_lr:
+    value: 3e-05
+target_kl:
+    value: 1
+train_action_head:
+    value: true
+train_critic:
+    value: true
+train_full_expert:
+    value: true
+train_noise_head:
+    value: true
+train_time_mlp:
+    value: true
+training_mode:
+    value: ppo-on-policy
