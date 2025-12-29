@@ -547,16 +547,21 @@ def train_parallel(config, args, device):
                         # Record KL before checking for early stop
                         epoch_kl_divs.append(loss_info['kl_div'])
                         
-                        # ALWAYS do backward passes first to release computation graph
-                        # Update critic
+                        # Combine losses and do single backward pass to avoid graph issues
+                        # (policy_loss and critic_loss share computation graph through observations)
+                        total_loss = policy_loss + critic_loss
+                        
+                        # Zero gradients for both optimizers
+                        policy_optimizer.zero_grad()
                         critic_optimizer.zero_grad()
-                        critic_loss.backward(retain_graph=True)
+                        
+                        # Single backward pass
+                        total_loss.backward()
+                        
+                        # Clip gradients and step optimizers separately
                         torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
                         critic_optimizer.step()
                         
-                        # Update policy
-                        policy_optimizer.zero_grad()
-                        policy_loss.backward()
                         torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
                         policy_optimizer.step()
                         
@@ -1001,16 +1006,21 @@ def train_sequential(config, args, device):
                         # Record KL before checking for early stop
                         epoch_kl_divs.append(loss_info['kl_div'])
                         
-                        # ALWAYS do backward passes first to release computation graph
-                        # Update critic
+                        # Combine losses and do single backward pass to avoid graph issues
+                        # (policy_loss and critic_loss share computation graph through observations)
+                        total_loss = policy_loss + critic_loss
+                        
+                        # Zero gradients for both optimizers
+                        policy_optimizer.zero_grad()
                         critic_optimizer.zero_grad()
-                        critic_loss.backward(retain_graph=True)
+                        
+                        # Single backward pass
+                        total_loss.backward()
+                        
+                        # Clip gradients and step optimizers separately
                         torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
                         critic_optimizer.step()
                         
-                        # Update policy
-                        policy_optimizer.zero_grad()
-                        policy_loss.backward()
                         torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
                         policy_optimizer.step()
                         
