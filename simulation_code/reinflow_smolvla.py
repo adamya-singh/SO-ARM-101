@@ -729,10 +729,12 @@ def compute_ppo_loss(
         sigmas = []
     
     # Probability ratio: r(θ) = π_θ(a|s) / π_θ_old(a|s)
-    log_ratio = new_log_probs - old_log_probs
+    log_ratio_raw = new_log_probs - old_log_probs
+    # Clamp log_ratio to prevent numerical overflow (standard PPO stabilization)
+    log_ratio = torch.clamp(log_ratio_raw, -20.0, 20.0)
     ratio = torch.exp(log_ratio)
     # #region agent log
-    import json,time as _t; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H4","location":"reinflow_smolvla.py:733","message":"log_prob_ratio","data":{"old_log_probs_mean":float(old_log_probs.mean()),"new_log_probs_mean":float(new_log_probs.mean()),"log_ratio_mean":float(log_ratio.mean()),"log_ratio_max":float(log_ratio.max()),"log_ratio_min":float(log_ratio.min())},"timestamp":int(_t.time()*1000)})+'\n')
+    import json,time as _t; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H4-fix","location":"reinflow_smolvla.py:733","message":"log_prob_ratio_clamped","data":{"old_log_probs_mean":float(old_log_probs.mean()),"new_log_probs_mean":float(new_log_probs.mean()),"log_ratio_raw_mean":float(log_ratio_raw.mean()),"log_ratio_clamped_mean":float(log_ratio.mean()),"ratio_mean":float(ratio.mean())},"timestamp":int(_t.time()*1000)})+'\n')
     # #endregion
     
     # Clipped surrogate objective

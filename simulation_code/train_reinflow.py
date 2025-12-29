@@ -95,7 +95,7 @@ class TrainingConfig:
     num_episodes = 3000
     max_steps_per_episode = 50
     gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.00003  # Policy learning rate (lower for stability)
+    policy_lr = 0.000003  # Policy learning rate (reduced 10x for visual tasks with high-dim actions)
     critic_lr = 0.0001   # Critic learning rate (can be higher)
     grad_clip_norm = 0.5  # Gradient clipping for stability
     
@@ -842,6 +842,9 @@ def train_sequential(config, args, device):
             sigma_min, sigma_max = get_noise_bounds(episode, config.num_episodes, config)
             rl_policy.base.model.sigma_min = sigma_min
             rl_policy.base.model.sigma_max = sigma_max
+            # #region agent log
+            import json; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H1-H2","location":"train_reinflow.py:seq","message":"sigma_bounds_applied","data":{"sigma_min":sigma_min,"sigma_max":sigma_max,"config_sigma_min":config.sigma_min,"config_sigma_max":config.sigma_max,"episode":episode},"timestamp":int(time.time()*1000)})+'\n')
+            # #endregion
             
             # Reset environment
             reset_env(m, d, config.starting_position)
