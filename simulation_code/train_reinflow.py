@@ -103,16 +103,16 @@ class TrainingConfig:
     num_denoising_steps = 4  # Paper uses K=4 for most tasks (was 10)
     chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
-    # ReinFlow noise bounds (paper Table 7b)
-    sigma_min = 0.02  # Minimum noise std (reduced for visual tasks)
-    sigma_max = 0.04  # Maximum noise std (reduced for visual tasks)
+    # ReinFlow noise bounds (paper Table 7b - visual manipulation)
+    sigma_min = 0.08  # Minimum noise std (paper: 0.05-0.08 for visual)
+    sigma_max = 0.16  # Maximum noise std (paper: 0.10-0.14 for visual)
     
     # Noise decay schedule (paper Appendix D)
     noise_decay_start = 0.35    # Hold sigma_max for 35% of training
     noise_decay_ratio = 0.7     # Decay to 0.3*sigma_min + 0.7*sigma_max
     
-    # Entropy regularization (paper Section 4.4)
-    entropy_coeff = 0.03  # Paper default for state tasks
+    # Entropy regularization (paper Section 4.4 - visual tasks)
+    entropy_coeff = 0.01  # Paper uses 0.00-0.01 for visual manipulation
     
     # Critic warmup (paper Appendix D.2)
     critic_warmup_iters = 2  # Paper uses 2-5 iterations
@@ -149,13 +149,13 @@ class TrainingConfig:
     wandb_project = "reinflow-smolvla"
     wandb_enabled = True
     
-    # PPO Hyperparameters (paper-faithful)
+    # PPO Hyperparameters (paper Table 7b - visual manipulation)
     num_ppo_epochs = 4          # Number of PPO epochs per update
     minibatch_size = 8          # Mini-batch size for PPO updates
-    clip_epsilon = 0.01         # PPO clip range (paper uses 0.01 for state tasks)
+    clip_epsilon = 0.001        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 1.0             # KL divergence threshold (paper uses 1.0 for state tasks)
+    target_kl = 0.01            # KL divergence threshold (paper uses 0.01 for visual tasks)
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
