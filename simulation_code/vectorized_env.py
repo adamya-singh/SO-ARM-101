@@ -266,19 +266,19 @@ class VectorizedMuJoCoEnv:
         if lifted:
             reward += 50.0
         
-        # 8. Block displacement penalty
-        if block_pos[2] < 0.05:
-            displacement = np.linalg.norm(block_pos[:2] - initial_block[:2])
-            threshold = 0.05
-            if displacement > threshold:
-                excess = displacement - threshold
-                reward += -5.0 * (np.exp(10.0 * excess) - 1)
+        # 8. Block displacement penalty - DISABLED for initial training
+        # if block_pos[2] < 0.05:
+        #     displacement = np.linalg.norm(block_pos[:2] - initial_block[:2])
+        #     threshold = 0.05
+        #     if displacement > threshold:
+        #         excess = displacement - threshold
+        #         reward += -5.0 * (np.exp(10.0 * excess) - 1)
         
-        # 9. Floor contact penalty
-        floor_force = get_floor_contact_force(self.model, d)
-        if floor_force > 0:
-            raw_penalty = -1.0 * np.exp(floor_force)
-            reward += max(raw_penalty, -50.0)
+        # 9. Floor contact penalty - DISABLED for initial training
+        # floor_force = get_floor_contact_force(self.model, d)
+        # if floor_force > 0:
+        #     raw_penalty = -1.0 * np.exp(floor_force)
+        #     reward += max(raw_penalty, -50.0)
         
         # Update tracking state
         self.prev_gripper_pos[env_idx] = gripper_pos.copy()
