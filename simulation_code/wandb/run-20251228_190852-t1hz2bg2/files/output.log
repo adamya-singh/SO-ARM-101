@@ -26,3 +26,6 @@ Training mode: PPO ON-POLICY
 
 Episode     1 | Reward:  -36.60 | Avg:  -36.60 | KL: 0.0000 | LR: 3.00e-06 | Time: 24.3s
 Episode     2 | Reward:  -40.64 | Avg:  -38.62 | KL: 0.0000 | LR: 3.00e-06 | Time: 112.0s
+
+
+Training interrupted by user.

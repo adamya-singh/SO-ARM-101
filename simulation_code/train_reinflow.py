@@ -268,6 +268,7 @@ def train_parallel(config, args, device):
     )
     rl_policy.base.model.sigma_min = config.sigma_min
     rl_policy.base.model.sigma_max = config.sigma_max
+    print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
     # Load checkpoint if resuming
     start_episode = 0
@@ -407,9 +408,6 @@ def train_parallel(config, args, device):
             sigma_min, sigma_max = get_noise_bounds(current_episode, config.num_episodes, config)
             rl_policy.base.model.sigma_min = sigma_min
             rl_policy.base.model.sigma_max = sigma_max
-            # #region agent log
-            import json; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H1-H2","location":"train_reinflow.py:410","message":"sigma_bounds_applied","data":{"sigma_min":sigma_min,"sigma_max":sigma_max,"config_sigma_min":config.sigma_min,"config_sigma_max":config.sigma_max,"batch":episode_batch},"timestamp":int(time.time()*1000)})+'\n')
-            # #endregion
             
             # Reset all environments
             vec_env.reset_all()
@@ -546,6 +544,9 @@ def train_parallel(config, args, device):
                             entropy_coeff=config.entropy_coeff,
                         )
                         
+                        # Record KL before checking for early stop
+                        epoch_kl_divs.append(loss_info['kl_div'])
+                        
                         # Check KL divergence for early stopping
                         if loss_info['kl_div'] > config.target_kl * 1.5:
                             print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
@@ -566,7 +567,6 @@ def train_parallel(config, args, device):
                         
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
-                        epoch_kl_divs.append(loss_info['kl_div'])
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -684,6 +684,7 @@ def train_sequential(config, args, device):
     )
     rl_policy.base.model.sigma_min = config.sigma_min
     rl_policy.base.model.sigma_max = config.sigma_max
+    print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
     # Load checkpoint if resuming
     start_episode = 0
@@ -842,9 +843,6 @@ def train_sequential(config, args, device):
             sigma_min, sigma_max = get_noise_bounds(episode, config.num_episodes, config)
             rl_policy.base.model.sigma_min = sigma_min
             rl_policy.base.model.sigma_max = sigma_max
-            # #region agent log
-            import json; open('/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/.cursor/debug.log','a').write(json.dumps({"hypothesisId":"H1-H2","location":"train_reinflow.py:seq","message":"sigma_bounds_applied","data":{"sigma_min":sigma_min,"sigma_max":sigma_max,"config_sigma_min":config.sigma_min,"config_sigma_max":config.sigma_max,"episode":episode},"timestamp":int(time.time()*1000)})+'\n')
-            # #endregion
             
             # Reset environment
             reset_env(m, d, config.starting_position)
@@ -999,8 +997,12 @@ def train_sequential(config, args, device):
                             entropy_coeff=config.entropy_coeff,
                         )
                         
+                        # Record KL before checking for early stop
+                        epoch_kl_divs.append(loss_info['kl_div'])
+                        
                         # Check KL divergence for early stopping
                         if loss_info['kl_div'] > config.target_kl * 1.5:
+                            print(f"  [KL Early Stop] Epoch {ppo_epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
                             kl_early_stop = True
                             break
                         
@@ -1018,7 +1020,6 @@ def train_sequential(config, args, device):
                         
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
-                        epoch_kl_divs.append(loss_info['kl_div'])
                 
                 # Step LR schedulers
                 policy_scheduler.step()
