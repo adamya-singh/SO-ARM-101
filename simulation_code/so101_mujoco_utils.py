@@ -416,25 +416,23 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     if lifted:
         reward += 50.0  # large success bonus
     
-    # 8. Block displacement penalty (exponential, kicks in after 5cm)
-    # Penalizes knocking the block away, but allows small nudges
-    # Only applies when block isn't being lifted (Z < 5cm)
-    if block_pos[2] < 0.05:
-        displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
-        threshold = 0.05  # 5cm tolerance
-        if displacement > threshold:
-            excess = displacement - threshold
-            displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
-            reward += displacement_penalty
+    # 8. Block displacement penalty - DISABLED for initial training
+    # if block_pos[2] < 0.05:
+    #     displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
+    #     threshold = 0.05  # 5cm tolerance
+    #     if displacement > threshold:
+    #         excess = displacement - threshold
+    #         displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
+    #         reward += displacement_penalty
     
-    # 9. Floor contact penalty (exponential with force magnitude, CLAMPED)
-    floor_force = get_floor_contact_force(m, d)
-    if floor_force > 0:
-        # Exponential scaling but capped to prevent reward explosion
-        # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
-        raw_penalty = -1.0 * np.exp(floor_force)
-        floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
-        reward += floor_penalty
+    # 9. Floor contact penalty - DISABLED for initial training
+    # floor_force = get_floor_contact_force(m, d)
+    # if floor_force > 0:
+    #     # Exponential scaling but capped to prevent reward explosion
+    #     # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
+    #     raw_penalty = -1.0 * np.exp(floor_force)
+    #     floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
+    #     reward += floor_penalty
     
     # Update previous positions for next step
     _prev_gripper_pos = gripper_pos.copy()

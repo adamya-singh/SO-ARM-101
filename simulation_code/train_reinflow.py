@@ -155,7 +155,7 @@ class TrainingConfig:
     clip_epsilon = 0.0005        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 0.02            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    target_kl = 100.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
     
     # Gradient accumulation (paper Appendix D)
     gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
