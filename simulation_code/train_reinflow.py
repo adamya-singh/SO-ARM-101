@@ -398,6 +398,7 @@ def train_parallel(config, args, device):
                 print(f"  [Warmup {warmup_iter+1}/{config.critic_warmup_iters}] Critic loss: {critic_loss.item():.4f}")
         
         print(f"[Critic Warmup] Complete!\n")
+        
     
     try:
         for episode_batch in range(config.num_episodes // num_envs):
@@ -430,6 +431,7 @@ def train_parallel(config, args, device):
                 # Forward pass with trajectory storage
                 action_chunks, trajectory, sigmas = rl_policy.forward_batched_with_trajectory(observation)
                 
+                
                 # Unnormalize actions for execution
                 action_chunks_np = action_chunks.detach().cpu().numpy()
                 action_chunks_radians = np.stack([
@@ -446,7 +448,8 @@ def train_parallel(config, args, device):
                 # Store data for on-policy update (one entry per environment)
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
                 # Stack to (num_envs, K+1, chunk, action_dim)
-                traj_tensor = torch.stack(trajectory, dim=1)  # (num_envs, K+1, chunk, action)
+                # DETACH to prevent graph issues - we only need the values, gradients flow through compute_ppo_loss
+                traj_tensor = torch.stack(trajectory, dim=1).detach()  # (num_envs, K+1, chunk, action)
                 
                 for i in range(num_envs):
                     batch_trajectories.append(traj_tensor[i])  # (K+1, chunk, action)
@@ -469,6 +472,7 @@ def train_parallel(config, args, device):
                 # Stack all trajectories: (total_chunks, K+1, chunk, action)
                 all_trajectories = torch.stack(batch_trajectories, dim=0)
                 batch_size = all_trajectories.shape[0]
+                
                 
                 # Stack observations
                 all_observations = {}
@@ -521,6 +525,7 @@ def train_parallel(config, args, device):
                     for start in range(0, batch_size, config.minibatch_size):
                         end = min(start + config.minibatch_size, batch_size)
                         mb_indices = indices[start:end]
+                        
                         
                         # Get mini-batch data
                         mb_trajectories = all_trajectories[mb_indices]
@@ -913,7 +918,8 @@ def train_sequential(config, args, device):
                 
                 # Store data for on-policy update (trajectory without batch dim)
                 # Stack trajectory into tensor: (K+1, chunk_size, action_dim)
-                traj_tensor = torch.stack(trajectory, dim=1)[0]  # Remove batch dim -> (K+1, chunk, action)
+                # DETACH to prevent graph issues - we only need the values, gradients flow through compute_ppo_loss
+                traj_tensor = torch.stack(trajectory, dim=1)[0].detach()  # Remove batch dim -> (K+1, chunk, action)
                 episode_trajectories.append(traj_tensor)
                 episode_observations.append(observation)
                 episode_chunk_rewards.append(chunk_reward)

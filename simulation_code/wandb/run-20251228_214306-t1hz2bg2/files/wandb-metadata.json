@@ -1,0 +1,43 @@
+{
+  "os": "macOS-15.5-arm64-arm-64bit",
+  "python": "CPython 3.10.18",
+  "startedAt": "2025-12-29T02:43:06.068262Z",
+  "args": [
+    "--parallel-envs",
+    "1",
+    "--no-render",
+    "--headless"
+  ],
+  "program": "/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/simulation_code/train_reinflow.py",
+  "codePath": "simulation_code/train_reinflow.py",
+  "codePathLocal": "train_reinflow.py",
+  "git": {
+    "remote": "https://github.com/adamya-singh/SO-ARM-101.git",
+    "commit": "8634c8afe363df46b8b7122ad6af72c960479a3f"
+  },
+  "email": "7adamyasingh@gmail.com",
+  "root": "/Users/adamyasingh/dev/SO-ARM-101/mujoco/SO-ARM-101/simulation_code",
+  "host": "macbookpro.lan",
+  "executable": "/opt/homebrew/anaconda3/envs/lerobot/bin/python",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "436843528192"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M1 Pro",
+    "ecpuCores": 2,
+    "pcpuCores": 6,
+    "gpuCores": 14,
+    "memoryGb": 16,
+    "swapTotalBytes": "22548578304",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "j042lelcge44ysbfi4yiiqocsvdqxytg"
+}

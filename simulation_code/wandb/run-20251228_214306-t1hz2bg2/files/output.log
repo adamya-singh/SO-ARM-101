@@ -1,0 +1,25 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Sequential)
+============================================================
+Instruction: 'pick up the block'
+Episodes: 3000
+Chunks per episode: 3
+Denoising steps: 4
+Policy LR: 3e-07 -> 3e-08
+Critic LR: 0.0001 -> 1e-05
+PPO epochs: 4
+Mini-batch size: 8
+Clip epsilon: 0.001
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.01
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 32.3262, Reward: -49.7179
+  [Warmup 2/2] Critic loss: 10.7987, Reward: -42.3585
+[Critic Warmup] Complete!

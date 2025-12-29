@@ -1,0 +1,58 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Sequential)
+============================================================
+Instruction: 'pick up the block'
+Episodes: 3000
+Chunks per episode: 3
+Denoising steps: 4
+Policy LR: 3e-07 -> 3e-08
+Critic LR: 0.0001 -> 1e-05
+PPO epochs: 4
+Mini-batch size: 8
+Clip epsilon: 0.001
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.01
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 2720.2029, Reward: -53.5691
+  [Warmup 2/2] Critic loss: 456.1535, Reward: -42.7787
+[Critic Warmup] Complete!
+
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-D-seq] BEFORE backward: epoch=0, policy_loss=1.9204, critic_loss=125.5571
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=0
+[DEBUG-D-seq] BEFORE backward: epoch=1, policy_loss=3.2768, critic_loss=166.9489
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=1
+  [KL Early Stop] Epoch 2, KL=0.7789 > 0.1500
+Episode     1 | Reward:  -43.00 | Avg:  -43.00 | KL: 0.3895 | LR: 3.00e-07 | Time: 26.5s
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-D-seq] BEFORE backward: epoch=0, policy_loss=1.9184, critic_loss=141.8507
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=0
+[DEBUG-D-seq] BEFORE backward: epoch=1, policy_loss=1.9212, critic_loss=151.3562
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=1
+  [KL Early Stop] Epoch 2, KL=0.8902 > 0.1500
+Episode     2 | Reward:  -41.16 | Avg:  -42.08 | KL: 0.4451 | LR: 3.00e-07 | Time: 22.6s
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-C-seq] traj_tensor requires_grad: False, grad_fn: None
+[DEBUG-D-seq] BEFORE backward: epoch=0, policy_loss=1.9189, critic_loss=74.6365
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=0
+[DEBUG-D-seq] BEFORE backward: epoch=1, policy_loss=1.9182, critic_loss=89.5329
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=1
+[DEBUG-D-seq] BEFORE backward: epoch=2, policy_loss=1.9688, critic_loss=89.4210
+[DEBUG-D-seq] AFTER backward SUCCESS: epoch=2
+  [KL Early Stop] Epoch 3, KL=0.3334 > 0.1500
+Episode     3 | Reward:  -42.48 | Avg:  -42.21 | KL: 0.1609 | LR: 3.00e-07 | Time: 28.7s
+
+
+Training interrupted by user.
