@@ -152,10 +152,16 @@ class TrainingConfig:
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
     num_ppo_epochs = 10          # Number of PPO epochs per update (paper uses 10)
     minibatch_size = 8          # Mini-batch size for PPO updates
-    clip_epsilon = 0.0001        # PPO clip range (paper uses 0.001 for visual tasks)
+    clip_epsilon = 0.0005        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
     target_kl = 0.02            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    
+    # Gradient accumulation (paper Appendix D)
+    gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
+    
+    # Learning rate warmup (paper Table 9b)
+    lr_warmup_iterations = 10  # Paper uses 10 for PickPlaceCan, 25 for NutAssemblySquare
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
@@ -317,13 +323,43 @@ def train_parallel(config, args, device):
     policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
     critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
     
-    # Learning rate schedulers
+    # Learning rate schedulers with warmup (paper Table 9b)
     total_batches = config.num_episodes // num_envs
-    policy_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        policy_optimizer, T_max=total_batches, eta_min=config.policy_lr * 0.1
+    
+    # Policy scheduler: linear warmup + cosine annealing
+    policy_warmup = torch.optim.lr_scheduler.LinearLR(
+        policy_optimizer,
+        start_factor=0.1,
+        end_factor=1.0,
+        total_iters=config.lr_warmup_iterations
     )
-    critic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        critic_optimizer, T_max=total_batches, eta_min=config.critic_lr * 0.1
+    policy_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        policy_optimizer,
+        T_max=max(1, total_batches - config.lr_warmup_iterations),
+        eta_min=config.policy_lr * 0.1
+    )
+    policy_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        policy_optimizer,
+        schedulers=[policy_warmup, policy_cosine],
+        milestones=[config.lr_warmup_iterations]
+    )
+    
+    # Critic scheduler: linear warmup + cosine annealing
+    critic_warmup = torch.optim.lr_scheduler.LinearLR(
+        critic_optimizer,
+        start_factor=0.1,
+        end_factor=1.0,
+        total_iters=config.lr_warmup_iterations
+    )
+    critic_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        critic_optimizer,
+        T_max=max(1, total_batches - config.lr_warmup_iterations),
+        eta_min=config.critic_lr * 0.1
+    )
+    critic_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        critic_optimizer,
+        schedulers=[critic_warmup, critic_cosine],
+        milestones=[config.lr_warmup_iterations]
     )
     
     print(f"\n{'='*60}")
@@ -335,8 +371,11 @@ def train_parallel(config, args, device):
     print(f"Denoising steps: {config.num_denoising_steps}")
     print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
     print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"LR warmup iterations: {config.lr_warmup_iterations}")
     print(f"PPO epochs: {config.num_ppo_epochs}")
     print(f"Mini-batch size: {config.minibatch_size}")
+    print(f"Gradient accumulation: {config.gradient_accumulation_steps}")
+    print(f"Effective batch size: {config.minibatch_size * config.gradient_accumulation_steps}")
     print(f"Clip epsilon: {config.clip_epsilon}")
     print(f"GAE lambda: {config.gae_lambda}")
     print(f"Target KL: {config.target_kl}")
@@ -522,6 +561,11 @@ def train_parallel(config, args, device):
                     # Shuffle indices for mini-batching
                     indices = torch.randperm(batch_size, device=device)
                     
+                    # Gradient accumulation setup (paper Appendix D)
+                    accumulation_counter = 0
+                    policy_optimizer.zero_grad()
+                    critic_optimizer.zero_grad()
+                    
                     for start in range(0, batch_size, config.minibatch_size):
                         end = min(start + config.minibatch_size, batch_size)
                         mb_indices = indices[start:end]
@@ -556,28 +600,36 @@ def train_parallel(config, args, device):
                         # (policy_loss and critic_loss share computation graph through observations)
                         total_loss = policy_loss + critic_loss
                         
-                        # Zero gradients for both optimizers
-                        policy_optimizer.zero_grad()
-                        critic_optimizer.zero_grad()
+                        # Scale loss by accumulation steps for gradient averaging
+                        scaled_loss = total_loss / config.gradient_accumulation_steps
+                        scaled_loss.backward()
                         
-                        # Single backward pass
-                        total_loss.backward()
-                        
-                        # Clip gradients and step optimizers separately
-                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
-                        critic_optimizer.step()
-                        
-                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
-                        policy_optimizer.step()
-                        
+                        accumulation_counter += 1
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
+                        
+                        # Step optimizer only after accumulating enough gradients
+                        if accumulation_counter % config.gradient_accumulation_steps == 0:
+                            torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                            critic_optimizer.step()
+                            torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                            policy_optimizer.step()
+                            
+                            policy_optimizer.zero_grad()
+                            critic_optimizer.zero_grad()
                         
                         # Check KL AFTER backward - early stop for remaining mini-batches/epochs
                         if loss_info['kl_div'] > config.target_kl * 1.5:
                             print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
                             kl_early_stop = True
                             break
+                    
+                    # Handle remaining gradients if batch doesn't divide evenly
+                    if accumulation_counter % config.gradient_accumulation_steps != 0:
+                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        critic_optimizer.step()
+                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        policy_optimizer.step()
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -621,6 +673,7 @@ def train_parallel(config, args, device):
                     "training/value_mean": loss_info.get('value_mean', 0),
                     "training/advantage_mean": loss_info.get('advantage_mean', 0),
                     "training/learning_rate": current_lr,
+                    "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                     "training/sigma_min": sigma_min,
                     "training/sigma_max": sigma_max,
                     "time/batch_seconds": batch_time,
@@ -743,12 +796,43 @@ def train_sequential(config, args, device):
     policy_optimizer = torch.optim.Adam(policy_params, lr=config.policy_lr)
     critic_optimizer = torch.optim.Adam(critic_params, lr=config.critic_lr)
     
-    # Learning rate schedulers
-    policy_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        policy_optimizer, T_max=config.num_episodes, eta_min=config.policy_lr * 0.1
+    # Learning rate schedulers with warmup (paper Table 9b)
+    total_batches = config.num_episodes
+    
+    # Policy scheduler: linear warmup + cosine annealing
+    policy_warmup = torch.optim.lr_scheduler.LinearLR(
+        policy_optimizer,
+        start_factor=0.1,
+        end_factor=1.0,
+        total_iters=config.lr_warmup_iterations
     )
-    critic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        critic_optimizer, T_max=config.num_episodes, eta_min=config.critic_lr * 0.1
+    policy_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        policy_optimizer,
+        T_max=max(1, total_batches - config.lr_warmup_iterations),
+        eta_min=config.policy_lr * 0.1
+    )
+    policy_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        policy_optimizer,
+        schedulers=[policy_warmup, policy_cosine],
+        milestones=[config.lr_warmup_iterations]
+    )
+    
+    # Critic scheduler: linear warmup + cosine annealing
+    critic_warmup = torch.optim.lr_scheduler.LinearLR(
+        critic_optimizer,
+        start_factor=0.1,
+        end_factor=1.0,
+        total_iters=config.lr_warmup_iterations
+    )
+    critic_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        critic_optimizer,
+        T_max=max(1, total_batches - config.lr_warmup_iterations),
+        eta_min=config.critic_lr * 0.1
+    )
+    critic_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        critic_optimizer,
+        schedulers=[critic_warmup, critic_cosine],
+        milestones=[config.lr_warmup_iterations]
     )
     
     print(f"\n{'='*60}")
@@ -760,8 +844,11 @@ def train_sequential(config, args, device):
     print(f"Denoising steps: {config.num_denoising_steps}")
     print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
     print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"LR warmup iterations: {config.lr_warmup_iterations}")
     print(f"PPO epochs: {config.num_ppo_epochs}")
     print(f"Mini-batch size: {config.minibatch_size}")
+    print(f"Gradient accumulation: {config.gradient_accumulation_steps}")
+    print(f"Effective batch size: {config.minibatch_size * config.gradient_accumulation_steps}")
     print(f"Clip epsilon: {config.clip_epsilon}")
     print(f"GAE lambda: {config.gae_lambda}")
     print(f"Target KL: {config.target_kl}")
@@ -983,6 +1070,11 @@ def train_sequential(config, args, device):
                     # Shuffle indices for mini-batching
                     indices = torch.randperm(batch_size, device=device)
                     
+                    # Gradient accumulation setup (paper Appendix D)
+                    accumulation_counter = 0
+                    policy_optimizer.zero_grad()
+                    critic_optimizer.zero_grad()
+                    
                     for start in range(0, batch_size, config.minibatch_size):
                         end = min(start + config.minibatch_size, batch_size)
                         mb_indices = indices[start:end]
@@ -1016,28 +1108,36 @@ def train_sequential(config, args, device):
                         # (policy_loss and critic_loss share computation graph through observations)
                         total_loss = policy_loss + critic_loss
                         
-                        # Zero gradients for both optimizers
-                        policy_optimizer.zero_grad()
-                        critic_optimizer.zero_grad()
+                        # Scale loss by accumulation steps for gradient averaging
+                        scaled_loss = total_loss / config.gradient_accumulation_steps
+                        scaled_loss.backward()
                         
-                        # Single backward pass
-                        total_loss.backward()
-                        
-                        # Clip gradients and step optimizers separately
-                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
-                        critic_optimizer.step()
-                        
-                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
-                        policy_optimizer.step()
-                        
+                        accumulation_counter += 1
                         epoch_policy_losses.append(policy_loss.item())
                         epoch_critic_losses.append(critic_loss.item())
+                        
+                        # Step optimizer only after accumulating enough gradients
+                        if accumulation_counter % config.gradient_accumulation_steps == 0:
+                            torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                            critic_optimizer.step()
+                            torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                            policy_optimizer.step()
+                            
+                            policy_optimizer.zero_grad()
+                            critic_optimizer.zero_grad()
                         
                         # Check KL AFTER backward - early stop for remaining mini-batches/epochs
                         if loss_info['kl_div'] > config.target_kl * 1.5:
                             print(f"  [KL Early Stop] Epoch {ppo_epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
                             kl_early_stop = True
                             break
+                    
+                    # Handle remaining gradients if batch doesn't divide evenly
+                    if accumulation_counter % config.gradient_accumulation_steps != 0:
+                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        critic_optimizer.step()
+                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        policy_optimizer.step()
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -1080,6 +1180,7 @@ def train_sequential(config, args, device):
                         "training/value_mean": loss_info.get('value_mean', 0),
                         "training/advantage_mean": loss_info.get('advantage_mean', 0),
                         "training/learning_rate": current_lr,
+                        "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                         "training/sigma_min": sigma_min,
                         "training/sigma_max": sigma_max,
                         "time/episode_seconds": episode_time,
