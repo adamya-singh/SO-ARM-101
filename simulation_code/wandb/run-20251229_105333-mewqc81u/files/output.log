@@ -1,0 +1,2332 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 2
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 5e-06 -> 5.000000000000001e-07
+Critic LR: 0.0003 -> 2.9999999999999997e-05
+LR warmup iterations: 10
+PPO epochs: 10
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.0005
+GAE lambda: 0.95
+Target KL: 100.0
+Entropy coeff: 0.0
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 703.3528
+  [Warmup 2/2] Critic loss: 421.6818
+[Critic Warmup] Complete!
+
+Batch    1 (    2 eps) | Reward:  -42.42 | KL: 2.4910 | LR: 9.50e-07 | Time: 9.9s
+Batch    2 (    4 eps) | Reward:  -47.10 | KL: 1.2434 | LR: 1.40e-06 | Time: 9.6s
+Batch    3 (    6 eps) | Reward:  -51.50 | KL: 4.1080 | LR: 1.85e-06 | Time: 9.4s
+Batch    4 (    8 eps) | Reward:  -53.41 | KL: 4.7513 | LR: 2.30e-06 | Time: 9.3s
+Batch    5 (   10 eps) | Reward:  -45.04 | KL: 2.4562 | LR: 2.75e-06 | Time: 9.3s
+Batch    6 (   12 eps) | Reward:  -51.27 | KL: 9.0147 | LR: 3.20e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=251.4513 > 150.0000
+Batch    7 (   14 eps) | Reward:  -45.60 | KL: 36.1091 | LR: 3.65e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 10, KL=202.5045 > 150.0000
+Batch    8 (   16 eps) | Reward:  -44.70 | KL: 23.5346 | LR: 4.10e-06 | Time: 9.3s
+Batch    9 (   18 eps) | Reward:  -43.18 | KL: 3.8383 | LR: 4.55e-06 | Time: 9.3s
+Batch   10 (   20 eps) | Reward:  -46.39 | KL: 13.5437 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=259.7280 > 150.0000
+Batch   11 (   22 eps) | Reward:  -48.53 | KL: 47.5615 | LR: 5.00e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 8, KL=494.3124 > 150.0000
+Batch   12 (   24 eps) | Reward:  -43.39 | KL: 70.6380 | LR: 5.00e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=177.6209 > 150.0000
+Batch   13 (   26 eps) | Reward:  -43.56 | KL: 35.9610 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=177.5072 > 150.0000
+Batch   14 (   28 eps) | Reward:  -44.07 | KL: 35.8784 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=247.4789 > 150.0000
+Batch   15 (   30 eps) | Reward:  -43.51 | KL: 57.0760 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 9, KL=874.5330 > 150.0000
+Batch   16 (   32 eps) | Reward:  -45.09 | KL: 112.9877 | LR: 5.00e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=7444.6895 > 150.0000
+Batch   17 (   34 eps) | Reward:  -44.71 | KL: 884.0397 | LR: 5.00e-06 | Time: 8.8s
+Batch   18 (   36 eps) | Reward:  -44.43 | KL: 9.6018 | LR: 5.00e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   19 (   38 eps) | Reward:  -45.49 | KL: 5.9312 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=914.4438 > 150.0000
+Batch   20 (   40 eps) | Reward:  -42.34 | KL: 144.1348 | LR: 5.00e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 6, KL=162.7044 > 150.0000
+Batch   21 (   42 eps) | Reward:  -43.37 | KL: 31.7714 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=214.8826 > 150.0000
+Batch   22 (   44 eps) | Reward:  -44.07 | KL: 34.8702 | LR: 5.00e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 4, KL=161.8935 > 150.0000
+Batch   23 (   46 eps) | Reward:  -48.46 | KL: 41.1753 | LR: 5.00e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 9, KL=173.7926 > 150.0000
+Batch   24 (   48 eps) | Reward:  -43.66 | KL: 23.0127 | LR: 5.00e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=233.5803 > 150.0000
+Batch   25 (   50 eps) | Reward:  -41.14 | KL: 56.2424 | LR: 5.00e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 8, KL=268.0339 > 150.0000
+Batch   26 (   52 eps) | Reward:  -44.38 | KL: 39.2116 | LR: 5.00e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 5, KL=206.6977 > 150.0000
+Batch   27 (   54 eps) | Reward:  -43.11 | KL: 62.5769 | LR: 5.00e-06 | Time: 5.6s
+Batch   28 (   56 eps) | Reward:  -45.10 | KL: 12.0599 | LR: 5.00e-06 | Time: 9.6s
+Batch   29 (   58 eps) | Reward:  -44.71 | KL: 16.1005 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=256.6550 > 150.0000
+Batch   30 (   60 eps) | Reward:  -46.73 | KL: 56.3461 | LR: 5.00e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=156.3625 > 150.0000
+Batch   31 (   62 eps) | Reward:  -46.73 | KL: 58.3613 | LR: 5.00e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 6, KL=609.6544 > 150.0000
+Batch   32 (   64 eps) | Reward:  -46.26 | KL: 117.9396 | LR: 5.00e-06 | Time: 6.2s
+Batch   33 (   66 eps) | Reward:  -43.81 | KL: 19.5746 | LR: 5.00e-06 | Time: 9.6s
+Batch   34 (   68 eps) | Reward:  -44.21 | KL: 10.3391 | LR: 5.00e-06 | Time: 9.8s
+Batch   35 (   70 eps) | Reward:  -41.49 | KL: 11.1005 | LR: 5.00e-06 | Time: 9.7s
+Batch   36 (   72 eps) | Reward:  -45.49 | KL: 8.6609 | LR: 5.00e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=254.0797 > 150.0000
+Batch   37 (   74 eps) | Reward:  -41.20 | KL: 43.3190 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 3, KL=624.2993 > 150.0000
+Batch   38 (   76 eps) | Reward:  -43.26 | KL: 229.1956 | LR: 5.00e-06 | Time: 4.0s
+Batch   39 (   78 eps) | Reward:  -41.23 | KL: 8.6811 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 4, KL=213.4716 > 150.0000
+Batch   40 (   80 eps) | Reward:  -40.45 | KL: 76.5764 | LR: 5.00e-06 | Time: 4.6s
+Batch   41 (   82 eps) | Reward:  -42.44 | KL: 11.5811 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=166.2413 > 150.0000
+Batch   42 (   84 eps) | Reward:  -43.61 | KL: 49.1334 | LR: 5.00e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=616.0329 > 150.0000
+Batch   43 (   86 eps) | Reward:  -40.67 | KL: 72.4988 | LR: 5.00e-06 | Time: 9.6s
+Batch   44 (   88 eps) | Reward:  -43.78 | KL: 2.9731 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=377.6860 > 150.0000
+Batch   45 (   90 eps) | Reward:  -44.62 | KL: 46.4985 | LR: 5.00e-06 | Time: 9.6s
+Batch   46 (   92 eps) | Reward:  -47.52 | KL: 12.2900 | LR: 5.00e-06 | Time: 9.6s
+Batch   47 (   94 eps) | Reward:  -43.46 | KL: 7.4381 | LR: 5.00e-06 | Time: 9.6s
+Batch   48 (   96 eps) | Reward:  -42.15 | KL: 22.3719 | LR: 5.00e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=179.3849 > 150.0000
+Batch   49 (   98 eps) | Reward:  -44.18 | KL: 37.3935 | LR: 5.00e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 10, KL=195.9181 > 150.0000
+Batch   50 (  100 eps) | Reward:  -41.56 | KL: 28.3459 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=377.8275 > 150.0000
+Batch   51 (  102 eps) | Reward:  -44.11 | KL: 70.0241 | LR: 5.00e-06 | Time: 6.4s
+Batch   52 (  104 eps) | Reward:  -42.93 | KL: 2.5652 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=192.4819 > 150.0000
+Batch   53 (  106 eps) | Reward:  -48.75 | KL: 31.4298 | LR: 5.00e-06 | Time: 8.0s
+Batch   54 (  108 eps) | Reward:  -43.02 | KL: 35.7979 | LR: 5.00e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=252.2110 > 150.0000
+Batch   55 (  110 eps) | Reward:  -43.94 | KL: 84.3549 | LR: 5.00e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 8, KL=753.0558 > 150.0000
+Batch   56 (  112 eps) | Reward:  -37.38 | KL: 115.5037 | LR: 5.00e-06 | Time: 8.0s
+Batch   57 (  114 eps) | Reward:  -45.60 | KL: 21.2235 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=171.8428 > 150.0000
+Batch   58 (  116 eps) | Reward:  -40.34 | KL: 22.3970 | LR: 5.00e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 8, KL=1273.1858 > 150.0000
+Batch   59 (  118 eps) | Reward:  -42.84 | KL: 173.9445 | LR: 5.00e-06 | Time: 7.7s
+Batch   60 (  120 eps) | Reward:  -46.72 | KL: 40.8318 | LR: 5.00e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=194.7090 > 150.0000
+Batch   61 (  122 eps) | Reward:  -38.90 | KL: 43.7399 | LR: 5.00e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 5, KL=1501.3738 > 150.0000
+Batch   62 (  124 eps) | Reward:  -37.20 | KL: 310.5310 | LR: 5.00e-06 | Time: 5.6s
+Batch   63 (  126 eps) | Reward:  -39.86 | KL: 28.1828 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 5, KL=275.3248 > 150.0000
+Batch   64 (  128 eps) | Reward:  -41.39 | KL: 71.3455 | LR: 5.00e-06 | Time: 5.6s
+Batch   65 (  130 eps) | Reward:  -41.34 | KL: 6.2216 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 8, KL=186.3675 > 150.0000
+Batch   66 (  132 eps) | Reward:  -40.74 | KL: 39.3582 | LR: 5.00e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=477.9843 > 150.0000
+Batch   67 (  134 eps) | Reward:  -41.85 | KL: 80.8321 | LR: 5.00e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 5, KL=3145.1980 > 150.0000
+Batch   68 (  136 eps) | Reward:  -40.63 | KL: 645.0851 | LR: 5.00e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=276.7236 > 150.0000
+Batch   69 (  138 eps) | Reward:  -41.67 | KL: 44.4264 | LR: 5.00e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 6, KL=154.7000 > 150.0000
+Batch   70 (  140 eps) | Reward:  -42.53 | KL: 28.2725 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 6, KL=321.3615 > 150.0000
+Batch   71 (  142 eps) | Reward:  -41.77 | KL: 76.9251 | LR: 5.00e-06 | Time: 6.2s
+Batch   72 (  144 eps) | Reward:  -39.19 | KL: 23.3181 | LR: 5.00e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   73 (  146 eps) | Reward:  -47.88 | KL: 29.2100 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=214.7251 > 150.0000
+Batch   74 (  148 eps) | Reward:  -50.99 | KL: 41.8317 | LR: 5.00e-06 | Time: 6.2s
+Batch   75 (  150 eps) | Reward:  -44.80 | KL: 13.0122 | LR: 5.00e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 8, KL=279.5714 > 150.0000
+Batch   76 (  152 eps) | Reward:  -42.03 | KL: 37.3296 | LR: 5.00e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 3, KL=245.2487 > 150.0000
+Batch   77 (  154 eps) | Reward:  -38.32 | KL: 98.3554 | LR: 5.00e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 4, KL=479.7416 > 150.0000
+Batch   78 (  156 eps) | Reward:  -43.68 | KL: 121.6972 | LR: 5.00e-06 | Time: 4.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   79 (  158 eps) | Reward:  -44.26 | KL: 26.5064 | LR: 5.00e-06 | Time: 9.5s
+Batch   80 (  160 eps) | Reward:  -39.64 | KL: 14.6871 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=1848.7100 > 150.0000
+Batch   81 (  162 eps) | Reward:  -42.53 | KL: 223.3753 | LR: 5.00e-06 | Time: 8.8s
+Batch   82 (  164 eps) | Reward:  -42.24 | KL: 19.9393 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=539.2932 > 150.0000
+Batch   83 (  166 eps) | Reward:  -40.92 | KL: 83.0036 | LR: 5.00e-06 | Time: 7.0s
+Batch   84 (  168 eps) | Reward:  -42.42 | KL: 12.3067 | LR: 5.00e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=421.4183 > 150.0000
+Batch   85 (  170 eps) | Reward:  -40.49 | KL: 67.8149 | LR: 5.00e-06 | Time: 7.1s
+Batch   86 (  172 eps) | Reward:  -46.68 | KL: 19.8387 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 3, KL=160.9512 > 150.0000
+Batch   87 (  174 eps) | Reward:  -41.84 | KL: 65.4173 | LR: 5.00e-06 | Time: 3.9s
+Batch   88 (  176 eps) | Reward:  -39.25 | KL: 24.9237 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=2612.0107 > 150.0000
+Batch   89 (  178 eps) | Reward:  -43.98 | KL: 335.1556 | LR: 5.00e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 7, KL=270.1530 > 150.0000
+Batch   90 (  180 eps) | Reward:  -41.36 | KL: 44.1237 | LR: 5.00e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=578.2690 > 150.0000
+Batch   91 (  182 eps) | Reward:  -40.29 | KL: 71.6502 | LR: 5.00e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 10, KL=345.4314 > 150.0000
+Batch   92 (  184 eps) | Reward:  -39.99 | KL: 41.8460 | LR: 5.00e-06 | Time: 9.9s
+  [KL Early Stop] Epoch 10, KL=183.7443 > 150.0000
+Batch   93 (  186 eps) | Reward:  -41.74 | KL: 48.7261 | LR: 5.00e-06 | Time: 9.7s
+Batch   94 (  188 eps) | Reward:  -46.59 | KL: 46.0551 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=227.6149 > 150.0000
+Batch   95 (  190 eps) | Reward:  -41.51 | KL: 33.1875 | LR: 5.00e-06 | Time: 9.1s
+  [KL Early Stop] Epoch 7, KL=252.0764 > 150.0000
+Batch   96 (  192 eps) | Reward:  -44.69 | KL: 48.8463 | LR: 5.00e-06 | Time: 7.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=222.9767 > 150.0000
+Batch   97 (  194 eps) | Reward:  -47.54 | KL: 108.7964 | LR: 5.00e-06 | Time: 4.0s
+Batch   98 (  196 eps) | Reward:  -46.20 | KL: 17.0856 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=1129.0310 > 150.0000
+Batch   99 (  198 eps) | Reward:  -43.21 | KL: 206.8593 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=233.2328 > 150.0000
+Batch  100 (  200 eps) | Reward:  -41.32 | KL: 36.3554 | LR: 5.00e-06 | Time: 7.9s
+Batch  101 (  202 eps) | Reward:  -43.16 | KL: 8.1984 | LR: 5.00e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=189.2599 > 150.0000
+Batch  102 (  204 eps) | Reward:  -41.35 | KL: 55.8822 | LR: 5.00e-06 | Time: 8.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  103 (  206 eps) | Reward:  -43.85 | KL: 15.7421 | LR: 5.00e-06 | Time: 9.3s
+Batch  104 (  208 eps) | Reward:  -45.48 | KL: 29.9825 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=1060.6625 > 150.0000
+Batch  105 (  210 eps) | Reward:  -43.82 | KL: 162.9425 | LR: 5.00e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 9, KL=213.6854 > 150.0000
+Batch  106 (  212 eps) | Reward:  -43.48 | KL: 47.6169 | LR: 5.00e-06 | Time: 8.5s
+Batch  107 (  214 eps) | Reward:  -41.55 | KL: 29.7149 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=453.3254 > 150.0000
+Batch  108 (  216 eps) | Reward:  -43.48 | KL: 67.4320 | LR: 5.00e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=1223.5425 > 150.0000
+Batch  109 (  218 eps) | Reward:  -44.70 | KL: 183.8388 | LR: 5.00e-06 | Time: 8.2s
+  [KL Early Stop] Epoch 9, KL=512.3430 > 150.0000
+Batch  110 (  220 eps) | Reward:  -42.78 | KL: 63.3486 | LR: 5.00e-06 | Time: 8.9s
+Batch  111 (  222 eps) | Reward:  -50.71 | KL: 9.3180 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=187.9404 > 150.0000
+Batch  112 (  224 eps) | Reward:  -45.34 | KL: 55.0468 | LR: 5.00e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 8, KL=250.2535 > 150.0000
+Batch  113 (  226 eps) | Reward:  -46.74 | KL: 67.2213 | LR: 5.00e-06 | Time: 7.9s
+Batch  114 (  228 eps) | Reward:  -49.18 | KL: 31.3178 | LR: 5.00e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=568.7338 > 150.0000
+Batch  115 (  230 eps) | Reward:  -43.44 | KL: 85.6144 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=347.4205 > 150.0000
+Batch  116 (  232 eps) | Reward:  -46.60 | KL: 73.7663 | LR: 5.00e-06 | Time: 5.6s
+Batch  117 (  234 eps) | Reward:  -45.09 | KL: 25.1353 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 4, KL=174.7731 > 150.0000
+Batch  118 (  236 eps) | Reward:  -41.31 | KL: 50.5339 | LR: 5.00e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 7, KL=158.1700 > 150.0000
+Batch  119 (  238 eps) | Reward:  -44.86 | KL: 31.4950 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=304.3607 > 150.0000
+Batch  120 (  240 eps) | Reward:  -46.20 | KL: 40.9716 | LR: 5.00e-06 | Time: 8.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=784.6176 > 150.0000
+Batch  121 (  242 eps) | Reward:  -49.27 | KL: 97.0103 | LR: 5.00e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 8, KL=191.8584 > 150.0000
+Batch  122 (  244 eps) | Reward:  -44.75 | KL: 34.8474 | LR: 5.00e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 3, KL=172.6427 > 150.0000
+Batch  123 (  246 eps) | Reward:  -49.07 | KL: 57.9112 | LR: 5.00e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 10, KL=2085.9214 > 150.0000
+Batch  124 (  248 eps) | Reward:  -49.53 | KL: 227.4507 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 10, KL=817.2556 > 150.0000
+Batch  125 (  250 eps) | Reward:  -46.49 | KL: 106.9244 | LR: 5.00e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 9, KL=355.1810 > 150.0000
+Batch  126 (  252 eps) | Reward:  -47.01 | KL: 48.2777 | LR: 5.00e-06 | Time: 9.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  127 (  254 eps) | Reward:  -45.29 | KL: 5.1812 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=312.6548 > 150.0000
+Batch  128 (  256 eps) | Reward:  -48.83 | KL: 44.0160 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 5, KL=534.6995 > 150.0000
+Batch  129 (  258 eps) | Reward:  -43.27 | KL: 137.2073 | LR: 5.00e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=3303.5273 > 150.0000
+Batch  130 (  260 eps) | Reward:  -44.66 | KL: 475.2470 | LR: 5.00e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 10, KL=1164.5934 > 150.0000
+Batch  131 (  262 eps) | Reward:  -44.13 | KL: 124.8989 | LR: 5.00e-06 | Time: 9.2s
+Batch  132 (  264 eps) | Reward:  -47.14 | KL: 17.4350 | LR: 5.00e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=971.5964 > 150.0000
+Batch  133 (  266 eps) | Reward:  -44.56 | KL: 150.8491 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=174.3194 > 150.0000
+Batch  134 (  268 eps) | Reward:  -44.43 | KL: 47.6203 | LR: 5.00e-06 | Time: 5.6s
+Batch  135 (  270 eps) | Reward:  -45.17 | KL: 8.8011 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=281.5480 > 150.0000
+Batch  136 (  272 eps) | Reward:  -43.36 | KL: 54.2106 | LR: 5.00e-06 | Time: 6.4s
+Batch  137 (  274 eps) | Reward:  -50.10 | KL: 11.6471 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 5, KL=168.4204 > 150.0000
+Batch  138 (  276 eps) | Reward:  -51.63 | KL: 42.8358 | LR: 5.00e-06 | Time: 5.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=162.5266 > 150.0000
+Batch  139 (  278 eps) | Reward:  -44.06 | KL: 43.1535 | LR: 5.00e-06 | Time: 9.6s
+Batch  140 (  280 eps) | Reward:  -45.50 | KL: 43.9538 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=153.2942 > 150.0000
+Batch  141 (  282 eps) | Reward:  -49.19 | KL: 30.0782 | LR: 5.00e-06 | Time: 9.6s
+Batch  142 (  284 eps) | Reward:  -55.57 | KL: 9.6360 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 3, KL=542.2347 > 150.0000
+Batch  143 (  286 eps) | Reward:  -46.62 | KL: 181.2013 | LR: 5.00e-06 | Time: 3.9s
+Batch  144 (  288 eps) | Reward:  -47.60 | KL: 12.3300 | LR: 5.00e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=195.0435 > 150.0000
+Batch  145 (  290 eps) | Reward:  -43.70 | KL: 27.5209 | LR: 5.00e-06 | Time: 8.8s
+Batch  146 (  292 eps) | Reward:  -44.34 | KL: 13.3416 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=1288.0729 > 150.0000
+Batch  147 (  294 eps) | Reward:  -48.35 | KL: 181.0807 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=272.9512 > 150.0000
+Batch  148 (  296 eps) | Reward:  -45.39 | KL: 44.9279 | LR: 5.00e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 7, KL=1206.5972 > 150.0000
+Batch  149 (  298 eps) | Reward:  -54.60 | KL: 182.2759 | LR: 5.00e-06 | Time: 7.5s
+Batch  150 (  300 eps) | Reward:  -46.91 | KL: 20.6573 | LR: 5.00e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=594.2404 > 150.0000
+Batch  151 (  302 eps) | Reward:  -43.26 | KL: 115.9621 | LR: 5.00e-06 | Time: 6.3s
+Batch  152 (  304 eps) | Reward:  -40.79 | KL: 17.8680 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 8, KL=4957.5259 > 150.0000
+Batch  153 (  306 eps) | Reward:  -56.12 | KL: 622.3189 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 6, KL=404.0516 > 150.0000
+Batch  154 (  308 eps) | Reward:  -55.05 | KL: 86.5335 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=186.9835 > 150.0000
+Batch  155 (  310 eps) | Reward:  -51.98 | KL: 28.5668 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 2, KL=827.5051 > 150.0000
+Batch  156 (  312 eps) | Reward:  -45.36 | KL: 413.7525 | LR: 5.00e-06 | Time: 3.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=152.1854 > 150.0000
+Batch  157 (  314 eps) | Reward:  -44.95 | KL: 47.6391 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=18928.3789 > 150.0000
+Batch  158 (  316 eps) | Reward:  -53.85 | KL: 2377.8617 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 5, KL=179.3011 > 150.0000
+Batch  159 (  318 eps) | Reward:  -42.08 | KL: 38.2478 | LR: 5.00e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=1015.5329 > 150.0000
+Batch  160 (  320 eps) | Reward:  -47.39 | KL: 164.6288 | LR: 5.00e-06 | Time: 7.2s
+Batch  161 (  322 eps) | Reward:  -44.62 | KL: 11.2084 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=353.3772 > 150.0000
+Batch  162 (  324 eps) | Reward:  -55.26 | KL: 55.8822 | LR: 5.00e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 4, KL=980.0668 > 150.0000
+Batch  163 (  326 eps) | Reward:  -46.55 | KL: 247.0012 | LR: 5.00e-06 | Time: 4.6s
+Batch  164 (  328 eps) | Reward:  -43.87 | KL: 6.7983 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=361.0641 > 150.0000
+Batch  165 (  330 eps) | Reward:  -43.72 | KL: 53.3028 | LR: 5.00e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 7, KL=1525.1394 > 150.0000
+Batch  166 (  332 eps) | Reward:  -47.26 | KL: 226.6205 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=2996.3640 > 150.0000
+Batch  167 (  334 eps) | Reward:  -42.00 | KL: 445.3185 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 9, KL=180.0871 > 150.0000
+Batch  168 (  336 eps) | Reward:  -49.70 | KL: 34.7884 | LR: 5.00e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=481.6500 > 150.0000
+Batch  169 (  338 eps) | Reward:  -47.24 | KL: 91.5014 | LR: 5.00e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=242.4203 > 150.0000
+Batch  170 (  340 eps) | Reward:  -43.36 | KL: 30.6084 | LR: 5.00e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 5, KL=313.1250 > 150.0000
+Batch  171 (  342 eps) | Reward:  -50.26 | KL: 75.6358 | LR: 5.00e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 10, KL=168.8412 > 150.0000
+Batch  172 (  344 eps) | Reward:  -44.23 | KL: 25.0871 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=2162.1182 > 150.0000
+Batch  173 (  346 eps) | Reward:  -47.65 | KL: 311.7770 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=1441.5237 > 150.0000
+Batch  174 (  348 eps) | Reward:  -48.63 | KL: 186.3041 | LR: 5.00e-06 | Time: 7.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=183.2582 > 150.0000
+Batch  175 (  350 eps) | Reward:  -51.65 | KL: 42.1279 | LR: 5.00e-06 | Time: 6.4s
+Batch  176 (  352 eps) | Reward:  -41.89 | KL: 4.5547 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=241.4102 > 150.0000
+Batch  177 (  354 eps) | Reward:  -43.98 | KL: 34.0981 | LR: 5.00e-06 | Time: 8.8s
+Batch  178 (  356 eps) | Reward:  -44.63 | KL: 8.0874 | LR: 5.00e-06 | Time: 9.6s
+Batch  179 (  358 eps) | Reward:  -44.24 | KL: 29.3866 | LR: 5.00e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=776.7974 > 150.0000
+Batch  180 (  360 eps) | Reward:  -42.28 | KL: 105.3651 | LR: 5.00e-06 | Time: 7.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  181 (  362 eps) | Reward:  -40.75 | KL: 21.2599 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 10, KL=1327.0728 > 150.0000
+Batch  182 (  364 eps) | Reward:  -41.79 | KL: 155.0680 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=237.5820 > 150.0000
+Batch  183 (  366 eps) | Reward:  -38.76 | KL: 55.7600 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=199.0519 > 150.0000
+Batch  184 (  368 eps) | Reward:  -41.32 | KL: 44.4229 | LR: 5.00e-06 | Time: 5.5s
+Batch  185 (  370 eps) | Reward:  -44.58 | KL: 13.0079 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=364.2631 > 150.0000
+Batch  186 (  372 eps) | Reward:  -45.60 | KL: 61.2682 | LR: 5.00e-06 | Time: 8.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=187.2600 > 150.0000
+Batch  187 (  374 eps) | Reward:  -42.45 | KL: 32.6320 | LR: 5.00e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=499.3979 > 150.0000
+Batch  188 (  376 eps) | Reward:  -42.44 | KL: 122.9157 | LR: 5.00e-06 | Time: 5.7s
+  [KL Early Stop] Epoch 7, KL=2248.9270 > 150.0000
+Batch  189 (  378 eps) | Reward:  -40.13 | KL: 336.6486 | LR: 5.00e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 9, KL=783.2228 > 150.0000
+Batch  190 (  380 eps) | Reward:  -40.46 | KL: 101.0618 | LR: 5.00e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 2, KL=168.5521 > 150.0000
+Batch  191 (  382 eps) | Reward:  -50.18 | KL: 84.2761 | LR: 5.00e-06 | Time: 3.2s
+  [KL Early Stop] Epoch 8, KL=4077.1016 > 150.0000
+Batch  192 (  384 eps) | Reward:  -41.57 | KL: 537.1074 | LR: 5.00e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=156.8644 > 150.0000
+Batch  193 (  386 eps) | Reward:  -38.53 | KL: 31.9542 | LR: 5.00e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 2, KL=775.2629 > 150.0000
+Batch  194 (  388 eps) | Reward:  -39.95 | KL: 387.6315 | LR: 5.00e-06 | Time: 3.2s
+  [KL Early Stop] Epoch 5, KL=1003.1313 > 150.0000
+Batch  195 (  390 eps) | Reward:  -37.30 | KL: 204.6924 | LR: 5.00e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 7, KL=553.0833 > 150.0000
+Batch  196 (  392 eps) | Reward:  -37.19 | KL: 87.9101 | LR: 5.00e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 8, KL=866.5370 > 150.0000
+Batch  197 (  394 eps) | Reward:  -38.96 | KL: 127.2047 | LR: 5.00e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 6, KL=358.5731 > 150.0000
+Batch  198 (  396 eps) | Reward:  -38.98 | KL: 78.1522 | LR: 5.00e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=1615.9868 > 150.0000
+Batch  199 (  398 eps) | Reward:  -41.24 | KL: 285.6023 | LR: 5.00e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 10, KL=778.7261 > 150.0000
+Batch  200 (  400 eps) | Reward:  -40.21 | KL: 105.3179 | LR: 5.00e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 3, KL=457.4026 > 150.0000
+Batch  201 (  402 eps) | Reward:  -38.08 | KL: 158.0686 | LR: 5.00e-06 | Time: 3.8s
+  [KL Early Stop] Epoch 9, KL=3142.7300 > 150.0000
+Batch  202 (  404 eps) | Reward:  -41.02 | KL: 363.9583 | LR: 5.00e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 5, KL=294.5846 > 150.0000
+Batch  203 (  406 eps) | Reward:  -43.99 | KL: 74.0649 | LR: 5.00e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 8, KL=379.3379 > 150.0000
+Batch  204 (  408 eps) | Reward:  -44.88 | KL: 58.2420 | LR: 5.00e-06 | Time: 7.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=561.0468 > 150.0000
+Batch  205 (  410 eps) | Reward:  -41.27 | KL: 81.5377 | LR: 5.00e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 6, KL=162.2545 > 150.0000
+Batch  206 (  412 eps) | Reward:  -42.06 | KL: 35.1988 | LR: 5.00e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=294.7954 > 150.0000
+Batch  207 (  414 eps) | Reward:  -38.51 | KL: 51.4704 | LR: 5.00e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 8, KL=438.5208 > 150.0000
+Batch  208 (  416 eps) | Reward:  -36.11 | KL: 86.1376 | LR: 5.00e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 10, KL=197.3152 > 150.0000
+Batch  209 (  418 eps) | Reward:  -44.26 | KL: 32.8129 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=1083.4661 > 150.0000
+Batch  210 (  420 eps) | Reward:  -36.38 | KL: 164.7366 | LR: 5.00e-06 | Time: 6.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  211 (  422 eps) | Reward:  -40.46 | KL: 33.6805 | LR: 5.00e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=383.2369 > 150.0000
+Batch  212 (  424 eps) | Reward:  -42.64 | KL: 44.3234 | LR: 5.00e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 3, KL=764.8820 > 150.0000
+Batch  213 (  426 eps) | Reward:  -42.43 | KL: 261.6424 | LR: 5.00e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 5, KL=536.1302 > 150.0000
+Batch  214 (  428 eps) | Reward:  -40.16 | KL: 117.7036 | LR: 5.00e-06 | Time: 5.6s
+Batch  215 (  430 eps) | Reward:  -38.83 | KL: 5.3386 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=1471.5858 > 150.0000
+Batch  216 (  432 eps) | Reward:  -34.05 | KL: 198.9694 | LR: 5.00e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=2027.3416 > 150.0000
+Batch  217 (  434 eps) | Reward:  -42.25 | KL: 248.4527 | LR: 5.00e-06 | Time: 8.9s
+Batch  218 (  436 eps) | Reward:  -37.67 | KL: 3.4888 | LR: 5.00e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 3, KL=535.0647 > 150.0000
+Batch  219 (  438 eps) | Reward:  -39.87 | KL: 189.2688 | LR: 5.00e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 4, KL=314.0211 > 150.0000
+Batch  220 (  440 eps) | Reward:  -37.72 | KL: 88.7905 | LR: 5.00e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 7, KL=365.5776 > 150.0000
+Batch  221 (  442 eps) | Reward:  -35.92 | KL: 57.3735 | LR: 5.00e-06 | Time: 7.4s
+Batch  222 (  444 eps) | Reward:  -37.65 | KL: 11.6324 | LR: 5.00e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  223 (  446 eps) | Reward:  -43.07 | KL: 5.0687 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=1354.6467 > 150.0000
+Batch  224 (  448 eps) | Reward:  -48.43 | KL: 175.7736 | LR: 4.99e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 8, KL=448.6104 > 150.0000
+Batch  225 (  450 eps) | Reward:  -40.30 | KL: 59.8769 | LR: 4.99e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 3, KL=479.1085 > 150.0000
+Batch  226 (  452 eps) | Reward:  -42.16 | KL: 159.8886 | LR: 4.99e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 6, KL=611.3622 > 150.0000
+Batch  227 (  454 eps) | Reward:  -41.02 | KL: 103.2451 | LR: 4.99e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 9, KL=702.2499 > 150.0000
+Batch  228 (  456 eps) | Reward:  -44.55 | KL: 83.7117 | LR: 4.99e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=1698.7751 > 150.0000
+Batch  229 (  458 eps) | Reward:  -42.07 | KL: 186.9408 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=7384.2178 > 150.0000
+Batch  230 (  460 eps) | Reward:  -44.39 | KL: 753.1575 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=283.1416 > 150.0000
+Batch  231 (  462 eps) | Reward:  -41.67 | KL: 39.1604 | LR: 4.99e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 7, KL=258.0117 > 150.0000
+Batch  232 (  464 eps) | Reward:  -47.95 | KL: 41.6109 | LR: 4.99e-06 | Time: 7.2s
+Batch  233 (  466 eps) | Reward:  -39.43 | KL: 33.0046 | LR: 4.99e-06 | Time: 9.6s
+Batch  234 (  468 eps) | Reward:  -46.77 | KL: 30.9642 | LR: 4.99e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=430.1625 > 150.0000
+Batch  235 (  470 eps) | Reward:  -42.45 | KL: 98.7941 | LR: 4.99e-06 | Time: 5.7s
+Batch  236 (  472 eps) | Reward:  -42.03 | KL: 4.6157 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 2, KL=440.0541 > 150.0000
+Batch  237 (  474 eps) | Reward:  -37.76 | KL: 220.0271 | LR: 4.99e-06 | Time: 3.1s
+Batch  238 (  476 eps) | Reward:  -39.94 | KL: 14.5959 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=338.6793 > 150.0000
+Batch  239 (  478 eps) | Reward:  -38.66 | KL: 59.4365 | LR: 4.99e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 9, KL=693.6167 > 150.0000
+Batch  240 (  480 eps) | Reward:  -41.97 | KL: 84.8106 | LR: 4.99e-06 | Time: 8.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=178.1538 > 150.0000
+Batch  241 (  482 eps) | Reward:  -42.75 | KL: 33.3527 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=3268.8416 > 150.0000
+Batch  242 (  484 eps) | Reward:  -45.39 | KL: 477.5265 | LR: 4.99e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 9, KL=573.0029 > 150.0000
+Batch  243 (  486 eps) | Reward:  -38.24 | KL: 72.6522 | LR: 4.99e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 8, KL=1180.8037 > 150.0000
+Batch  244 (  488 eps) | Reward:  -38.98 | KL: 150.4152 | LR: 4.99e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=892.9565 > 150.0000
+Batch  245 (  490 eps) | Reward:  -36.91 | KL: 130.2825 | LR: 4.99e-06 | Time: 7.4s
+  [KL Early Stop] Epoch 5, KL=170.2736 > 150.0000
+Batch  246 (  492 eps) | Reward:  -46.12 | KL: 35.0208 | LR: 4.99e-06 | Time: 5.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=593.6399 > 150.0000
+Batch  247 (  494 eps) | Reward:  -38.91 | KL: 91.2353 | LR: 4.99e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 4, KL=165.7592 > 150.0000
+Batch  248 (  496 eps) | Reward:  -41.07 | KL: 42.8119 | LR: 4.99e-06 | Time: 4.6s
+  [KL Early Stop] Epoch 9, KL=408.0317 > 150.0000
+Batch  249 (  498 eps) | Reward:  -45.26 | KL: 57.7878 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 7, KL=363.9645 > 150.0000
+Batch  250 (  500 eps) | Reward:  -42.16 | KL: 71.5303 | LR: 4.99e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=371.3430 > 150.0000
+Batch  251 (  502 eps) | Reward:  -41.26 | KL: 44.7192 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 8, KL=279.5127 > 150.0000
+Batch  252 (  504 eps) | Reward:  -38.57 | KL: 42.3303 | LR: 4.99e-06 | Time: 7.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 4, KL=386.7509 > 150.0000
+Batch  253 (  506 eps) | Reward:  -43.15 | KL: 97.9869 | LR: 4.99e-06 | Time: 4.9s
+  [KL Early Stop] Epoch 4, KL=208.0295 > 150.0000
+Batch  254 (  508 eps) | Reward:  -37.76 | KL: 59.5579 | LR: 4.99e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 6, KL=411.6585 > 150.0000
+Batch  255 (  510 eps) | Reward:  -42.04 | KL: 80.8811 | LR: 4.99e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 6, KL=271.1685 > 150.0000
+Batch  256 (  512 eps) | Reward:  -42.03 | KL: 49.4228 | LR: 4.99e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=5537.1338 > 150.0000
+Batch  257 (  514 eps) | Reward:  -38.92 | KL: 574.0280 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=384.1133 > 150.0000
+Batch  258 (  516 eps) | Reward:  -39.23 | KL: 70.2323 | LR: 4.99e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  259 (  518 eps) | Reward:  -39.63 | KL: 2.3383 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=1573.0942 > 150.0000
+Batch  260 (  520 eps) | Reward:  -42.62 | KL: 175.5914 | LR: 4.99e-06 | Time: 9.6s
+Batch  261 (  522 eps) | Reward:  -41.18 | KL: 10.9708 | LR: 4.99e-06 | Time: 9.6s
+Batch  262 (  524 eps) | Reward:  -43.33 | KL: 8.9335 | LR: 4.99e-06 | Time: 9.7s
+Batch  263 (  526 eps) | Reward:  -45.43 | KL: 8.9786 | LR: 4.99e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=971.4133 > 150.0000
+Batch  264 (  528 eps) | Reward:  -42.85 | KL: 141.6149 | LR: 4.99e-06 | Time: 6.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=285.6601 > 150.0000
+Batch  265 (  530 eps) | Reward:  -43.58 | KL: 44.9934 | LR: 4.99e-06 | Time: 7.8s
+Batch  266 (  532 eps) | Reward:  -42.58 | KL: 4.6683 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=356.7678 > 150.0000
+Batch  267 (  534 eps) | Reward:  -45.93 | KL: 68.6019 | LR: 4.99e-06 | Time: 7.4s
+  [KL Early Stop] Epoch 8, KL=1684.2827 > 150.0000
+Batch  268 (  536 eps) | Reward:  -41.58 | KL: 231.3665 | LR: 4.99e-06 | Time: 8.1s
+Batch  269 (  538 eps) | Reward:  -45.39 | KL: 8.0183 | LR: 4.99e-06 | Time: 9.9s
+Batch  270 (  540 eps) | Reward:  -40.75 | KL: 21.9956 | LR: 4.99e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=12437.4902 > 150.0000
+Batch  271 (  542 eps) | Reward:  -40.09 | KL: 1258.3468 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 5, KL=189.4099 > 150.0000
+Batch  272 (  544 eps) | Reward:  -42.75 | KL: 44.6401 | LR: 4.99e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 10, KL=17133.6094 > 150.0000
+Batch  273 (  546 eps) | Reward:  -40.83 | KL: 1739.2990 | LR: 4.99e-06 | Time: 9.6s
+Batch  274 (  548 eps) | Reward:  -40.08 | KL: 29.2629 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=1302.7119 > 150.0000
+Batch  275 (  550 eps) | Reward:  -43.97 | KL: 168.5565 | LR: 4.99e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=786.8585 > 150.0000
+Batch  276 (  552 eps) | Reward:  -44.51 | KL: 115.6231 | LR: 4.99e-06 | Time: 7.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=305.3297 > 150.0000
+Batch  277 (  554 eps) | Reward:  -43.04 | KL: 44.1896 | LR: 4.99e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 8, KL=166.4249 > 150.0000
+Batch  278 (  556 eps) | Reward:  -41.43 | KL: 34.9090 | LR: 4.99e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 9, KL=786.2274 > 150.0000
+Batch  279 (  558 eps) | Reward:  -44.40 | KL: 97.6749 | LR: 4.99e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 2, KL=371.4364 > 150.0000
+Batch  280 (  560 eps) | Reward:  -37.22 | KL: 185.7182 | LR: 4.99e-06 | Time: 3.2s
+  [KL Early Stop] Epoch 5, KL=152.7335 > 150.0000
+Batch  281 (  562 eps) | Reward:  -49.32 | KL: 46.2015 | LR: 4.99e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 8, KL=510.4131 > 150.0000
+Batch  282 (  564 eps) | Reward:  -38.38 | KL: 79.3465 | LR: 4.99e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  283 (  566 eps) | Reward:  -48.49 | KL: 17.1469 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 9, KL=384.4956 > 150.0000
+Batch  284 (  568 eps) | Reward:  -40.83 | KL: 48.7004 | LR: 4.99e-06 | Time: 8.8s
+Batch  285 (  570 eps) | Reward:  -42.33 | KL: 12.0487 | LR: 4.99e-06 | Time: 9.6s
+Batch  286 (  572 eps) | Reward:  -43.46 | KL: 25.9334 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=25513.6445 > 150.0000
+Batch  287 (  574 eps) | Reward:  -40.31 | KL: 3220.5687 | LR: 4.99e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 5, KL=150.4509 > 150.0000
+Batch  288 (  576 eps) | Reward:  -38.82 | KL: 32.0351 | LR: 4.99e-06 | Time: 5.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  289 (  578 eps) | Reward:  -48.25 | KL: 6.5129 | LR: 4.99e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 8, KL=217.3033 > 150.0000
+Batch  290 (  580 eps) | Reward:  -39.31 | KL: 32.6307 | LR: 4.99e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 6, KL=406.4249 > 150.0000
+Batch  291 (  582 eps) | Reward:  -44.97 | KL: 77.8281 | LR: 4.99e-06 | Time: 6.1s
+  [KL Early Stop] Epoch 8, KL=170.7362 > 150.0000
+Batch  292 (  584 eps) | Reward:  -42.00 | KL: 28.8140 | LR: 4.99e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 9, KL=1102.6921 > 150.0000
+Batch  293 (  586 eps) | Reward:  -39.43 | KL: 134.9065 | LR: 4.99e-06 | Time: 8.6s
+Batch  294 (  588 eps) | Reward:  -32.97 | KL: 13.4049 | LR: 4.99e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  295 (  590 eps) | Reward:  -40.79 | KL: 18.7527 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=164.1094 > 150.0000
+Batch  296 (  592 eps) | Reward:  -38.86 | KL: 39.7258 | LR: 4.99e-06 | Time: 9.5s
+Batch  297 (  594 eps) | Reward:  -38.44 | KL: 11.5705 | LR: 4.99e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=278.7490 > 150.0000
+Batch  298 (  596 eps) | Reward:  -40.35 | KL: 50.3468 | LR: 4.99e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 8, KL=615.7294 > 150.0000
+Batch  299 (  598 eps) | Reward:  -36.26 | KL: 113.4009 | LR: 4.99e-06 | Time: 7.9s
+Batch  300 (  600 eps) | Reward:  -40.69 | KL: 40.9742 | LR: 4.99e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  301 (  602 eps) | Reward:  -39.47 | KL: 3.7820 | LR: 4.99e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=1231.3951 > 150.0000
+Batch  302 (  604 eps) | Reward:  -39.38 | KL: 168.0449 | LR: 4.99e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 10, KL=380.6944 > 150.0000
+Batch  303 (  606 eps) | Reward:  -39.36 | KL: 47.0476 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=2183.3330 > 150.0000
+Batch  304 (  608 eps) | Reward:  -38.30 | KL: 278.8364 | LR: 4.99e-06 | Time: 8.0s
+Batch  305 (  610 eps) | Reward:  -37.74 | KL: 26.6419 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=1112.2314 > 150.0000
+Batch  306 (  612 eps) | Reward:  -41.41 | KL: 146.9625 | LR: 4.99e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=716.3491 > 150.0000
+Batch  307 (  614 eps) | Reward:  -44.67 | KL: 104.8188 | LR: 4.99e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=168.4321 > 150.0000
+Batch  308 (  616 eps) | Reward:  -38.08 | KL: 28.1731 | LR: 4.99e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 6, KL=697.0172 > 150.0000
+Batch  309 (  618 eps) | Reward:  -41.72 | KL: 123.5369 | LR: 4.99e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 7, KL=298.1184 > 150.0000
+Batch  310 (  620 eps) | Reward:  -42.43 | KL: 59.4500 | LR: 4.99e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 8, KL=292.4694 > 150.0000
+Batch  311 (  622 eps) | Reward:  -31.94 | KL: 64.4763 | LR: 4.99e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 7, KL=439.5593 > 150.0000
+Batch  312 (  624 eps) | Reward:  -38.35 | KL: 84.6634 | LR: 4.99e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=152.5700 > 150.0000
+Batch  313 (  626 eps) | Reward:  -36.17 | KL: 37.1327 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=194.9228 > 150.0000
+Batch  314 (  628 eps) | Reward:  -37.61 | KL: 38.0257 | LR: 4.99e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=261.9265 > 150.0000
+Batch  315 (  630 eps) | Reward:  -39.33 | KL: 50.6450 | LR: 4.99e-06 | Time: 8.2s
+  [KL Early Stop] Epoch 5, KL=757.3331 > 150.0000
+Batch  316 (  632 eps) | Reward:  -39.27 | KL: 155.7222 | LR: 4.99e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=332.3110 > 150.0000
+Batch  317 (  634 eps) | Reward:  -41.68 | KL: 67.2453 | LR: 4.99e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 6, KL=187.1996 > 150.0000
+Batch  318 (  636 eps) | Reward:  -38.56 | KL: 44.4468 | LR: 4.99e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  319 (  638 eps) | Reward:  -35.02 | KL: 10.6838 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 9, KL=507.5254 > 150.0000
+Batch  320 (  640 eps) | Reward:  -40.35 | KL: 62.6119 | LR: 4.99e-06 | Time: 8.8s
+Batch  321 (  642 eps) | Reward:  -38.69 | KL: 24.1828 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=150.1447 > 150.0000
+Batch  322 (  644 eps) | Reward:  -45.11 | KL: 50.5882 | LR: 4.99e-06 | Time: 8.2s
+  [KL Early Stop] Epoch 7, KL=166.0134 > 150.0000
+Batch  323 (  646 eps) | Reward:  -39.71 | KL: 40.1011 | LR: 4.99e-06 | Time: 7.4s
+  [KL Early Stop] Epoch 6, KL=197.1214 > 150.0000
+Batch  324 (  648 eps) | Reward:  -42.39 | KL: 34.7926 | LR: 4.99e-06 | Time: 6.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  325 (  650 eps) | Reward:  -38.80 | KL: 18.6935 | LR: 4.99e-06 | Time: 9.4s
+Batch  326 (  652 eps) | Reward:  -38.93 | KL: 8.0551 | LR: 4.99e-06 | Time: 9.3s
+Batch  327 (  654 eps) | Reward:  -38.18 | KL: 40.3895 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=218.1718 > 150.0000
+Batch  328 (  656 eps) | Reward:  -37.55 | KL: 37.7566 | LR: 4.99e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 6, KL=1099.2504 > 150.0000
+Batch  329 (  658 eps) | Reward:  -37.76 | KL: 201.9263 | LR: 4.99e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 10, KL=263.3853 > 150.0000
+Batch  330 (  660 eps) | Reward:  -41.77 | KL: 34.1386 | LR: 4.99e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=178.2586 > 150.0000
+Batch  331 (  662 eps) | Reward:  -40.52 | KL: 35.9525 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 10, KL=260.6875 > 150.0000
+Batch  332 (  664 eps) | Reward:  -41.21 | KL: 36.0352 | LR: 4.99e-06 | Time: 9.7s
+Batch  333 (  666 eps) | Reward:  -46.43 | KL: 17.7258 | LR: 4.99e-06 | Time: 9.7s
+Batch  334 (  668 eps) | Reward:  -37.17 | KL: 15.3953 | LR: 4.99e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 3, KL=1307.8623 > 150.0000
+Batch  335 (  670 eps) | Reward:  -39.76 | KL: 443.8619 | LR: 4.99e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 9, KL=168.8769 > 150.0000
+Batch  336 (  672 eps) | Reward:  -42.28 | KL: 36.1679 | LR: 4.99e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=423.3480 > 150.0000
+Batch  337 (  674 eps) | Reward:  -42.13 | KL: 77.8490 | LR: 4.99e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 5, KL=167.2569 > 150.0000
+Batch  338 (  676 eps) | Reward:  -37.14 | KL: 39.5295 | LR: 4.99e-06 | Time: 5.7s
+  [KL Early Stop] Epoch 5, KL=164.0835 > 150.0000
+Batch  339 (  678 eps) | Reward:  -38.44 | KL: 50.0441 | LR: 4.99e-06 | Time: 5.6s
+Batch  340 (  680 eps) | Reward:  -44.21 | KL: 8.4526 | LR: 4.99e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=429.5932 > 150.0000
+Batch  341 (  682 eps) | Reward:  -37.33 | KL: 63.1389 | LR: 4.99e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 10, KL=155.1359 > 150.0000
+Batch  342 (  684 eps) | Reward:  -45.09 | KL: 37.0303 | LR: 4.99e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=408.1238 > 150.0000
+Batch  343 (  686 eps) | Reward:  -43.94 | KL: 85.4251 | LR: 4.99e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 8, KL=929.0380 > 150.0000
+Batch  344 (  688 eps) | Reward:  -37.30 | KL: 123.0266 | LR: 4.99e-06 | Time: 8.0s
+Batch  345 (  690 eps) | Reward:  -42.71 | KL: 7.2855 | LR: 4.99e-06 | Time: 9.6s
+Batch  346 (  692 eps) | Reward:  -39.79 | KL: 5.5930 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=2755.2478 > 150.0000
+Batch  347 (  694 eps) | Reward:  -40.84 | KL: 369.9798 | LR: 4.99e-06 | Time: 8.0s
+Batch  348 (  696 eps) | Reward:  -38.80 | KL: 59.2890 | LR: 4.99e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=178.0868 > 150.0000
+Batch  349 (  698 eps) | Reward:  -40.78 | KL: 31.2199 | LR: 4.99e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 10, KL=317.2435 > 150.0000
+Batch  350 (  700 eps) | Reward:  -40.26 | KL: 40.9320 | LR: 4.99e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=768.8058 > 150.0000
+Batch  351 (  702 eps) | Reward:  -40.59 | KL: 111.4138 | LR: 4.99e-06 | Time: 7.7s
+Batch  352 (  704 eps) | Reward:  -35.90 | KL: 19.8012 | LR: 4.99e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 9, KL=393.9140 > 150.0000
+Batch  353 (  706 eps) | Reward:  -38.55 | KL: 51.6258 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 9, KL=237.1956 > 150.0000
+Batch  354 (  708 eps) | Reward:  -39.88 | KL: 40.2831 | LR: 4.99e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  355 (  710 eps) | Reward:  -38.72 | KL: 4.6115 | LR: 4.99e-06 | Time: 9.2s
+Batch  356 (  712 eps) | Reward:  -39.65 | KL: 3.3243 | LR: 4.99e-06 | Time: 9.2s
+Batch  357 (  714 eps) | Reward:  -38.94 | KL: 4.4683 | LR: 4.99e-06 | Time: 9.2s
+Batch  358 (  716 eps) | Reward:  -42.77 | KL: 8.5307 | LR: 4.99e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 7, KL=402.3514 > 150.0000
+Batch  359 (  718 eps) | Reward:  -43.22 | KL: 90.8408 | LR: 4.99e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 9, KL=923.1923 > 150.0000
+Batch  360 (  720 eps) | Reward:  -40.34 | KL: 123.3252 | LR: 4.99e-06 | Time: 8.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=169.3807 > 150.0000
+Batch  361 (  722 eps) | Reward:  -40.78 | KL: 36.8878 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 10, KL=675.7167 > 150.0000
+Batch  362 (  724 eps) | Reward:  -40.05 | KL: 96.5377 | LR: 4.99e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 9, KL=359.7601 > 150.0000
+Batch  363 (  726 eps) | Reward:  -40.23 | KL: 57.2989 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 3, KL=513.6489 > 150.0000
+Batch  364 (  728 eps) | Reward:  -40.06 | KL: 181.2743 | LR: 4.99e-06 | Time: 3.8s
+  [KL Early Stop] Epoch 9, KL=479.4637 > 150.0000
+Batch  365 (  730 eps) | Reward:  -37.87 | KL: 68.9311 | LR: 4.99e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 8, KL=154.8154 > 150.0000
+Batch  366 (  732 eps) | Reward:  -38.76 | KL: 26.7112 | LR: 4.99e-06 | Time: 8.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  367 (  734 eps) | Reward:  -36.42 | KL: 16.9722 | LR: 4.99e-06 | Time: 9.5s
+Batch  368 (  736 eps) | Reward:  -37.93 | KL: 12.6075 | LR: 4.99e-06 | Time: 9.5s
+Batch  369 (  738 eps) | Reward:  -39.61 | KL: 3.8740 | LR: 4.99e-06 | Time: 9.6s
+Batch  370 (  740 eps) | Reward:  -36.80 | KL: 18.4534 | LR: 4.99e-06 | Time: 9.5s
+Batch  371 (  742 eps) | Reward:  -34.61 | KL: 44.7101 | LR: 4.99e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=332.2856 > 150.0000
+Batch  372 (  744 eps) | Reward:  -44.24 | KL: 60.6704 | LR: 4.99e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  373 (  746 eps) | Reward:  -37.59 | KL: 7.7039 | LR: 4.99e-06 | Time: 9.4s
+Batch  374 (  748 eps) | Reward:  -38.54 | KL: 4.7910 | LR: 4.99e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=209.6497 > 150.0000
+Batch  375 (  750 eps) | Reward:  -37.84 | KL: 31.7382 | LR: 4.99e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 8, KL=22724.2402 > 150.0000
+Batch  376 (  752 eps) | Reward:  -37.67 | KL: 2851.2949 | LR: 4.99e-06 | Time: 7.9s
+Batch  377 (  754 eps) | Reward:  -36.56 | KL: 10.4973 | LR: 4.99e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=673.9476 > 150.0000
+Batch  378 (  756 eps) | Reward:  -43.45 | KL: 126.8402 | LR: 4.98e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=157.2668 > 150.0000
+Batch  379 (  758 eps) | Reward:  -40.73 | KL: 36.3165 | LR: 4.98e-06 | Time: 5.7s
+Batch  380 (  760 eps) | Reward:  -38.00 | KL: 18.2085 | LR: 4.98e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 2, KL=622.6102 > 150.0000
+Batch  381 (  762 eps) | Reward:  -35.71 | KL: 311.3051 | LR: 4.98e-06 | Time: 3.1s
+Batch  382 (  764 eps) | Reward:  -38.83 | KL: 33.1798 | LR: 4.98e-06 | Time: 9.7s
+Batch  383 (  766 eps) | Reward:  -41.01 | KL: 5.9206 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 6, KL=8752.2852 > 150.0000
+Batch  384 (  768 eps) | Reward:  -35.63 | KL: 1485.0767 | LR: 4.98e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=356.9366 > 150.0000
+Batch  385 (  770 eps) | Reward:  -38.73 | KL: 56.1366 | LR: 4.98e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=324.2173 > 150.0000
+Batch  386 (  772 eps) | Reward:  -39.42 | KL: 56.6829 | LR: 4.98e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 8, KL=240.2050 > 150.0000
+Batch  387 (  774 eps) | Reward:  -39.26 | KL: 42.1393 | LR: 4.98e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 6, KL=432.3879 > 150.0000
+Batch  388 (  776 eps) | Reward:  -39.36 | KL: 77.2261 | LR: 4.98e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 6, KL=178.9591 > 150.0000
+Batch  389 (  778 eps) | Reward:  -40.68 | KL: 43.7085 | LR: 4.98e-06 | Time: 6.4s
+Batch  390 (  780 eps) | Reward:  -39.40 | KL: 3.6658 | LR: 4.98e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=332.8290 > 150.0000
+Batch  391 (  782 eps) | Reward:  -43.28 | KL: 84.1982 | LR: 4.98e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 9, KL=237.4021 > 150.0000
+Batch  392 (  784 eps) | Reward:  -40.49 | KL: 61.6373 | LR: 4.98e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=324.5844 > 150.0000
+Batch  393 (  786 eps) | Reward:  -40.18 | KL: 60.6292 | LR: 4.98e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 8, KL=181.1084 > 150.0000
+Batch  394 (  788 eps) | Reward:  -40.81 | KL: 39.3703 | LR: 4.98e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 9, KL=296.0413 > 150.0000
+Batch  395 (  790 eps) | Reward:  -39.41 | KL: 38.9483 | LR: 4.98e-06 | Time: 8.6s
+Batch  396 (  792 eps) | Reward:  -42.55 | KL: 5.4291 | LR: 4.98e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  397 (  794 eps) | Reward:  -36.91 | KL: 8.0521 | LR: 4.98e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=8100.0068 > 150.0000
+Batch  398 (  796 eps) | Reward:  -47.57 | KL: 1173.7058 | LR: 4.98e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 6, KL=228.7617 > 150.0000
+Batch  399 (  798 eps) | Reward:  -40.75 | KL: 74.3802 | LR: 4.98e-06 | Time: 6.2s
+Batch  400 (  800 eps) | Reward:  -40.21 | KL: 26.4317 | LR: 4.98e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 10, KL=370.0485 > 150.0000
+Batch  401 (  802 eps) | Reward:  -38.09 | KL: 51.2306 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 6, KL=188.8546 > 150.0000
+Batch  402 (  804 eps) | Reward:  -36.83 | KL: 37.7766 | LR: 4.98e-06 | Time: 6.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=1091.6058 > 150.0000
+Batch  403 (  806 eps) | Reward:  -37.88 | KL: 155.2087 | LR: 4.98e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 10, KL=733.7642 > 150.0000
+Batch  404 (  808 eps) | Reward:  -44.63 | KL: 89.4197 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 3, KL=155.5349 > 150.0000
+Batch  405 (  810 eps) | Reward:  -39.41 | KL: 61.3607 | LR: 4.98e-06 | Time: 3.8s
+  [KL Early Stop] Epoch 8, KL=576.5586 > 150.0000
+Batch  406 (  812 eps) | Reward:  -41.90 | KL: 80.3713 | LR: 4.98e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 6, KL=383.3410 > 150.0000
+Batch  407 (  814 eps) | Reward:  -35.41 | KL: 85.7987 | LR: 4.98e-06 | Time: 6.4s
+Batch  408 (  816 eps) | Reward:  -35.30 | KL: 4.2392 | LR: 4.98e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=309.7129 > 150.0000
+Batch  409 (  818 eps) | Reward:  -34.88 | KL: 60.2031 | LR: 4.98e-06 | Time: 7.2s
+Batch  410 (  820 eps) | Reward:  -46.88 | KL: 8.9414 | LR: 4.98e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=260.1614 > 150.0000
+Batch  411 (  822 eps) | Reward:  -42.25 | KL: 65.3889 | LR: 4.98e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 7, KL=1320.3892 > 150.0000
+Batch  412 (  824 eps) | Reward:  -35.51 | KL: 222.7096 | LR: 4.98e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=313.1542 > 150.0000
+Batch  413 (  826 eps) | Reward:  -41.98 | KL: 45.4724 | LR: 4.98e-06 | Time: 8.0s
+Batch  414 (  828 eps) | Reward:  -44.32 | KL: 8.7025 | LR: 4.98e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  415 (  830 eps) | Reward:  -42.26 | KL: 5.8080 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=1355.6134 > 150.0000
+Batch  416 (  832 eps) | Reward:  -42.67 | KL: 197.0272 | LR: 4.98e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=745.1799 > 150.0000
+Batch  417 (  834 eps) | Reward:  -49.76 | KL: 100.3199 | LR: 4.98e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 5, KL=337.9889 > 150.0000
+Batch  418 (  836 eps) | Reward:  -45.03 | KL: 68.6711 | LR: 4.98e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 7, KL=270.8747 > 150.0000
+Batch  419 (  838 eps) | Reward:  -45.58 | KL: 40.9676 | LR: 4.98e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 7, KL=185.5660 > 150.0000
+Batch  420 (  840 eps) | Reward:  -51.59 | KL: 28.4415 | LR: 4.98e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  421 (  842 eps) | Reward:  -39.78 | KL: 5.1833 | LR: 4.98e-06 | Time: 9.3s
+Batch  422 (  844 eps) | Reward:  -39.31 | KL: 15.1603 | LR: 4.98e-06 | Time: 9.6s
+Batch  423 (  846 eps) | Reward:  -40.94 | KL: 7.2883 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 5, KL=226.5122 > 150.0000
+Batch  424 (  848 eps) | Reward:  -52.62 | KL: 45.9150 | LR: 4.98e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 10, KL=189.9209 > 150.0000
+Batch  425 (  850 eps) | Reward:  -43.67 | KL: 30.2492 | LR: 4.98e-06 | Time: 9.4s
+Batch  426 (  852 eps) | Reward:  -42.19 | KL: 4.2424 | LR: 4.98e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  427 (  854 eps) | Reward:  -40.75 | KL: 15.7042 | LR: 4.98e-06 | Time: 9.4s
+Batch  428 (  856 eps) | Reward:  -40.33 | KL: 19.7953 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=417.2648 > 150.0000
+Batch  429 (  858 eps) | Reward:  -40.09 | KL: 67.6781 | LR: 4.98e-06 | Time: 8.7s
+Batch  430 (  860 eps) | Reward:  -42.38 | KL: 8.5065 | LR: 4.98e-06 | Time: 9.6s
+Batch  431 (  862 eps) | Reward:  -46.71 | KL: 19.7606 | LR: 4.98e-06 | Time: 9.6s
+Batch  432 (  864 eps) | Reward:  -45.97 | KL: 3.5091 | LR: 4.98e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  433 (  866 eps) | Reward:  -49.64 | KL: 13.2298 | LR: 4.98e-06 | Time: 9.5s
+Batch  434 (  868 eps) | Reward:  -46.19 | KL: 8.6809 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=217.4972 > 150.0000
+Batch  435 (  870 eps) | Reward:  -47.45 | KL: 46.6991 | LR: 4.98e-06 | Time: 7.1s
+Batch  436 (  872 eps) | Reward:  -40.87 | KL: 4.0804 | LR: 4.98e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 9, KL=207.4957 > 150.0000
+Batch  437 (  874 eps) | Reward:  -37.78 | KL: 32.1902 | LR: 4.98e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 8, KL=164.2864 > 150.0000
+Batch  438 (  876 eps) | Reward:  -51.32 | KL: 33.3307 | LR: 4.98e-06 | Time: 8.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=186.4715 > 150.0000
+Batch  439 (  878 eps) | Reward:  -49.22 | KL: 43.0097 | LR: 4.98e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 7, KL=154.7287 > 150.0000
+Batch  440 (  880 eps) | Reward:  -47.87 | KL: 25.7584 | LR: 4.98e-06 | Time: 7.3s
+Batch  441 (  882 eps) | Reward:  -47.23 | KL: 29.1666 | LR: 4.98e-06 | Time: 9.7s
+Batch  442 (  884 eps) | Reward:  -46.91 | KL: 10.5778 | LR: 4.98e-06 | Time: 9.7s
+Batch  443 (  886 eps) | Reward:  -44.64 | KL: 21.5565 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 10, KL=2439.6096 > 150.0000
+Batch  444 (  888 eps) | Reward:  -50.87 | KL: 263.1145 | LR: 4.98e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=1015.1013 > 150.0000
+Batch  445 (  890 eps) | Reward:  -42.79 | KL: 250.7209 | LR: 4.98e-06 | Time: 5.7s
+  [KL Early Stop] Epoch 8, KL=2747.0007 > 150.0000
+Batch  446 (  892 eps) | Reward:  -50.79 | KL: 362.3585 | LR: 4.98e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 10, KL=286.8980 > 150.0000
+Batch  447 (  894 eps) | Reward:  -45.41 | KL: 39.2770 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 10, KL=1021.0865 > 150.0000
+Batch  448 (  896 eps) | Reward:  -40.68 | KL: 120.9321 | LR: 4.98e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 4, KL=1382.7430 > 150.0000
+Batch  449 (  898 eps) | Reward:  -49.11 | KL: 350.4763 | LR: 4.98e-06 | Time: 4.6s
+  [KL Early Stop] Epoch 6, KL=1758.0793 > 150.0000
+Batch  450 (  900 eps) | Reward:  -50.04 | KL: 306.9773 | LR: 4.98e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=3912.4587 > 150.0000
+Batch  451 (  902 eps) | Reward:  -46.92 | KL: 441.1187 | LR: 4.98e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 9, KL=231.9596 > 150.0000
+Batch  452 (  904 eps) | Reward:  -37.76 | KL: 69.8174 | LR: 4.98e-06 | Time: 8.5s
+Batch  453 (  906 eps) | Reward:  -37.61 | KL: 2.7170 | LR: 4.98e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 9, KL=383.2989 > 150.0000
+Batch  454 (  908 eps) | Reward:  -42.06 | KL: 58.9348 | LR: 4.98e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=259.0113 > 150.0000
+Batch  455 (  910 eps) | Reward:  -47.59 | KL: 41.0355 | LR: 4.98e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 7, KL=576.4182 > 150.0000
+Batch  456 (  912 eps) | Reward:  -50.18 | KL: 85.9098 | LR: 4.98e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=167.8165 > 150.0000
+Batch  457 (  914 eps) | Reward:  -50.39 | KL: 43.7874 | LR: 4.98e-06 | Time: 6.2s
+Batch  458 (  916 eps) | Reward:  -46.81 | KL: 17.1771 | LR: 4.98e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=511.5930 > 150.0000
+Batch  459 (  918 eps) | Reward:  -49.99 | KL: 71.6842 | LR: 4.98e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=224.2948 > 150.0000
+Batch  460 (  920 eps) | Reward:  -52.17 | KL: 41.3255 | LR: 4.98e-06 | Time: 7.3s
+Batch  461 (  922 eps) | Reward:  -54.01 | KL: 3.2105 | LR: 4.98e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=473.7904 > 150.0000
+Batch  462 (  924 eps) | Reward:  -50.42 | KL: 73.4068 | LR: 4.98e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=230.0910 > 150.0000
+Batch  463 (  926 eps) | Reward:  -55.06 | KL: 40.7484 | LR: 4.98e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 8, KL=228.2863 > 150.0000
+Batch  464 (  928 eps) | Reward:  -54.81 | KL: 37.9154 | LR: 4.98e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 8, KL=713.8657 > 150.0000
+Batch  465 (  930 eps) | Reward:  -51.54 | KL: 100.4031 | LR: 4.98e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 9, KL=487.9933 > 150.0000
+Batch  466 (  932 eps) | Reward:  -52.65 | KL: 81.7919 | LR: 4.98e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 9, KL=326.3267 > 150.0000
+Batch  467 (  934 eps) | Reward:  -51.05 | KL: 56.8014 | LR: 4.98e-06 | Time: 8.8s
+Batch  468 (  936 eps) | Reward:  -46.72 | KL: 42.5177 | LR: 4.98e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=155.3442 > 150.0000
+Batch  469 (  938 eps) | Reward:  -47.15 | KL: 39.1311 | LR: 4.98e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 6, KL=183.3348 > 150.0000
+Batch  470 (  940 eps) | Reward:  -56.80 | KL: 43.6365 | LR: 4.98e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 6, KL=1094.9888 > 150.0000
+Batch  471 (  942 eps) | Reward:  -48.52 | KL: 199.0390 | LR: 4.98e-06 | Time: 6.7s
+Batch  472 (  944 eps) | Reward:  -49.56 | KL: 34.3018 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=425.0762 > 150.0000
+Batch  473 (  946 eps) | Reward:  -48.09 | KL: 63.8878 | LR: 4.98e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 5, KL=681.6434 > 150.0000
+Batch  474 (  948 eps) | Reward:  -46.01 | KL: 149.9372 | LR: 4.98e-06 | Time: 5.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=461.6864 > 150.0000
+Batch  475 (  950 eps) | Reward:  -48.53 | KL: 85.7898 | LR: 4.98e-06 | Time: 7.7s
+Batch  476 (  952 eps) | Reward:  -42.96 | KL: 12.5821 | LR: 4.98e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=2314.3867 > 150.0000
+Batch  477 (  954 eps) | Reward:  -46.33 | KL: 302.5597 | LR: 4.98e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 8, KL=474.1392 > 150.0000
+Batch  478 (  956 eps) | Reward:  -47.22 | KL: 66.7077 | LR: 4.98e-06 | Time: 7.7s
+Batch  479 (  958 eps) | Reward:  -47.60 | KL: 21.5123 | LR: 4.98e-06 | Time: 9.4s
+Batch  480 (  960 eps) | Reward:  -42.50 | KL: 8.1679 | LR: 4.98e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=464.8862 > 150.0000
+Batch  481 (  962 eps) | Reward:  -47.39 | KL: 68.6662 | LR: 4.98e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 8, KL=406.1222 > 150.0000
+Batch  482 (  964 eps) | Reward:  -41.62 | KL: 70.2423 | LR: 4.98e-06 | Time: 8.0s
+Batch  483 (  966 eps) | Reward:  -48.04 | KL: 5.1892 | LR: 4.98e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 8, KL=387.1733 > 150.0000
+Batch  484 (  968 eps) | Reward:  -48.06 | KL: 62.4098 | LR: 4.98e-06 | Time: 7.7s
+Batch  485 (  970 eps) | Reward:  -44.82 | KL: 6.7581 | LR: 4.97e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 7, KL=293.6500 > 150.0000
+Batch  486 (  972 eps) | Reward:  -44.73 | KL: 44.8944 | LR: 4.97e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  487 (  974 eps) | Reward:  -46.82 | KL: 8.3594 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=170.7697 > 150.0000
+Batch  488 (  976 eps) | Reward:  -46.74 | KL: 28.0437 | LR: 4.97e-06 | Time: 7.0s
+Batch  489 (  978 eps) | Reward:  -45.63 | KL: 8.7067 | LR: 4.97e-06 | Time: 9.3s
+Batch  490 (  980 eps) | Reward:  -49.22 | KL: 21.5129 | LR: 4.97e-06 | Time: 9.5s
+Batch  491 (  982 eps) | Reward:  -39.70 | KL: 26.9420 | LR: 4.97e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=151.0038 > 150.0000
+Batch  492 (  984 eps) | Reward:  -41.97 | KL: 19.0355 | LR: 4.97e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  493 (  986 eps) | Reward:  -47.17 | KL: 9.9247 | LR: 4.97e-06 | Time: 9.3s
+Batch  494 (  988 eps) | Reward:  -46.84 | KL: 22.9769 | LR: 4.97e-06 | Time: 9.3s
+Batch  495 (  990 eps) | Reward:  -51.95 | KL: 15.0877 | LR: 4.97e-06 | Time: 9.3s
+Batch  496 (  992 eps) | Reward:  -52.33 | KL: 3.8485 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=287.8776 > 150.0000
+Batch  497 (  994 eps) | Reward:  -51.52 | KL: 47.7566 | LR: 4.97e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 8, KL=487.9092 > 150.0000
+Batch  498 (  996 eps) | Reward:  -48.24 | KL: 68.7700 | LR: 4.97e-06 | Time: 7.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  499 (  998 eps) | Reward:  -50.15 | KL: 5.7560 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=812.5548 > 150.0000
+Batch  500 ( 1000 eps) | Reward:  -49.80 | KL: 114.4669 | LR: 4.97e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 10, KL=910.8137 > 150.0000
+Batch  501 ( 1002 eps) | Reward:  -44.66 | KL: 96.8591 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=183.9394 > 150.0000
+Batch  502 ( 1004 eps) | Reward:  -48.26 | KL: 36.5355 | LR: 4.97e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 5, KL=503.5990 > 150.0000
+Batch  503 ( 1006 eps) | Reward:  -48.89 | KL: 103.8903 | LR: 4.97e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 7, KL=792.3432 > 150.0000
+Batch  504 ( 1008 eps) | Reward:  -45.72 | KL: 119.7889 | LR: 4.97e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  505 ( 1010 eps) | Reward:  -51.50 | KL: 26.6621 | LR: 4.97e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 6, KL=307.3775 > 150.0000
+Batch  506 ( 1012 eps) | Reward:  -42.52 | KL: 70.7086 | LR: 4.97e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 4, KL=346.7602 > 150.0000
+Batch  507 ( 1014 eps) | Reward:  -48.18 | KL: 98.8706 | LR: 4.97e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 8, KL=243.2159 > 150.0000
+Batch  508 ( 1016 eps) | Reward:  -44.84 | KL: 49.4131 | LR: 4.97e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 5, KL=184.7770 > 150.0000
+Batch  509 ( 1018 eps) | Reward:  -44.56 | KL: 41.8517 | LR: 4.97e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 7, KL=169.4776 > 150.0000
+Batch  510 ( 1020 eps) | Reward:  -39.53 | KL: 32.2656 | LR: 4.97e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=236.4170 > 150.0000
+Batch  511 ( 1022 eps) | Reward:  -42.56 | KL: 44.7674 | LR: 4.97e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=1525.1732 > 150.0000
+Batch  512 ( 1024 eps) | Reward:  -43.31 | KL: 163.5043 | LR: 4.97e-06 | Time: 9.7s
+Batch  513 ( 1026 eps) | Reward:  -45.41 | KL: 8.5492 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=636.9043 > 150.0000
+Batch  514 ( 1028 eps) | Reward:  -44.79 | KL: 82.5961 | LR: 4.97e-06 | Time: 7.9s
+Batch  515 ( 1030 eps) | Reward:  -46.10 | KL: 5.4037 | LR: 4.97e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=812.5966 > 150.0000
+Batch  516 ( 1032 eps) | Reward:  -49.71 | KL: 110.7644 | LR: 4.97e-06 | Time: 7.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  517 ( 1034 eps) | Reward:  -46.17 | KL: 8.2219 | LR: 4.97e-06 | Time: 9.4s
+Batch  518 ( 1036 eps) | Reward:  -48.40 | KL: 14.9707 | LR: 4.97e-06 | Time: 9.3s
+Batch  519 ( 1038 eps) | Reward:  -55.57 | KL: 10.0321 | LR: 4.97e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 10, KL=304.8042 > 150.0000
+Batch  520 ( 1040 eps) | Reward:  -53.78 | KL: 62.6394 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=349.3335 > 150.0000
+Batch  521 ( 1042 eps) | Reward:  -47.94 | KL: 54.5229 | LR: 4.97e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 6, KL=268.9224 > 150.0000
+Batch  522 ( 1044 eps) | Reward:  -42.99 | KL: 57.9008 | LR: 4.97e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=285.9860 > 150.0000
+Batch  523 ( 1046 eps) | Reward:  -43.97 | KL: 39.3345 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 10, KL=167.5915 > 150.0000
+Batch  524 ( 1048 eps) | Reward:  -48.02 | KL: 25.0065 | LR: 4.97e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 4, KL=968.3828 > 150.0000
+Batch  525 ( 1050 eps) | Reward:  -51.69 | KL: 262.7821 | LR: 4.97e-06 | Time: 4.6s
+Batch  526 ( 1052 eps) | Reward:  -56.55 | KL: 3.9655 | LR: 4.97e-06 | Time: 9.7s
+Batch  527 ( 1054 eps) | Reward:  -44.74 | KL: 3.5678 | LR: 4.97e-06 | Time: 9.9s
+Batch  528 ( 1056 eps) | Reward:  -46.14 | KL: 14.0253 | LR: 4.97e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=203.4919 > 150.0000
+Batch  529 ( 1058 eps) | Reward:  -47.47 | KL: 53.0923 | LR: 4.97e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 8, KL=2097.2842 > 150.0000
+Batch  530 ( 1060 eps) | Reward:  -51.76 | KL: 274.3957 | LR: 4.97e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 10, KL=162.2303 > 150.0000
+Batch  531 ( 1062 eps) | Reward:  -43.52 | KL: 23.8039 | LR: 4.97e-06 | Time: 9.7s
+Batch  532 ( 1064 eps) | Reward:  -47.57 | KL: 11.8645 | LR: 4.97e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=465.7979 > 150.0000
+Batch  533 ( 1066 eps) | Reward:  -41.59 | KL: 78.7228 | LR: 4.97e-06 | Time: 8.0s
+Batch  534 ( 1068 eps) | Reward:  -45.49 | KL: 16.7795 | LR: 4.97e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=203.2277 > 150.0000
+Batch  535 ( 1070 eps) | Reward:  -53.67 | KL: 30.1770 | LR: 4.97e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 10, KL=221.8980 > 150.0000
+Batch  536 ( 1072 eps) | Reward:  -50.20 | KL: 30.5333 | LR: 4.97e-06 | Time: 9.4s
+Batch  537 ( 1074 eps) | Reward:  -49.13 | KL: 10.3759 | LR: 4.97e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 10, KL=683.8511 > 150.0000
+Batch  538 ( 1076 eps) | Reward:  -44.75 | KL: 72.8098 | LR: 4.97e-06 | Time: 9.4s
+Batch  539 ( 1078 eps) | Reward:  -48.42 | KL: 6.5309 | LR: 4.97e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 5, KL=540.5228 > 150.0000
+Batch  540 ( 1080 eps) | Reward:  -48.42 | KL: 116.6076 | LR: 4.97e-06 | Time: 5.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  541 ( 1082 eps) | Reward:  -50.94 | KL: 3.4299 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=154.0629 > 150.0000
+Batch  542 ( 1084 eps) | Reward:  -51.87 | KL: 24.0220 | LR: 4.97e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 9, KL=8787.9971 > 150.0000
+Batch  543 ( 1086 eps) | Reward:  -50.13 | KL: 992.3003 | LR: 4.97e-06 | Time: 8.8s
+Batch  544 ( 1088 eps) | Reward:  -42.77 | KL: 4.5748 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=284.7849 > 150.0000
+Batch  545 ( 1090 eps) | Reward:  -42.23 | KL: 60.9112 | LR: 4.97e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 6, KL=475.2473 > 150.0000
+Batch  546 ( 1092 eps) | Reward:  -46.94 | KL: 93.4743 | LR: 4.97e-06 | Time: 6.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=310.9154 > 150.0000
+Batch  547 ( 1094 eps) | Reward:  -53.91 | KL: 64.3040 | LR: 4.97e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 8, KL=210.4341 > 150.0000
+Batch  548 ( 1096 eps) | Reward:  -48.24 | KL: 33.1896 | LR: 4.97e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 3, KL=546.8243 > 150.0000
+Batch  549 ( 1098 eps) | Reward:  -46.87 | KL: 194.2063 | LR: 4.97e-06 | Time: 4.0s
+Batch  550 ( 1100 eps) | Reward:  -47.48 | KL: 3.1229 | LR: 4.97e-06 | Time: 9.7s
+Batch  551 ( 1102 eps) | Reward:  -50.17 | KL: 2.9587 | LR: 4.97e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=457.5751 > 150.0000
+Batch  552 ( 1104 eps) | Reward:  -45.37 | KL: 57.9419 | LR: 4.97e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=359.7926 > 150.0000
+Batch  553 ( 1106 eps) | Reward:  -46.21 | KL: 49.7830 | LR: 4.97e-06 | Time: 8.0s
+Batch  554 ( 1108 eps) | Reward:  -45.40 | KL: 6.7907 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=341.3105 > 150.0000
+Batch  555 ( 1110 eps) | Reward:  -49.07 | KL: 54.1239 | LR: 4.97e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=8383.3896 > 150.0000
+Batch  556 ( 1112 eps) | Reward:  -52.15 | KL: 1225.7887 | LR: 4.97e-06 | Time: 7.2s
+Batch  557 ( 1114 eps) | Reward:  -48.48 | KL: 10.5033 | LR: 4.97e-06 | Time: 9.6s
+Batch  558 ( 1116 eps) | Reward:  -47.98 | KL: 4.6113 | LR: 4.97e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  559 ( 1118 eps) | Reward:  -51.72 | KL: 5.1236 | LR: 4.97e-06 | Time: 9.8s
+Batch  560 ( 1120 eps) | Reward:  -48.03 | KL: 13.6480 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=668.4716 > 150.0000
+Batch  561 ( 1122 eps) | Reward:  -46.60 | KL: 94.5528 | LR: 4.97e-06 | Time: 8.9s
+Batch  562 ( 1124 eps) | Reward:  -43.87 | KL: 19.2339 | LR: 4.97e-06 | Time: 9.6s
+Batch  563 ( 1126 eps) | Reward:  -61.74 | KL: 55.5652 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=247.6284 > 150.0000
+Batch  564 ( 1128 eps) | Reward:  -45.48 | KL: 53.2591 | LR: 4.97e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  565 ( 1130 eps) | Reward:  -47.93 | KL: 22.2381 | LR: 4.97e-06 | Time: 9.6s
+Batch  566 ( 1132 eps) | Reward:  -50.63 | KL: 15.0464 | LR: 4.97e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=240.0943 > 150.0000
+Batch  567 ( 1134 eps) | Reward:  -55.41 | KL: 30.7793 | LR: 4.97e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 6, KL=1148.5186 > 150.0000
+Batch  568 ( 1136 eps) | Reward:  -46.62 | KL: 204.6992 | LR: 4.97e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 7, KL=238.3535 > 150.0000
+Batch  569 ( 1138 eps) | Reward:  -48.37 | KL: 38.5563 | LR: 4.97e-06 | Time: 7.2s
+Batch  570 ( 1140 eps) | Reward:  -50.68 | KL: 13.0560 | LR: 4.97e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=337.0157 > 150.0000
+Batch  571 ( 1142 eps) | Reward:  -49.75 | KL: 39.9009 | LR: 4.97e-06 | Time: 9.6s
+Batch  572 ( 1144 eps) | Reward:  -50.18 | KL: 10.2393 | LR: 4.96e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=208.8716 > 150.0000
+Batch  573 ( 1146 eps) | Reward:  -47.38 | KL: 62.9711 | LR: 4.96e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 6, KL=178.8520 > 150.0000
+Batch  574 ( 1148 eps) | Reward:  -42.68 | KL: 35.8001 | LR: 4.96e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 6, KL=507.3875 > 150.0000
+Batch  575 ( 1150 eps) | Reward:  -49.02 | KL: 95.7049 | LR: 4.96e-06 | Time: 6.3s
+Batch  576 ( 1152 eps) | Reward:  -47.34 | KL: 31.6407 | LR: 4.96e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  577 ( 1154 eps) | Reward:  -51.48 | KL: 23.9157 | LR: 4.96e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 7, KL=422.7686 > 150.0000
+Batch  578 ( 1156 eps) | Reward:  -49.87 | KL: 77.5420 | LR: 4.96e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 2, KL=159.6041 > 150.0000
+Batch  579 ( 1158 eps) | Reward:  -40.34 | KL: 79.8020 | LR: 4.96e-06 | Time: 3.1s
+Batch  580 ( 1160 eps) | Reward:  -46.99 | KL: 19.2102 | LR: 4.96e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 6, KL=611.5134 > 150.0000
+Batch  581 ( 1162 eps) | Reward:  -50.80 | KL: 104.4720 | LR: 4.96e-06 | Time: 6.3s
+Batch  582 ( 1164 eps) | Reward:  -42.01 | KL: 37.3967 | LR: 4.96e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=3431.1245 > 150.0000
+Batch  583 ( 1166 eps) | Reward:  -41.72 | KL: 504.2376 | LR: 4.96e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 7, KL=205.8752 > 150.0000
+Batch  584 ( 1168 eps) | Reward:  -47.49 | KL: 32.5382 | LR: 4.96e-06 | Time: 6.9s
+  [KL Early Stop] Epoch 3, KL=200.6509 > 150.0000
+Batch  585 ( 1170 eps) | Reward:  -43.83 | KL: 74.1716 | LR: 4.96e-06 | Time: 3.8s
+  [KL Early Stop] Epoch 6, KL=313.5899 > 150.0000
+Batch  586 ( 1172 eps) | Reward:  -41.41 | KL: 65.5113 | LR: 4.96e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=207.1574 > 150.0000
+Batch  587 ( 1174 eps) | Reward:  -45.19 | KL: 43.4331 | LR: 4.96e-06 | Time: 6.2s
+Batch  588 ( 1176 eps) | Reward:  -46.04 | KL: 43.0243 | LR: 4.96e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  589 ( 1178 eps) | Reward:  -45.19 | KL: 19.0183 | LR: 4.96e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=169.4665 > 150.0000
+Batch  590 ( 1180 eps) | Reward:  -49.77 | KL: 46.3454 | LR: 4.96e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 6, KL=213.5429 > 150.0000
+Batch  591 ( 1182 eps) | Reward:  -41.22 | KL: 36.9895 | LR: 4.96e-06 | Time: 6.2s
+Batch  592 ( 1184 eps) | Reward:  -39.12 | KL: 21.2404 | LR: 4.96e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=169.2796 > 150.0000
+Batch  593 ( 1186 eps) | Reward:  -40.72 | KL: 41.1755 | LR: 4.96e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=364.4094 > 150.0000
+Batch  594 ( 1188 eps) | Reward:  -47.60 | KL: 66.4710 | LR: 4.96e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=1536.5400 > 150.0000
+Batch  595 ( 1190 eps) | Reward:  -44.29 | KL: 202.7338 | LR: 4.96e-06 | Time: 7.7s
+Batch  596 ( 1192 eps) | Reward:  -53.30 | KL: 6.3417 | LR: 4.96e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 9, KL=258.4469 > 150.0000
+Batch  597 ( 1194 eps) | Reward:  -46.53 | KL: 38.9953 | LR: 4.96e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 3, KL=199.2602 > 150.0000
+Batch  598 ( 1196 eps) | Reward:  -50.54 | KL: 74.7431 | LR: 4.96e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 10, KL=181.0469 > 150.0000
+Batch  599 ( 1198 eps) | Reward:  -44.77 | KL: 43.4784 | LR: 4.96e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=202.6261 > 150.0000
+Batch  600 ( 1200 eps) | Reward:  -41.71 | KL: 63.4237 | LR: 4.96e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=472.5305 > 150.0000
+Batch  601 ( 1202 eps) | Reward:  -45.74 | KL: 60.9055 | LR: 4.96e-06 | Time: 8.9s
+Batch  602 ( 1204 eps) | Reward:  -44.41 | KL: 9.6923 | LR: 4.96e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=206.5885 > 150.0000
+Batch  603 ( 1206 eps) | Reward:  -43.46 | KL: 71.0958 | LR: 4.96e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 6, KL=1343.2747 > 150.0000
+Batch  604 ( 1208 eps) | Reward:  -49.35 | KL: 227.1522 | LR: 4.96e-06 | Time: 6.6s
+Batch  605 ( 1210 eps) | Reward:  -40.65 | KL: 13.0765 | LR: 4.96e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=7841.9268 > 150.0000
+Batch  606 ( 1212 eps) | Reward:  -46.64 | KL: 1123.0858 | LR: 4.96e-06 | Time: 7.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=225.4858 > 150.0000
+Batch  607 ( 1214 eps) | Reward:  -45.21 | KL: 42.6837 | LR: 4.96e-06 | Time: 9.3s
+Batch  608 ( 1216 eps) | Reward:  -50.00 | KL: 13.1576 | LR: 4.96e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=683.2448 > 150.0000
+Batch  609 ( 1218 eps) | Reward:  -38.42 | KL: 93.6245 | LR: 4.96e-06 | Time: 9.0s
+  [KL Early Stop] Epoch 6, KL=524.0784 > 150.0000
+Batch  610 ( 1220 eps) | Reward:  -51.02 | KL: 113.1940 | LR: 4.96e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 5, KL=2932.6494 > 150.0000
+Batch  611 ( 1222 eps) | Reward:  -42.19 | KL: 588.2184 | LR: 4.96e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=284.3699 > 150.0000
+Batch  612 ( 1224 eps) | Reward:  -48.08 | KL: 68.8565 | LR: 4.96e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  613 ( 1226 eps) | Reward:  -45.44 | KL: 23.0999 | LR: 4.96e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=298.4941 > 150.0000
+Batch  614 ( 1228 eps) | Reward:  -56.61 | KL: 64.1548 | LR: 4.96e-06 | Time: 7.1s
+Batch  615 ( 1230 eps) | Reward:  -56.10 | KL: 13.8036 | LR: 4.96e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=419.4590 > 150.0000
+Batch  616 ( 1232 eps) | Reward:  -57.58 | KL: 66.6485 | LR: 4.96e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 8, KL=393.1567 > 150.0000
+Batch  617 ( 1234 eps) | Reward:  -51.09 | KL: 81.2249 | LR: 4.96e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 7, KL=717.7357 > 150.0000
+Batch  618 ( 1236 eps) | Reward:  -57.18 | KL: 119.9439 | LR: 4.96e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=596.0056 > 150.0000
+Batch  619 ( 1238 eps) | Reward:  -55.72 | KL: 98.5310 | LR: 4.96e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 10, KL=195.7834 > 150.0000
+Batch  620 ( 1240 eps) | Reward:  -56.51 | KL: 56.8306 | LR: 4.96e-06 | Time: 9.3s
+Batch  621 ( 1242 eps) | Reward:  -60.31 | KL: 2.8659 | LR: 4.96e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 10, KL=156.2864 > 150.0000
+Batch  622 ( 1244 eps) | Reward:  -48.77 | KL: 25.6293 | LR: 4.96e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=475.8304 > 150.0000
+Batch  623 ( 1246 eps) | Reward:  -53.20 | KL: 59.3903 | LR: 4.96e-06 | Time: 8.8s
+Batch  624 ( 1248 eps) | Reward:  -52.09 | KL: 3.9655 | LR: 4.96e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=913.4639 > 150.0000
+Batch  625 ( 1250 eps) | Reward:  -57.07 | KL: 157.8796 | LR: 4.96e-06 | Time: 6.4s
+Batch  626 ( 1252 eps) | Reward:  -55.62 | KL: 34.8482 | LR: 4.96e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 9, KL=192.8708 > 150.0000
+Batch  627 ( 1254 eps) | Reward:  -48.40 | KL: 24.2323 | LR: 4.96e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 8, KL=427.3254 > 150.0000
+Batch  628 ( 1256 eps) | Reward:  -54.55 | KL: 73.6163 | LR: 4.96e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 8, KL=669.7068 > 150.0000
+Batch  629 ( 1258 eps) | Reward:  -57.27 | KL: 109.8410 | LR: 4.96e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 2, KL=181.5255 > 150.0000
+Batch  630 ( 1260 eps) | Reward:  -47.74 | KL: 90.7628 | LR: 4.96e-06 | Time: 3.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  631 ( 1262 eps) | Reward:  -48.26 | KL: 6.6398 | LR: 4.96e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 6, KL=689.2585 > 150.0000
+Batch  632 ( 1264 eps) | Reward:  -54.45 | KL: 122.5566 | LR: 4.96e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 9, KL=206.6341 > 150.0000
+Batch  633 ( 1266 eps) | Reward:  -59.71 | KL: 38.2478 | LR: 4.96e-06 | Time: 8.5s
+Batch  634 ( 1268 eps) | Reward:  -54.31 | KL: 2.5177 | LR: 4.96e-06 | Time: 9.4s
+Batch  635 ( 1270 eps) | Reward:  -55.80 | KL: 6.1116 | LR: 4.96e-06 | Time: 9.4s
+Batch  636 ( 1272 eps) | Reward:  -47.23 | KL: 16.0981 | LR: 4.96e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=568.5170 > 150.0000
+Batch  637 ( 1274 eps) | Reward:  -47.66 | KL: 83.9249 | LR: 4.96e-06 | Time: 9.6s
+Batch  638 ( 1276 eps) | Reward:  -59.53 | KL: 8.5745 | LR: 4.96e-06 | Time: 9.7s
+Batch  639 ( 1278 eps) | Reward:  -59.26 | KL: 16.2951 | LR: 4.96e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 5, KL=189.6940 > 150.0000
+Batch  640 ( 1280 eps) | Reward:  -53.67 | KL: 47.6438 | LR: 4.96e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 8, KL=399.2916 > 150.0000
+Batch  641 ( 1282 eps) | Reward:  -60.32 | KL: 69.4978 | LR: 4.96e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 8, KL=426.7806 > 150.0000
+Batch  642 ( 1284 eps) | Reward:  -46.07 | KL: 93.7778 | LR: 4.96e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=1032.8088 > 150.0000
+Batch  643 ( 1286 eps) | Reward:  -52.41 | KL: 167.4944 | LR: 4.96e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=373.3189 > 150.0000
+Batch  644 ( 1288 eps) | Reward:  -59.28 | KL: 51.1156 | LR: 4.96e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 6, KL=164.6389 > 150.0000
+Batch  645 ( 1290 eps) | Reward:  -57.86 | KL: 37.2469 | LR: 4.96e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 6, KL=410.9189 > 150.0000
+Batch  646 ( 1292 eps) | Reward:  -51.75 | KL: 82.2976 | LR: 4.96e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 7, KL=537.5436 > 150.0000
+Batch  647 ( 1294 eps) | Reward:  -48.18 | KL: 82.7682 | LR: 4.96e-06 | Time: 7.2s
+Batch  648 ( 1296 eps) | Reward:  -50.96 | KL: 34.2246 | LR: 4.95e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=153.7850 > 150.0000
+Batch  649 ( 1298 eps) | Reward:  -51.78 | KL: 27.3317 | LR: 4.95e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 9, KL=1348.2872 > 150.0000
+Batch  650 ( 1300 eps) | Reward:  -50.09 | KL: 159.4241 | LR: 4.95e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 6, KL=19230.8516 > 150.0000
+Batch  651 ( 1302 eps) | Reward:  -45.18 | KL: 3258.4809 | LR: 4.95e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 7, KL=348.4392 > 150.0000
+Batch  652 ( 1304 eps) | Reward:  -50.88 | KL: 57.2261 | LR: 4.95e-06 | Time: 7.0s
+Batch  653 ( 1306 eps) | Reward:  -60.11 | KL: 27.9103 | LR: 4.95e-06 | Time: 9.4s
+Batch  654 ( 1308 eps) | Reward:  -54.93 | KL: 10.5907 | LR: 4.95e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=20573.3535 > 150.0000
+Batch  655 ( 1310 eps) | Reward:  -56.56 | KL: 2578.0493 | LR: 4.95e-06 | Time: 7.8s
+Batch  656 ( 1312 eps) | Reward:  -56.47 | KL: 16.1303 | LR: 4.95e-06 | Time: 9.4s
+Batch  657 ( 1314 eps) | Reward:  -55.55 | KL: 17.8898 | LR: 4.95e-06 | Time: 9.4s
+Batch  658 ( 1316 eps) | Reward:  -57.02 | KL: 49.1004 | LR: 4.95e-06 | Time: 9.4s
+Batch  659 ( 1318 eps) | Reward:  -52.05 | KL: 4.3397 | LR: 4.95e-06 | Time: 9.7s
+Batch  660 ( 1320 eps) | Reward:  -56.17 | KL: 18.4970 | LR: 4.95e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  661 ( 1322 eps) | Reward:  -51.19 | KL: 9.2002 | LR: 4.95e-06 | Time: 9.7s
+Batch  662 ( 1324 eps) | Reward:  -56.22 | KL: 26.9668 | LR: 4.95e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=28785.4414 > 150.0000
+Batch  663 ( 1326 eps) | Reward:  -53.38 | KL: 4130.9605 | LR: 4.95e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 4, KL=174.2975 > 150.0000
+Batch  664 ( 1328 eps) | Reward:  -51.72 | KL: 80.7832 | LR: 4.95e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 9, KL=361.3017 > 150.0000
+Batch  665 ( 1330 eps) | Reward:  -54.33 | KL: 46.8837 | LR: 4.95e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 10, KL=2576.1514 > 150.0000
+Batch  666 ( 1332 eps) | Reward:  -62.21 | KL: 264.0464 | LR: 4.95e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  667 ( 1334 eps) | Reward:  -52.66 | KL: 13.3883 | LR: 4.95e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 4, KL=168.8644 > 150.0000
+Batch  668 ( 1336 eps) | Reward:  -62.02 | KL: 50.1108 | LR: 4.95e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 7, KL=176.2166 > 150.0000
+Batch  669 ( 1338 eps) | Reward:  -58.09 | KL: 38.5767 | LR: 4.95e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 7, KL=566.0430 > 150.0000
+Batch  670 ( 1340 eps) | Reward:  -54.91 | KL: 88.2267 | LR: 4.95e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 8, KL=181.0056 > 150.0000
+Batch  671 ( 1342 eps) | Reward:  -59.13 | KL: 54.2255 | LR: 4.95e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 6, KL=4035.8047 > 150.0000
+Batch  672 ( 1344 eps) | Reward:  -55.72 | KL: 675.0649 | LR: 4.95e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 4, KL=197.1171 > 150.0000
+Batch  673 ( 1346 eps) | Reward:  -59.49 | KL: 80.7817 | LR: 4.95e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 7, KL=868.4729 > 150.0000
+Batch  674 ( 1348 eps) | Reward:  -65.08 | KL: 128.3750 | LR: 4.95e-06 | Time: 7.0s
+Batch  675 ( 1350 eps) | Reward:  -59.12 | KL: 18.6283 | LR: 4.95e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=195.0581 > 150.0000
+Batch  676 ( 1352 eps) | Reward:  -54.02 | KL: 47.1774 | LR: 4.95e-06 | Time: 7.8s
+Batch  677 ( 1354 eps) | Reward:  -48.28 | KL: 10.2377 | LR: 4.95e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=599.6794 > 150.0000
+Batch  678 ( 1356 eps) | Reward:  -60.36 | KL: 126.0813 | LR: 4.95e-06 | Time: 6.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=433.1616 > 150.0000
+Batch  679 ( 1358 eps) | Reward:  -62.23 | KL: 78.5010 | LR: 4.95e-06 | Time: 7.1s
+Batch  680 ( 1360 eps) | Reward:  -61.81 | KL: 20.3445 | LR: 4.95e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 9, KL=334.7234 > 150.0000
+Batch  681 ( 1362 eps) | Reward:  -44.41 | KL: 63.7658 | LR: 4.95e-06 | Time: 8.8s
+Batch  682 ( 1364 eps) | Reward:  -50.86 | KL: 14.8844 | LR: 4.95e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=269.5168 > 150.0000
+Batch  683 ( 1366 eps) | Reward:  -60.73 | KL: 56.0725 | LR: 4.95e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 8, KL=299.9911 > 150.0000
+Batch  684 ( 1368 eps) | Reward:  -59.22 | KL: 72.6942 | LR: 4.95e-06 | Time: 7.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=302.9351 > 150.0000
+Batch  685 ( 1370 eps) | Reward:  -54.84 | KL: 53.0861 | LR: 4.95e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 9, KL=254.6120 > 150.0000
+Batch  686 ( 1372 eps) | Reward:  -53.12 | KL: 55.1780 | LR: 4.95e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 10, KL=152.1012 > 150.0000
+Batch  687 ( 1374 eps) | Reward:  -59.81 | KL: 47.5156 | LR: 4.95e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=581.8958 > 150.0000
+Batch  688 ( 1376 eps) | Reward:  -46.66 | KL: 77.3737 | LR: 4.95e-06 | Time: 7.8s
+Batch  689 ( 1378 eps) | Reward:  -51.09 | KL: 7.6489 | LR: 4.95e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=411.1519 > 150.0000
+Batch  690 ( 1380 eps) | Reward:  -51.95 | KL: 48.9572 | LR: 4.95e-06 | Time: 9.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=219.7729 > 150.0000
+Batch  691 ( 1382 eps) | Reward:  -48.62 | KL: 41.7989 | LR: 4.95e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 7, KL=202.5310 > 150.0000
+Batch  692 ( 1384 eps) | Reward:  -56.24 | KL: 36.6514 | LR: 4.95e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 3, KL=326.5968 > 150.0000
+Batch  693 ( 1386 eps) | Reward:  -61.18 | KL: 158.7244 | LR: 4.95e-06 | Time: 4.1s
+  [KL Early Stop] Epoch 7, KL=178.9252 > 150.0000
+Batch  694 ( 1388 eps) | Reward:  -57.32 | KL: 28.0074 | LR: 4.95e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 9, KL=390.9332 > 150.0000
+Batch  695 ( 1390 eps) | Reward:  -47.49 | KL: 55.3751 | LR: 4.95e-06 | Time: 8.9s
+Batch  696 ( 1392 eps) | Reward:  -62.58 | KL: 28.2553 | LR: 4.95e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=600.0751 > 150.0000
+Batch  697 ( 1394 eps) | Reward:  -51.73 | KL: 101.8487 | LR: 4.95e-06 | Time: 6.5s
+Batch  698 ( 1396 eps) | Reward:  -57.58 | KL: 30.8466 | LR: 4.95e-06 | Time: 9.9s
+  [KL Early Stop] Epoch 10, KL=743.4838 > 150.0000
+Batch  699 ( 1398 eps) | Reward:  -50.39 | KL: 82.7867 | LR: 4.95e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=35560.2812 > 150.0000
+Batch  700 ( 1400 eps) | Reward:  -50.93 | KL: 4460.2890 | LR: 4.95e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 7, KL=587.2389 > 150.0000
+Batch  701 ( 1402 eps) | Reward:  -60.01 | KL: 108.7808 | LR: 4.95e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=296.0220 > 150.0000
+Batch  702 ( 1404 eps) | Reward:  -58.62 | KL: 51.6115 | LR: 4.95e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=215.5030 > 150.0000
+Batch  703 ( 1406 eps) | Reward:  -53.71 | KL: 36.0285 | LR: 4.95e-06 | Time: 9.3s
+Batch  704 ( 1408 eps) | Reward:  -51.91 | KL: 10.8744 | LR: 4.95e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=1069.2456 > 150.0000
+Batch  705 ( 1410 eps) | Reward:  -59.58 | KL: 132.8411 | LR: 4.95e-06 | Time: 9.0s
+  [KL Early Stop] Epoch 3, KL=659.0652 > 150.0000
+Batch  706 ( 1412 eps) | Reward:  -57.55 | KL: 225.6045 | LR: 4.95e-06 | Time: 4.1s
+  [KL Early Stop] Epoch 5, KL=349.4727 > 150.0000
+Batch  707 ( 1414 eps) | Reward:  -60.95 | KL: 73.6459 | LR: 4.95e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 6, KL=494.2626 > 150.0000
+Batch  708 ( 1416 eps) | Reward:  -53.51 | KL: 102.7263 | LR: 4.95e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=235.7033 > 150.0000
+Batch  709 ( 1418 eps) | Reward:  -45.25 | KL: 50.0988 | LR: 4.95e-06 | Time: 5.4s
+Batch  710 ( 1420 eps) | Reward:  -54.50 | KL: 8.5681 | LR: 4.95e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=593.7785 > 150.0000
+Batch  711 ( 1422 eps) | Reward:  -57.96 | KL: 107.5240 | LR: 4.95e-06 | Time: 7.8s
+Batch  712 ( 1424 eps) | Reward:  -62.42 | KL: 8.7093 | LR: 4.95e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 6, KL=227.4230 > 150.0000
+Batch  713 ( 1426 eps) | Reward:  -60.94 | KL: 42.8030 | LR: 4.95e-06 | Time: 6.3s
+Batch  714 ( 1428 eps) | Reward:  -59.32 | KL: 24.8930 | LR: 4.95e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=408.6125 > 150.0000
+Batch  715 ( 1430 eps) | Reward:  -56.51 | KL: 83.3049 | LR: 4.94e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 9, KL=1139.9570 > 150.0000
+Batch  716 ( 1432 eps) | Reward:  -51.54 | KL: 144.0099 | LR: 4.94e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 6, KL=168.4326 > 150.0000
+Batch  717 ( 1434 eps) | Reward:  -59.39 | KL: 62.3414 | LR: 4.94e-06 | Time: 6.2s
+Batch  718 ( 1436 eps) | Reward:  -49.57 | KL: 14.8438 | LR: 4.94e-06 | Time: 9.3s
+Batch  719 ( 1438 eps) | Reward:  -46.58 | KL: 15.8613 | LR: 4.94e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=263.3031 > 150.0000
+Batch  720 ( 1440 eps) | Reward:  -39.99 | KL: 38.8102 | LR: 4.94e-06 | Time: 7.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=2047.2113 > 150.0000
+Batch  721 ( 1442 eps) | Reward:  -52.94 | KL: 279.9959 | LR: 4.94e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 10, KL=819.6215 > 150.0000
+Batch  722 ( 1444 eps) | Reward:  -48.94 | KL: 108.2752 | LR: 4.94e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=4417.1538 > 150.0000
+Batch  723 ( 1446 eps) | Reward:  -45.34 | KL: 572.8533 | LR: 4.94e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 9, KL=434.6721 > 150.0000
+Batch  724 ( 1448 eps) | Reward:  -52.73 | KL: 62.7127 | LR: 4.94e-06 | Time: 8.6s
+Batch  725 ( 1450 eps) | Reward:  -49.36 | KL: 11.7192 | LR: 4.94e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=614.6458 > 150.0000
+Batch  726 ( 1452 eps) | Reward:  -53.02 | KL: 121.3838 | LR: 4.94e-06 | Time: 6.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=312.7727 > 150.0000
+Batch  727 ( 1454 eps) | Reward:  -59.45 | KL: 44.7184 | LR: 4.94e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 10, KL=449.3393 > 150.0000
+Batch  728 ( 1456 eps) | Reward:  -57.63 | KL: 60.0731 | LR: 4.94e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=933.4102 > 150.0000
+Batch  729 ( 1458 eps) | Reward:  -53.53 | KL: 152.1884 | LR: 4.94e-06 | Time: 7.3s
+Batch  730 ( 1460 eps) | Reward:  -58.25 | KL: 4.8837 | LR: 4.94e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=494.7608 > 150.0000
+Batch  731 ( 1462 eps) | Reward:  -50.89 | KL: 89.4238 | LR: 4.94e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=6066.6772 > 150.0000
+Batch  732 ( 1464 eps) | Reward:  -52.31 | KL: 683.9406 | LR: 4.94e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=221.4107 > 150.0000
+Batch  733 ( 1466 eps) | Reward:  -62.50 | KL: 50.9496 | LR: 4.94e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=341.8702 > 150.0000
+Batch  734 ( 1468 eps) | Reward:  -50.95 | KL: 51.4078 | LR: 4.94e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 4, KL=650.5825 > 150.0000
+Batch  735 ( 1470 eps) | Reward:  -54.61 | KL: 179.6346 | LR: 4.94e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 6, KL=1115.5397 > 150.0000
+Batch  736 ( 1472 eps) | Reward:  -50.37 | KL: 207.2441 | LR: 4.94e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 6, KL=867.3850 > 150.0000
+Batch  737 ( 1474 eps) | Reward:  -50.70 | KL: 173.6576 | LR: 4.94e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=165.0813 > 150.0000
+Batch  738 ( 1476 eps) | Reward:  -53.36 | KL: 30.5517 | LR: 4.94e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=3024.6504 > 150.0000
+Batch  739 ( 1478 eps) | Reward:  -55.15 | KL: 517.9568 | LR: 4.94e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 2, KL=179.6237 > 150.0000
+Batch  740 ( 1480 eps) | Reward:  -52.85 | KL: 89.8119 | LR: 4.94e-06 | Time: 3.1s
+  [KL Early Stop] Epoch 7, KL=153.1240 > 150.0000
+Batch  741 ( 1482 eps) | Reward:  -47.94 | KL: 27.2386 | LR: 4.94e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 2, KL=282.5010 > 150.0000
+Batch  742 ( 1484 eps) | Reward:  -52.23 | KL: 141.2505 | LR: 4.94e-06 | Time: 3.1s
+  [KL Early Stop] Epoch 6, KL=318.0387 > 150.0000
+Batch  743 ( 1486 eps) | Reward:  -53.79 | KL: 86.6462 | LR: 4.94e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 9, KL=310.3888 > 150.0000
+Batch  744 ( 1488 eps) | Reward:  -42.39 | KL: 42.9470 | LR: 4.94e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=152.9350 > 150.0000
+Batch  745 ( 1490 eps) | Reward:  -55.07 | KL: 23.7258 | LR: 4.94e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 8, KL=1119.8467 > 150.0000
+Batch  746 ( 1492 eps) | Reward:  -55.64 | KL: 166.6320 | LR: 4.94e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 10, KL=261.0569 > 150.0000
+Batch  747 ( 1494 eps) | Reward:  -51.82 | KL: 67.8575 | LR: 4.94e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 10, KL=325.0883 > 150.0000
+Batch  748 ( 1496 eps) | Reward:  -44.73 | KL: 43.5687 | LR: 4.94e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=722.4600 > 150.0000
+Batch  749 ( 1498 eps) | Reward:  -42.16 | KL: 126.7504 | LR: 4.94e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=207.7511 > 150.0000
+Batch  750 ( 1500 eps) | Reward:  -56.30 | KL: 38.1474 | LR: 4.94e-06 | Time: 8.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=229.7413 > 150.0000
+Batch  751 ( 1502 eps) | Reward:  -50.98 | KL: 37.0194 | LR: 4.94e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=289.8389 > 150.0000
+Batch  752 ( 1504 eps) | Reward:  -39.77 | KL: 45.5156 | LR: 4.94e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 2, KL=177.9488 > 150.0000
+Batch  753 ( 1506 eps) | Reward:  -39.93 | KL: 88.9744 | LR: 4.94e-06 | Time: 3.2s
+Batch  754 ( 1508 eps) | Reward:  -51.07 | KL: 9.1213 | LR: 4.94e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 7, KL=3412.5132 > 150.0000
+Batch  755 ( 1510 eps) | Reward:  -42.28 | KL: 497.5527 | LR: 4.94e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 3, KL=1021.2310 > 150.0000
+Batch  756 ( 1512 eps) | Reward:  -46.78 | KL: 349.0368 | LR: 4.94e-06 | Time: 4.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  757 ( 1514 eps) | Reward:  -40.23 | KL: 14.0537 | LR: 4.94e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=184.0228 > 150.0000
+Batch  758 ( 1516 eps) | Reward:  -47.12 | KL: 32.8418 | LR: 4.94e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=12305.3193 > 150.0000
+Batch  759 ( 1518 eps) | Reward:  -43.61 | KL: 1258.6992 | LR: 4.94e-06 | Time: 9.7s
+Batch  760 ( 1520 eps) | Reward:  -49.39 | KL: 34.4713 | LR: 4.94e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=392.3339 > 150.0000
+Batch  761 ( 1522 eps) | Reward:  -54.08 | KL: 78.5213 | LR: 4.94e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 6, KL=1512.2378 > 150.0000
+Batch  762 ( 1524 eps) | Reward:  -48.82 | KL: 261.5292 | LR: 4.94e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=167.7889 > 150.0000
+Batch  763 ( 1526 eps) | Reward:  -49.61 | KL: 27.5956 | LR: 4.94e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=620.1161 > 150.0000
+Batch  764 ( 1528 eps) | Reward:  -43.82 | KL: 128.9784 | LR: 4.94e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 5, KL=259.3625 > 150.0000
+Batch  765 ( 1530 eps) | Reward:  -45.67 | KL: 63.4974 | LR: 4.94e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 10, KL=257.7376 > 150.0000
+Batch  766 ( 1532 eps) | Reward:  -42.03 | KL: 43.3737 | LR: 4.94e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=1364.3230 > 150.0000
+Batch  767 ( 1534 eps) | Reward:  -45.62 | KL: 234.5244 | LR: 4.94e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 5, KL=448.2739 > 150.0000
+Batch  768 ( 1536 eps) | Reward:  -45.76 | KL: 91.6660 | LR: 4.94e-06 | Time: 5.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=172.8875 > 150.0000
+Batch  769 ( 1538 eps) | Reward:  -44.21 | KL: 69.3712 | LR: 4.94e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 6, KL=307.2598 > 150.0000
+Batch  770 ( 1540 eps) | Reward:  -43.57 | KL: 54.8636 | LR: 4.94e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 7, KL=165.3697 > 150.0000
+Batch  771 ( 1542 eps) | Reward:  -51.14 | KL: 28.6744 | LR: 4.94e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=309.7036 > 150.0000
+Batch  772 ( 1544 eps) | Reward:  -45.98 | KL: 64.3411 | LR: 4.94e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 8, KL=174.4941 > 150.0000
+Batch  773 ( 1546 eps) | Reward:  -33.97 | KL: 25.4871 | LR: 4.94e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=459.4511 > 150.0000
+Batch  774 ( 1548 eps) | Reward:  -54.05 | KL: 89.5103 | LR: 4.94e-06 | Time: 7.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=750.7853 > 150.0000
+Batch  775 ( 1550 eps) | Reward:  -38.81 | KL: 113.3677 | LR: 4.94e-06 | Time: 7.8s
+Batch  776 ( 1552 eps) | Reward:  -52.57 | KL: 24.2010 | LR: 4.94e-06 | Time: 9.4s
+Batch  777 ( 1554 eps) | Reward:  -45.33 | KL: 46.5366 | LR: 4.93e-06 | Time: 9.6s
+Batch  778 ( 1556 eps) | Reward:  -33.89 | KL: 8.7672 | LR: 4.93e-06 | Time: 9.4s
+Batch  779 ( 1558 eps) | Reward:  -48.52 | KL: 23.4720 | LR: 4.93e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=1533.3867 > 150.0000
+Batch  780 ( 1560 eps) | Reward:  -47.57 | KL: 198.7872 | LR: 4.93e-06 | Time: 7.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=343.3051 > 150.0000
+Batch  781 ( 1562 eps) | Reward:  -32.78 | KL: 75.7785 | LR: 4.93e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 8, KL=487.9626 > 150.0000
+Batch  782 ( 1564 eps) | Reward:  -36.06 | KL: 67.8845 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 2, KL=178.2598 > 150.0000
+Batch  783 ( 1566 eps) | Reward:  -49.20 | KL: 89.1299 | LR: 4.93e-06 | Time: 3.1s
+Batch  784 ( 1568 eps) | Reward:  -41.45 | KL: 28.9486 | LR: 4.93e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=316.1407 > 150.0000
+Batch  785 ( 1570 eps) | Reward:  -58.48 | KL: 47.1788 | LR: 4.93e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=56931.1094 > 150.0000
+Batch  786 ( 1572 eps) | Reward:  -48.87 | KL: 6347.3055 | LR: 4.93e-06 | Time: 8.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=418.2324 > 150.0000
+Batch  787 ( 1574 eps) | Reward:  -43.87 | KL: 177.6399 | LR: 4.93e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 9, KL=183.9330 > 150.0000
+Batch  788 ( 1576 eps) | Reward:  -50.84 | KL: 32.2489 | LR: 4.93e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 8, KL=691.0477 > 150.0000
+Batch  789 ( 1578 eps) | Reward:  -44.23 | KL: 98.4178 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 8, KL=594.6908 > 150.0000
+Batch  790 ( 1580 eps) | Reward:  -40.72 | KL: 82.4370 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 8, KL=1900.8379 > 150.0000
+Batch  791 ( 1582 eps) | Reward:  -38.69 | KL: 258.3412 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 7, KL=1876.4457 > 150.0000
+Batch  792 ( 1584 eps) | Reward:  -37.65 | KL: 272.6365 | LR: 4.93e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=450.6837 > 150.0000
+Batch  793 ( 1586 eps) | Reward:  -43.67 | KL: 94.9369 | LR: 4.93e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 8, KL=862.3770 > 150.0000
+Batch  794 ( 1588 eps) | Reward:  -45.38 | KL: 117.8156 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 10, KL=676.4424 > 150.0000
+Batch  795 ( 1590 eps) | Reward:  -47.39 | KL: 84.9670 | LR: 4.93e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 3, KL=164.4486 > 150.0000
+Batch  796 ( 1592 eps) | Reward:  -43.74 | KL: 61.7275 | LR: 4.93e-06 | Time: 4.0s
+  [KL Early Stop] Epoch 5, KL=775.9456 > 150.0000
+Batch  797 ( 1594 eps) | Reward:  -33.91 | KL: 158.6125 | LR: 4.93e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 6, KL=363.4608 > 150.0000
+Batch  798 ( 1596 eps) | Reward:  -36.39 | KL: 63.3940 | LR: 4.93e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  799 ( 1598 eps) | Reward:  -44.24 | KL: 25.1155 | LR: 4.93e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=170.6545 > 150.0000
+Batch  800 ( 1600 eps) | Reward:  -41.06 | KL: 31.8343 | LR: 4.93e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=170.1175 > 150.0000
+Batch  801 ( 1602 eps) | Reward:  -40.65 | KL: 30.2733 | LR: 4.93e-06 | Time: 9.6s
+Batch  802 ( 1604 eps) | Reward:  -37.64 | KL: 10.9001 | LR: 4.93e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=339.8211 > 150.0000
+Batch  803 ( 1606 eps) | Reward:  -39.68 | KL: 54.4174 | LR: 4.93e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 8, KL=595.5859 > 150.0000
+Batch  804 ( 1608 eps) | Reward:  -55.12 | KL: 89.8804 | LR: 4.93e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=572.1459 > 150.0000
+Batch  805 ( 1610 eps) | Reward:  -50.79 | KL: 103.7099 | LR: 4.93e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 7, KL=244.0779 > 150.0000
+Batch  806 ( 1612 eps) | Reward:  -41.36 | KL: 42.3002 | LR: 4.93e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 5, KL=178.7567 > 150.0000
+Batch  807 ( 1614 eps) | Reward:  -48.99 | KL: 41.7439 | LR: 4.93e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 6, KL=214.1930 > 150.0000
+Batch  808 ( 1616 eps) | Reward:  -40.82 | KL: 37.6990 | LR: 4.93e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 7, KL=1001.3844 > 150.0000
+Batch  809 ( 1618 eps) | Reward:  -37.30 | KL: 150.5001 | LR: 4.93e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=254.2818 > 150.0000
+Batch  810 ( 1620 eps) | Reward:  -35.66 | KL: 62.7251 | LR: 4.93e-06 | Time: 8.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=599.1204 > 150.0000
+Batch  811 ( 1622 eps) | Reward:  -48.01 | KL: 83.3369 | LR: 4.93e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 8, KL=785.5595 > 150.0000
+Batch  812 ( 1624 eps) | Reward:  -36.82 | KL: 123.3016 | LR: 4.93e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=165.2854 > 150.0000
+Batch  813 ( 1626 eps) | Reward:  -44.12 | KL: 25.4974 | LR: 4.93e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 4, KL=185.3978 > 150.0000
+Batch  814 ( 1628 eps) | Reward:  -44.90 | KL: 81.4993 | LR: 4.93e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 6, KL=514.9768 > 150.0000
+Batch  815 ( 1630 eps) | Reward:  -55.64 | KL: 88.1623 | LR: 4.93e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 7, KL=173.1589 > 150.0000
+Batch  816 ( 1632 eps) | Reward:  -39.22 | KL: 33.6050 | LR: 4.93e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  817 ( 1634 eps) | Reward:  -35.85 | KL: 9.8832 | LR: 4.93e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=755.3774 > 150.0000
+Batch  818 ( 1636 eps) | Reward:  -38.52 | KL: 123.0764 | LR: 4.93e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 9, KL=171.7256 > 150.0000
+Batch  819 ( 1638 eps) | Reward:  -37.60 | KL: 23.6801 | LR: 4.93e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 6, KL=358.4894 > 150.0000
+Batch  820 ( 1640 eps) | Reward:  -33.59 | KL: 66.3104 | LR: 4.93e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=814.2701 > 150.0000
+Batch  821 ( 1642 eps) | Reward:  -29.38 | KL: 121.1270 | LR: 4.93e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=173.9799 > 150.0000
+Batch  822 ( 1644 eps) | Reward:  -41.84 | KL: 28.3394 | LR: 4.93e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=283.2070 > 150.0000
+Batch  823 ( 1646 eps) | Reward:  -37.23 | KL: 43.5781 | LR: 4.93e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 10, KL=440.5254 > 150.0000
+Batch  824 ( 1648 eps) | Reward:  -39.96 | KL: 62.8212 | LR: 4.93e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=305.6086 > 150.0000
+Batch  825 ( 1650 eps) | Reward:  -38.70 | KL: 63.0609 | LR: 4.93e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 8, KL=492.0151 > 150.0000
+Batch  826 ( 1652 eps) | Reward:  -36.37 | KL: 73.3642 | LR: 4.93e-06 | Time: 7.8s
+Batch  827 ( 1654 eps) | Reward:  -28.89 | KL: 4.4658 | LR: 4.93e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=946.6738 > 150.0000
+Batch  828 ( 1656 eps) | Reward:  -35.15 | KL: 142.7011 | LR: 4.93e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=917.9223 > 150.0000
+Batch  829 ( 1658 eps) | Reward:  -36.20 | KL: 138.9287 | LR: 4.93e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 4, KL=289.4756 > 150.0000
+Batch  830 ( 1660 eps) | Reward:  -39.55 | KL: 81.8508 | LR: 4.93e-06 | Time: 4.8s
+Batch  831 ( 1662 eps) | Reward:  -33.07 | KL: 17.5320 | LR: 4.93e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 9, KL=2569.1484 > 150.0000
+Batch  832 ( 1664 eps) | Reward:  -41.50 | KL: 297.4470 | LR: 4.93e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 10, KL=2718.8887 > 150.0000
+Batch  833 ( 1666 eps) | Reward:  -38.94 | KL: 315.1895 | LR: 4.93e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=193.4863 > 150.0000
+Batch  834 ( 1668 eps) | Reward:  -42.32 | KL: 42.6483 | LR: 4.92e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  835 ( 1670 eps) | Reward:  -35.25 | KL: 32.0640 | LR: 4.92e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=1266.4479 > 150.0000
+Batch  836 ( 1672 eps) | Reward:  -51.67 | KL: 176.8514 | LR: 4.92e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 10, KL=177.7993 > 150.0000
+Batch  837 ( 1674 eps) | Reward:  -31.83 | KL: 56.2566 | LR: 4.92e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 3, KL=316.1054 > 150.0000
+Batch  838 ( 1676 eps) | Reward:  -40.21 | KL: 109.1504 | LR: 4.92e-06 | Time: 3.9s
+Batch  839 ( 1678 eps) | Reward:  -40.04 | KL: 15.1760 | LR: 4.92e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=222.0123 > 150.0000
+Batch  840 ( 1680 eps) | Reward:  -35.18 | KL: 40.5632 | LR: 4.92e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  841 ( 1682 eps) | Reward:  -41.66 | KL: 15.3669 | LR: 4.92e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=342.6013 > 150.0000
+Batch  842 ( 1684 eps) | Reward:  -48.32 | KL: 51.6332 | LR: 4.92e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=234.1053 > 150.0000
+Batch  843 ( 1686 eps) | Reward:  -37.85 | KL: 41.3906 | LR: 4.92e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 6, KL=381.4846 > 150.0000
+Batch  844 ( 1688 eps) | Reward:  -37.97 | KL: 66.2914 | LR: 4.92e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 5, KL=214.2143 > 150.0000
+Batch  845 ( 1690 eps) | Reward:  -41.37 | KL: 49.5330 | LR: 4.92e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 8, KL=1343.1023 > 150.0000
+Batch  846 ( 1692 eps) | Reward:  -43.90 | KL: 188.4351 | LR: 4.92e-06 | Time: 7.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=798.9152 > 150.0000
+Batch  847 ( 1694 eps) | Reward:  -39.18 | KL: 110.6888 | LR: 4.92e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=282.4587 > 150.0000
+Batch  848 ( 1696 eps) | Reward:  -41.32 | KL: 55.3160 | LR: 4.92e-06 | Time: 7.1s
+Batch  849 ( 1698 eps) | Reward:  -50.74 | KL: 11.0401 | LR: 4.92e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 8, KL=928.0293 > 150.0000
+Batch  850 ( 1700 eps) | Reward:  -43.64 | KL: 129.2688 | LR: 4.92e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=443.8701 > 150.0000
+Batch  851 ( 1702 eps) | Reward:  -42.34 | KL: 71.8696 | LR: 4.92e-06 | Time: 7.2s
+Batch  852 ( 1704 eps) | Reward:  -45.62 | KL: 4.6923 | LR: 4.92e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  853 ( 1706 eps) | Reward:  -37.73 | KL: 24.0844 | LR: 4.92e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=3113.3955 > 150.0000
+Batch  854 ( 1708 eps) | Reward:  -43.90 | KL: 386.1704 | LR: 4.92e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 3, KL=375.0081 > 150.0000
+Batch  855 ( 1710 eps) | Reward:  -36.47 | KL: 132.5449 | LR: 4.92e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 6, KL=285.6935 > 150.0000
+Batch  856 ( 1712 eps) | Reward:  -39.29 | KL: 50.7868 | LR: 4.92e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 9, KL=3136.3003 > 150.0000
+Batch  857 ( 1714 eps) | Reward:  -39.81 | KL: 358.4735 | LR: 4.92e-06 | Time: 8.6s
+Batch  858 ( 1716 eps) | Reward:  -42.44 | KL: 19.0961 | LR: 4.92e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=909.2021 > 150.0000
+Batch  859 ( 1718 eps) | Reward:  -43.63 | KL: 319.8692 | LR: 4.92e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 6, KL=488.3222 > 150.0000
+Batch  860 ( 1720 eps) | Reward:  -38.78 | KL: 97.3394 | LR: 4.92e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 7, KL=631.3902 > 150.0000
+Batch  861 ( 1722 eps) | Reward:  -39.32 | KL: 105.4162 | LR: 4.92e-06 | Time: 7.0s
+Batch  862 ( 1724 eps) | Reward:  -34.79 | KL: 4.5781 | LR: 4.92e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 9, KL=184.7383 > 150.0000
+Batch  863 ( 1726 eps) | Reward:  -40.73 | KL: 43.8799 | LR: 4.92e-06 | Time: 8.9s
+Batch  864 ( 1728 eps) | Reward:  -33.89 | KL: 10.5120 | LR: 4.92e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=407.2010 > 150.0000
+Batch  865 ( 1730 eps) | Reward:  -37.64 | KL: 61.3921 | LR: 4.92e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 10, KL=468.1166 > 150.0000
+Batch  866 ( 1732 eps) | Reward:  -38.85 | KL: 68.4286 | LR: 4.92e-06 | Time: 9.7s
+Batch  867 ( 1734 eps) | Reward:  -43.23 | KL: 10.1217 | LR: 4.92e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=623.5371 > 150.0000
+Batch  868 ( 1736 eps) | Reward:  -39.41 | KL: 84.1672 | LR: 4.92e-06 | Time: 8.0s
+Batch  869 ( 1738 eps) | Reward:  -40.78 | KL: 5.7224 | LR: 4.92e-06 | Time: 9.8s
+Batch  870 ( 1740 eps) | Reward:  -39.55 | KL: 28.6188 | LR: 4.92e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=201.4762 > 150.0000
+Batch  871 ( 1742 eps) | Reward:  -44.70 | KL: 50.7886 | LR: 4.92e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 7, KL=676.0787 > 150.0000
+Batch  872 ( 1744 eps) | Reward:  -38.08 | KL: 117.7862 | LR: 4.92e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 10, KL=251.5825 > 150.0000
+Batch  873 ( 1746 eps) | Reward:  -42.38 | KL: 35.1228 | LR: 4.92e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=185.4787 > 150.0000
+Batch  874 ( 1748 eps) | Reward:  -44.39 | KL: 29.6178 | LR: 4.92e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 2, KL=258.9497 > 150.0000
+Batch  875 ( 1750 eps) | Reward:  -46.35 | KL: 129.4748 | LR: 4.92e-06 | Time: 3.1s
+  [KL Early Stop] Epoch 3, KL=662.9848 > 150.0000
+Batch  876 ( 1752 eps) | Reward:  -45.87 | KL: 237.8217 | LR: 4.92e-06 | Time: 3.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=3940.0127 > 150.0000
+Batch  877 ( 1754 eps) | Reward:  -45.26 | KL: 442.5398 | LR: 4.92e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 4, KL=393.4508 > 150.0000
+Batch  878 ( 1756 eps) | Reward:  -40.08 | KL: 124.1911 | LR: 4.92e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 6, KL=203.6271 > 150.0000
+Batch  879 ( 1758 eps) | Reward:  -42.23 | KL: 37.2675 | LR: 4.92e-06 | Time: 6.3s
+Batch  880 ( 1760 eps) | Reward:  -40.50 | KL: 4.9191 | LR: 4.92e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=180.6951 > 150.0000
+Batch  881 ( 1762 eps) | Reward:  -35.07 | KL: 41.0880 | LR: 4.92e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 8, KL=165.5815 > 150.0000
+Batch  882 ( 1764 eps) | Reward:  -41.43 | KL: 53.9634 | LR: 4.92e-06 | Time: 8.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  883 ( 1766 eps) | Reward:  -41.94 | KL: 13.5908 | LR: 4.92e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=357.7771 > 150.0000
+Batch  884 ( 1768 eps) | Reward:  -43.70 | KL: 62.1370 | LR: 4.92e-06 | Time: 6.4s
+Batch  885 ( 1770 eps) | Reward:  -50.82 | KL: 5.0707 | LR: 4.92e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=1001.1479 > 150.0000
+Batch  886 ( 1772 eps) | Reward:  -41.57 | KL: 134.2455 | LR: 4.92e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 9, KL=2197.1160 > 150.0000
+Batch  887 ( 1774 eps) | Reward:  -45.76 | KL: 250.2303 | LR: 4.91e-06 | Time: 8.7s
+Batch  888 ( 1776 eps) | Reward:  -43.86 | KL: 5.2411 | LR: 4.91e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=1221.2173 > 150.0000
+Batch  889 ( 1778 eps) | Reward:  -43.12 | KL: 163.7229 | LR: 4.91e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 4, KL=369.6605 > 150.0000
+Batch  890 ( 1780 eps) | Reward:  -36.56 | KL: 97.0025 | LR: 4.91e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 5, KL=325.8276 > 150.0000
+Batch  891 ( 1782 eps) | Reward:  -42.55 | KL: 83.8180 | LR: 4.91e-06 | Time: 5.4s
+Batch  892 ( 1784 eps) | Reward:  -53.48 | KL: 37.8848 | LR: 4.91e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=171.4781 > 150.0000
+Batch  893 ( 1786 eps) | Reward:  -48.66 | KL: 35.6175 | LR: 4.91e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 7, KL=232.6033 > 150.0000
+Batch  894 ( 1788 eps) | Reward:  -41.46 | KL: 45.6555 | LR: 4.91e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=1026.1578 > 150.0000
+Batch  895 ( 1790 eps) | Reward:  -33.25 | KL: 131.1949 | LR: 4.91e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 8, KL=582.0376 > 150.0000
+Batch  896 ( 1792 eps) | Reward:  -46.64 | KL: 100.1520 | LR: 4.91e-06 | Time: 7.9s
+  [KL Early Stop] Epoch 9, KL=254.3109 > 150.0000
+Batch  897 ( 1794 eps) | Reward:  -45.58 | KL: 77.9742 | LR: 4.91e-06 | Time: 8.7s
+Batch  898 ( 1796 eps) | Reward:  -43.18 | KL: 29.0933 | LR: 4.91e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 5, KL=322.5429 > 150.0000
+Batch  899 ( 1798 eps) | Reward:  -50.70 | KL: 66.0602 | LR: 4.91e-06 | Time: 5.6s
+Batch  900 ( 1800 eps) | Reward:  -41.49 | KL: 8.2100 | LR: 4.91e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  901 ( 1802 eps) | Reward:  -46.13 | KL: 13.4041 | LR: 4.91e-06 | Time: 9.6s
+Batch  902 ( 1804 eps) | Reward:  -37.59 | KL: 17.2136 | LR: 4.91e-06 | Time: 9.6s
+Batch  903 ( 1806 eps) | Reward:  -49.80 | KL: 29.5053 | LR: 4.91e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 10, KL=170.9712 > 150.0000
+Batch  904 ( 1808 eps) | Reward:  -37.48 | KL: 30.3836 | LR: 4.91e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=241.5383 > 150.0000
+Batch  905 ( 1810 eps) | Reward:  -40.62 | KL: 45.5134 | LR: 4.91e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 10, KL=195.1819 > 150.0000
+Batch  906 ( 1812 eps) | Reward:  -46.53 | KL: 38.6408 | LR: 4.91e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 3, KL=191.7266 > 150.0000
+Batch  907 ( 1814 eps) | Reward:  -38.01 | KL: 65.2449 | LR: 4.91e-06 | Time: 3.9s
+  [KL Early Stop] Epoch 7, KL=229.7773 > 150.0000
+Batch  908 ( 1816 eps) | Reward:  -43.68 | KL: 38.5259 | LR: 4.91e-06 | Time: 7.0s
+Batch  909 ( 1818 eps) | Reward:  -41.99 | KL: 25.6334 | LR: 4.91e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=363.6845 > 150.0000
+Batch  910 ( 1820 eps) | Reward:  -42.36 | KL: 55.9981 | LR: 4.91e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 4, KL=5273.0757 > 150.0000
+Batch  911 ( 1822 eps) | Reward:  -46.40 | KL: 1343.3159 | LR: 4.91e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 9, KL=162.4520 > 150.0000
+Batch  912 ( 1824 eps) | Reward:  -54.42 | KL: 32.0247 | LR: 4.91e-06 | Time: 8.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=692.3494 > 150.0000
+Batch  913 ( 1826 eps) | Reward:  -44.95 | KL: 90.7423 | LR: 4.91e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 6, KL=219.7435 > 150.0000
+Batch  914 ( 1828 eps) | Reward:  -41.80 | KL: 39.9387 | LR: 4.91e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=257.9486 > 150.0000
+Batch  915 ( 1830 eps) | Reward:  -44.61 | KL: 46.6647 | LR: 4.91e-06 | Time: 9.7s
+Batch  916 ( 1832 eps) | Reward:  -36.41 | KL: 15.7918 | LR: 4.91e-06 | Time: 9.7s
+Batch  917 ( 1834 eps) | Reward:  -44.04 | KL: 6.1936 | LR: 4.91e-06 | Time: 9.9s
+  [KL Early Stop] Epoch 7, KL=2656.3418 > 150.0000
+Batch  918 ( 1836 eps) | Reward:  -44.24 | KL: 396.2673 | LR: 4.91e-06 | Time: 7.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=213.1852 > 150.0000
+Batch  919 ( 1838 eps) | Reward:  -44.46 | KL: 42.1506 | LR: 4.91e-06 | Time: 8.0s
+Batch  920 ( 1840 eps) | Reward:  -44.86 | KL: 19.2204 | LR: 4.91e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 10, KL=1393.8142 > 150.0000
+Batch  921 ( 1842 eps) | Reward:  -39.66 | KL: 171.4850 | LR: 4.91e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=467.7707 > 150.0000
+Batch  922 ( 1844 eps) | Reward:  -45.15 | KL: 64.9474 | LR: 4.91e-06 | Time: 9.6s
+Batch  923 ( 1846 eps) | Reward:  -38.34 | KL: 22.1589 | LR: 4.91e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=153.0385 > 150.0000
+Batch  924 ( 1848 eps) | Reward:  -41.70 | KL: 25.0235 | LR: 4.91e-06 | Time: 8.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 4, KL=352.5331 > 150.0000
+Batch  925 ( 1850 eps) | Reward:  -40.96 | KL: 103.3179 | LR: 4.91e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 7, KL=539.4623 > 150.0000
+Batch  926 ( 1852 eps) | Reward:  -42.41 | KL: 86.2551 | LR: 4.91e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 6, KL=929.6784 > 150.0000
+Batch  927 ( 1854 eps) | Reward:  -45.00 | KL: 162.6354 | LR: 4.91e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=226.3020 > 150.0000
+Batch  928 ( 1856 eps) | Reward:  -45.24 | KL: 40.3766 | LR: 4.91e-06 | Time: 6.2s
+Batch  929 ( 1858 eps) | Reward:  -44.96 | KL: 4.2351 | LR: 4.91e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=1243.6858 > 150.0000
+Batch  930 ( 1860 eps) | Reward:  -37.71 | KL: 190.2425 | LR: 4.91e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=722.5112 > 150.0000
+Batch  931 ( 1862 eps) | Reward:  -41.14 | KL: 142.5553 | LR: 4.91e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 10, KL=1898.2922 > 150.0000
+Batch  932 ( 1864 eps) | Reward:  -39.38 | KL: 202.6638 | LR: 4.91e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=305.4018 > 150.0000
+Batch  933 ( 1866 eps) | Reward:  -38.86 | KL: 49.0585 | LR: 4.91e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=245.8494 > 150.0000
+Batch  934 ( 1868 eps) | Reward:  -40.12 | KL: 34.3445 | LR: 4.91e-06 | Time: 9.1s
+  [KL Early Stop] Epoch 7, KL=408.4594 > 150.0000
+Batch  935 ( 1870 eps) | Reward:  -40.95 | KL: 67.2675 | LR: 4.91e-06 | Time: 7.3s
+Batch  936 ( 1872 eps) | Reward:  -42.03 | KL: 4.8554 | LR: 4.91e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=411.8138 > 150.0000
+Batch  937 ( 1874 eps) | Reward:  -39.20 | KL: 71.9083 | LR: 4.91e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 9, KL=327.0907 > 150.0000
+Batch  938 ( 1876 eps) | Reward:  -42.71 | KL: 56.9158 | LR: 4.90e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 6, KL=485.1840 > 150.0000
+Batch  939 ( 1878 eps) | Reward:  -42.32 | KL: 86.3856 | LR: 4.90e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=297.0046 > 150.0000
+Batch  940 ( 1880 eps) | Reward:  -44.94 | KL: 66.8646 | LR: 4.90e-06 | Time: 6.4s
+Batch  941 ( 1882 eps) | Reward:  -38.62 | KL: 11.2740 | LR: 4.90e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=184.1569 > 150.0000
+Batch  942 ( 1884 eps) | Reward:  -40.82 | KL: 35.6272 | LR: 4.90e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=316.0222 > 150.0000
+Batch  943 ( 1886 eps) | Reward:  -40.04 | KL: 67.7423 | LR: 4.90e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 6, KL=625.6468 > 150.0000
+Batch  944 ( 1888 eps) | Reward:  -36.82 | KL: 126.6658 | LR: 4.90e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=436.1414 > 150.0000
+Batch  945 ( 1890 eps) | Reward:  -37.85 | KL: 57.9537 | LR: 4.90e-06 | Time: 8.0s
+Batch  946 ( 1892 eps) | Reward:  -44.71 | KL: 6.2979 | LR: 4.90e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=181.5278 > 150.0000
+Batch  947 ( 1894 eps) | Reward:  -47.55 | KL: 35.1951 | LR: 4.90e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=311.9341 > 150.0000
+Batch  948 ( 1896 eps) | Reward:  -42.21 | KL: 80.4799 | LR: 4.90e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  949 ( 1898 eps) | Reward:  -45.38 | KL: 22.5827 | LR: 4.90e-06 | Time: 9.6s
+Batch  950 ( 1900 eps) | Reward:  -40.52 | KL: 36.9383 | LR: 4.90e-06 | Time: 9.6s
+Batch  951 ( 1902 eps) | Reward:  -43.60 | KL: 10.8218 | LR: 4.90e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=287.2161 > 150.0000
+Batch  952 ( 1904 eps) | Reward:  -44.28 | KL: 63.5897 | LR: 4.90e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=650.5322 > 150.0000
+Batch  953 ( 1906 eps) | Reward:  -43.41 | KL: 111.4506 | LR: 4.90e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 6, KL=356.6555 > 150.0000
+Batch  954 ( 1908 eps) | Reward:  -49.20 | KL: 61.6133 | LR: 4.90e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  955 ( 1910 eps) | Reward:  -48.18 | KL: 2.8743 | LR: 4.90e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=715.7681 > 150.0000
+Batch  956 ( 1912 eps) | Reward:  -50.65 | KL: 105.8743 | LR: 4.90e-06 | Time: 7.3s
+Batch  957 ( 1914 eps) | Reward:  -48.08 | KL: 11.6820 | LR: 4.90e-06 | Time: 9.8s
+Batch  958 ( 1916 eps) | Reward:  -41.59 | KL: 8.0217 | LR: 4.90e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 5, KL=335.5964 > 150.0000
+Batch  959 ( 1918 eps) | Reward:  -43.18 | KL: 70.8299 | LR: 4.90e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 7, KL=477.8113 > 150.0000
+Batch  960 ( 1920 eps) | Reward:  -44.64 | KL: 72.1899 | LR: 4.90e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=671.1194 > 150.0000
+Batch  961 ( 1922 eps) | Reward:  -42.24 | KL: 90.7475 | LR: 4.90e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 8, KL=328.2526 > 150.0000
+Batch  962 ( 1924 eps) | Reward:  -46.82 | KL: 52.3513 | LR: 4.90e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 8, KL=1620.3850 > 150.0000
+Batch  963 ( 1926 eps) | Reward:  -39.95 | KL: 221.6590 | LR: 4.90e-06 | Time: 7.7s
+Batch  964 ( 1928 eps) | Reward:  -49.12 | KL: 11.3002 | LR: 4.90e-06 | Time: 9.6s
+Batch  965 ( 1930 eps) | Reward:  -41.97 | KL: 2.6706 | LR: 4.90e-06 | Time: 9.5s
+Batch  966 ( 1932 eps) | Reward:  -44.67 | KL: 9.0956 | LR: 4.90e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=980.1387 > 150.0000
+Batch  967 ( 1934 eps) | Reward:  -42.96 | KL: 123.6573 | LR: 4.90e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=243.3229 > 150.0000
+Batch  968 ( 1936 eps) | Reward:  -44.21 | KL: 41.2393 | LR: 4.90e-06 | Time: 8.8s
+Batch  969 ( 1938 eps) | Reward:  -53.09 | KL: 5.8881 | LR: 4.90e-06 | Time: 9.6s
+Batch  970 ( 1940 eps) | Reward:  -41.64 | KL: 14.1232 | LR: 4.90e-06 | Time: 9.4s
+Batch  971 ( 1942 eps) | Reward:  -46.19 | KL: 3.5259 | LR: 4.90e-06 | Time: 9.3s
+Batch  972 ( 1944 eps) | Reward:  -47.55 | KL: 17.6943 | LR: 4.90e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=424.1085 > 150.0000
+Batch  973 ( 1946 eps) | Reward:  -50.57 | KL: 102.3835 | LR: 4.90e-06 | Time: 5.4s
+  [KL Early Stop] Epoch 3, KL=217.1884 > 150.0000
+Batch  974 ( 1948 eps) | Reward:  -43.32 | KL: 76.5905 | LR: 4.90e-06 | Time: 3.8s
+  [KL Early Stop] Epoch 6, KL=1904.5442 > 150.0000
+Batch  975 ( 1950 eps) | Reward:  -43.84 | KL: 332.6664 | LR: 4.90e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 8, KL=283.7837 > 150.0000
+Batch  976 ( 1952 eps) | Reward:  -47.05 | KL: 56.7497 | LR: 4.90e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 10, KL=603.6013 > 150.0000
+Batch  977 ( 1954 eps) | Reward:  -45.37 | KL: 92.6415 | LR: 4.90e-06 | Time: 9.7s
+Batch  978 ( 1956 eps) | Reward:  -45.77 | KL: 11.6998 | LR: 4.90e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  979 ( 1958 eps) | Reward:  -46.09 | KL: 8.7991 | LR: 4.90e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=352.4028 > 150.0000
+Batch  980 ( 1960 eps) | Reward:  -45.66 | KL: 74.9641 | LR: 4.90e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 8, KL=490.3473 > 150.0000
+Batch  981 ( 1962 eps) | Reward:  -41.20 | KL: 73.7549 | LR: 4.90e-06 | Time: 8.0s
+Batch  982 ( 1964 eps) | Reward:  -49.76 | KL: 12.8515 | LR: 4.90e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=237.0778 > 150.0000
+Batch  983 ( 1966 eps) | Reward:  -49.27 | KL: 54.7940 | LR: 4.90e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 9, KL=252.0757 > 150.0000
+Batch  984 ( 1968 eps) | Reward:  -44.64 | KL: 36.5038 | LR: 4.90e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=2304.9683 > 150.0000
+Batch  985 ( 1970 eps) | Reward:  -48.40 | KL: 344.9040 | LR: 4.90e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 8, KL=163.9729 > 150.0000
+Batch  986 ( 1972 eps) | Reward:  -49.34 | KL: 28.7527 | LR: 4.89e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 7, KL=298.6684 > 150.0000
+Batch  987 ( 1974 eps) | Reward:  -48.41 | KL: 53.9924 | LR: 4.89e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 10, KL=202.4624 > 150.0000
+Batch  988 ( 1976 eps) | Reward:  -47.26 | KL: 34.4688 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=164.5278 > 150.0000
+Batch  989 ( 1978 eps) | Reward:  -52.16 | KL: 29.1579 | LR: 4.89e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 3, KL=240.2677 > 150.0000
+Batch  990 ( 1980 eps) | Reward:  -47.78 | KL: 86.1183 | LR: 4.89e-06 | Time: 3.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 4, KL=177.6242 > 150.0000
+Batch  991 ( 1982 eps) | Reward:  -52.44 | KL: 61.3473 | LR: 4.89e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 6, KL=187.9316 > 150.0000
+Batch  992 ( 1984 eps) | Reward:  -44.21 | KL: 51.1268 | LR: 4.89e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=915.4938 > 150.0000
+Batch  993 ( 1986 eps) | Reward:  -49.82 | KL: 164.9349 | LR: 4.89e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 9, KL=820.6000 > 150.0000
+Batch  994 ( 1988 eps) | Reward:  -47.54 | KL: 100.7929 | LR: 4.89e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 10, KL=465.4928 > 150.0000
+Batch  995 ( 1990 eps) | Reward:  -48.54 | KL: 63.9705 | LR: 4.89e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 7, KL=3551.7944 > 150.0000
+Batch  996 ( 1992 eps) | Reward:  -46.70 | KL: 518.8399 | LR: 4.89e-06 | Time: 7.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  997 ( 1994 eps) | Reward:  -46.54 | KL: 20.0084 | LR: 4.89e-06 | Time: 9.5s
+Batch  998 ( 1996 eps) | Reward:  -45.89 | KL: 15.6593 | LR: 4.89e-06 | Time: 9.5s
+Batch  999 ( 1998 eps) | Reward:  -48.56 | KL: 8.9227 | LR: 4.89e-06 | Time: 9.6s
+Batch 1000 ( 2000 eps) | Reward:  -55.82 | KL: 29.0275 | LR: 4.89e-06 | Time: 9.6s
+Batch 1001 ( 2002 eps) | Reward:  -41.45 | KL: 8.1769 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=280.3570 > 150.0000
+Batch 1002 ( 2004 eps) | Reward:  -46.30 | KL: 58.0163 | LR: 4.89e-06 | Time: 6.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1003 ( 2006 eps) | Reward:  -52.35 | KL: 20.5628 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=251.4924 > 150.0000
+Batch 1004 ( 2008 eps) | Reward:  -44.53 | KL: 46.9061 | LR: 4.89e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 8, KL=244.8822 > 150.0000
+Batch 1005 ( 2010 eps) | Reward:  -45.65 | KL: 40.6922 | LR: 4.89e-06 | Time: 7.8s
+  [KL Early Stop] Epoch 4, KL=206.8090 > 150.0000
+Batch 1006 ( 2012 eps) | Reward:  -45.39 | KL: 58.0618 | LR: 4.89e-06 | Time: 4.8s
+  [KL Early Stop] Epoch 9, KL=210.0566 > 150.0000
+Batch 1007 ( 2014 eps) | Reward:  -46.71 | KL: 34.4648 | LR: 4.89e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 9, KL=199.7735 > 150.0000
+Batch 1008 ( 2016 eps) | Reward:  -51.78 | KL: 27.2523 | LR: 4.89e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=181.1606 > 150.0000
+Batch 1009 ( 2018 eps) | Reward:  -46.32 | KL: 41.9339 | LR: 4.89e-06 | Time: 5.4s
+Batch 1010 ( 2020 eps) | Reward:  -42.99 | KL: 30.1543 | LR: 4.89e-06 | Time: 9.5s
+Batch 1011 ( 2022 eps) | Reward:  -44.31 | KL: 27.2661 | LR: 4.89e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=516.3441 > 150.0000
+Batch 1012 ( 2024 eps) | Reward:  -45.67 | KL: 101.2499 | LR: 4.89e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 5, KL=259.2085 > 150.0000
+Batch 1013 ( 2026 eps) | Reward:  -47.53 | KL: 57.1251 | LR: 4.89e-06 | Time: 5.6s
+Batch 1014 ( 2028 eps) | Reward:  -48.35 | KL: 6.9487 | LR: 4.89e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1015 ( 2030 eps) | Reward:  -50.42 | KL: 14.8704 | LR: 4.89e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=76997.1875 > 150.0000
+Batch 1016 ( 2032 eps) | Reward:  -47.75 | KL: 11020.5440 | LR: 4.89e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 9, KL=252.8501 > 150.0000
+Batch 1017 ( 2034 eps) | Reward:  -51.06 | KL: 30.9921 | LR: 4.89e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 5, KL=213.0605 > 150.0000
+Batch 1018 ( 2036 eps) | Reward:  -44.89 | KL: 46.4785 | LR: 4.89e-06 | Time: 5.6s
+Batch 1019 ( 2038 eps) | Reward:  -54.93 | KL: 10.3032 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=258.5348 > 150.0000
+Batch 1020 ( 2040 eps) | Reward:  -44.07 | KL: 60.1635 | LR: 4.89e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1021 ( 2042 eps) | Reward:  -44.67 | KL: 35.2113 | LR: 4.89e-06 | Time: 9.6s
+Batch 1022 ( 2044 eps) | Reward:  -54.78 | KL: 9.4234 | LR: 4.89e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=413.5938 > 150.0000
+Batch 1023 ( 2046 eps) | Reward:  -51.89 | KL: 73.6180 | LR: 4.89e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=197.5891 > 150.0000
+Batch 1024 ( 2048 eps) | Reward:  -49.67 | KL: 33.3863 | LR: 4.89e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 6, KL=591.9346 > 150.0000
+Batch 1025 ( 2050 eps) | Reward:  -44.18 | KL: 107.0171 | LR: 4.89e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 10, KL=1193.5461 > 150.0000
+Batch 1026 ( 2052 eps) | Reward:  -49.19 | KL: 141.5124 | LR: 4.89e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=291.2383 > 150.0000
+Batch 1027 ( 2054 eps) | Reward:  -52.73 | KL: 57.5472 | LR: 4.89e-06 | Time: 9.6s
+Batch 1028 ( 2056 eps) | Reward:  -47.69 | KL: 5.5290 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=328.7238 > 150.0000
+Batch 1029 ( 2058 eps) | Reward:  -47.22 | KL: 47.5024 | LR: 4.89e-06 | Time: 9.6s
+Batch 1030 ( 2060 eps) | Reward:  -49.50 | KL: 18.1834 | LR: 4.89e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=166.7806 > 150.0000
+Batch 1031 ( 2062 eps) | Reward:  -42.43 | KL: 47.2795 | LR: 4.89e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 5, KL=298.9328 > 150.0000
+Batch 1032 ( 2064 eps) | Reward:  -49.89 | KL: 65.9838 | LR: 4.88e-06 | Time: 5.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=336.0790 > 150.0000
+Batch 1033 ( 2066 eps) | Reward:  -50.68 | KL: 48.7529 | LR: 4.88e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 6, KL=345.2951 > 150.0000
+Batch 1034 ( 2068 eps) | Reward:  -48.08 | KL: 62.0692 | LR: 4.88e-06 | Time: 6.2s
+Batch 1035 ( 2070 eps) | Reward:  -50.49 | KL: 6.7048 | LR: 4.88e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 10, KL=855.7898 > 150.0000
+Batch 1036 ( 2072 eps) | Reward:  -49.58 | KL: 114.4507 | LR: 4.88e-06 | Time: 9.7s
+Batch 1037 ( 2074 eps) | Reward:  -45.74 | KL: 17.2687 | LR: 4.88e-06 | Time: 9.5s
+Batch 1038 ( 2076 eps) | Reward:  -47.19 | KL: 4.6060 | LR: 4.88e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 5, KL=224.3553 > 150.0000
+Batch 1039 ( 2078 eps) | Reward:  -51.07 | KL: 55.2146 | LR: 4.88e-06 | Time: 5.4s
+Batch 1040 ( 2080 eps) | Reward:  -49.87 | KL: 6.8621 | LR: 4.88e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 5, KL=160.5974 > 150.0000
+Batch 1041 ( 2082 eps) | Reward:  -49.89 | KL: 42.5763 | LR: 4.88e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 6, KL=158.0761 > 150.0000
+Batch 1042 ( 2084 eps) | Reward:  -44.14 | KL: 27.9443 | LR: 4.88e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 10, KL=534.9198 > 150.0000
+Batch 1043 ( 2086 eps) | Reward:  -44.78 | KL: 69.3327 | LR: 4.88e-06 | Time: 9.3s
+Batch 1044 ( 2088 eps) | Reward:  -48.52 | KL: 6.7144 | LR: 4.88e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=193.9100 > 150.0000
+Batch 1045 ( 2090 eps) | Reward:  -49.19 | KL: 51.3394 | LR: 4.88e-06 | Time: 7.2s
+Batch 1046 ( 2092 eps) | Reward:  -45.31 | KL: 10.6854 | LR: 4.88e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 9, KL=298.6714 > 150.0000
+Batch 1047 ( 2094 eps) | Reward:  -46.83 | KL: 49.2473 | LR: 4.88e-06 | Time: 8.8s
+Batch 1048 ( 2096 eps) | Reward:  -49.10 | KL: 27.6702 | LR: 4.88e-06 | Time: 9.6s
+Batch 1049 ( 2098 eps) | Reward:  -49.29 | KL: 14.2206 | LR: 4.88e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 6, KL=228.1774 > 150.0000
+Batch 1050 ( 2100 eps) | Reward:  -42.30 | KL: 63.6865 | LR: 4.88e-06 | Time: 6.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=219.7423 > 150.0000
+Batch 1051 ( 2102 eps) | Reward:  -40.11 | KL: 50.3311 | LR: 4.88e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 9, KL=515.3924 > 150.0000
+Batch 1052 ( 2104 eps) | Reward:  -46.41 | KL: 78.0519 | LR: 4.88e-06 | Time: 8.5s
+Batch 1053 ( 2106 eps) | Reward:  -49.42 | KL: 8.7853 | LR: 4.88e-06 | Time: 9.3s
+Batch 1054 ( 2108 eps) | Reward:  -45.40 | KL: 36.5227 | LR: 4.88e-06 | Time: 9.3s
+Batch 1055 ( 2110 eps) | Reward:  -43.23 | KL: 2.4193 | LR: 4.88e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=606.3914 > 150.0000
+Batch 1056 ( 2112 eps) | Reward:  -48.09 | KL: 98.8724 | LR: 4.88e-06 | Time: 7.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=797.8583 > 150.0000
+Batch 1057 ( 2114 eps) | Reward:  -50.59 | KL: 124.5641 | LR: 4.88e-06 | Time: 7.1s
+Batch 1058 ( 2116 eps) | Reward:  -46.58 | KL: 12.4948 | LR: 4.88e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 10, KL=262.9371 > 150.0000
+Batch 1059 ( 2118 eps) | Reward:  -54.28 | KL: 32.2999 | LR: 4.88e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=393.7496 > 150.0000
+Batch 1060 ( 2120 eps) | Reward:  -41.58 | KL: 67.0466 | LR: 4.88e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 6, KL=1596.2524 > 150.0000
+Batch 1061 ( 2122 eps) | Reward:  -48.84 | KL: 275.5426 | LR: 4.88e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 8, KL=840.1086 > 150.0000
+Batch 1062 ( 2124 eps) | Reward:  -52.50 | KL: 114.7221 | LR: 4.88e-06 | Time: 7.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=198.5279 > 150.0000
+Batch 1063 ( 2126 eps) | Reward:  -48.12 | KL: 41.7883 | LR: 4.88e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 5, KL=321.1382 > 150.0000
+Batch 1064 ( 2128 eps) | Reward:  -54.14 | KL: 98.7291 | LR: 4.88e-06 | Time: 5.6s
+  [KL Early Stop] Epoch 9, KL=213.7549 > 150.0000
+Batch 1065 ( 2130 eps) | Reward:  -50.99 | KL: 34.9978 | LR: 4.88e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=10716.0303 > 150.0000
+Batch 1066 ( 2132 eps) | Reward:  -46.94 | KL: 1211.6015 | LR: 4.88e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=512.6294 > 150.0000
+Batch 1067 ( 2134 eps) | Reward:  -45.97 | KL: 66.1255 | LR: 4.88e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 9, KL=196.8117 > 150.0000
+Batch 1068 ( 2136 eps) | Reward:  -48.29 | KL: 27.3796 | LR: 4.88e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=164.0256 > 150.0000
+Batch 1069 ( 2138 eps) | Reward:  -49.23 | KL: 22.9556 | LR: 4.88e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 6, KL=477.5503 > 150.0000
+Batch 1070 ( 2140 eps) | Reward:  -48.97 | KL: 103.6971 | LR: 4.88e-06 | Time: 6.4s
+  [KL Early Stop] Epoch 9, KL=627.9292 > 150.0000
+Batch 1071 ( 2142 eps) | Reward:  -46.34 | KL: 81.9884 | LR: 4.88e-06 | Time: 8.7s
+Batch 1072 ( 2144 eps) | Reward:  -38.95 | KL: 10.4610 | LR: 4.88e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=278.8839 > 150.0000
+Batch 1073 ( 2146 eps) | Reward:  -51.60 | KL: 58.0140 | LR: 4.88e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=240.9707 > 150.0000
+Batch 1074 ( 2148 eps) | Reward:  -51.84 | KL: 39.0370 | LR: 4.88e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1075 ( 2150 eps) | Reward:  -47.60 | KL: 19.3916 | LR: 4.87e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 5, KL=250.7830 > 150.0000
+Batch 1076 ( 2152 eps) | Reward:  -47.97 | KL: 61.3353 | LR: 4.87e-06 | Time: 5.5s
+  [KL Early Stop] Epoch 9, KL=153.4251 > 150.0000
+Batch 1077 ( 2154 eps) | Reward:  -47.98 | KL: 39.2998 | LR: 4.87e-06 | Time: 8.9s
+Batch 1078 ( 2156 eps) | Reward:  -52.27 | KL: 7.5897 | LR: 4.87e-06 | Time: 9.6s
+Batch 1079 ( 2158 eps) | Reward:  -50.21 | KL: 5.0148 | LR: 4.87e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=290.6212 > 150.0000
+Batch 1080 ( 2160 eps) | Reward:  -50.78 | KL: 60.5950 | LR: 4.87e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1081 ( 2162 eps) | Reward:  -44.22 | KL: 4.8919 | LR: 4.87e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 7, KL=546.3879 > 150.0000
+Batch 1082 ( 2164 eps) | Reward:  -47.28 | KL: 104.4749 | LR: 4.87e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 7, KL=171.6298 > 150.0000
+Batch 1083 ( 2166 eps) | Reward:  -48.07 | KL: 40.0455 | LR: 4.87e-06 | Time: 7.1s
+Batch 1084 ( 2168 eps) | Reward:  -51.41 | KL: 8.5865 | LR: 4.87e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=537.8302 > 150.0000
+Batch 1085 ( 2170 eps) | Reward:  -49.60 | KL: 79.1716 | LR: 4.87e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 9, KL=2610.7600 > 150.0000
+Batch 1086 ( 2172 eps) | Reward:  -48.63 | KL: 307.4113 | LR: 4.87e-06 | Time: 8.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=234.3594 > 150.0000
+Batch 1087 ( 2174 eps) | Reward:  -57.54 | KL: 37.4032 | LR: 4.87e-06 | Time: 8.5s
+Batch 1088 ( 2176 eps) | Reward:  -52.25 | KL: 25.9239 | LR: 4.87e-06 | Time: 9.6s
+Batch 1089 ( 2178 eps) | Reward:  -58.59 | KL: 9.2332 | LR: 4.87e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 10, KL=242.9228 > 150.0000
+Batch 1090 ( 2180 eps) | Reward:  -52.79 | KL: 52.6297 | LR: 4.87e-06 | Time: 9.6s
+Batch 1091 ( 2182 eps) | Reward:  -51.36 | KL: 10.6645 | LR: 4.87e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=197.0143 > 150.0000
+Batch 1092 ( 2184 eps) | Reward:  -49.07 | KL: 26.1295 | LR: 4.87e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=325.2895 > 150.0000
+Batch 1093 ( 2186 eps) | Reward:  -47.46 | KL: 60.8328 | LR: 4.87e-06 | Time: 8.1s
+  [KL Early Stop] Epoch 10, KL=216.0459 > 150.0000
+Batch 1094 ( 2188 eps) | Reward:  -49.59 | KL: 44.4888 | LR: 4.87e-06 | Time: 9.7s
+Batch 1095 ( 2190 eps) | Reward:  -58.02 | KL: 42.4731 | LR: 4.87e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=175.9859 > 150.0000
+Batch 1096 ( 2192 eps) | Reward:  -52.03 | KL: 43.8917 | LR: 4.87e-06 | Time: 7.2s
+Batch 1097 ( 2194 eps) | Reward:  -55.75 | KL: 43.1844 | LR: 4.87e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 10, KL=1072.5392 > 150.0000
+Batch 1098 ( 2196 eps) | Reward:  -55.94 | KL: 148.2348 | LR: 4.87e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1099 ( 2198 eps) | Reward:  -51.67 | KL: 7.3114 | LR: 4.87e-06 | Time: 9.7s
+Batch 1100 ( 2200 eps) | Reward:  -57.19 | KL: 3.6382 | LR: 4.87e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=157.4883 > 150.0000
+Batch 1101 ( 2202 eps) | Reward:  -47.02 | KL: 36.5696 | LR: 4.87e-06 | Time: 8.2s
+  [KL Early Stop] Epoch 10, KL=293.7036 > 150.0000
+Batch 1102 ( 2204 eps) | Reward:  -52.46 | KL: 45.3821 | LR: 4.87e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 8, KL=337.2476 > 150.0000
+Batch 1103 ( 2206 eps) | Reward:  -57.19 | KL: 59.1223 | LR: 4.87e-06 | Time: 8.2s
+Batch 1104 ( 2208 eps) | Reward:  -57.64 | KL: 3.8442 | LR: 4.87e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1105 ( 2210 eps) | Reward:  -48.91 | KL: 18.1080 | LR: 4.87e-06 | Time: 9.7s
+Batch 1106 ( 2212 eps) | Reward:  -54.69 | KL: 11.0935 | LR: 4.87e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 6, KL=160.9382 > 150.0000
+Batch 1107 ( 2214 eps) | Reward:  -49.48 | KL: 37.0757 | LR: 4.87e-06 | Time: 6.5s
+Batch 1108 ( 2216 eps) | Reward:  -58.18 | KL: 37.3899 | LR: 4.87e-06 | Time: 9.7s
+Batch 1109 ( 2218 eps) | Reward:  -48.92 | KL: 10.7625 | LR: 4.87e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 4, KL=249.7032 > 150.0000
+Batch 1110 ( 2220 eps) | Reward:  -54.73 | KL: 97.0724 | LR: 4.87e-06 | Time: 4.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=347.0653 > 150.0000
+Batch 1111 ( 2222 eps) | Reward:  -48.26 | KL: 82.1748 | LR: 4.87e-06 | Time: 6.5s
+  [KL Early Stop] Epoch 10, KL=255.2607 > 150.0000
+Batch 1112 ( 2224 eps) | Reward:  -50.09 | KL: 55.3735 | LR: 4.87e-06 | Time: 9.7s
+Batch 1113 ( 2226 eps) | Reward:  -47.70 | KL: 7.2665 | LR: 4.87e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=229.6221 > 150.0000
+Batch 1114 ( 2228 eps) | Reward:  -51.67 | KL: 55.6713 | LR: 4.87e-06 | Time: 7.4s
+Batch 1115 ( 2230 eps) | Reward:  -47.17 | KL: 3.0639 | LR: 4.87e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=413.2681 > 150.0000
+Batch 1116 ( 2232 eps) | Reward:  -54.25 | KL: 66.8788 | LR: 4.87e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=726.6274 > 150.0000
+Batch 1117 ( 2234 eps) | Reward:  -47.25 | KL: 94.6023 | LR: 4.87e-06 | Time: 8.6s
+  [KL Early Stop] Epoch 7, KL=178.4394 > 150.0000
+Batch 1118 ( 2236 eps) | Reward:  -50.45 | KL: 30.3500 | LR: 4.86e-06 | Time: 7.0s
+  [KL Early Stop] Epoch 8, KL=322.1841 > 150.0000
+Batch 1119 ( 2238 eps) | Reward:  -49.90 | KL: 68.9821 | LR: 4.86e-06 | Time: 8.2s
+Batch 1120 ( 2240 eps) | Reward:  -51.84 | KL: 9.4130 | LR: 4.86e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=625.7404 > 150.0000
+Batch 1121 ( 2242 eps) | Reward:  -52.43 | KL: 97.6418 | LR: 4.86e-06 | Time: 8.2s
+Batch 1122 ( 2244 eps) | Reward:  -53.36 | KL: 8.5531 | LR: 4.86e-06 | Time: 9.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=782.4653 > 150.0000
+Batch 1123 ( 2246 eps) | Reward:  -50.43 | KL: 129.0563 | LR: 4.86e-06 | Time: 7.2s
+Batch 1124 ( 2248 eps) | Reward:  -54.82 | KL: 16.8604 | LR: 4.86e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=286.5678 > 150.0000
+Batch 1125 ( 2250 eps) | Reward:  -46.04 | KL: 54.3943 | LR: 4.86e-06 | Time: 8.8s
+Batch 1126 ( 2252 eps) | Reward:  -54.77 | KL: 2.6762 | LR: 4.86e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 4, KL=150.2945 > 150.0000
+Batch 1127 ( 2254 eps) | Reward:  -51.54 | KL: 38.8464 | LR: 4.86e-06 | Time: 4.6s
+  [KL Early Stop] Epoch 8, KL=159.4893 > 150.0000
+Batch 1128 ( 2256 eps) | Reward:  -55.24 | KL: 41.6652 | LR: 4.86e-06 | Time: 7.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1129 ( 2258 eps) | Reward:  -51.44 | KL: 17.3622 | LR: 4.86e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=210.4553 > 150.0000
+Batch 1130 ( 2260 eps) | Reward:  -50.32 | KL: 32.9730 | LR: 4.86e-06 | Time: 7.8s
+Batch 1131 ( 2262 eps) | Reward:  -53.23 | KL: 24.8634 | LR: 4.86e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=214.7426 > 150.0000
+Batch 1132 ( 2264 eps) | Reward:  -49.31 | KL: 56.9105 | LR: 4.86e-06 | Time: 7.2s
+Batch 1133 ( 2266 eps) | Reward:  -48.46 | KL: 7.2343 | LR: 4.86e-06 | Time: 9.5s
+Batch 1134 ( 2268 eps) | Reward:  -48.24 | KL: 11.7802 | LR: 4.86e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1135 ( 2270 eps) | Reward:  -48.78 | KL: 5.4617 | LR: 4.86e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=170.3844 > 150.0000
+Batch 1136 ( 2272 eps) | Reward:  -54.68 | KL: 32.5832 | LR: 4.86e-06 | Time: 8.2s
+  [KL Early Stop] Epoch 8, KL=4407.3032 > 150.0000
+Batch 1137 ( 2274 eps) | Reward:  -51.73 | KL: 563.0338 | LR: 4.86e-06 | Time: 8.1s
+Batch 1138 ( 2276 eps) | Reward:  -56.10 | KL: 19.5931 | LR: 4.86e-06 | Time: 9.7s
+Batch 1139 ( 2278 eps) | Reward:  -57.31 | KL: 18.0840 | LR: 4.86e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 6, KL=345.4532 > 150.0000
+Batch 1140 ( 2280 eps) | Reward:  -60.03 | KL: 59.5330 | LR: 4.86e-06 | Time: 6.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1141 ( 2282 eps) | Reward:  -45.42 | KL: 2.3799 | LR: 4.86e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=285.3404 > 150.0000
+Batch 1142 ( 2284 eps) | Reward:  -56.99 | KL: 51.6335 | LR: 4.86e-06 | Time: 8.5s
+  [KL Early Stop] Epoch 10, KL=232.3690 > 150.0000
+Batch 1143 ( 2286 eps) | Reward:  -53.18 | KL: 59.3791 | LR: 4.86e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=314.7726 > 150.0000
+Batch 1144 ( 2288 eps) | Reward:  -48.67 | KL: 44.8084 | LR: 4.86e-06 | Time: 8.5s
+Batch 1145 ( 2290 eps) | Reward:  -47.97 | KL: 5.7133 | LR: 4.86e-06 | Time: 9.4s
+Batch 1146 ( 2292 eps) | Reward:  -54.93 | KL: 9.3134 | LR: 4.86e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1147 ( 2294 eps) | Reward:  -56.81 | KL: 25.5458 | LR: 4.86e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=450.3718 > 150.0000
+Batch 1148 ( 2296 eps) | Reward:  -51.26 | KL: 78.3716 | LR: 4.86e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 8, KL=555.6133 > 150.0000
+Batch 1149 ( 2298 eps) | Reward:  -53.29 | KL: 87.6719 | LR: 4.86e-06 | Time: 8.0s
+Batch 1150 ( 2300 eps) | Reward:  -54.75 | KL: 28.6416 | LR: 4.86e-06 | Time: 9.8s
+  [KL Early Stop] Epoch 7, KL=256.0291 > 150.0000
+Batch 1151 ( 2302 eps) | Reward:  -54.43 | KL: 51.9382 | LR: 4.86e-06 | Time: 7.3s
+Batch 1152 ( 2304 eps) | Reward:  -53.60 | KL: 2.3651 | LR: 4.86e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=2083.6709 > 150.0000
+Batch 1153 ( 2306 eps) | Reward:  -48.24 | KL: 322.9639 | LR: 4.86e-06 | Time: 7.2s
+Batch 1154 ( 2308 eps) | Reward:  -46.88 | KL: 27.8262 | LR: 4.86e-06 | Time: 9.6s
+Batch 1155 ( 2310 eps) | Reward:  -57.55 | KL: 4.4469 | LR: 4.86e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=231.6103 > 150.0000
+Batch 1156 ( 2312 eps) | Reward:  -51.89 | KL: 53.1462 | LR: 4.86e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 7, KL=180.9796 > 150.0000
+Batch 1157 ( 2314 eps) | Reward:  -50.61 | KL: 42.2894 | LR: 4.86e-06 | Time: 7.2s
+  [KL Early Stop] Epoch 10, KL=246.3505 > 150.0000
+Batch 1158 ( 2316 eps) | Reward:  -54.38 | KL: 42.2648 | LR: 4.85e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=416.6451 > 150.0000
+Batch 1159 ( 2318 eps) | Reward:  -57.78 | KL: 60.7817 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=228.7679 > 150.0000
+Batch 1160 ( 2320 eps) | Reward:  -54.09 | KL: 33.6915 | LR: 4.85e-06 | Time: 8.8s
+Batch 1161 ( 2322 eps) | Reward:  -53.46 | KL: 3.6138 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=209.0089 > 150.0000
+Batch 1162 ( 2324 eps) | Reward:  -54.22 | KL: 44.1359 | LR: 4.85e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 8, KL=187.1477 > 150.0000
+Batch 1163 ( 2326 eps) | Reward:  -50.65 | KL: 41.4021 | LR: 4.85e-06 | Time: 8.0s
+Batch 1164 ( 2328 eps) | Reward:  -48.09 | KL: 9.0766 | LR: 4.85e-06 | Time: 9.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=294.5218 > 150.0000
+Batch 1165 ( 2330 eps) | Reward:  -63.83 | KL: 46.7868 | LR: 4.85e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 6, KL=171.5446 > 150.0000
+Batch 1166 ( 2332 eps) | Reward:  -52.12 | KL: 52.3680 | LR: 4.85e-06 | Time: 6.4s
+Batch 1167 ( 2334 eps) | Reward:  -55.33 | KL: 38.2971 | LR: 4.85e-06 | Time: 9.7s
+Batch 1168 ( 2336 eps) | Reward:  -49.68 | KL: 16.4299 | LR: 4.85e-06 | Time: 9.5s
+Batch 1169 ( 2338 eps) | Reward:  -52.69 | KL: 3.2487 | LR: 4.85e-06 | Time: 9.7s
+  [KL Early Stop] Epoch 7, KL=3030.8496 > 150.0000
+Batch 1170 ( 2340 eps) | Reward:  -51.65 | KL: 434.0966 | LR: 4.85e-06 | Time: 7.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1171 ( 2342 eps) | Reward:  -51.16 | KL: 14.0011 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 8, KL=167.9142 > 150.0000
+Batch 1172 ( 2344 eps) | Reward:  -55.16 | KL: 32.5443 | LR: 4.85e-06 | Time: 8.0s
+Batch 1173 ( 2346 eps) | Reward:  -54.08 | KL: 25.3300 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=374.9059 > 150.0000
+Batch 1174 ( 2348 eps) | Reward:  -54.79 | KL: 52.5657 | LR: 4.85e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 8, KL=264.4776 > 150.0000
+Batch 1175 ( 2350 eps) | Reward:  -48.41 | KL: 42.8565 | LR: 4.85e-06 | Time: 7.7s
+  [KL Early Stop] Epoch 8, KL=266.0603 > 150.0000
+Batch 1176 ( 2352 eps) | Reward:  -50.01 | KL: 37.4724 | LR: 4.85e-06 | Time: 7.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=7031.3140 > 150.0000
+Batch 1177 ( 2354 eps) | Reward:  -50.91 | KL: 791.6261 | LR: 4.85e-06 | Time: 8.9s
+  [KL Early Stop] Epoch 4, KL=240.8653 > 150.0000
+Batch 1178 ( 2356 eps) | Reward:  -50.95 | KL: 91.4766 | LR: 4.85e-06 | Time: 4.7s
+  [KL Early Stop] Epoch 10, KL=195.0867 > 150.0000
+Batch 1179 ( 2358 eps) | Reward:  -48.79 | KL: 28.6997 | LR: 4.85e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=154.1622 > 150.0000
+Batch 1180 ( 2360 eps) | Reward:  -50.40 | KL: 38.4843 | LR: 4.85e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 7, KL=181.5372 > 150.0000
+Batch 1181 ( 2362 eps) | Reward:  -50.48 | KL: 42.2466 | LR: 4.85e-06 | Time: 7.1s
+Batch 1182 ( 2364 eps) | Reward:  -50.03 | KL: 2.1173 | LR: 4.85e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=157.8216 > 150.0000
+Batch 1183 ( 2366 eps) | Reward:  -53.17 | KL: 25.7050 | LR: 4.85e-06 | Time: 7.2s
+Batch 1184 ( 2368 eps) | Reward:  -49.17 | KL: 18.3420 | LR: 4.85e-06 | Time: 9.6s
+Batch 1185 ( 2370 eps) | Reward:  -53.59 | KL: 5.6909 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 4, KL=191.0108 > 150.0000
+Batch 1186 ( 2372 eps) | Reward:  -51.97 | KL: 51.6365 | LR: 4.85e-06 | Time: 4.8s
+Batch 1187 ( 2374 eps) | Reward:  -57.16 | KL: 11.7587 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=304.8223 > 150.0000
+Batch 1188 ( 2376 eps) | Reward:  -54.39 | KL: 60.9661 | LR: 4.85e-06 | Time: 8.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=206.7986 > 150.0000
+Batch 1189 ( 2378 eps) | Reward:  -51.25 | KL: 53.6321 | LR: 4.85e-06 | Time: 8.0s
+Batch 1190 ( 2380 eps) | Reward:  -51.75 | KL: 3.5068 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 10, KL=200.3990 > 150.0000
+Batch 1191 ( 2382 eps) | Reward:  -48.95 | KL: 47.8167 | LR: 4.85e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 9, KL=227.4910 > 150.0000
+Batch 1192 ( 2384 eps) | Reward:  -45.44 | KL: 43.5749 | LR: 4.85e-06 | Time: 8.8s
+Batch 1193 ( 2386 eps) | Reward:  -58.99 | KL: 8.0089 | LR: 4.85e-06 | Time: 9.6s
+Batch 1194 ( 2388 eps) | Reward:  -55.89 | KL: 4.6620 | LR: 4.85e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=273.4311 > 150.0000
+Batch 1195 ( 2390 eps) | Reward:  -47.19 | KL: 41.9621 | LR: 4.85e-06 | Time: 8.0s
+Batch 1196 ( 2392 eps) | Reward:  -52.28 | KL: 1.9914 | LR: 4.85e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=455.2149 > 150.0000
+Batch 1197 ( 2394 eps) | Reward:  -45.75 | KL: 78.3430 | LR: 4.85e-06 | Time: 6.1s
+  [KL Early Stop] Epoch 9, KL=240.4789 > 150.0000
+Batch 1198 ( 2396 eps) | Reward:  -52.74 | KL: 39.3512 | LR: 4.84e-06 | Time: 8.6s
+Batch 1199 ( 2398 eps) | Reward:  -58.12 | KL: 15.8129 | LR: 4.84e-06 | Time: 9.2s
+Batch 1200 ( 2400 eps) | Reward:  -51.40 | KL: 14.1763 | LR: 4.84e-06 | Time: 9.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=803.0771 > 150.0000
+Batch 1201 ( 2402 eps) | Reward:  -56.01 | KL: 116.4335 | LR: 4.84e-06 | Time: 7.7s
+Batch 1202 ( 2404 eps) | Reward:  -51.56 | KL: 14.1873 | LR: 4.84e-06 | Time: 9.2s
+Batch 1203 ( 2406 eps) | Reward:  -58.70 | KL: 9.6241 | LR: 4.84e-06 | Time: 9.2s
+Batch 1204 ( 2408 eps) | Reward:  -51.95 | KL: 9.5981 | LR: 4.84e-06 | Time: 9.2s
+Batch 1205 ( 2410 eps) | Reward:  -49.73 | KL: 23.9851 | LR: 4.84e-06 | Time: 9.3s
+Batch 1206 ( 2412 eps) | Reward:  -57.77 | KL: 27.2549 | LR: 4.84e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 9, KL=572.5311 > 150.0000
+Batch 1207 ( 2414 eps) | Reward:  -49.59 | KL: 79.9920 | LR: 4.84e-06 | Time: 8.8s
+  [KL Early Stop] Epoch 8, KL=368.8341 > 150.0000
+Batch 1208 ( 2416 eps) | Reward:  -49.91 | KL: 73.5184 | LR: 4.84e-06 | Time: 7.9s
+Batch 1209 ( 2418 eps) | Reward:  -53.65 | KL: 7.1085 | LR: 4.84e-06 | Time: 9.6s
+  [KL Early Stop] Epoch 7, KL=167.3961 > 150.0000
+Batch 1210 ( 2420 eps) | Reward:  -49.61 | KL: 28.3477 | LR: 4.84e-06 | Time: 7.3s
+  [KL Early Stop] Epoch 9, KL=204.2296 > 150.0000
+Batch 1211 ( 2422 eps) | Reward:  -46.85 | KL: 38.5176 | LR: 4.84e-06 | Time: 8.9s
+Batch 1212 ( 2424 eps) | Reward:  -55.53 | KL: 6.2312 | LR: 4.84e-06 | Time: 9.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 8, KL=230.3672 > 150.0000
+Batch 1213 ( 2426 eps) | Reward:  -48.55 | KL: 45.4768 | LR: 4.84e-06 | Time: 8.0s
+  [KL Early Stop] Epoch 8, KL=153.4995 > 150.0000
+Batch 1214 ( 2428 eps) | Reward:  -52.82 | KL: 21.2392 | LR: 4.84e-06 | Time: 8.2s
+Batch 1215 ( 2430 eps) | Reward:  -51.02 | KL: 24.5476 | LR: 4.84e-06 | Time: 9.5s
+Batch 1216 ( 2432 eps) | Reward:  -52.10 | KL: 5.1290 | LR: 4.84e-06 | Time: 9.3s
+Batch 1217 ( 2434 eps) | Reward:  -47.12 | KL: 2.8459 | LR: 4.84e-06 | Time: 9.3s
+Batch 1218 ( 2436 eps) | Reward:  -50.03 | KL: 3.2328 | LR: 4.84e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 6, KL=154.5993 > 150.0000
+Batch 1219 ( 2438 eps) | Reward:  -44.78 | KL: 28.2265 | LR: 4.84e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 6, KL=514.9858 > 150.0000
+Batch 1220 ( 2440 eps) | Reward:  -44.13 | KL: 100.6972 | LR: 4.84e-06 | Time: 6.3s
+  [KL Early Stop] Epoch 8, KL=564.0676 > 150.0000
+Batch 1221 ( 2442 eps) | Reward:  -49.73 | KL: 80.9476 | LR: 4.84e-06 | Time: 8.1s
+Batch 1222 ( 2444 eps) | Reward:  -51.54 | KL: 19.4025 | LR: 4.84e-06 | Time: 9.8s
+Batch 1223 ( 2446 eps) | Reward:  -51.83 | KL: 4.2173 | LR: 4.84e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 9, KL=194.9233 > 150.0000
+Batch 1224 ( 2448 eps) | Reward:  -48.52 | KL: 37.9107 | LR: 4.84e-06 | Time: 8.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=182.6296 > 150.0000
+Batch 1225 ( 2450 eps) | Reward:  -55.18 | KL: 42.2537 | LR: 4.84e-06 | Time: 7.0s
+Batch 1226 ( 2452 eps) | Reward:  -49.34 | KL: 13.9964 | LR: 4.84e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 6, KL=212.5063 > 150.0000
+Batch 1227 ( 2454 eps) | Reward:  -47.38 | KL: 48.8414 | LR: 4.84e-06 | Time: 6.2s
+  [KL Early Stop] Epoch 8, KL=925.9222 > 150.0000
+Batch 1228 ( 2456 eps) | Reward:  -48.43 | KL: 134.0334 | LR: 4.84e-06 | Time: 7.9s
+Batch 1229 ( 2458 eps) | Reward:  -53.62 | KL: 11.5667 | LR: 4.84e-06 | Time: 9.6s
+Batch 1230 ( 2460 eps) | Reward:  -49.99 | KL: 12.8554 | LR: 4.84e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1231 ( 2462 eps) | Reward:  -49.87 | KL: 23.4142 | LR: 4.84e-06 | Time: 9.3s
+Batch 1232 ( 2464 eps) | Reward:  -52.60 | KL: 2.9826 | LR: 4.84e-06 | Time: 9.4s
+Batch 1233 ( 2466 eps) | Reward:  -44.01 | KL: 14.3031 | LR: 4.84e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 5, KL=158.5665 > 150.0000
+Batch 1234 ( 2468 eps) | Reward:  -49.53 | KL: 36.8572 | LR: 4.84e-06 | Time: 5.5s
+Batch 1235 ( 2470 eps) | Reward:  -46.70 | KL: 6.1962 | LR: 4.84e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 8, KL=169.8690 > 150.0000
+Batch 1236 ( 2472 eps) | Reward:  -55.62 | KL: 28.2740 | LR: 4.83e-06 | Time: 7.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1237 ( 2474 eps) | Reward:  -51.40 | KL: 16.3834 | LR: 4.83e-06 | Time: 9.3s
+Batch 1238 ( 2476 eps) | Reward:  -47.49 | KL: 3.2355 | LR: 4.83e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 7, KL=472.9402 > 150.0000
+Batch 1239 ( 2478 eps) | Reward:  -53.64 | KL: 84.2528 | LR: 4.83e-06 | Time: 7.0s
+Batch 1240 ( 2480 eps) | Reward:  -46.36 | KL: 4.8934 | LR: 4.83e-06 | Time: 9.3s
+Batch 1241 ( 2482 eps) | Reward:  -48.25 | KL: 2.6750 | LR: 4.83e-06 | Time: 9.3s
+Batch 1242 ( 2484 eps) | Reward:  -54.55 | KL: 28.5291 | LR: 4.83e-06 | Time: 9.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch 1243 ( 2486 eps) | Reward:  -48.75 | KL: 3.9745 | LR: 4.83e-06 | Time: 9.3s
+Batch 1244 ( 2488 eps) | Reward:  -46.10 | KL: 21.2509 | LR: 4.83e-06 | Time: 9.3s
+  [KL Early Stop] Epoch 9, KL=198.9649 > 150.0000
+Batch 1245 ( 2490 eps) | Reward:  -44.78 | KL: 53.5174 | LR: 4.83e-06 | Time: 8.5s
+Batch 1246 ( 2492 eps) | Reward:  -50.90 | KL: 9.6893 | LR: 4.83e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 9, KL=192.4838 > 150.0000
+Batch 1247 ( 2494 eps) | Reward:  -50.85 | KL: 62.4015 | LR: 4.83e-06 | Time: 8.7s
+  [KL Early Stop] Epoch 10, KL=165.4246 > 150.0000
+Batch 1248 ( 2496 eps) | Reward:  -45.04 | KL: 24.5524 | LR: 4.83e-06 | Time: 9.7s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 10, KL=150.9124 > 150.0000
+Batch 1249 ( 2498 eps) | Reward:  -46.64 | KL: 25.0238 | LR: 4.83e-06 | Time: 9.6s
+
+
+Training interrupted by user.

@@ -1,0 +1,60 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 2
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 5e-06 -> 5.000000000000001e-07
+Critic LR: 0.0003 -> 2.9999999999999997e-05
+LR warmup iterations: 10
+PPO epochs: 10
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.0005
+GAE lambda: 0.95
+Target KL: 100.0
+Entropy coeff: 0.0
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+  [Warmup 1/2] Critic loss: 5684864.0000
+  [Warmup 2/2] Critic loss: 5718742.5000
+[Critic Warmup] Complete!
+
+Batch    1 (    2 eps) | Reward: -7418.30 | KL: 4.4186 | LR: 9.50e-07 | Time: 9.7s
+Batch    2 (    4 eps) | Reward: -7153.69 | KL: 1.0123 | LR: 1.40e-06 | Time: 9.4s
+Batch    3 (    6 eps) | Reward: -7370.73 | KL: 2.5292 | LR: 1.85e-06 | Time: 9.4s
+Batch    4 (    8 eps) | Reward: -7200.83 | KL: 1.8830 | LR: 2.30e-06 | Time: 9.4s
+Batch    5 (   10 eps) | Reward: -7202.25 | KL: 7.5828 | LR: 2.75e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 10, KL=663.8528 > 150.0000
+Batch    6 (   12 eps) | Reward: -7245.48 | KL: 76.1250 | LR: 3.20e-06 | Time: 9.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 (   14 eps) | Reward: -7369.22 | KL: 24.0444 | LR: 3.65e-06 | Time: 9.4s
+  [KL Early Stop] Epoch 8, KL=179.8933 > 150.0000
+Batch    8 (   16 eps) | Reward: -7420.74 | KL: 33.1359 | LR: 4.10e-06 | Time: 7.8s
+Batch    9 (   18 eps) | Reward: -7126.44 | KL: 11.9320 | LR: 4.55e-06 | Time: 9.4s
+Batch   10 (   20 eps) | Reward: -7275.26 | KL: 11.2885 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 5, KL=164.4895 > 150.0000
+Batch   11 (   22 eps) | Reward: -7395.44 | KL: 36.0655 | LR: 5.00e-06 | Time: 5.3s
+Batch   12 (   24 eps) | Reward: -7302.42 | KL: 4.6928 | LR: 5.00e-06 | Time: 9.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 7, KL=346.8455 > 150.0000
+Batch   13 (   26 eps) | Reward: -7317.54 | KL: 54.5351 | LR: 5.00e-06 | Time: 7.1s
+  [KL Early Stop] Epoch 10, KL=241.8435 > 150.0000
+Batch   14 (   28 eps) | Reward: -7211.77 | KL: 41.1690 | LR: 5.00e-06 | Time: 9.5s
+  [KL Early Stop] Epoch 10, KL=232.8968 > 150.0000
+Batch   15 (   30 eps) | Reward: -7203.09 | KL: 34.9991 | LR: 5.00e-06 | Time: 9.7s
+Batch   16 (   32 eps) | Reward: -7350.75 | KL: 16.8561 | LR: 5.00e-06 | Time: 9.2s
+  [KL Early Stop] Epoch 8, KL=505.8954 > 150.0000
+Batch   17 (   34 eps) | Reward: -7343.28 | KL: 104.6301 | LR: 5.00e-06 | Time: 7.7s
+Batch   18 (   36 eps) | Reward: -7369.63 | KL: 24.3206 | LR: 5.00e-06 | Time: 9.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+
+
+Training interrupted by user.
