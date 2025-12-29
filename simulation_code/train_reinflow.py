@@ -155,7 +155,7 @@ class TrainingConfig:
     clip_epsilon = 0.001        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 0.01            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    target_kl = 0.1            # KL divergence threshold (paper uses 0.01 for visual tasks)
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
