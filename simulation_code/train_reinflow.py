@@ -93,15 +93,15 @@ class TrainingConfig:
     
     # Training hyperparameters
     num_episodes = 20000
-    max_steps_per_episode = 50
-    gamma = 0.99  # Discount factor (paper uses 0.99 for state tasks)
+    max_steps_per_episode = 150
+    gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
     policy_lr = 0.000005  # Policy learning rate (paper uses 0.000045 for chunks of size 4-8, our chunks are size 50) (reduced 10x for visual tasks with high-dim actions)
     critic_lr = 0.0003   # Critic learning rate (can be higher)
     grad_clip_norm = 0.25 #0.5  # Gradient clipping for stability
     
     # ReinFlow specific
     num_denoising_steps = 1  # Paper uses K=4 for most tasks (smolvla default was 10)
-    chunks_per_episode = 1   # How many chunks to execute per episode (fresh obs between each)
+    chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
     # ReinFlow noise bounds (paper Table 7b - visual manipulation)
     sigma_min = 0.08  # Minimum noise std (paper: 0.05-0.08 for visual)
