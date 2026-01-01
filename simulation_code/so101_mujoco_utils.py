@@ -48,7 +48,7 @@ def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base") -> Tu
     
     # Try to import PolicyProcessorPipeline
     try:
-        from lerobot.common.policies.processors import PolicyProcessorPipeline
+        from lerobot.processor import PolicyProcessorPipeline
     except ImportError as e:
         raise ImportError(
             f"Could not import PolicyProcessorPipeline from LeRobot.\n"
