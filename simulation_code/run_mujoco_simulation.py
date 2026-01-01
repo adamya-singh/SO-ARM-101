@@ -39,6 +39,11 @@ policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
 
+# Load processors for normalization/denormalization
+print("Loading processors...")
+preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base")
+print("Processors loaded successfully!")
+
 # === SMOLVLA CONFIG INSPECTION ===
 print("\n=== SMOLVLA CONFIG INSPECTION ===")
 print(f"Image features: {policy.config.image_features}")
@@ -240,10 +245,10 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
                     print(f"  Normalized per joint: {[f'{a:.4f}' for a in action]}")
                 
-                # Unnormalize action from SmolVLA output
-                # SmolVLA outputs normalized actions (trained on degrees with mean/std normalization)
-                # This converts: normalized -> degrees -> radians
-                action_radians = unnormalize_action_from_smolvla(action)
+                # Unnormalize action from SmolVLA output using postprocessor
+                # SmolVLA outputs normalized actions (trained with mean/std normalization)
+                # This converts: normalized -> physical -> MuJoCo radians
+                action_radians = unnormalize_action_from_smolvla(action, postprocessor=postprocessor)
                 
                 if DEBUG_THIS_ITERATION:
                     print(f"  Unnormalized (radians): {[f'{a:.4f}' for a in action_radians]}")

@@ -43,6 +43,7 @@ class VectorizedMuJoCoEnv:
         starting_position: Dict of joint positions in degrees
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
+        preprocessor: Optional PolicyProcessorPipeline for state normalization
     """
     
     def __init__(
@@ -52,11 +53,13 @@ class VectorizedMuJoCoEnv:
         starting_position: dict,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
+        preprocessor=None,
     ):
         self.num_envs = num_envs
         self.starting_position = starting_position
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
+        self.preprocessor = preprocessor
         
         # Single model shared across all environments (memory efficient)
         self.model = mujoco.MjModel.from_xml_path(model_path)
@@ -158,10 +161,10 @@ class VectorizedMuJoCoEnv:
         batch_wrist = torch.from_numpy(np.stack(batch_wrist)).float().permute(0, 3, 1, 2) / 255.0
         batch_side = torch.from_numpy(np.stack(batch_side)).float().permute(0, 3, 1, 2) / 255.0
         
-        # State: normalize for SmolVLA (radians -> degrees -> normalized)
+        # State: normalize for SmolVLA using preprocessor (MuJoCo radians -> physical -> normalized)
         batch_state_np = np.stack(batch_state)
         batch_state_normalized = np.stack([
-            normalize_state_for_smolvla(s) for s in batch_state_np
+            normalize_state_for_smolvla(s, preprocessor=self.preprocessor) for s in batch_state_np
         ])
         batch_state = torch.from_numpy(batch_state_normalized).float()
         

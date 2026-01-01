@@ -54,6 +54,11 @@ policy.to(device)
 policy.eval()
 print("SmolVLA policy loaded successfully!")
 
+# Load processors for normalization/denormalization
+print("Loading processors...")
+preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base")
+print("Processors loaded successfully!")
+
 # Load trained weights from ReinFlow checkpoint
 if os.path.exists(CHECKPOINT_PATH):
     checkpoint = torch.load(CHECKPOINT_PATH, map_location=device, weights_only=False)
@@ -135,8 +140,8 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 # Get robot state
                 robot_state = get_robot_state(d)
 
-                # Prepare observation for policy
-                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
+                # Prepare observation for policy (with preprocessor for state normalization)
+                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, preprocessor=preprocessor, debug=DEBUG_THIS_ITERATION)
 
                 if DEBUG_THIS_ITERATION:
                     print(f"\n[Observation Structure Debug]")
@@ -171,8 +176,8 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Action shape: {action.shape}")
                     print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
 
-                # Unnormalize action from SmolVLA output (normalized -> degrees -> radians)
-                action_radians = unnormalize_action_from_smolvla(action)
+                # Unnormalize action from SmolVLA output using postprocessor (normalized -> physical -> radians)
+                action_radians = unnormalize_action_from_smolvla(action, postprocessor=postprocessor)
                 
                 # Convert action to degrees dict for SO101
                 last_action_dict = convert_to_dictionary(action_radians)

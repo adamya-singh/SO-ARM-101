@@ -60,6 +60,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         block_dist_range=(0.1, 0.3),
         block_angle_range=(-60, 60),
         smolvla_normalize=False,
+        preprocessor=None,
+        postprocessor=None,
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -73,6 +75,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
             block_angle_range: (min, max) angle from center in degrees (default -60 to +60)
             smolvla_normalize: If True, normalize state outputs and unnormalize action inputs
                                for SmolVLA compatibility (radians <-> degrees <-> normalized)
+            preprocessor: Optional PolicyProcessorPipeline for state normalization
+            postprocessor: Optional PolicyProcessorPipeline for action denormalization
         """
         super().__init__()
         
@@ -83,6 +87,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.block_dist_range = block_dist_range
         self.block_angle_range = block_angle_range
         self.smolvla_normalize = smolvla_normalize
+        self.preprocessor = preprocessor
+        self.postprocessor = postprocessor
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -167,7 +173,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         
         # Normalize state for SmolVLA if flag is set
         if self.smolvla_normalize:
-            state = normalize_state_for_smolvla(state).astype(np.float32)
+            state = normalize_state_for_smolvla(state, preprocessor=self.preprocessor).astype(np.float32)
         
         return {
             "observation.images.camera1": camera1_image,
@@ -255,7 +261,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         """
         # Unnormalize action from SmolVLA if flag is set
         if self.smolvla_normalize:
-            action = unnormalize_action_from_smolvla(action)
+            action = unnormalize_action_from_smolvla(action, postprocessor=self.postprocessor)
         
         # Clip action to valid range
         action = np.clip(action, self.joint_limits_low, self.joint_limits_high)

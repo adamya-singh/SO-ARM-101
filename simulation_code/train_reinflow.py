@@ -237,32 +237,12 @@ def train_parallel(config, args, device):
     """
     num_envs = config.num_parallel_envs
     
-    # Choose environment implementation
-    if config.use_subproc_env:
-        from subproc_vectorized_env import SubprocMuJoCoEnv
-        print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
-        vec_env = SubprocMuJoCoEnv(
-            num_envs=num_envs,
-            model_path=config.model_path,
-            starting_position=config.starting_position,
-            lift_threshold=config.lift_threshold,
-        )
-    else:
-        from vectorized_env import VectorizedMuJoCoEnv
-        print(f"\n[Parallel Mode] Running {num_envs} environments in parallel")
-        vec_env = VectorizedMuJoCoEnv(
-            num_envs=num_envs,
-            model_path=config.model_path,
-            starting_position=config.starting_position,
-            lift_threshold=config.lift_threshold,
-        )
-    
-    # Setup ReinFlow policy with critic
+    # Setup ReinFlow policy with critic and processors FIRST (needed for env)
     print("\n" + "="*60)
     print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
     print("="*60)
     
-    rl_policy = setup_reinflow_policy(
+    rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
         pretrained_path=config.pretrained_path,
         device=str(device),
         num_steps=config.num_denoising_steps,
@@ -275,6 +255,28 @@ def train_parallel(config, args, device):
     rl_policy.base.model.sigma_min = config.sigma_min
     rl_policy.base.model.sigma_max = config.sigma_max
     print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
+    
+    # Choose environment implementation (with preprocessor for state normalization)
+    if config.use_subproc_env:
+        from subproc_vectorized_env import SubprocMuJoCoEnv
+        print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
+        vec_env = SubprocMuJoCoEnv(
+            num_envs=num_envs,
+            model_path=config.model_path,
+            starting_position=config.starting_position,
+            lift_threshold=config.lift_threshold,
+            preprocessor=preprocessor,
+        )
+    else:
+        from vectorized_env import VectorizedMuJoCoEnv
+        print(f"\n[Parallel Mode] Running {num_envs} environments in parallel")
+        vec_env = VectorizedMuJoCoEnv(
+            num_envs=num_envs,
+            model_path=config.model_path,
+            starting_position=config.starting_position,
+            lift_threshold=config.lift_threshold,
+            preprocessor=preprocessor,
+        )
     
     # Load checkpoint if resuming
     start_episode = 0
@@ -408,7 +410,7 @@ def train_parallel(config, args, device):
                 action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
                 action_chunks_np = action_chunks.detach().cpu().numpy()
                 action_chunks_radians = np.stack([
-                    np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
+                    np.stack([unnormalize_action_from_smolvla(a, postprocessor=postprocessor) for a in chunk])
                     for chunk in action_chunks_np
                 ])
                 
@@ -471,10 +473,10 @@ def train_parallel(config, args, device):
                 action_chunks, trajectory, sigmas = rl_policy.forward_batched_with_trajectory(observation)
                 
                 
-                # Unnormalize actions for execution
+                # Unnormalize actions for execution using postprocessor
                 action_chunks_np = action_chunks.detach().cpu().numpy()
                 action_chunks_radians = np.stack([
-                    np.stack([unnormalize_action_from_smolvla(a) for a in chunk])
+                    np.stack([unnormalize_action_from_smolvla(a, postprocessor=postprocessor) for a in chunk])
                     for chunk in action_chunks_np
                 ])
                 
@@ -731,12 +733,12 @@ def train_sequential(config, args, device):
     d = mujoco.MjData(m)
     renderer = mujoco.Renderer(m, height=256, width=256)
     
-    # Setup ReinFlow policy with critic
+    # Setup ReinFlow policy with critic and processors
     print("\n" + "="*60)
     print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
     print("="*60)
     
-    rl_policy = setup_reinflow_policy(
+    rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
         pretrained_path=config.pretrained_path,
         device=str(device),
         num_steps=config.num_denoising_steps,
@@ -886,7 +888,7 @@ def train_sequential(config, args, device):
                 
                 warmup_observation = prepare_observation_for_reinflow(
                     rgb_top, rgb_wrist, rgb_side, robot_state,
-                    config.instruction, device, rl_policy
+                    config.instruction, device, rl_policy, preprocessor=preprocessor
                 )
                 
                 action_chunk, _, _ = rl_policy.forward_with_trajectory(warmup_observation)
@@ -901,7 +903,7 @@ def train_sequential(config, args, device):
                     
                     action = action_chunk[0, action_idx]
                     action_np = action.detach().cpu().numpy()
-                    action_radians = unnormalize_action_from_smolvla(action_np)
+                    action_radians = unnormalize_action_from_smolvla(action_np, postprocessor=postprocessor)
                     action_dict = convert_to_dictionary(action_radians)
                     
                     # Execute action
@@ -968,7 +970,7 @@ def train_sequential(config, args, device):
                 
                 observation = prepare_observation_for_reinflow(
                     rgb_top, rgb_wrist, rgb_side, robot_state,
-                    config.instruction, device, rl_policy
+                    config.instruction, device, rl_policy, preprocessor=preprocessor
                 )
                 
                 # Forward pass with trajectory storage
@@ -984,7 +986,7 @@ def train_sequential(config, args, device):
                     
                     action = action_chunk[0, action_idx]
                     action_np = action.detach().cpu().numpy()
-                    action_radians = unnormalize_action_from_smolvla(action_np)
+                    action_radians = unnormalize_action_from_smolvla(action_np, postprocessor=postprocessor)
                     action_dict = convert_to_dictionary(action_radians)
                     
                     # Execute action

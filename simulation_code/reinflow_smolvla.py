@@ -21,12 +21,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from transformers import AutoTokenizer
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy, make_att_2d_masks
 from lerobot.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
-from so101_mujoco_utils import normalize_state_for_smolvla
+from so101_mujoco_utils import normalize_state_for_smolvla, load_smolvla_processors
 import torch.nn.functional as F
 
 
@@ -798,7 +798,7 @@ def setup_reinflow_policy(
     train_full_expert: bool = False,
     train_noise_head: bool = True,
     train_critic: bool = True,
-) -> ReinFlowSmolVLA:
+) -> Tuple['ReinFlowSmolVLA', Optional[Any], Optional[Any]]:
     """
     Load SmolVLA and wrap with ReinFlow for RL training.
     
@@ -813,7 +813,8 @@ def setup_reinflow_policy(
         train_critic: Whether to train critic network (default True for actor-critic)
     
     Returns:
-        ReinFlowSmolVLA policy ready for training
+        Tuple of (ReinFlowSmolVLA policy, preprocessor, postprocessor)
+        The processors handle normalization/denormalization using official model stats.
     """
     # Auto-detect device
     if device is None:
@@ -838,10 +839,15 @@ def setup_reinflow_policy(
         tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Video-Instruct")
         base_policy.tokenizer = tokenizer
     
+    # Load preprocessor and postprocessor for normalization
+    preprocessor, postprocessor = load_smolvla_processors(pretrained_path)
+    
     print("[ReinFlow] SmolVLA loaded successfully!")
     print(f"[ReinFlow] Setting up ReinFlow wrapper with {num_steps} denoising steps...")
     print(f"[ReinFlow] Using NOISE NETWORK (not scalar sigmas)")
     print(f"[ReinFlow] Actor-Critic mode: {train_critic}")
+    print(f"[ReinFlow] Preprocessor loaded: {preprocessor is not None}")
+    print(f"[ReinFlow] Postprocessor loaded: {postprocessor is not None}")
     
     # Wrap with ReinFlow
     reinflow_policy = ReinFlowSmolVLA(
@@ -855,7 +861,7 @@ def setup_reinflow_policy(
         device=device,
     )
     
-    return reinflow_policy
+    return reinflow_policy, preprocessor, postprocessor
 
 
 def prepare_observation_for_reinflow(
@@ -866,6 +872,7 @@ def prepare_observation_for_reinflow(
     instruction: str,
     device,
     policy: ReinFlowSmolVLA,
+    preprocessor=None,
 ):
     """
     Prepare observation dict for ReinFlow policy.
@@ -877,10 +884,11 @@ def prepare_observation_for_reinflow(
         rgb_image_top: (H, W, C) numpy array from top camera [0, 255]
         rgb_image_wrist: (H, W, C) numpy array from wrist camera [0, 255]
         rgb_image_side: (H, W, C) numpy array from side camera [0, 255]
-        robot_state: (6,) numpy array of joint positions
+        robot_state: (6,) numpy array of joint positions in radians (from MuJoCo)
         instruction: Task instruction string
         device: Torch device
         policy: ReinFlowSmolVLA policy (for tokenizer access)
+        preprocessor: Optional PolicyProcessorPipeline for state normalization
     
     Returns:
         observation: dict ready for policy.forward()
@@ -900,8 +908,8 @@ def prepare_observation_for_reinflow(
     image_side_tensor = image_side_tensor.permute(2, 0, 1)
     image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
     
-    # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
-    normalized_state = normalize_state_for_smolvla(robot_state)
+    # Normalize robot state for SmolVLA using preprocessor
+    normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
     state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize instruction

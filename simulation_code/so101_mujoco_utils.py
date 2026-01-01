@@ -2,25 +2,140 @@ import time
 import mujoco
 import numpy as np
 import torch
+from typing import Optional, Tuple, Any
 
-# ===== SmolVLA Normalization Stats =====
-# These are the mean/std values from the SO-100 training data (in DEGREES)
-# Used to normalize state inputs and unnormalize action outputs
-SMOLVLA_STATE_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
-SMOLVLA_STATE_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
-SMOLVLA_ACTION_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
-SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
-
-# Coordinate offset: Physical Robot Position = MuJoCo Position (deg) + OFFSET
-# Only shoulder_lift needs offset - MuJoCo uses 0-centered, physical robot uses ~150 as center
+# ===== MuJoCo to Physical Robot Coordinate Offset =====
+# Physical Robot Position = MuJoCo Position (radians converted to physical units) + OFFSET
+# This allows sim-trained policies to deploy on physical robots with different zero-points
 MUJOCO_TO_PHYSICAL_OFFSET = np.array([
-    0.0,    # shoulder_pan:
-    0.0,  # shoulder_lift:
-    100.0,    # elbow_flex:
-    0.0,    # wrist_flex:
-    0.0,    # wrist_roll:
-    0.0,    # gripper:
+    0.0,    # shoulder_pan
+    0.0,    # shoulder_lift
+    0.0,    # elbow_flex
+    0.0,    # wrist_flex
+    0.0,    # wrist_roll
+    0.0,    # gripper
 ])
+
+# ===== Cached Processors =====
+# Global cache for loaded processors to avoid reloading
+_cached_preprocessor = None
+_cached_postprocessor = None
+_cached_pretrained_path = None
+
+
+def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base") -> Tuple[Any, Any]:
+    """
+    Load preprocessor and postprocessor from a SmolVLA model repository.
+    
+    Uses LeRobot's PolicyProcessorPipeline to load normalization stats
+    directly from the model, ensuring consistency with how the model was trained.
+    
+    Args:
+        pretrained_path: HuggingFace model path or local checkpoint
+        
+    Returns:
+        (preprocessor, postprocessor) tuple for normalizing inputs and denormalizing outputs
+        
+    Raises:
+        ImportError: If LeRobot's PolicyProcessorPipeline cannot be imported
+        RuntimeError: If processors cannot be loaded from the model repository
+    """
+    global _cached_preprocessor, _cached_postprocessor, _cached_pretrained_path
+    
+    # Return cached processors if already loaded for this path
+    if _cached_pretrained_path == pretrained_path and _cached_preprocessor is not None:
+        return _cached_preprocessor, _cached_postprocessor
+    
+    # Try to import PolicyProcessorPipeline
+    try:
+        from lerobot.common.policies.processors import PolicyProcessorPipeline
+    except ImportError as e:
+        raise ImportError(
+            f"Could not import PolicyProcessorPipeline from LeRobot.\n"
+            f"Make sure you have the latest LeRobot installed with processor support.\n"
+            f"Try: pip install --upgrade lerobot\n"
+            f"Or check if your LeRobot fork has the PolicyProcessorPipeline class.\n"
+            f"Original error: {e}"
+        ) from e
+    
+    print(f"[SmolVLA] Loading processors from {pretrained_path}...")
+    
+    # Load preprocessor
+    try:
+        preprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="preprocessor_config.json"
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load preprocessor from '{pretrained_path}'.\n"
+            f"Make sure the model repository contains 'preprocessor_config.json'.\n"
+            f"This file should have been added by the LeRobot migration (PR #11).\n"
+            f"Original error: {e}"
+        ) from e
+    
+    # Load postprocessor
+    try:
+        postprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="postprocessor_config.json"
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load postprocessor from '{pretrained_path}'.\n"
+            f"Make sure the model repository contains 'postprocessor_config.json'.\n"
+            f"This file should have been added by the LeRobot migration (PR #11).\n"
+            f"Original error: {e}"
+        ) from e
+    
+    # Cache for future use
+    _cached_preprocessor = preprocessor
+    _cached_postprocessor = postprocessor
+    _cached_pretrained_path = pretrained_path
+    
+    print(f"[SmolVLA] Processors loaded successfully!")
+    
+    # Print loaded stats for verification
+    if hasattr(preprocessor, 'processors'):
+        for proc in preprocessor.processors:
+            if hasattr(proc, 'mean') and hasattr(proc, 'std'):
+                print(f"[SmolVLA] Preprocessor stats - mean: {proc.mean}, std: {proc.std}")
+    
+    return preprocessor, postprocessor
+
+
+def mujoco_to_physical_state(state_radians: np.ndarray) -> np.ndarray:
+    """
+    Convert MuJoCo joint state (radians) to physical robot frame.
+    
+    This handles coordinate frame conversion WITHOUT normalization.
+    The physical frame is what the SmolVLA model expects as input.
+    
+    Args:
+        state_radians: numpy array of joint positions in radians (6,)
+        
+    Returns:
+        state in physical robot frame (same units as training data)
+    """
+    # The smolvla_base model expects states in radians (based on LeRobot convention)
+    # Apply offset for any zero-point differences between MuJoCo and physical robot
+    physical_state = state_radians + np.radians(MUJOCO_TO_PHYSICAL_OFFSET)
+    return physical_state
+
+
+def physical_to_mujoco_action(physical_action: np.ndarray) -> np.ndarray:
+    """
+    Convert action from physical robot frame to MuJoCo frame (radians).
+    
+    This handles coordinate frame conversion WITHOUT normalization.
+    
+    Args:
+        physical_action: numpy array of actions in physical robot frame (6,)
+        
+    Returns:
+        action in MuJoCo radians
+    """
+    # Remove offset and keep in radians
+    mujoco_action = physical_action - np.radians(MUJOCO_TO_PHYSICAL_OFFSET)
+    return mujoco_action
 
 def convert_to_dictionary(qpos):
     return {
@@ -92,52 +207,106 @@ def hold_position(m, d, viewer, duration):
 
 # ===== SmolVLA Helper Functions =====
 
-def normalize_state_for_smolvla(state_radians):
+def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor) -> np.ndarray:
     """
     Normalize robot state for SmolVLA input.
     
-    Converts MuJoCo coordinates to physical robot coordinates, then normalizes.
-    This allows the same policy to work in both simulation and on physical robot.
+    Pipeline:
+    1. MuJoCo radians -> physical robot frame (apply offset)
+    2. Apply preprocessor normalization
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
+        preprocessor: PolicyProcessorPipeline for normalization (required)
     
     Returns:
         normalized state as numpy array (6,)
+        
+    Raises:
+        ValueError: If preprocessor is None
+        RuntimeError: If preprocessor fails to process the state
     """
-    # Step 1: MuJoCo radians -> degrees
-    mujoco_degrees = np.degrees(state_radians)
+    if preprocessor is None:
+        raise ValueError(
+            "preprocessor is required for normalize_state_for_smolvla().\n"
+            "Load processors using: preprocessor, postprocessor = load_smolvla_processors(pretrained_path)"
+        )
     
-    # Step 2: MuJoCo frame -> Physical robot frame (add offset)
-    physical_degrees = mujoco_degrees + MUJOCO_TO_PHYSICAL_OFFSET
+    # Step 1: Convert to physical robot frame
+    physical_state = mujoco_to_physical_state(state_radians)
     
-    # Step 3: Normalize using SmolVLA training stats
-    normalized = (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
-    return normalized
+    # Step 2: Apply preprocessor normalization
+    try:
+        obs_dict = {"observation.state": torch.from_numpy(physical_state).float().unsqueeze(0)}
+        processed = preprocessor(obs_dict)
+        normalized = processed["observation.state"].squeeze(0).numpy()
+        return normalized
+    except Exception as e:
+        raise RuntimeError(
+            f"Preprocessor failed to normalize state.\n"
+            f"Input state: {state_radians}\n"
+            f"Physical state: {physical_state}\n"
+            f"Original error: {e}"
+        ) from e
 
 
-def unnormalize_action_from_smolvla(action_normalized):
+def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
     """
     Unnormalize action output from SmolVLA.
     
-    Unnormalizes to physical robot coordinates, then converts to MuJoCo frame.
-    This allows the same policy to work in both simulation and on physical robot.
+    Pipeline:
+    1. Apply postprocessor denormalization
+    2. Physical robot frame -> MuJoCo radians (remove offset)
     
     Args:
-        action_normalized: numpy array of normalized actions (6,)
+        action_normalized: numpy array of normalized actions (6,) or (chunk_size, 6)
+        postprocessor: PolicyProcessorPipeline for denormalization (required)
     
     Returns:
-        action in radians as numpy array (6,)
+        action in MuJoCo radians as numpy array
+        
+    Raises:
+        ValueError: If postprocessor is None
+        RuntimeError: If postprocessor fails to process the action
     """
-    # Step 1: Unnormalize to physical robot degrees
-    physical_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
+    if postprocessor is None:
+        raise ValueError(
+            "postprocessor is required for unnormalize_action_from_smolvla().\n"
+            "Load processors using: preprocessor, postprocessor = load_smolvla_processors(pretrained_path)"
+        )
     
-    # Step 2: Physical robot frame -> MuJoCo frame (subtract offset)
-    mujoco_degrees = physical_degrees - MUJOCO_TO_PHYSICAL_OFFSET
+    # Handle both single action and action chunks
+    original_shape = action_normalized.shape
+    is_chunk = len(original_shape) > 1
     
-    # Step 3: Convert to radians for MuJoCo
-    action_radians = np.radians(mujoco_degrees)
-    return action_radians
+    if is_chunk:
+        # Process each action in the chunk
+        results = []
+        for action in action_normalized:
+            result = _unnormalize_single_action(action, postprocessor)
+            results.append(result)
+        return np.stack(results)
+    else:
+        return _unnormalize_single_action(action_normalized, postprocessor)
+
+
+def _unnormalize_single_action(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
+    """Helper to unnormalize a single action."""
+    # Apply postprocessor denormalization
+    try:
+        action_dict = {"action": torch.from_numpy(action_normalized).float().unsqueeze(0)}
+        processed = postprocessor(action_dict)
+        physical_action = processed["action"].squeeze(0).numpy()
+    except Exception as e:
+        raise RuntimeError(
+            f"Postprocessor failed to denormalize action.\n"
+            f"Input action: {action_normalized}\n"
+            f"Original error: {e}"
+        ) from e
+    
+    # Convert from physical robot frame to MuJoCo radians
+    mujoco_action = physical_to_mujoco_action(physical_action)
+    return mujoco_action
 
 
 def get_camera_observation(renderer, d, camera_name="wrist_camera"):
@@ -152,7 +321,7 @@ def get_robot_state(d):
     state = d.qpos[:6].copy()
     return state
 
-def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, debug=False):
+def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, preprocessor=None, debug=False):
     """
     Prepare observation dict for SmolVLA policy with multiple cameras.
     Format based on LeRobot conventions with SmolVLA standardized camera naming.
@@ -165,6 +334,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
         policy: SmolVLA policy object (needed for tokenization)
+        preprocessor: Optional PolicyProcessorPipeline for state normalization
     
     Returns:
         observation: dict with images and state tensors using SmolVLA standard keys
@@ -191,8 +361,8 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
     image_side_tensor = image_side_tensor.unsqueeze(0)
     image_side_tensor = image_side_tensor.to(device)
     
-    # Normalize robot state for SmolVLA (radians -> degrees -> normalized)
-    normalized_state = normalize_state_for_smolvla(robot_state)
+    # Normalize robot state for SmolVLA using preprocessor if available
+    normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
     state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize the instruction if policy is provided
@@ -232,6 +402,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         print(f"\n[Observation Preparation Debug]")
         print(f"  Instruction: '{instruction}'")
         print(f"  Policy provided: {policy is not None}")
+        print(f"  Preprocessor provided: {preprocessor is not None}")
         if policy is not None:
             print(f"  Has tokenizer: {hasattr(policy, 'tokenizer')}")
             if hasattr(policy, 'tokenizer'):
@@ -239,13 +410,13 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
                 print(f"  First 15 tokens: {language_tokens[0][:15].tolist()}")
                 print(f"  Attention mask shape: {attention_mask.shape}")
             else:
-                print(f"  ⚠️  WARNING: Policy has no tokenizer! Using dummy tokens.")
+                print(f"  WARNING: Policy has no tokenizer! Using dummy tokens.")
         print(f"  Image camera1 (top) shape: {image_top_tensor.shape}, range: [{image_top_tensor.min():.3f}, {image_top_tensor.max():.3f}]")
         print(f"  Image camera2 (wrist) shape: {image_wrist_tensor.shape}, range: [{image_wrist_tensor.min():.3f}, {image_wrist_tensor.max():.3f}]")
         print(f"  Image camera3 (side) shape: {image_side_tensor.shape}, range: [{image_side_tensor.min():.3f}, {image_side_tensor.max():.3f}]")
         print(f"  State shape: {state_tensor.shape}")
         print(f"  Raw state (radians): {robot_state.tolist()}")
-        print(f"  Raw state (degrees): {np.degrees(robot_state).tolist()}")
+        print(f"  Physical state (with offset): {mujoco_to_physical_state(robot_state).tolist()}")
         print(f"  Normalized state: {normalized_state.tolist()}")
     
     return observation
