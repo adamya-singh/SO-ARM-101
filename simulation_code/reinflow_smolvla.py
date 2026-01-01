@@ -25,7 +25,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from transformers import AutoTokenizer
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy, make_att_2d_masks
-from lerobot.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
+from lerobot.utils.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
 from so101_mujoco_utils import normalize_state_for_smolvla, load_smolvla_processors
 import torch.nn.functional as F
 
