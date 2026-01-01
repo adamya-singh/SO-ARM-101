@@ -12,15 +12,14 @@ SMOLVLA_ACTION_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003
 SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
 
 # Coordinate offset: Physical Robot Position = MuJoCo Position (deg) + OFFSET
-# These values need manual calibration by matching physical robot poses to MuJoCo poses
-# Set each offset so that MuJoCo's 0 position equals the physical robot's center/neutral
+# Only shoulder_lift needs offset - MuJoCo uses 0-centered, physical robot uses ~150 as center
 MUJOCO_TO_PHYSICAL_OFFSET = np.array([
-    0.0,    # shoulder_pan: calibrate by matching neutral rotation
-    150.0,  # shoulder_lift: typical servo center (0-300 range, 150 = center)
-    150.0,  # elbow_flex: typical servo center
-    90.0,   # wrist_flex: calibrate based on your servo setup
-    0.0,    # wrist_roll: calibrate based on your servo setup
-    0.0,    # gripper: calibrate based on your gripper range
+    0.0,    # shoulder_pan:
+    0.0,  # shoulder_lift:
+    100.0,    # elbow_flex:
+    0.0,    # wrist_flex:
+    0.0,    # wrist_roll:
+    0.0,    # gripper:
 ])
 
 def convert_to_dictionary(qpos):
