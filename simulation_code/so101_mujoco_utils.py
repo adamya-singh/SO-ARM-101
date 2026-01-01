@@ -11,6 +11,18 @@ SMOLVLA_STATE_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
 SMOLVLA_ACTION_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
 SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
 
+# Coordinate offset: Physical Robot Position = MuJoCo Position (deg) + OFFSET
+# These values need manual calibration by matching physical robot poses to MuJoCo poses
+# Set each offset so that MuJoCo's 0 position equals the physical robot's center/neutral
+MUJOCO_TO_PHYSICAL_OFFSET = np.array([
+    0.0,    # shoulder_pan: calibrate by matching neutral rotation
+    150.0,  # shoulder_lift: typical servo center (0-300 range, 150 = center)
+    150.0,  # elbow_flex: typical servo center
+    90.0,   # wrist_flex: calibrate based on your servo setup
+    0.0,    # wrist_roll: calibrate based on your servo setup
+    0.0,    # gripper: calibrate based on your gripper range
+])
+
 def convert_to_dictionary(qpos):
     return {
             'shoulder_pan': qpos[0]*180.0/3.14159,  # convert radians(mujoco) to degrees(SO101)
@@ -85,8 +97,8 @@ def normalize_state_for_smolvla(state_radians):
     """
     Normalize robot state for SmolVLA input.
     
-    SmolVLA was trained with states in DEGREES, normalized with mean/std.
-    This function converts radians -> degrees -> normalized.
+    Converts MuJoCo coordinates to physical robot coordinates, then normalizes.
+    This allows the same policy to work in both simulation and on physical robot.
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
@@ -94,10 +106,14 @@ def normalize_state_for_smolvla(state_radians):
     Returns:
         normalized state as numpy array (6,)
     """
-    # Convert radians to degrees
-    state_degrees = np.degrees(state_radians)
-    # Normalize using training stats: (x - mean) / std
-    normalized = (state_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+    # Step 1: MuJoCo radians -> degrees
+    mujoco_degrees = np.degrees(state_radians)
+    
+    # Step 2: MuJoCo frame -> Physical robot frame (add offset)
+    physical_degrees = mujoco_degrees + MUJOCO_TO_PHYSICAL_OFFSET
+    
+    # Step 3: Normalize using SmolVLA training stats
+    normalized = (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
     return normalized
 
 
@@ -105,8 +121,8 @@ def unnormalize_action_from_smolvla(action_normalized):
     """
     Unnormalize action output from SmolVLA.
     
-    SmolVLA outputs normalized actions that need to be converted:
-    normalized -> degrees -> radians for MuJoCo.
+    Unnormalizes to physical robot coordinates, then converts to MuJoCo frame.
+    This allows the same policy to work in both simulation and on physical robot.
     
     Args:
         action_normalized: numpy array of normalized actions (6,)
@@ -114,10 +130,14 @@ def unnormalize_action_from_smolvla(action_normalized):
     Returns:
         action in radians as numpy array (6,)
     """
-    # Unnormalize: action_degrees = normalized * std + mean
-    action_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
-    # Convert degrees to radians for MuJoCo
-    action_radians = np.radians(action_degrees)
+    # Step 1: Unnormalize to physical robot degrees
+    physical_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
+    
+    # Step 2: Physical robot frame -> MuJoCo frame (subtract offset)
+    mujoco_degrees = physical_degrees - MUJOCO_TO_PHYSICAL_OFFSET
+    
+    # Step 3: Convert to radians for MuJoCo
+    action_radians = np.radians(mujoco_degrees)
     return action_radians
 
 
