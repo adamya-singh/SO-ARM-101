@@ -359,105 +359,30 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
 
 def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     """
-    Compute shaped reward for pick-up task.
-    
-    Reward components:
-    1. Linear distance penalty - consistent gradient signal at all distances
-    2. Approach velocity bonus - reward for moving toward block
-    3. Block height bonus - reward for lifting block
-    4. Close proximity bonus - extra reward when very close
-    5. Success bonus - large reward when block is lifted above threshold
-    6. Block displacement penalty - exponential penalty for knocking block away (>5cm)
-    7. Contact bonus - reward for gripper touching the block
-    8. Grip bonus - additional reward for block squeezed between both gripper parts
-    9. Floor contact penalty - exponential penalty for pressing against the floor
-    
-    Note: Distance is measured to the INITIAL block position, not current.
-    This prevents the robot from learning to avoid the block (to not knock it away).
-    
+    SIMPLIFIED reward: Just negative distance from end effector to block.
+
+    This is a minimal reward to verify the learning pipeline works.
+    The reward is simply: -distance (so closer = higher reward = less negative)
+
+    Range: approximately -0.5 (far) to 0.0 (touching block)
+
     Returns:
-        reward: float - shaped reward
-        done: bool - True if block is lifted above threshold
+        reward: float - negative distance to block
+        done: bool - True if block is lifted above threshold (for episode termination)
     """
-    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
-    
     # Get gripper position (end effector)
     gripper_pos = d.site("gripperframe").xpos.copy()
-    
-    # Get block position
+
+    # Get block position (current, not initial)
     block_pos = d.body(block_name).xpos.copy()
-    
-    # Store initial block position on first call of episode
-    if _initial_block_pos is None:
-        _initial_block_pos = block_pos.copy()
-    
-    # Current distance to INITIAL block position (not current position)
-    # This encourages going to where the block started, not chasing it if knocked
-    distance = np.linalg.norm(gripper_pos - _initial_block_pos)
-    
-    reward = 0.0
-    
-    # 1. Linear distance penalty (consistent gradient at all distances)
-    # Negative reward proportional to distance - always pushes toward block
-    # At distance=0: penalty=0, at distance=0.3: penalty=-0.6, at distance=0.5: penalty=-1.0
-    distance_penalty = -2.0 * distance
-    reward += distance_penalty
-    
-    # 2. Approach velocity bonus (reward moving toward block)
-    if _prev_gripper_pos is not None:
-        prev_distance = np.linalg.norm(_prev_gripper_pos - _initial_block_pos)
-        distance_delta = prev_distance - distance  # positive if getting closer
-        approach_reward = 5.0 * distance_delta  # scale factor (increased from 4.0)
-        reward += approach_reward
-    
-    # ===== PHASE 1: Keep only these basic rewards =====
-    
-    # 3. Close proximity bonus (extra reward when very close)
-    if distance < 0.05:
-        reward += 1.0  # bonus for being within 5cm (increased from 0.5)
-    
-    # 4. Block height bonus (reward lifting block above initial z=0.025)
-    initial_block_z = 0.0125  # Half-size block
-    height_gain = max(0, block_pos[2] - initial_block_z)
-    height_reward = 20.0 * height_gain  # stronger reward for any lifting
-    reward += height_reward
-    
-    # 5. Contact bonus (gripper touching the block!)
-    if check_gripper_block_contact(m, d, block_name):
-        reward += 3.0  # Bonus for making contact
-    
-    # 6. Grip bonus (block squeezed between both gripper parts!)
-    is_gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
-    if is_gripped:
-        reward += 5.0  # Additional bonus for actual grip
-    
-    # 7. Success bonus (block lifted above threshold)
+
+    # Simple distance reward: closer = better (less negative)
+    distance = np.linalg.norm(gripper_pos - block_pos)
+    reward = -distance
+
+    # Check if block is lifted (for episode termination only, not reward)
     lifted = block_pos[2] > lift_threshold
-    if lifted:
-        reward += 50.0  # large success bonus
-    
-    # 8. Block displacement penalty - DISABLED for initial training
-    # if block_pos[2] < 0.05:
-    #     displacement = np.linalg.norm(block_pos[:2] - _initial_block_pos[:2])  # XY only
-    #     threshold = 0.05  # 5cm tolerance
-    #     if displacement > threshold:
-    #         excess = displacement - threshold
-    #         displacement_penalty = -5.0 * (np.exp(10.0 * excess) - 1)
-    #         reward += displacement_penalty
-    
-    # 9. Floor contact penalty - DISABLED for initial training
-    # floor_force = get_floor_contact_force(m, d)
-    # if floor_force > 0:
-    #     # Exponential scaling but capped to prevent reward explosion
-    #     # At 1N: -2.7, at 5N: -50 (capped), at 10N+: -50 (capped)
-    #     raw_penalty = -1.0 * np.exp(floor_force)
-    #     floor_penalty = max(raw_penalty, -50.0)  # Cap at -50 (same magnitude as success bonus)
-    #     reward += floor_penalty
-    
-    # Update previous positions for next step
-    _prev_gripper_pos = gripper_pos.copy()
-    _prev_block_pos = block_pos.copy()
-    
+
     return reward, lifted
 
 

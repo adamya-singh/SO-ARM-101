@@ -211,79 +211,26 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Compute reward for a single environment (stateless version).
-        
-        Uses per-environment state tracking instead of global variables.
+        SIMPLIFIED reward: Just negative distance from end effector to block.
+
+        This is a minimal reward to verify the learning pipeline works.
+        The reward is simply: -distance (so closer = higher reward = less negative)
+
+        Range: approximately -0.5 (far) to 0.0 (touching block)
         """
         d = self.datas[env_idx]
-        
+
         # Get positions
         gripper_pos = d.site("gripperframe").xpos.copy()
         block_pos = d.body("red_block").xpos.copy()
-        
-        # Initialize tracking on first call
-        if self.initial_block_pos[env_idx] is None:
-            self.initial_block_pos[env_idx] = block_pos.copy()
-        
-        initial_block = self.initial_block_pos[env_idx]
-        prev_gripper = self.prev_gripper_pos[env_idx]
-        prev_block = self.prev_block_pos[env_idx]
-        
-        # Distance to initial block position
-        distance = np.linalg.norm(gripper_pos - initial_block)
-        
-        reward = 0.0
-        
-        # 1. Linear distance penalty
-        reward += -2.0 * distance
-        
-        # 2. Approach velocity bonus
-        if prev_gripper is not None and prev_block is not None:
-            prev_distance = np.linalg.norm(prev_gripper - prev_block)
-            distance_delta = prev_distance - distance
-            reward += 5.0 * distance_delta
-        
-        # 3. Close proximity bonus
-        if distance < 0.05:
-            reward += 1.0  # increased from 0.5
-        
-        # 4. Block height bonus
-        initial_block_z = 0.0125
-        height_gain = max(0, block_pos[2] - initial_block_z)
-        reward += 20.0 * height_gain
-        
-        # 5. Contact bonus
-        if check_gripper_block_contact(self.model, d, "red_block"):
-            reward += 3.0
-        
-        # 6. Grip bonus (block squeezed between both gripper parts!)
-        is_gripped, _ = check_block_gripped_with_force(self.model, d, "red_block")
-        if is_gripped:
-            reward += 5.0
-        
-        # 7. Success bonus
+
+        # Simple distance reward: closer = better (less negative)
+        distance = np.linalg.norm(gripper_pos - block_pos)
+        reward = -distance
+
+        # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > self.lift_threshold
-        if lifted:
-            reward += 50.0
-        
-        # 8. Block displacement penalty - DISABLED for initial training
-        # if block_pos[2] < 0.05:
-        #     displacement = np.linalg.norm(block_pos[:2] - initial_block[:2])
-        #     threshold = 0.05
-        #     if displacement > threshold:
-        #         excess = displacement - threshold
-        #         reward += -5.0 * (np.exp(10.0 * excess) - 1)
-        
-        # 9. Floor contact penalty - DISABLED for initial training
-        # floor_force = get_floor_contact_force(self.model, d)
-        # if floor_force > 0:
-        #     raw_penalty = -1.0 * np.exp(floor_force)
-        #     reward += max(raw_penalty, -50.0)
-        
-        # Update tracking state
-        self.prev_gripper_pos[env_idx] = gripper_pos.copy()
-        self.prev_block_pos[env_idx] = block_pos.copy()
-        
+
         return reward, lifted
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:

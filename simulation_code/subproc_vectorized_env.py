@@ -130,92 +130,24 @@ def _worker(
     
     def step_physics(action_radians, steps_per_action):
         """Step the physics simulation and compute reward."""
-        nonlocal prev_gripper_pos, prev_block_pos, initial_block_pos
-        
         action_dict = convert_to_dictionary(action_radians)
-        
+
         for _ in range(steps_per_action):
             send_position_command(data, action_dict)
             mujoco.mj_step(model, data)
-        
-        # Compute reward
+
+        # SIMPLIFIED reward: Just negative distance from end effector to block
+        # This is a minimal reward to verify the learning pipeline works.
         gripper_pos = data.site("gripperframe").xpos.copy()
-        block_pos_current = data.body("red_block").xpos.copy()
-        
-        # Initialize tracking on first call
-        if initial_block_pos is None:
-            initial_block_pos = block_pos_current.copy()
-        
-        distance = np.linalg.norm(gripper_pos - initial_block_pos)
-        
-        reward = 0.0
-        
-        # 1. Linear distance penalty
-        reward += -2.0 * distance
-        
-        # 2. Approach velocity bonus
-        if prev_gripper_pos is not None and prev_block_pos is not None:
-            prev_distance = np.linalg.norm(prev_gripper_pos - prev_block_pos)
-            distance_delta = prev_distance - distance
-            reward += 5.0 * distance_delta
-        
-        # ===== PHASE 1: Keep only basic rewards =====
-        
-        # 3. Close proximity bonus
-        if distance < 0.05:
-            reward += 1.0  # increased from 0.5
-        
-        # ===== PHASE 2: Uncomment after approach behavior works =====
-        # (Commented out for Phase 1 - validate approach learning first)
-        
-        # # 4. Block height bonus
-        # initial_block_z = 0.0125
-        # height_gain = max(0, block_pos_current[2] - initial_block_z)
-        # reward += 20.0 * height_gain
-        
-        # # 5. Contact bonus
-        # if check_gripper_block_contact(model, data, "red_block"):
-        #     reward += 3.0
-        
-        # # 6. Grip bonus
-        # is_gripped, _ = check_block_gripped_with_force(model, data, "red_block")
-        # if is_gripped:
-        #     reward += 5.0
-        
-        # ===== PHASE 3: Uncomment after contact/grip learning works =====
-        # (Commented out for Phase 1)
-        
-        # # 7. Success bonus
-        # lifted = block_pos_current[2] > lift_threshold
-        # if lifted:
-        #     reward += 50.0
-        
-        # ===== PHASE 4: Add penalties last (volatile) =====
-        # (Commented out for Phase 1)
-        
-        # # 8. Block displacement penalty
-        # if block_pos_current[2] < 0.05:
-        #     displacement = np.linalg.norm(block_pos_current[:2] - initial_block_pos[:2])
-        #     threshold = 0.05
-        #     if displacement > threshold:
-        #         excess = displacement - threshold
-        #         reward += -5.0 * (np.exp(10.0 * excess) - 1)
-        
-        # # 9. Floor contact penalty
-        # floor_force = get_floor_contact_force(model, data)
-        # if floor_force > 0:
-        #     raw_penalty = -1.0 * np.exp(floor_force)
-        #     reward += max(raw_penalty, -50.0)
-        
-        # ===== END PHASE SECTIONS =====
-        
-        # Update tracking state
-        prev_gripper_pos = gripper_pos.copy()
-        prev_block_pos = block_pos_current.copy()
-        
-        # Phase 1: Never done - let episodes run full length to learn approach
-        lifted = False
-        
+        block_pos = data.body("red_block").xpos.copy()
+
+        # Simple distance reward: closer = better (less negative)
+        distance = np.linalg.norm(gripper_pos - block_pos)
+        reward = -distance
+
+        # Check if block is lifted (for episode termination only, not reward)
+        lifted = block_pos[2] > lift_threshold
+
         return reward, lifted
     
     # Main worker loop
