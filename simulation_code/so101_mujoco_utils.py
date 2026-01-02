@@ -6,14 +6,20 @@ from typing import Optional, Tuple, Any
 
 # ===== MuJoCo to Physical Robot Coordinate Offset (in DEGREES) =====
 # Physical Robot Position = MuJoCo Position (radians converted to degrees) + OFFSET
-# This allows sim-trained policies to deploy on physical robots with different zero-points
+# 
+# These offsets convert MuJoCo's calibrated coordinates (where calibration pose = 0°)
+# to SmolVLA's absolute servo coordinate frame (where servo raw center 2048 ≈ 180°).
+# 
+# SmolVLA was trained with absolute servo positions, NOT calibrated positions.
+# At calibration pose (MuJoCo 0°), the absolute servo positions are ~120° for shoulder_lift, etc.
+# These values are derived from the SmolVLA training data statistics (SMOLVLA_STATE_MEAN).
 MUJOCO_TO_PHYSICAL_OFFSET = np.array([
-    0.0,      # shoulder_pan
-    0.0,      # shoulder_lift
-    100.0,    # elbow_flex - physical robot has different zero point
-    0.0,      # wrist_flex
-    0.0,      # wrist_roll
-    0.0,      # gripper
+    0.0,      # shoulder_pan - near zero offset (training mean ≈ 1.6°)
+    120.0,    # shoulder_lift - calibration pose ≈ 120° in absolute frame
+    110.0,    # elbow_flex - calibration pose ≈ 110° in absolute frame
+    57.0,     # wrist_flex - calibration pose ≈ 57° in absolute frame
+    -27.0,    # wrist_roll - calibration pose ≈ -27° in absolute frame
+    12.0,     # gripper - calibration pose ≈ 12° in absolute frame
 ])
 
 # ===== SmolVLA Normalization Stats (in DEGREES) =====
