@@ -33,10 +33,10 @@ from so101_mujoco_utils import (
 class VectorizedMuJoCoEnv:
     """
     Vectorized MuJoCo environment for parallel RL training.
-    
+
     Manages N independent simulation states sharing a single model,
     enabling batched observations for efficient GPU inference.
-    
+
     Args:
         num_envs: Number of parallel environments
         model_path: Path to MuJoCo XML model file
@@ -44,8 +44,9 @@ class VectorizedMuJoCoEnv:
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
         preprocessor: Optional PolicyProcessorPipeline for state normalization
+        model_type: "smolvla" or "pi0" - for future model-specific handling
     """
-    
+
     def __init__(
         self,
         num_envs: int,
@@ -54,12 +55,14 @@ class VectorizedMuJoCoEnv:
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
         preprocessor=None,
+        model_type: str = "smolvla",
     ):
         self.num_envs = num_envs
         self.starting_position = starting_position
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
         self.preprocessor = preprocessor
+        self.model_type = model_type
         
         # Single model shared across all environments (memory efficient)
         self.model = mujoco.MjModel.from_xml_path(model_path)
@@ -77,7 +80,7 @@ class VectorizedMuJoCoEnv:
         self.dones = np.zeros(num_envs, dtype=bool)
         self.episode_steps = np.zeros(num_envs, dtype=int)
         
-        print(f"[VectorizedEnv] Created {num_envs} parallel environments")
+        print(f"[VectorizedEnv] Created {num_envs} parallel environments (model_type={model_type})")
     
     def reset_all(self):
         """Reset all environments to starting state."""

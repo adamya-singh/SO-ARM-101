@@ -185,11 +185,11 @@ def _worker(
 class SubprocMuJoCoEnv:
     """
     Subprocess-based vectorized MuJoCo environment for parallel RL training.
-    
+
     Each environment runs in its own process, enabling true parallel rendering
     across multiple CPU cores. This trades memory (each process loads the model)
     for rendering speed.
-    
+
     Args:
         num_envs: Number of parallel environments (one process each)
         model_path: Path to MuJoCo XML model file
@@ -197,8 +197,9 @@ class SubprocMuJoCoEnv:
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
         preprocessor: Optional PolicyProcessorPipeline for state normalization
+        model_type: "smolvla" or "pi0" - for future model-specific handling
     """
-    
+
     def __init__(
         self,
         num_envs: int,
@@ -207,6 +208,7 @@ class SubprocMuJoCoEnv:
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
         preprocessor=None,
+        model_type: str = "smolvla",
     ):
         self.num_envs = num_envs
         self.model_path = model_path
@@ -214,6 +216,7 @@ class SubprocMuJoCoEnv:
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
         self.preprocessor = preprocessor
+        self.model_type = model_type
         
         # Episode status tracking (maintained in main process)
         self.dones = np.zeros(num_envs, dtype=bool)

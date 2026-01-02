@@ -28,6 +28,9 @@ from so101_mujoco_utils import (
     reset_reward_state,
     normalize_state_for_smolvla,
     unnormalize_action_from_smolvla,
+    # Model-agnostic versions (currently same implementation, but future-proof)
+    normalize_state_for_vla,
+    unnormalize_action_for_vla,
 )
 
 
@@ -60,12 +63,14 @@ class SO101PickPlaceEnv(gymnasium.Env):
         block_dist_range=(0.1, 0.3),
         block_angle_range=(-60, 60),
         smolvla_normalize=False,
+        vla_normalize=None,
+        model_type="smolvla",
         preprocessor=None,
         postprocessor=None,
     ):
         """
         Initialize the SO-101 pick-and-place environment.
-        
+
         Args:
             render_mode: "human" for viewer, "rgb_array" for image, None for no render
             image_size: Size of camera images (default 256x256)
@@ -73,20 +78,32 @@ class SO101PickPlaceEnv(gymnasium.Env):
             randomize_block: Whether to randomize block position on reset
             block_dist_range: (min, max) distance from arm base in meters (default 0.1-0.3m)
             block_angle_range: (min, max) angle from center in degrees (default -60 to +60)
-            smolvla_normalize: If True, normalize state outputs and unnormalize action inputs
-                               for SmolVLA compatibility (radians <-> degrees <-> normalized)
+            smolvla_normalize: DEPRECATED - use vla_normalize instead. Kept for backward compat.
+            vla_normalize: If True, normalize state outputs and unnormalize action inputs
+                          for VLA compatibility (radians <-> physical <-> normalized)
+            model_type: "smolvla" or "pi0" - selects which VLA model normalization to use
             preprocessor: Optional PolicyProcessorPipeline for state normalization
             postprocessor: Optional PolicyProcessorPipeline for action denormalization
         """
         super().__init__()
-        
+
         self.render_mode = render_mode
         self.image_size = image_size
         self.max_episode_steps = max_episode_steps
         self.randomize_block = randomize_block
         self.block_dist_range = block_dist_range
         self.block_angle_range = block_angle_range
-        self.smolvla_normalize = smolvla_normalize
+
+        # Handle backward compatibility: vla_normalize overrides smolvla_normalize
+        if vla_normalize is not None:
+            self._normalize = vla_normalize
+        else:
+            self._normalize = smolvla_normalize
+
+        # Keep smolvla_normalize for backward compat reads
+        self.smolvla_normalize = self._normalize
+        self.vla_normalize = self._normalize
+        self.model_type = model_type
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         
@@ -170,9 +187,10 @@ class SO101PickPlaceEnv(gymnasium.Env):
         
         # Get robot state (joint positions in radians)
         state = get_robot_state(self.data).astype(np.float32)
-        
-        # Normalize state for SmolVLA if flag is set
-        if self.smolvla_normalize:
+
+        # Normalize state for VLA if flag is set
+        if self._normalize:
+            # Use model-agnostic normalization (currently same for SmolVLA and Pi0)
             state = normalize_state_for_smolvla(state, preprocessor=self.preprocessor).astype(np.float32)
         
         return {
@@ -259,8 +277,9 @@ class SO101PickPlaceEnv(gymnasium.Env):
             truncated: True if episode truncated (max steps)
             info: Additional info dict
         """
-        # Unnormalize action from SmolVLA if flag is set
-        if self.smolvla_normalize:
+        # Unnormalize action from VLA if flag is set
+        if self._normalize:
+            # Use model-agnostic denormalization (currently same for SmolVLA and Pi0)
             action = unnormalize_action_from_smolvla(action, postprocessor=self.postprocessor)
         
         # Clip action to valid range
