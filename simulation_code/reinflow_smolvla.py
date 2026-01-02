@@ -840,7 +840,8 @@ def setup_reinflow_policy(
         base_policy.tokenizer = tokenizer
     
     # Load preprocessor and postprocessor for normalization
-    preprocessor, postprocessor = load_smolvla_processors(pretrained_path)
+    # Pass policy config as fallback for creating default processors (identity normalization for RL)
+    preprocessor, postprocessor = load_smolvla_processors(pretrained_path, policy_config=base_policy.config)
     
     print("[ReinFlow] SmolVLA loaded successfully!")
     print(f"[ReinFlow] Setting up ReinFlow wrapper with {num_steps} denoising steps...")

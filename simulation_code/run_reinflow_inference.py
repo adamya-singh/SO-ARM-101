@@ -56,7 +56,7 @@ print("SmolVLA policy loaded successfully!")
 
 # Load processors for normalization/denormalization
 print("Loading processors...")
-preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base")
+preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base", policy_config=policy.config)
 print("Processors loaded successfully!")
 
 # Load trained weights from ReinFlow checkpoint

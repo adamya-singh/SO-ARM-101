@@ -23,22 +23,24 @@ _cached_postprocessor = None
 _cached_pretrained_path = None
 
 
-def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base") -> Tuple[Any, Any]:
+def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base", policy_config=None) -> Tuple[Any, Any]:
     """
     Load preprocessor and postprocessor from a SmolVLA model repository.
     
     Uses LeRobot's PolicyProcessorPipeline to load normalization stats
-    directly from the model, ensuring consistency with how the model was trained.
+    directly from the model. If Hub files don't exist, falls back to creating
+    default processors from the policy config (identity normalization for RL training).
     
     Args:
         pretrained_path: HuggingFace model path or local checkpoint
+        policy_config: Optional SmolVLAConfig for creating default processors
         
     Returns:
         (preprocessor, postprocessor) tuple for normalizing inputs and denormalizing outputs
         
     Raises:
         ImportError: If LeRobot's PolicyProcessorPipeline cannot be imported
-        RuntimeError: If processors cannot be loaded from the model repository
+        RuntimeError: If processors cannot be loaded and no policy_config provided
     """
     global _cached_preprocessor, _cached_postprocessor, _cached_pretrained_path
     
@@ -60,44 +62,67 @@ def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base") -> Tu
     
     print(f"[SmolVLA] Loading processors from {pretrained_path}...")
     
-    # Load preprocessor
+    preprocessor = None
+    postprocessor = None
+    hub_load_failed = False
+    
+    # Try to load from HuggingFace Hub first
     try:
         preprocessor = PolicyProcessorPipeline.from_pretrained(
             pretrained_path, config_filename="preprocessor_config.json"
         )
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load preprocessor from '{pretrained_path}'.\n"
-            f"Make sure the model repository contains 'preprocessor_config.json'.\n"
-            f"This file should have been added by the LeRobot migration (PR #11).\n"
-            f"Original error: {e}"
-        ) from e
-    
-    # Load postprocessor
-    try:
         postprocessor = PolicyProcessorPipeline.from_pretrained(
             pretrained_path, config_filename="postprocessor_config.json"
         )
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load postprocessor from '{pretrained_path}'.\n"
-            f"Make sure the model repository contains 'postprocessor_config.json'.\n"
-            f"This file should have been added by the LeRobot migration (PR #11).\n"
-            f"Original error: {e}"
-        ) from e
+        print(f"[SmolVLA] Processors loaded from Hub successfully!")
+    except (FileNotFoundError, Exception) as e:
+        error_msg = str(e)
+        if "404" in error_msg or "Not Found" in error_msg or "Could not find" in error_msg:
+            print(f"[SmolVLA] Processor configs not found on Hub (this is normal for older models)")
+            hub_load_failed = True
+        else:
+            # Re-raise unexpected errors
+            raise RuntimeError(
+                f"Failed to load processors from '{pretrained_path}'.\n"
+                f"Original error: {e}"
+            ) from e
+    
+    # Fall back to creating default processors from policy config
+    if hub_load_failed:
+        if policy_config is None:
+            raise RuntimeError(
+                f"Could not load processors from Hub and no policy_config provided.\n"
+                f"For RL training, pass policy_config=base_policy.config to load_smolvla_processors()."
+            )
+        
+        try:
+            from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
+            print(f"[SmolVLA] Creating default processors from policy config (identity normalization)...")
+            print(f"[SmolVLA] Note: No dataset stats - using pass-through normalization for RL training")
+            preprocessor, postprocessor = make_smolvla_pre_post_processors(
+                config=policy_config,
+                dataset_stats=None,  # Identity normalization - data passes through unchanged
+            )
+            print(f"[SmolVLA] Default processors created successfully!")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create default processors from policy config.\n"
+                f"Original error: {e}"
+            ) from e
     
     # Cache for future use
     _cached_preprocessor = preprocessor
     _cached_postprocessor = postprocessor
     _cached_pretrained_path = pretrained_path
     
-    print(f"[SmolVLA] Processors loaded successfully!")
-    
     # Print loaded stats for verification
-    if hasattr(preprocessor, 'processors'):
-        for proc in preprocessor.processors:
-            if hasattr(proc, 'mean') and hasattr(proc, 'std'):
-                print(f"[SmolVLA] Preprocessor stats - mean: {proc.mean}, std: {proc.std}")
+    if hasattr(preprocessor, 'steps'):
+        for step in preprocessor.steps:
+            if hasattr(step, 'stats') and step.stats:
+                print(f"[SmolVLA] Preprocessor has normalization stats")
+                break
+        else:
+            print(f"[SmolVLA] Preprocessor using identity normalization (no stats)")
     
     return preprocessor, postprocessor
 

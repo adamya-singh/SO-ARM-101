@@ -41,7 +41,7 @@ print("SmolVLA policy loaded successfully!")
 
 # Load processors for normalization/denormalization
 print("Loading processors...")
-preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base")
+preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base", policy_config=policy.config)
 print("Processors loaded successfully!")
 
 # === SMOLVLA CONFIG INSPECTION ===
@@ -195,7 +195,7 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 robot_state = get_robot_state(d)
                 
                 # Prepare observation for policy (includes tokenized instruction)
-                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, debug=DEBUG_THIS_ITERATION)
+                observation = prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, INSTRUCTION, device, policy, preprocessor=preprocessor, debug=DEBUG_THIS_ITERATION)
                 
                 # DEBUG: Verify observation structure matches policy expectations
                 if DEBUG_THIS_ITERATION:
