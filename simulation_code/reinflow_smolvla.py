@@ -270,6 +270,22 @@ class ReinFlowSmolVLA(nn.Module):
             params.extend(self.critic.parameters())
         return params
     
+    def train(self, mode=True):
+        """
+        Override train to keep base policy in eval mode.
+        
+        The base SmolVLA model has dropout layers that must remain disabled
+        for deterministic forward passes during PPO updates. Only the critic
+        and newly added parameters (noise_mlp) should be in training mode.
+        """
+        # Set wrapper module's training flag
+        self.training = mode
+        # Critic can be in training mode
+        self.critic.train(mode)
+        # Base policy MUST stay in eval mode (no dropout)
+        self.base.eval()
+        return self
+    
     def forward_with_trajectory(self, observation: dict) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
         """
         Forward pass returning action chunk, full trajectory, and sigmas.
