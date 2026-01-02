@@ -1,7 +1,8 @@
 """
-ReinFlow SmolVLA: Full Flow-Based RL Fine-Tuning
+ReinFlow VLA: Full Flow-Based RL Fine-Tuning for VLA Models
 
-This module implements ReinFlow-style reinforcement learning for SmolVLA by:
+This module implements ReinFlow-style reinforcement learning for VLA models
+(SmolVLA and Pi0) by:
 1. Using a learnable NOISE NETWORK σ_θ'(t, a, o) conditioned on time, action, and observation
 2. Storing full denoising trajectories [a^0, a^1, ..., a^K] for proper log-prob computation
 3. Computing exact per-step log-probabilities through the Markov chain
@@ -9,11 +10,16 @@ This module implements ReinFlow-style reinforcement learning for SmolVLA by:
 
 Reference: https://reinflow.github.io/
 
+Supports:
+- SmolVLA (450M parameters) - default
+- Pi0 (3.3B parameters) - requires gradient checkpointing and bfloat16
+
 Key changes from previous implementation:
 - REMOVED: Scalar log_sigmas parameter (was just K numbers)
 - ADDED: Noise network that shares features with velocity head
 - ADDED: Trajectory storage for replay buffer
 - ADDED: Per-step log probability computation
+- ADDED: Abstract adapter interface for multi-model support
 """
 
 import math
@@ -21,13 +27,16 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Union
 from transformers import AutoTokenizer
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy, make_att_2d_masks
 from lerobot.utils.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
 from so101_mujoco_utils import normalize_state_for_smolvla, load_smolvla_processors
 import torch.nn.functional as F
+
+# Import adapters (lazy import to avoid circular deps)
+from vla_policy_interface import VLAPolicyInterface
 
 
 def compute_entropy_regularization(sigmas: List[Tensor], K: int) -> Tensor:
@@ -1168,3 +1177,516 @@ def load_reinflow_checkpoint(
         print(f"[ReinFlow] Will resume wandb run: {wandb_run_id}")
     
     return start_episode, wandb_run_id
+
+
+# =============================================================================
+# Pi0 Support - New classes and functions for Pi0 model
+# =============================================================================
+
+class ReinFlowPi0(nn.Module):
+    """
+    ReinFlow wrapper around Pi0 for RL fine-tuning.
+    
+    Pi0 is a larger model (3.3B params) that requires:
+    - Gradient checkpointing for memory efficiency
+    - bfloat16 precision
+    - Smaller batch sizes with gradient accumulation
+    
+    Key differences from ReinFlowSmolVLA:
+    - Uses Pi0Adapter which adds noise_mlp to Pi0
+    - VLM hidden size is 2048 (vs 1024 for SmolVLA)
+    - State is embedded in suffix, not prefix
+    
+    Args:
+        adapter: Pi0Adapter instance wrapping PI0Policy
+        num_steps: Number of denoising steps
+        train_action_head: If True, unfreeze action_out_proj
+        train_time_mlp: If True, also unfreeze time MLPs
+        train_full_expert: If True, train entire Action Expert
+        train_noise_head: If True, train noise_mlp (always True for ReinFlow)
+        train_critic: If True, train critic network
+        device: Torch device
+    """
+    
+    def __init__(
+        self,
+        adapter: 'Pi0Adapter',
+        num_steps: int = 10,
+        train_action_head: bool = True,
+        train_time_mlp: bool = False,
+        train_full_expert: bool = False,
+        train_noise_head: bool = True,
+        train_critic: bool = True,
+        device: str = 'cpu'
+    ):
+        super().__init__()
+        from pi0_adapter import Pi0Adapter
+        
+        self.adapter = adapter
+        self.base = adapter.get_base_policy()  # The underlying PI0Policy
+        self.num_steps = num_steps
+        self.device = device
+        self.train_action_head = train_action_head
+        self.train_time_mlp = train_time_mlp
+        self.train_full_expert = train_full_expert
+        self.train_noise_head = train_noise_head
+        self.train_critic = train_critic
+        self.model_type = "pi0"  # For checkpoint identification
+        
+        # Create critic with Pi0's larger hidden size (2048)
+        vlm_hidden_size = adapter.vlm_hidden_size
+        self.critic = ReinFlowCritic(input_size=vlm_hidden_size, hidden_size=512)
+        self.critic.to(device)
+        print(f"  [ReinFlow-Pi0] Created critic network with input size {vlm_hidden_size}")
+        critic_params = sum(p.numel() for p in self.critic.parameters())
+        print(f"  [ReinFlow-Pi0] Critic parameters: {critic_params:,}")
+        
+        # Freeze entire base policy first
+        for p in self.base.parameters():
+            p.requires_grad = False
+        
+        # Unfreeze selected components
+        components = adapter.get_trainable_components()
+        
+        if train_full_expert:
+            print("  [ReinFlow-Pi0] Training FULL Action Expert")
+            
+            # Unfreeze expert
+            if 'gemma_expert' in components:
+                for p in components['gemma_expert'].parameters():
+                    p.requires_grad = True
+                expert_params = sum(p.numel() for p in components['gemma_expert'].parameters())
+                print(f"  [ReinFlow-Pi0] Unfroze gemma_expert: {expert_params:,} params")
+            
+            # Unfreeze all projection layers
+            for name in ['action_in_proj', 'action_out_proj', 'action_time_mlp_in', 
+                        'action_time_mlp_out', 'state_proj']:
+                if name in components:
+                    for p in components[name].parameters():
+                        p.requires_grad = True
+                    params = sum(p.numel() for p in components[name].parameters())
+                    print(f"  [ReinFlow-Pi0] Unfroze {name}: {params:,} params")
+        else:
+            # Selective unfreezing
+            if train_action_head and 'action_out_proj' in components:
+                for p in components['action_out_proj'].parameters():
+                    p.requires_grad = True
+                params = sum(p.numel() for p in components['action_out_proj'].parameters())
+                print(f"  [ReinFlow-Pi0] Unfroze action_out_proj: {params:,} params")
+            
+            if train_time_mlp:
+                for name in ['action_time_mlp_in', 'action_time_mlp_out']:
+                    if name in components:
+                        for p in components[name].parameters():
+                            p.requires_grad = True
+                        params = sum(p.numel() for p in components[name].parameters())
+                        print(f"  [ReinFlow-Pi0] Unfroze {name}: {params:,} params")
+        
+        # Always train noise_mlp for ReinFlow (it's in the adapter, not base)
+        if train_noise_head and 'noise_mlp' in components:
+            for p in components['noise_mlp'].parameters():
+                p.requires_grad = True
+            params = sum(p.numel() for p in components['noise_mlp'].parameters())
+            print(f"  [ReinFlow-Pi0] Unfroze noise_mlp (σ_θ'): {params:,} params")
+        
+        # Count total trainable params
+        total_trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        # Add adapter's noise_mlp params
+        total_trainable += sum(p.numel() for p in adapter.noise_mlp.parameters() if p.requires_grad)
+        print(f"  [ReinFlow-Pi0] Total trainable parameters: {total_trainable:,}")
+    
+    def get_trainable_params(self) -> List[torch.nn.Parameter]:
+        """Return list of all trainable POLICY parameters."""
+        params = []
+        components = self.adapter.get_trainable_components()
+        
+        if self.train_full_expert:
+            for name in ['gemma_expert', 'action_in_proj', 'action_out_proj',
+                        'action_time_mlp_in', 'action_time_mlp_out', 'state_proj']:
+                if name in components:
+                    params.extend(components[name].parameters())
+        else:
+            if self.train_action_head and 'action_out_proj' in components:
+                params.extend(components['action_out_proj'].parameters())
+            if self.train_time_mlp:
+                for name in ['action_time_mlp_in', 'action_time_mlp_out']:
+                    if name in components:
+                        params.extend(components[name].parameters())
+        
+        # Always include noise_mlp for ReinFlow
+        if self.train_noise_head and 'noise_mlp' in components:
+            params.extend(components['noise_mlp'].parameters())
+        
+        return params
+    
+    def get_all_trainable_params(self) -> List[torch.nn.Parameter]:
+        """Return all trainable parameters (policy + critic)."""
+        params = self.get_trainable_params()
+        if self.train_critic:
+            params.extend(self.critic.parameters())
+        return params
+    
+    def forward_with_trajectory(self, observation: dict) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
+        """
+        Forward pass returning action chunk, full trajectory, and sigmas.
+        
+        Uses the adapter's sample_actions_reinflow method.
+        """
+        images, img_masks = self.adapter.prepare_images(observation)
+        state = self.adapter.prepare_state(observation)
+        lang_tokens = observation[OBS_LANGUAGE_TOKENS]
+        lang_masks = observation[OBS_LANGUAGE_ATTENTION_MASK]
+        
+        # Call adapter's ReinFlow sampling
+        action_chunk, trajectory, sigmas = self.adapter.sample_actions_reinflow(
+            images, img_masks, lang_tokens, lang_masks, state
+        )
+        
+        # Unpad actions to original dimension
+        original_action_dim = self.adapter.original_action_dim
+        action_chunk = action_chunk[:, :, :original_action_dim]
+        
+        # Keep trajectory in padded space (needed for denoise_step)
+        sigmas = [s[:, :, :original_action_dim] for s in sigmas]
+        
+        return action_chunk, trajectory, sigmas
+    
+    def forward_batched_with_trajectory(self, observation: dict) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
+        """Batched forward pass returning action chunks, trajectories, and sigmas."""
+        return self.forward_with_trajectory(observation)
+    
+    def forward(self, observation: dict) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
+        """Forward pass for single environment (batch size 1)."""
+        action_chunk, trajectory, sigmas = self.forward_with_trajectory(observation)
+        return action_chunk[0, 0, :], trajectory, sigmas
+    
+    def select_action(self, observation: dict) -> Tensor:
+        """Convenience method to just get the action (no trajectory)."""
+        action, _, _ = self.forward(observation)
+        return action
+    
+    def get_sigma_stats(self) -> Dict[str, float]:
+        """Return statistics about current sigma bounds."""
+        return {
+            'sigma_min': self.adapter.sigma_min,
+            'sigma_max': self.adapter.sigma_max,
+        }
+    
+    def extract_observation_features(self, observation: dict) -> Tensor:
+        """Extract observation features for critic."""
+        return self.adapter.extract_observation_features(observation)
+    
+    def get_value(self, observation: dict) -> Tensor:
+        """Get value estimate V(s) for the given observation."""
+        features = self.extract_observation_features(observation)
+        return self.critic(features)
+    
+    def get_critic_params(self) -> List[torch.nn.Parameter]:
+        """Return list of critic parameters."""
+        return list(self.critic.parameters())
+
+
+def compute_trajectory_log_probs_onpolicy_pi0(
+    policy: ReinFlowPi0,
+    trajectories: List[Tensor],
+    observations: Dict[str, Tensor],
+    return_sigmas: bool = False,
+) -> Tensor:
+    """
+    On-policy log probability computation for Pi0 - recomputes BOTH velocity AND sigma.
+    
+    This is the Pi0 version that uses the adapter interface.
+    
+    Args:
+        policy: ReinFlowPi0 policy
+        trajectories: List of K+1 tensors [a^0, a^1, ..., a^K] for single trajectory
+                     OR batched tensor of shape (batch, K+1, chunk, action_dim)
+        observations: Dict of observation tensors (can be batched)
+        return_sigmas: If True, also return list of sigmas for entropy computation
+            
+    Returns:
+        log_probs: (batch_size,) tensor of summed log probabilities
+        sigmas: (optional) List of K sigma tensors if return_sigmas=True
+    """
+    # Handle both list and tensor formats
+    if isinstance(trajectories, list):
+        trajectory_tensor = torch.stack(trajectories, dim=1)
+    else:
+        trajectory_tensor = trajectories
+    
+    batch_size = trajectory_tensor.shape[0]
+    num_steps = trajectory_tensor.shape[1] - 1
+    device = trajectory_tensor.device
+    
+    # Get original action dim for slicing
+    original_action_dim = policy.adapter.original_action_dim
+    
+    # Prepare observation features and cache prefix
+    images, img_masks = policy.adapter.prepare_images(observations)
+    state = policy.adapter.prepare_state(observations)
+    lang_tokens = observations[OBS_LANGUAGE_TOKENS]
+    lang_masks = observations[OBS_LANGUAGE_ATTENTION_MASK]
+    
+    # Cache prefix (and state for Pi0)
+    cached_data = policy.adapter.cache_prefix(
+        images, img_masks, lang_tokens, lang_masks, state
+    )
+    
+    dt = -1.0 / num_steps
+    total_log_probs = torch.zeros(batch_size, device=device)
+    collected_sigmas = []
+    
+    for k in range(num_steps):
+        t_k = 1.0 + k * dt
+        t_k_tensor = torch.tensor(t_k, device=device).expand(batch_size)
+        
+        # Get trajectory states
+        a_k = trajectory_tensor[:, k]
+        a_k_next = trajectory_tensor[:, k + 1]
+        
+        # Get velocity and sigma from adapter
+        v_k, sigma_k = policy.adapter.denoise_step_reinflow(
+            cached_data, a_k, t_k_tensor, return_sigma=True
+        )
+        
+        if return_sigmas:
+            collected_sigmas.append(sigma_k[:, :, :original_action_dim])
+        
+        # Slice to original action dims
+        a_k_slice = a_k[:, :, :original_action_dim]
+        a_k_next_slice = a_k_next[:, :, :original_action_dim]
+        v_k_slice = v_k[:, :, :original_action_dim]
+        sigma_k_slice = sigma_k[:, :, :original_action_dim]
+        
+        # Mean of transition
+        mu_k = a_k_slice + dt * v_k_slice
+        
+        # Log probability
+        diff = a_k_next_slice - mu_k
+        chunk_size = a_k.shape[-2]
+        d = original_action_dim * chunk_size
+        
+        log_prob_k = -0.5 * (
+            (diff ** 2 / (sigma_k_slice ** 2 + 1e-8)).sum(dim=(-1, -2)) +
+            d * math.log(2 * math.pi) +
+            2 * torch.log(sigma_k_slice + 1e-8).sum(dim=(-1, -2))
+        )
+        
+        total_log_probs = total_log_probs + log_prob_k
+    
+    if return_sigmas:
+        return total_log_probs, collected_sigmas
+    return total_log_probs
+
+
+def setup_reinflow_pi0_policy(
+    pretrained_path: str = "lerobot/pi0",
+    device: str = None,
+    num_steps: int = 10,
+    train_action_head: bool = True,
+    train_time_mlp: bool = False,
+    train_full_expert: bool = False,
+    train_noise_head: bool = True,
+    train_critic: bool = True,
+    sigma_min: float = 0.08,
+    sigma_max: float = 0.16,
+    gradient_checkpointing: bool = True,
+) -> Tuple['ReinFlowPi0', Optional[Any], Optional[Any]]:
+    """
+    Load Pi0 and wrap with ReinFlow for RL training.
+    
+    Args:
+        pretrained_path: HuggingFace model path or local checkpoint
+        device: Torch device (auto-detected if None)
+        num_steps: Number of denoising steps
+        train_action_head: Whether to train action output projection
+        train_time_mlp: Whether to train time MLPs
+        train_full_expert: Whether to train entire Action Expert
+        train_noise_head: Whether to train noise MLP (default True)
+        train_critic: Whether to train critic network
+        sigma_min: Minimum sigma bound for noise network
+        sigma_max: Maximum sigma bound for noise network
+        gradient_checkpointing: Enable gradient checkpointing (recommended)
+    
+    Returns:
+        Tuple of (ReinFlowPi0 policy, preprocessor, postprocessor)
+    """
+    from pi0_adapter import create_pi0_adapter
+    from so101_mujoco_utils import load_vla_processors
+    
+    # Auto-detect device
+    if device is None:
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+    
+    print(f"[ReinFlow-Pi0] Loading Pi0 from {pretrained_path}...")
+    print(f"[ReinFlow-Pi0] Using device: {device}")
+    
+    # Create adapter (which adds noise_mlp to Pi0)
+    adapter = create_pi0_adapter(
+        pretrained_path=pretrained_path,
+        device=device,
+        sigma_min=sigma_min,
+        sigma_max=sigma_max,
+        gradient_checkpointing=gradient_checkpointing,
+    )
+    
+    # Load processors
+    try:
+        preprocessor, postprocessor = load_vla_processors(
+            "pi0", pretrained_path, policy_config=adapter.base.config
+        )
+    except Exception as e:
+        print(f"[ReinFlow-Pi0] Warning: Could not load processors: {e}")
+        print("[ReinFlow-Pi0] Using identity normalization")
+        preprocessor, postprocessor = None, None
+    
+    print("[ReinFlow-Pi0] Pi0 loaded successfully!")
+    print(f"[ReinFlow-Pi0] Setting up ReinFlow wrapper with {num_steps} denoising steps...")
+    print(f"[ReinFlow-Pi0] Gradient checkpointing: {gradient_checkpointing}")
+    
+    # Wrap with ReinFlow
+    reinflow_policy = ReinFlowPi0(
+        adapter=adapter,
+        num_steps=num_steps,
+        train_action_head=train_action_head,
+        train_time_mlp=train_time_mlp,
+        train_full_expert=train_full_expert,
+        train_noise_head=train_noise_head,
+        train_critic=train_critic,
+        device=device,
+    )
+    
+    return reinflow_policy, preprocessor, postprocessor
+
+
+def save_reinflow_pi0_checkpoint(
+    policy: ReinFlowPi0,
+    episode: int,
+    episode_rewards: list,
+    save_path: str = "reinflow_pi0_checkpoint.pt",
+    wandb_run_id: str = None
+):
+    """Save ReinFlow Pi0 training checkpoint including adapter's noise_mlp."""
+    checkpoint = {
+        'episode': episode,
+        'episode_rewards': episode_rewards,
+        'num_steps': policy.num_steps,
+        'train_action_head': policy.train_action_head,
+        'train_time_mlp': policy.train_time_mlp,
+        'train_full_expert': policy.train_full_expert,
+        'train_noise_head': policy.train_noise_head,
+        'train_critic': policy.train_critic,
+        'model_type': 'pi0',
+        'sigma_min': policy.adapter.sigma_min,
+        'sigma_max': policy.adapter.sigma_max,
+    }
+    
+    if wandb_run_id is not None:
+        checkpoint['wandb_run_id'] = wandb_run_id
+    
+    # Save adapter's noise_mlp (core of ReinFlow - added by adapter)
+    checkpoint['noise_mlp'] = policy.adapter.noise_mlp.state_dict()
+    
+    # Save critic
+    checkpoint['critic'] = policy.critic.state_dict()
+    
+    # Save base model components
+    model = policy.base.model
+    if policy.train_full_expert:
+        checkpoint['gemma_expert'] = model.paligemma_with_expert.gemma_expert.state_dict()
+        checkpoint['action_in_proj'] = model.action_in_proj.state_dict()
+        checkpoint['action_out_proj'] = model.action_out_proj.state_dict()
+        checkpoint['action_time_mlp_in'] = model.action_time_mlp_in.state_dict()
+        checkpoint['action_time_mlp_out'] = model.action_time_mlp_out.state_dict()
+        checkpoint['state_proj'] = model.state_proj.state_dict()
+    else:
+        if policy.train_action_head:
+            checkpoint['action_out_proj'] = model.action_out_proj.state_dict()
+        if policy.train_time_mlp:
+            checkpoint['action_time_mlp_in'] = model.action_time_mlp_in.state_dict()
+            checkpoint['action_time_mlp_out'] = model.action_time_mlp_out.state_dict()
+    
+    torch.save(checkpoint, save_path)
+    print(f"[ReinFlow-Pi0] Checkpoint saved to {save_path}")
+
+
+def load_reinflow_pi0_checkpoint(
+    policy: ReinFlowPi0,
+    checkpoint_path: str,
+    device: str = 'cpu'
+) -> Tuple[int, Optional[str]]:
+    """
+    Load ReinFlow Pi0 checkpoint including adapter's noise_mlp.
+    
+    Returns:
+        Tuple of (starting_episode, wandb_run_id or None)
+    """
+    print(f"[ReinFlow-Pi0] Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    
+    # Load adapter's noise_mlp
+    if 'noise_mlp' in checkpoint:
+        policy.adapter.noise_mlp.load_state_dict(checkpoint['noise_mlp'])
+        print("  [ReinFlow-Pi0] Loaded noise_mlp weights")
+    
+    # Load sigma bounds
+    if 'sigma_min' in checkpoint:
+        policy.adapter.set_sigma_bounds(
+            checkpoint.get('sigma_min', 0.08),
+            checkpoint.get('sigma_max', 0.16)
+        )
+    
+    # Load critic
+    if 'critic' in checkpoint:
+        policy.critic.load_state_dict(checkpoint['critic'])
+        print("  [ReinFlow-Pi0] Loaded critic weights")
+    
+    model = policy.base.model
+    if policy.train_full_expert:
+        if 'gemma_expert' in checkpoint:
+            model.paligemma_with_expert.gemma_expert.load_state_dict(checkpoint['gemma_expert'])
+            print("  [ReinFlow-Pi0] Loaded gemma_expert weights")
+        if 'action_in_proj' in checkpoint:
+            model.action_in_proj.load_state_dict(checkpoint['action_in_proj'])
+        if 'action_out_proj' in checkpoint:
+            model.action_out_proj.load_state_dict(checkpoint['action_out_proj'])
+        if 'action_time_mlp_in' in checkpoint:
+            model.action_time_mlp_in.load_state_dict(checkpoint['action_time_mlp_in'])
+        if 'action_time_mlp_out' in checkpoint:
+            model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
+        if 'state_proj' in checkpoint:
+            model.state_proj.load_state_dict(checkpoint['state_proj'])
+        print("  [ReinFlow-Pi0] Loaded full Action Expert weights")
+    else:
+        if policy.train_action_head and 'action_out_proj' in checkpoint:
+            model.action_out_proj.load_state_dict(checkpoint['action_out_proj'])
+        if policy.train_time_mlp:
+            if 'action_time_mlp_in' in checkpoint:
+                model.action_time_mlp_in.load_state_dict(checkpoint['action_time_mlp_in'])
+            if 'action_time_mlp_out' in checkpoint:
+                model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
+    
+    start_episode = checkpoint.get('episode', 0) + 1
+    wandb_run_id = checkpoint.get('wandb_run_id', None)
+    
+    print(f"[ReinFlow-Pi0] Resuming from episode {start_episode}")
+    if wandb_run_id:
+        print(f"[ReinFlow-Pi0] Will resume wandb run: {wandb_run_id}")
+    
+    return start_episode, wandb_run_id
+
+
+def detect_model_type_from_checkpoint(checkpoint_path: str) -> str:
+    """
+    Detect model type from checkpoint file.
+    
+    Returns:
+        "smolvla" or "pi0"
+    """
+    checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+    return checkpoint.get('model_type', 'smolvla')  # Default to smolvla for backward compat

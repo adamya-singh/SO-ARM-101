@@ -1,4 +1,5 @@
 import time
+import argparse
 
 # Setup headless rendering BEFORE importing mujoco
 from mujoco_rendering import setup_mujoco_rendering
@@ -13,35 +14,84 @@ from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 #from so101_mujoco_utils import set_initial_pose, send_position_command
 from so101_mujoco_utils import *
 
+# ===== Model Selection =====
+# Set this to "smolvla" or "pi0" to select the model
+MODEL_TYPE = "smolvla"  # Options: "smolvla", "pi0"
+PRETRAINED_PATH = "lerobot/smolvla_base"  # Change for Pi0: "lerobot/pi0"
+
+# Parse command line arguments for model type
+parser = argparse.ArgumentParser(description='Run MuJoCo simulation with VLA policy')
+parser.add_argument('--model-type', type=str, choices=['smolvla', 'pi0'], default='smolvla',
+                    help='Model type: smolvla (450M) or pi0 (3.3B)')
+parser.add_argument('--pretrained', type=str, default=None,
+                    help='Path to pretrained model')
+parser.add_argument('--no-quantize', action='store_true',
+                    help='Disable 4-bit quantization for Pi0 on MPS (uses more memory)')
+args, _ = parser.parse_known_args()
+
+if args.model_type:
+    MODEL_TYPE = args.model_type
+if args.pretrained:
+    PRETRAINED_PATH = args.pretrained
+elif MODEL_TYPE == "pi0":
+    PRETRAINED_PATH = "lerobot/pi0"
+
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
 
-# ===== SmolVLA Setup =====
+# ===== VLA Setup =====
 # Check for device availability (MPS for Apple Silicon, CUDA for NVIDIA, else CPU)
 if torch.backends.mps.is_available():
     device = torch.device("mps")
     print(f"Using device: {device} (Apple Silicon GPU)")
+    if MODEL_TYPE == "pi0":
+        print("  WARNING: Pi0 on MPS may have limited support.")
 elif torch.cuda.is_available():
     device = torch.device("cuda")
     print(f"Using device: {device}")
 else:
     device = torch.device("cpu")
     print(f"Using device: {device}")
+    if MODEL_TYPE == "pi0":
+        print("  WARNING: Pi0 on CPU will be very slow.")
 
 # Set up camera renderer for offscreen rendering at target resolution
 renderer = mujoco.Renderer(m, height=256, width=256)
 
-# Load SmolVLA policy
-print("Loading SmolVLA policy...")
-policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
-#policy = SmolVLAPolicy.from_pretrained("adamyathegreat/my_smolvla_pickplace")
-policy.to(device)
-policy.eval()
-print("SmolVLA policy loaded successfully!")
+# Load policy based on model type
+print(f"\n=== Loading {MODEL_TYPE.upper()} Policy ===")
+if MODEL_TYPE == "pi0":
+    from pi0_quantization import load_pi0_quantized, should_quantize_pi0
+    
+    # Use quantized loading for Pi0 (especially on MPS)
+    use_quantization = not args.no_quantize and should_quantize_pi0(device)
+    
+    if use_quantization:
+        print(f"Loading Pi0 policy from {PRETRAINED_PATH} with 4-bit quantization...")
+    else:
+        print(f"Loading Pi0 policy from {PRETRAINED_PATH}...")
+    
+    policy, was_quantized = load_pi0_quantized(
+        PRETRAINED_PATH,
+        device=str(device),
+        quantize=not args.no_quantize,
+        verbose=True
+    )
+    
+    if was_quantized:
+        print("Pi0 policy loaded with INT4 quantization!")
+    else:
+        print("Pi0 policy loaded successfully!")
+else:
+    print(f"Loading SmolVLA policy from {PRETRAINED_PATH}...")
+    policy = SmolVLAPolicy.from_pretrained(PRETRAINED_PATH)
+    policy.to(device)
+    policy.eval()
+    print("SmolVLA policy loaded successfully!")
 
 # Load processors for normalization/denormalization
 print("Loading processors...")
-preprocessor, postprocessor = load_smolvla_processors("lerobot/smolvla_base", policy_config=policy.config)
+preprocessor, postprocessor = load_vla_processors(MODEL_TYPE, PRETRAINED_PATH, policy_config=policy.config)
 print("Processors loaded successfully!")
 
 # === SMOLVLA CONFIG INSPECTION ===

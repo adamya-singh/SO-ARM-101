@@ -1,6 +1,6 @@
 # SO-ARM-101 MuJoCo Simulation
 
-MuJoCo simulation environment for the SO-ARM-101 robot arm with SmolVLA policy inference, teleoperation data collection, and ReinFlow RL training.
+MuJoCo simulation environment for the SO-ARM-101 robot arm with **SmolVLA (450M)** and **Pi0 (3.3B)** policy inference, teleoperation data collection, and ReinFlow RL training.
 
 ## Quick Start
 
@@ -11,21 +11,45 @@ conda activate lerobot
 # 2. Run basic simulation viewer
 python example_run_mujoco_sim.py
 
-# 3. Run SmolVLA (base) policy inference
+# 3. Run VLA policy inference (SmolVLA default)
 python run_mujoco_simulation.py
+
+# 3b. Run with Pi0 model (requires [pi] extras)
+python run_mujoco_simulation.py --model-type pi0
 
 # 4. Record teleoperation demonstrations
 python record_dataset.py --input keyboard --output_dir ./datasets/my_dataset --task "pick up the red block"
 
-# 5. Train with ReinFlow RL
+# 5a. Train with ReinFlow RL (SmolVLA - default)
 python train_reinflow.py
 
-# 6. Run inference with trained checkpoint
-python run_reinflow_inference.py
+# 5b. Train with ReinFlow RL (Pi0 - 3.3B model, requires 24GB+ VRAM)
+python train_reinflow.py --model-type pi0
+
+# 6. Run inference with trained checkpoint (auto-detects model type)
+python run_reinflow_inference.py --checkpoint reinflow_checkpoint.pt
 
 # 7. View training statistics from checkpoint
 python print_checkpoint_stats.py
 ```
+
+---
+
+## Model Selection
+
+This codebase supports two VLA models for policy inference and ReinFlow training:
+
+| Model | Parameters | VRAM Required | Best For |
+|-------|------------|---------------|----------|
+| SmolVLA | 450M | ~4GB | Fast training, limited GPU, quick iteration |
+| Pi0 | 3.3B | ~24GB | Higher quality, A100/RTX 4090, production |
+
+### Choosing a Model
+
+- **SmolVLA (default)**: Recommended for most users. Fast training, works on consumer GPUs.
+- **Pi0**: Use when you have access to high-end GPUs (A100, RTX 4090) and want better performance.
+
+> **Important**: SmolVLA and Pi0 require different versions of the `transformers` library and cannot be installed in the same environment. See Installation section below.
 
 ---
 
@@ -52,13 +76,18 @@ SO-ARM-101/                         # Repository root
     │
     ├── # === CORE LIBRARIES ===
     ├── so101_gym_env.py            # Gymnasium environment wrapper
-    ├── so101_mujoco_utils.py       # Utility functions (reward, reset, etc.)
+    ├── so101_mujoco_utils.py       # Utility functions (reward, reset, normalization)
     ├── lerobot_dataset_writer.py   # LeRobotDataset v3 format writer
+    │
+    ├── # === VLA POLICY INTERFACE ===
+    ├── vla_policy_interface.py     # Abstract interface for VLA models (SmolVLA/Pi0)
+    ├── smolvla_adapter.py          # SmolVLA adapter for ReinFlow
+    ├── pi0_adapter.py              # Pi0 adapter for ReinFlow (adds noise_mlp)
     │
     ├── # === SIMULATION SCRIPTS ===
     ├── example_run_mujoco_sim.py   # Basic MuJoCo viewer (no policy)
     ├── run_mujoco_simulation_startingpose.py  # Hold robot at home position
-    ├── run_mujoco_simulation.py    # Run SmolVLA policy inference
+    ├── run_mujoco_simulation.py    # Run VLA policy inference (--model-type flag)
     │
     ├── # === TELEOPERATION ===
     ├── teleop_keyboard.py          # Keyboard control handler
@@ -67,11 +96,12 @@ SO-ARM-101/                         # Repository root
     ├── record_dataset.py           # Main recording script
     │
     ├── # === RL TRAINING ===
-    ├── reinflow_smolvla.py         # ReinFlow wrapper for SmolVLA
-    ├── train_reinflow.py           # Full ReinFlow training script
+    ├── reinflow_smolvla.py         # ReinFlow wrapper for SmolVLA and Pi0
+    ├── train_reinflow.py           # Full ReinFlow training script (--model-type flag)
     ├── run_reinflow_inference.py   # Run inference with trained checkpoint
     ├── print_checkpoint_stats.py   # View training stats from checkpoint
-    ├── reinflow_checkpoint.pt      # Trained checkpoint file
+    ├── reinflow_checkpoint.pt      # Trained SmolVLA checkpoint file
+    ├── reinflow_pi0_checkpoint.pt  # Trained Pi0 checkpoint file (if trained)
     │
     ├── # === DEPRECATED ===
     ├── old-training-scripts/       # Failed training attempts
@@ -93,19 +123,36 @@ conda activate lerobot
 
 ### Install LeRobot Fork (Editable Mode - Required for ReinFlow)
 
-ReinFlow training requires a modified version of SmolVLA. Install our LeRobot fork which includes the necessary `sample_actions_reinflow()` method:
+ReinFlow training requires a modified version of LeRobot. Install our fork which includes the necessary `sample_actions_reinflow()` method:
 
 ```bash
 # Clone our LeRobot fork (place it alongside this repo)
 cd /path/to/your/projects
 git clone https://github.com/adamyasingh/lerobot-fork.git
-cd lerobot
+cd lerobot-fork
+```
 
-# Install in editable mode with SmolVLA support and NO CACHING (needed for my university cluster)
+#### For SmolVLA Only (Default - Recommended)
+
+```bash
+# Install with SmolVLA support
 pip install -e ".[smolvla]" --no-cache-dir
 ```
 
-> **Note**: Our fork adds the `sample_actions_reinflow()` method to the `VLAFlowMatching` class in `src/lerobot/policies/smolvla/modeling_smolvla.py`. This method injects learnable noise at each denoising step for ReinFlow RL training.
+#### For Pi0 Support
+
+Pi0 requires a custom transformers fork with LeRobot-specific patches:
+
+```bash
+# Install with Pi0 support (uses custom transformers branch)
+pip install -e ".[pi]" --no-cache-dir
+```
+
+> **Warning**: The `[pi]` and `[smolvla]` extras use different versions of `transformers` and **cannot be installed together**. Use separate conda environments if you need both:
+> ```bash
+> conda create -n lerobot-smolvla python=3.10  # For SmolVLA
+> conda create -n lerobot-pi0 python=3.10      # For Pi0
+> ```
 
 ### Additional Dependencies
 
@@ -121,9 +168,12 @@ cd simulation_code
 # Check basic imports
 python -c "import mujoco; import lerobot; print('OK')"
 
-# Verify ReinFlow modification is applied
+# Verify SmolVLA ReinFlow modification is applied
 python -c "from lerobot.policies.smolvla.modeling_smolvla import VLAFlowMatching; print('sample_actions_reinflow' in dir(VLAFlowMatching))"
 # Should print: True
+
+# Verify Pi0 is available (only if [pi] extras installed)
+python -c "from lerobot.policies.pi0.modeling_pi0 import PI0Policy; print('PI0Policy available')"
 ```
 
 ---
@@ -146,25 +196,36 @@ Holds the robot at the home position:
 python run_mujoco_simulation_startingpose.py
 ```
 
-### SmolVLA Policy Inference
+### VLA Policy Inference
 
-Runs the SmolVLA model to control the robot:
+Runs a VLA model to control the robot:
 
 ```bash
+# SmolVLA (default)
 python run_mujoco_simulation.py
+
+# Pi0 (requires [pi] extras)
+python run_mujoco_simulation.py --model-type pi0
 ```
 
-The script loads either `lerobot/smolvla_base` (pretrained) or a fine-tuned checkpoint and executes the policy in a loop.
+The script loads either `lerobot/smolvla_base` or `lerobot/pi0` (pretrained) and executes the policy in a loop.
 
 ### ReinFlow Trained Policy Inference
 
 Runs inference using the trained ReinFlow checkpoint:
 
 ```bash
+# Auto-detect model type from checkpoint
 python run_reinflow_inference.py
+
+# Specify checkpoint explicitly
+python run_reinflow_inference.py --checkpoint reinflow_checkpoint.pt
+
+# Force model type (overrides auto-detection)
+python run_reinflow_inference.py --model-type pi0 --checkpoint reinflow_pi0_checkpoint.pt
 ```
 
-This script loads the base SmolVLA policy and applies the trained `action_out_proj` and `action_time_mlp_out` weights from `reinflow_checkpoint.pt`. Debug output is shown for the first 3 policy inferences.
+This script loads the base VLA policy and applies the trained weights from the checkpoint. Debug output is shown for the first 3 policy inferences.
 
 ### View Training Statistics
 
@@ -263,9 +324,11 @@ ESC             Quit
 
 ## Training
 
-### ReinFlow RL Training (Recommended)
+### ReinFlow RL Training
 
-ReinFlow is a flow-based RL method that injects learnable noise at each denoising step, enabling proper policy gradient training:
+ReinFlow is a flow-based RL method that injects learnable noise at each denoising step, enabling proper policy gradient training.
+
+#### SmolVLA Training (Default - Recommended)
 
 ```bash
 # Start training (with viewer)
@@ -277,21 +340,46 @@ python train_reinflow.py --resume reinflow_checkpoint.pt
 # Headless mode (for Colab/SSH, no visualization)
 python train_reinflow.py --no-render --headless
 
-# Parallel mode with 10 environments (optimized for A100 GPU)
-python train_reinflow.py --parallel-envs 10 --no-render --headless
+# Parallel mode with 8 environments (optimized for A100 GPU)
+python train_reinflow.py --parallel-envs 8 --no-render --headless
 
 # Custom settings
-python train_reinflow.py --episodes 50000 --lr 1e-4
+python train_reinflow.py --episodes 50000 --policy-lr 1e-5
 ```
 
-**Key features:**
-- Injects learnable noise at each of 10 denoising steps
-- Computes exact log-probabilities for REINFORCE
-- Optionally trains action head (~23K params)
-- Entropy bonus (default 0.0001) prevents sigma collapse and encourages exploration
-- Initial log-sigma of -1.0 (σ ≈ 0.37) provides good exploration-exploitation balance
+#### Pi0 Training (Requires 24GB+ VRAM)
 
-### Fine-tuning SmolVLA (Behavioral Cloning)
+```bash
+# Pi0 training with automatic memory optimizations
+python train_reinflow.py --model-type pi0 --no-render --headless
+
+# Pi0 parallel mode (reduced envs due to model size)
+python train_reinflow.py --model-type pi0 --parallel-envs 2 --no-render --headless
+
+# Resume Pi0 checkpoint
+python train_reinflow.py --model-type pi0 --resume reinflow_pi0_checkpoint.pt
+```
+
+#### Training Settings Comparison
+
+| Setting | SmolVLA | Pi0 |
+|---------|---------|-----|
+| Batch size | 8 | 2 (auto-adjusted) |
+| Gradient accumulation | 15 | 30 (auto-adjusted) |
+| Policy learning rate | 5e-6 | 2.5e-6 (auto-adjusted) |
+| Gradient checkpointing | No | Yes (auto-enabled) |
+| Parallel environments | 8-16 | 2-4 |
+| VRAM required | ~4GB | ~24GB |
+| Checkpoint file | `reinflow_checkpoint.pt` | `reinflow_pi0_checkpoint.pt` |
+
+**Key features:**
+- Injects learnable noise at each denoising step
+- Computes exact log-probabilities for PPO
+- Supports both SmolVLA and Pi0 through adapter interface
+- Pi0 automatically enables gradient checkpointing and memory optimizations
+- Auto-detects model type when resuming from checkpoint
+
+### Fine-tuning VLA Models (Behavioral Cloning)
 
 Use LeRobot's training script for supervised fine-tuning:
 
@@ -322,11 +410,11 @@ env = gymnasium.make("SO101PickPlace-v0")
 # - SO101PickPlaceNoRandom-v0: Fixed block position
 # - SO101PickPlaceHuman-v0: With viewer, longer episodes
 
-# For SmolVLA inference, enable normalization:
+# For VLA inference, enable normalization:
 from so101_gym_env import SO101PickPlaceEnv
 env = SO101PickPlaceEnv(smolvla_normalize=True)
 # This normalizes state outputs and unnormalizes action inputs
-# to match SmolVLA's expected format (degrees with mean/std normalization)
+# to match VLA expected format (degrees with mean/std normalization)
 ```
 
 ### Observation Space
@@ -408,10 +496,10 @@ The reward function in `so101_mujoco_utils.py` includes:
 |--------|-------------|---------|
 | `example_run_mujoco_sim.py` | Basic MuJoCo viewer | `python example_run_mujoco_sim.py` |
 | `run_mujoco_simulation_startingpose.py` | Hold home position | `python run_mujoco_simulation_startingpose.py` |
-| `run_mujoco_simulation.py` | SmolVLA policy inference | `python run_mujoco_simulation.py` |
-| `run_reinflow_inference.py` | Inference with trained checkpoint | `python run_reinflow_inference.py` |
+| `run_mujoco_simulation.py` | VLA policy inference | `python run_mujoco_simulation.py --model-type smolvla` |
+| `run_reinflow_inference.py` | Inference with trained checkpoint | `python run_reinflow_inference.py --checkpoint reinflow_checkpoint.pt` |
 | `record_dataset.py` | Record demonstrations | `python record_dataset.py --input keyboard` |
-| `train_reinflow.py` | ReinFlow RL training | `python train_reinflow.py` |
+| `train_reinflow.py` | ReinFlow RL training | `python train_reinflow.py --model-type pi0` |
 | `print_checkpoint_stats.py` | View training stats | `python print_checkpoint_stats.py` |
 | `teleop_keyboard.py` | Test keyboard input | `python teleop_keyboard.py` |
 | `teleop_gamepad.py` | Test gamepad input | `python teleop_gamepad.py` |
@@ -439,11 +527,14 @@ For headless environments (Colab, SSH sessions, cloud VMs), MuJoCo needs a softw
 ### Running Training Headless
 
 ```bash
-# Sequential mode (best for most cases)
+# SmolVLA - Sequential mode (best for most cases)
 python train_reinflow.py --no-render --headless
 
-# Parallel mode with 10 environments (for A100 GPU)
+# SmolVLA - Parallel mode with 10 environments (for A100 GPU)
 python train_reinflow.py --parallel-envs 10 --no-render --headless
+
+# Pi0 - Parallel mode (reduced envs for memory)
+python train_reinflow.py --model-type pi0 --parallel-envs 2 --no-render --headless
 
 # Or set environment variable directly
 MUJOCO_GL=osmesa python train_reinflow.py --no-render
@@ -520,9 +611,38 @@ First run downloads ~2GB model. Ensure network access:
 python -c "from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy; SmolVLAPolicy.from_pretrained('lerobot/smolvla_base')"
 ```
 
+### Pi0: "Incorrect transformer version" Error
+
+This error means you need the Pi0-specific transformers fork:
+
+```bash
+# Install Pi0 extras (includes custom transformers)
+cd /path/to/lerobot-fork
+pip install -e ".[pi]"
+```
+
+> **Note**: You cannot have both `[smolvla]` and `[pi]` extras installed in the same environment. Use separate conda environments.
+
+### Pi0: Out of Memory (OOM) Errors
+
+Pi0 is a 3.3B parameter model and requires significant VRAM:
+
+1. **Reduce parallel environments**: Use `--parallel-envs 2` instead of 8
+2. **Verify gradient checkpointing**: It's auto-enabled for Pi0, but you can check logs
+3. **Use CUDA**: Pi0 is not recommended on MPS (Apple Silicon) or CPU
+4. **Minimum VRAM**: 24GB (A100, RTX 4090)
+
+```bash
+# Minimal memory usage for Pi0
+python train_reinflow.py --model-type pi0 --parallel-envs 1 --no-render --headless
+```
+
+### Pi0: MPS Warning on Apple Silicon
+
+Pi0 shows a warning on Apple Silicon (MPS) because the model is optimized for CUDA. Training will work but may be slow or have compatibility issues. For best results, use an NVIDIA GPU with 24GB+ VRAM.
+
 ---
 
 ## License
 
 Apache 2.0 (following LeRobot licensing)
-

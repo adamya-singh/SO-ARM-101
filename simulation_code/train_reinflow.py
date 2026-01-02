@@ -1,5 +1,5 @@
 """
-ReinFlow Training Script for SmolVLA (On-Policy Actor-Critic)
+ReinFlow Training Script for VLA Models (On-Policy Actor-Critic)
 
 Full ReinFlow-style flow-based RL training that:
 1. Uses a NOISE NETWORK σ_θ'(t, a, o) conditioned on time, action, and observation
@@ -8,6 +8,10 @@ Full ReinFlow-style flow-based RL training that:
 4. Computes exact per-step log-probabilities with gradients through both networks
 
 Reference: https://reinflow.github.io/
+
+Supports:
+- SmolVLA (450M parameters) - default, fast training
+- Pi0 (3.3B parameters) - requires more memory, use --model-type pi0
 
 Key features:
 - ON-POLICY training (collect rollout -> compute loss -> discard data)
@@ -18,6 +22,9 @@ Key features:
 Usage:
     conda activate lerobot
     python train_reinflow.py
+    
+    # Train with Pi0 model:
+    python train_reinflow.py --model-type pi0 --parallel-envs 2
 
     # Resume from checkpoint:
     python train_reinflow.py --resume reinflow_checkpoint.pt
@@ -46,6 +53,7 @@ import torch.nn.functional as F
 import numpy as np
 import wandb
 
+# SmolVLA imports
 from reinflow_smolvla import (
     ReinFlowSmolVLA,
     setup_reinflow_policy,
@@ -58,6 +66,13 @@ from reinflow_smolvla import (
     compute_returns,
     save_reinflow_checkpoint,
     load_reinflow_checkpoint,
+    # Pi0 support
+    ReinFlowPi0,
+    setup_reinflow_pi0_policy,
+    compute_trajectory_log_probs_onpolicy_pi0,
+    save_reinflow_pi0_checkpoint,
+    load_reinflow_pi0_checkpoint,
+    detect_model_type_from_checkpoint,
 )
 from so101_mujoco_utils import (
     set_initial_pose,
@@ -69,6 +84,8 @@ from so101_mujoco_utils import (
     reset_env,
     reset_reward_state,
     unnormalize_action_from_smolvla,
+    unnormalize_action_for_vla,
+    load_vla_processors,
 )
 
 
@@ -76,6 +93,9 @@ from so101_mujoco_utils import (
 
 class TrainingConfig:
     """Configuration for ReinFlow RL training (On-Policy Actor-Critic)."""
+    
+    # Model selection
+    model_type = "smolvla"  # "smolvla" (450M) or "pi0" (3.3B)
     
     # Environment
     model_path = 'model/scene.xml'
@@ -162,6 +182,10 @@ class TrainingConfig:
     
     # Learning rate warmup (paper Table 9b)
     lr_warmup_iterations = 10  # Paper uses 10 for PickPlaceCan, 25 for NutAssemblySquare
+    
+    # Pi0-specific settings (used when model_type="pi0")
+    pi0_gradient_checkpointing = True  # Required for 3.3B model to fit in 24GB
+    pi0_pretrained_path = "lerobot/pi0"  # Default Pi0 model path
 
 
 def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
@@ -194,7 +218,9 @@ def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='ReinFlow Training for SmolVLA (On-Policy Actor-Critic)')
+    parser = argparse.ArgumentParser(description='ReinFlow Training for VLA Models (On-Policy Actor-Critic)')
+    parser.add_argument('--model-type', type=str, choices=['smolvla', 'pi0'], default='smolvla',
+                        help='Model type: smolvla (450M, default) or pi0 (3.3B)')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume from')
     parser.add_argument('--no-render', action='store_true',
@@ -208,7 +234,7 @@ def parse_args():
     parser.add_argument('--critic-lr', type=float, default=None,
                         help='Critic learning rate')
     parser.add_argument('--pretrained', type=str, default=None,
-                        help='Path to pretrained SmolVLA model')
+                        help='Path to pretrained VLA model (SmolVLA or Pi0)')
     parser.add_argument('--parallel-envs', type=int, default=None,
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
     parser.add_argument('--subproc', action='store_true',
@@ -219,6 +245,8 @@ def parse_args():
                         help='Train entire Action Expert (~100M params)')
     parser.add_argument('--no-full-expert', action='store_true',
                         help='Disable full expert training')
+    parser.add_argument('--no-gradient-checkpointing', action='store_true',
+                        help='Disable gradient checkpointing for Pi0 (not recommended)')
     return parser.parse_args()
 
 
@@ -234,27 +262,47 @@ def train_parallel(config, args, device):
     3. Multiple epochs with mini-batching for sample efficiency
     4. KL divergence monitoring with early stopping
     5. Learning rate scheduling
+    
+    Supports both SmolVLA and Pi0 models.
     """
     num_envs = config.num_parallel_envs
     
     # Setup ReinFlow policy with critic and processors FIRST (needed for env)
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
+    print(f"Setting up ReinFlow {config.model_type.upper()} (PPO, On-Policy)")
     print("="*60)
     
-    rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
-        pretrained_path=config.pretrained_path,
-        device=str(device),
-        num_steps=config.num_denoising_steps,
-        train_action_head=config.train_action_head,
-        train_time_mlp=config.train_time_mlp,
-        train_full_expert=config.train_full_expert,
-        train_noise_head=config.train_noise_head,
-        train_critic=config.train_critic,
-    )
-    rl_policy.base.model.sigma_min = config.sigma_min
-    rl_policy.base.model.sigma_max = config.sigma_max
-    print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
+    # Select appropriate setup function based on model type
+    if config.model_type == "pi0":
+        rl_policy, preprocessor, postprocessor = setup_reinflow_pi0_policy(
+            pretrained_path=config.pretrained_path,
+            device=str(device),
+            num_steps=config.num_denoising_steps,
+            train_action_head=config.train_action_head,
+            train_time_mlp=config.train_time_mlp,
+            train_full_expert=config.train_full_expert,
+            train_noise_head=config.train_noise_head,
+            train_critic=config.train_critic,
+            sigma_min=config.sigma_min,
+            sigma_max=config.sigma_max,
+            gradient_checkpointing=config.pi0_gradient_checkpointing,
+        )
+        # Pi0 sigma is set in adapter during creation
+        print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
+    else:
+        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
+            pretrained_path=config.pretrained_path,
+            device=str(device),
+            num_steps=config.num_denoising_steps,
+            train_action_head=config.train_action_head,
+            train_time_mlp=config.train_time_mlp,
+            train_full_expert=config.train_full_expert,
+            train_noise_head=config.train_noise_head,
+            train_critic=config.train_critic,
+        )
+        rl_policy.base.model.sigma_min = config.sigma_min
+        rl_policy.base.model.sigma_max = config.sigma_max
+        print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
     # Choose environment implementation (with preprocessor for state normalization)
     if config.use_subproc_env:
@@ -288,7 +336,11 @@ def train_parallel(config, args, device):
         checkpoint_to_load = config.checkpoint_path
     
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
-        start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        # Use model-appropriate checkpoint loader
+        if config.model_type == "pi0":
+            start_episode, wandb_run_id = load_reinflow_pi0_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        else:
+            start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -297,6 +349,7 @@ def train_parallel(config, args, device):
             id=wandb_run_id,
             resume="allow",
             config={
+                "model_type": config.model_type,
                 "policy_lr": config.policy_lr,
                 "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
@@ -314,6 +367,7 @@ def train_parallel(config, args, device):
                 "train_critic": config.train_critic,
                 "num_parallel_envs": config.num_parallel_envs,
                 "training_mode": "ppo-on-policy",
+                "gradient_checkpointing": config.pi0_gradient_checkpointing if config.model_type == "pi0" else False,
             },
         )
         wandb_run_id = wandb.run.id
@@ -684,10 +738,16 @@ def train_parallel(config, args, device):
             
             # Save checkpoint periodically
             if (episode_batch + 1) % (config.save_interval // num_envs + 1) == 0:
-                save_reinflow_checkpoint(
-                    rl_policy, total_episodes - 1, episode_rewards_history, 
-                    config.checkpoint_path, wandb_run_id
-                )
+                if config.model_type == "pi0":
+                    save_reinflow_pi0_checkpoint(
+                        rl_policy, total_episodes - 1, episode_rewards_history, 
+                        config.checkpoint_path, wandb_run_id
+                    )
+                else:
+                    save_reinflow_checkpoint(
+                        rl_policy, total_episodes - 1, episode_rewards_history, 
+                        config.checkpoint_path, wandb_run_id
+                    )
     
     except KeyboardInterrupt:
         print("\n\nTraining interrupted by user.")
@@ -698,10 +758,16 @@ def train_parallel(config, args, device):
             wandb.finish()
     
     # Save final checkpoint
-    save_reinflow_checkpoint(
-        rl_policy, total_episodes - 1, episode_rewards_history, 
-        config.checkpoint_path, wandb_run_id
-    )
+    if config.model_type == "pi0":
+        save_reinflow_pi0_checkpoint(
+            rl_policy, total_episodes - 1, episode_rewards_history, 
+            config.checkpoint_path, wandb_run_id
+        )
+    else:
+        save_reinflow_checkpoint(
+            rl_policy, total_episodes - 1, episode_rewards_history, 
+            config.checkpoint_path, wandb_run_id
+        )
     
     print("\n" + "="*60)
     print("Training Complete!")
@@ -726,6 +792,8 @@ def train_sequential(config, args, device):
     3. Multiple epochs with mini-batching for sample efficiency
     4. KL divergence monitoring with early stopping
     5. Learning rate scheduling
+    
+    Supports both SmolVLA and Pi0 models.
     """
     # Load MuJoCo environment
     print(f"\nLoading MuJoCo model from {config.model_path}")
@@ -735,22 +803,39 @@ def train_sequential(config, args, device):
     
     # Setup ReinFlow policy with critic and processors
     print("\n" + "="*60)
-    print("Setting up ReinFlow SmolVLA (PPO, On-Policy)")
+    print(f"Setting up ReinFlow {config.model_type.upper()} (PPO, On-Policy)")
     print("="*60)
     
-    rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
-        pretrained_path=config.pretrained_path,
-        device=str(device),
-        num_steps=config.num_denoising_steps,
-        train_action_head=config.train_action_head,
-        train_time_mlp=config.train_time_mlp,
-        train_full_expert=config.train_full_expert,
-        train_noise_head=config.train_noise_head,
-        train_critic=config.train_critic,
-    )
-    rl_policy.base.model.sigma_min = config.sigma_min
-    rl_policy.base.model.sigma_max = config.sigma_max
-    print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
+    # Select appropriate setup function based on model type
+    if config.model_type == "pi0":
+        rl_policy, preprocessor, postprocessor = setup_reinflow_pi0_policy(
+            pretrained_path=config.pretrained_path,
+            device=str(device),
+            num_steps=config.num_denoising_steps,
+            train_action_head=config.train_action_head,
+            train_time_mlp=config.train_time_mlp,
+            train_full_expert=config.train_full_expert,
+            train_noise_head=config.train_noise_head,
+            train_critic=config.train_critic,
+            sigma_min=config.sigma_min,
+            sigma_max=config.sigma_max,
+            gradient_checkpointing=config.pi0_gradient_checkpointing,
+        )
+        print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
+    else:
+        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
+            pretrained_path=config.pretrained_path,
+            device=str(device),
+            num_steps=config.num_denoising_steps,
+            train_action_head=config.train_action_head,
+            train_time_mlp=config.train_time_mlp,
+            train_full_expert=config.train_full_expert,
+            train_noise_head=config.train_noise_head,
+            train_critic=config.train_critic,
+        )
+        rl_policy.base.model.sigma_min = config.sigma_min
+        rl_policy.base.model.sigma_max = config.sigma_max
+        print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
     # Load checkpoint if resuming
     start_episode = 0
@@ -762,7 +847,11 @@ def train_sequential(config, args, device):
         checkpoint_to_load = config.checkpoint_path
     
     if checkpoint_to_load and os.path.exists(checkpoint_to_load):
-        start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        # Use model-appropriate checkpoint loader
+        if config.model_type == "pi0":
+            start_episode, wandb_run_id = load_reinflow_pi0_checkpoint(rl_policy, checkpoint_to_load, str(device))
+        else:
+            start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -771,6 +860,7 @@ def train_sequential(config, args, device):
             id=wandb_run_id,
             resume="allow",
             config={
+                "model_type": config.model_type,
                 "policy_lr": config.policy_lr,
                 "critic_lr": config.critic_lr,
                 "gamma": config.gamma,
@@ -787,6 +877,7 @@ def train_sequential(config, args, device):
                 "train_noise_head": config.train_noise_head,
                 "train_critic": config.train_critic,
                 "training_mode": "ppo-on-policy",
+                "gradient_checkpointing": config.pi0_gradient_checkpointing if config.model_type == "pi0" else False,
             },
         )
         wandb_run_id = wandb.run.id
@@ -1190,10 +1281,16 @@ def train_sequential(config, args, device):
             
             # Save checkpoint periodically
             if (episode + 1) % config.save_interval == 0:
-                save_reinflow_checkpoint(
-                    rl_policy, episode, episode_rewards_history, 
-                    config.checkpoint_path, wandb_run_id
-                )
+                if config.model_type == "pi0":
+                    save_reinflow_pi0_checkpoint(
+                        rl_policy, episode, episode_rewards_history, 
+                        config.checkpoint_path, wandb_run_id
+                    )
+                else:
+                    save_reinflow_checkpoint(
+                        rl_policy, episode, episode_rewards_history, 
+                        config.checkpoint_path, wandb_run_id
+                    )
     
     except KeyboardInterrupt:
         print("\n\nTraining interrupted by user.")
@@ -1205,10 +1302,16 @@ def train_sequential(config, args, device):
             wandb.finish()
     
     # Save final checkpoint
-    save_reinflow_checkpoint(
-        rl_policy, episode, episode_rewards_history, 
-        config.checkpoint_path, wandb_run_id
-    )
+    if config.model_type == "pi0":
+        save_reinflow_pi0_checkpoint(
+            rl_policy, episode, episode_rewards_history, 
+            config.checkpoint_path, wandb_run_id
+        )
+    else:
+        save_reinflow_checkpoint(
+            rl_policy, episode, episode_rewards_history, 
+            config.checkpoint_path, wandb_run_id
+        )
     
     print("\n" + "="*60)
     print("Training Complete!")
@@ -1227,12 +1330,18 @@ def train(config=None, args=None):
     """
     Main training entry point - dispatches to parallel or sequential training.
     Uses on-policy actor-critic training.
+    
+    Supports both SmolVLA (default) and Pi0 models.
     """
     if config is None:
         config = TrainingConfig()
     
     # Apply command line overrides
     if args is not None:
+        # Model type selection
+        if hasattr(args, 'model_type') and args.model_type is not None:
+            config.model_type = args.model_type
+        
         if args.no_render:
             config.render = False
         if args.headless:
@@ -1255,17 +1364,62 @@ def train(config=None, args=None):
             config.train_full_expert = True
         if args.no_full_expert:
             config.train_full_expert = False
+        if hasattr(args, 'no_gradient_checkpointing') and args.no_gradient_checkpointing:
+            config.pi0_gradient_checkpointing = False
+    
+    # Apply Pi0-specific defaults if using Pi0 model
+    if config.model_type == "pi0":
+        print("\n" + "="*60)
+        print("Pi0 Model Selected - Applying Pi0-specific settings")
+        print("="*60)
+        
+        # Use Pi0 pretrained path if not overridden
+        if config.pretrained_path == "lerobot/smolvla_base":
+            config.pretrained_path = config.pi0_pretrained_path
+        
+        # Reduce batch size and increase accumulation for 3.3B model
+        if config.minibatch_size > 2:
+            print(f"  [Pi0] Reducing minibatch_size: {config.minibatch_size} -> 2")
+            config.minibatch_size = 2
+        
+        if config.gradient_accumulation_steps < 30:
+            print(f"  [Pi0] Increasing gradient_accumulation_steps: {config.gradient_accumulation_steps} -> 30")
+            config.gradient_accumulation_steps = 30
+        
+        # Reduce learning rate for larger model
+        if config.policy_lr > 2.5e-6:
+            print(f"  [Pi0] Reducing policy_lr: {config.policy_lr} -> 2.5e-6")
+            config.policy_lr = 2.5e-6
+        
+        # Reduce parallel envs for memory
+        if config.num_parallel_envs > 4:
+            print(f"  [Pi0] Reducing num_parallel_envs: {config.num_parallel_envs} -> 4")
+            config.num_parallel_envs = 4
+        
+        # Update wandb project name
+        config.wandb_project = "reinflow-pi0"
+        
+        # Update checkpoint path
+        if config.checkpoint_path == "reinflow_checkpoint.pt":
+            config.checkpoint_path = "reinflow_pi0_checkpoint.pt"
+        
+        print(f"  [Pi0] Gradient checkpointing: {config.pi0_gradient_checkpointing}")
+        print("="*60 + "\n")
     
     # Device setup
     if torch.backends.mps.is_available():
         device = torch.device("mps")
         print(f"Using device: {device} (Apple Silicon GPU)")
+        if config.model_type == "pi0":
+            print("  WARNING: Pi0 on MPS may have limited support. CUDA recommended.")
     elif torch.cuda.is_available():
         device = torch.device("cuda")
         print(f"Using device: {device}")
     else:
         device = torch.device("cpu")
         print(f"Using device: {device}")
+        if config.model_type == "pi0":
+            print("  WARNING: Pi0 on CPU will be very slow. CUDA strongly recommended.")
     
     # Dispatch to appropriate training loop
     if config.num_parallel_envs > 1:

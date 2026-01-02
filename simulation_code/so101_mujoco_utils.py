@@ -127,6 +127,163 @@ def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base", polic
     return preprocessor, postprocessor
 
 
+# ===== Pi0 Processor Cache =====
+_cached_pi0_preprocessor = None
+_cached_pi0_postprocessor = None
+_cached_pi0_pretrained_path = None
+
+
+def load_pi0_processors(pretrained_path: str = "lerobot/pi0", policy_config=None) -> Tuple[Any, Any]:
+    """
+    Load preprocessor and postprocessor for Pi0 model.
+    
+    Pi0 uses similar normalization to SmolVLA, so we use the same
+    PolicyProcessorPipeline approach.
+    
+    Args:
+        pretrained_path: HuggingFace model path or local checkpoint
+        policy_config: Optional PI0Config for creating default processors
+        
+    Returns:
+        (preprocessor, postprocessor) tuple for normalizing inputs and denormalizing outputs
+    """
+    global _cached_pi0_preprocessor, _cached_pi0_postprocessor, _cached_pi0_pretrained_path
+    
+    # Return cached processors if already loaded for this path
+    if _cached_pi0_pretrained_path == pretrained_path and _cached_pi0_preprocessor is not None:
+        return _cached_pi0_preprocessor, _cached_pi0_postprocessor
+    
+    try:
+        from lerobot.processor import PolicyProcessorPipeline
+    except ImportError as e:
+        raise ImportError(
+            f"Could not import PolicyProcessorPipeline from LeRobot.\n"
+            f"Original error: {e}"
+        ) from e
+    
+    print(f"[Pi0] Loading processors from {pretrained_path}...")
+    
+    preprocessor = None
+    postprocessor = None
+    hub_load_failed = False
+    
+    # Try to load from HuggingFace Hub first
+    try:
+        preprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="preprocessor_config.json"
+        )
+        postprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="postprocessor_config.json"
+        )
+        print(f"[Pi0] Processors loaded from Hub successfully!")
+    except (FileNotFoundError, Exception) as e:
+        error_msg = str(e)
+        if "404" in error_msg or "Not Found" in error_msg or "Could not find" in error_msg:
+            print(f"[Pi0] Processor configs not found on Hub (this is normal for older models)")
+            hub_load_failed = True
+        else:
+            raise RuntimeError(
+                f"Failed to load processors from '{pretrained_path}'.\n"
+                f"Original error: {e}"
+            ) from e
+    
+    # Fall back to creating default processors from policy config
+    if hub_load_failed:
+        if policy_config is None:
+            print(f"[Pi0] Warning: No processors available, using identity normalization")
+            _cached_pi0_preprocessor = None
+            _cached_pi0_postprocessor = None
+            _cached_pi0_pretrained_path = pretrained_path
+            return None, None
+        
+        try:
+            # Try to create default processors using Pi0's processor
+            from lerobot.policies.pi0.processor_pi0 import make_pi0_pre_post_processors
+            print(f"[Pi0] Creating default processors from policy config (identity normalization)...")
+            preprocessor, postprocessor = make_pi0_pre_post_processors(
+                config=policy_config,
+                dataset_stats=None,
+            )
+            print(f"[Pi0] Default processors created successfully!")
+        except Exception as e:
+            print(f"[Pi0] Warning: Could not create Pi0 processors: {e}")
+            print(f"[Pi0] Using identity normalization")
+            preprocessor = None
+            postprocessor = None
+    
+    # Cache for future use
+    _cached_pi0_preprocessor = preprocessor
+    _cached_pi0_postprocessor = postprocessor
+    _cached_pi0_pretrained_path = pretrained_path
+    
+    return preprocessor, postprocessor
+
+
+def load_vla_processors(model_type: str, pretrained_path: str, policy_config=None) -> Tuple[Any, Any]:
+    """
+    Load processors for either SmolVLA or Pi0 model.
+    
+    This is the unified dispatcher function that selects the correct
+    processor loading function based on model type.
+    
+    Args:
+        model_type: "smolvla" or "pi0"
+        pretrained_path: HuggingFace model path or local checkpoint
+        policy_config: Optional policy config for creating default processors
+        
+    Returns:
+        (preprocessor, postprocessor) tuple
+    """
+    if model_type == "smolvla":
+        return load_smolvla_processors(pretrained_path, policy_config)
+    elif model_type == "pi0":
+        return load_pi0_processors(pretrained_path, policy_config)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}. Must be 'smolvla' or 'pi0'.")
+
+
+def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preprocessor) -> np.ndarray:
+    """
+    DEPRECATED: Use prepare_observation() with preprocessor instead.
+    
+    This function is kept for backward compatibility with so101_gym_env.py.
+    For inference scripts, use prepare_observation() which handles the full
+    preprocessing pipeline including tokenization.
+    
+    Args:
+        state_radians: numpy array of joint positions in radians (6,)
+        model_type: "smolvla" or "pi0" (currently both use same approach)
+        preprocessor: PolicyProcessorPipeline for normalization (can be None)
+        
+    Returns:
+        normalized state as numpy array (6,)
+    """
+    import warnings
+    warnings.warn(
+        "normalize_state_for_vla() is deprecated. Use prepare_observation() with preprocessor instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return normalize_state_for_smolvla(state_radians, preprocessor=preprocessor)
+
+
+def unnormalize_action_for_vla(action_normalized: np.ndarray, model_type: str, postprocessor) -> np.ndarray:
+    """
+    Model-agnostic action denormalization.
+    
+    Both SmolVLA and Pi0 use the same denormalization approach via the postprocessor.
+    
+    Args:
+        action_normalized: numpy array of normalized actions
+        model_type: "smolvla" or "pi0" (currently both use same approach)
+        postprocessor: PolicyProcessorPipeline for denormalization (can be None)
+        
+    Returns:
+        action in MuJoCo radians as numpy array
+    """
+    return unnormalize_action_from_smolvla(action_normalized, postprocessor=postprocessor)
+
+
 def mujoco_to_physical_state(state_radians: np.ndarray) -> np.ndarray:
     """
     Convert MuJoCo joint state (radians) to physical robot frame.
@@ -234,71 +391,69 @@ def hold_position(m, d, viewer, duration):
 
 def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor) -> np.ndarray:
     """
-    Normalize robot state for SmolVLA input.
+    DEPRECATED: For new code, use prepare_observation() with preprocessor instead.
+    
+    Normalize robot state for SmolVLA/Pi0 input.
+    This function is kept for backward compatibility with so101_gym_env.py.
     
     Pipeline:
     1. MuJoCo radians -> physical robot frame (apply offset)
-    2. Apply preprocessor normalization
+    2. Apply preprocessor normalization (if available)
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
-        preprocessor: PolicyProcessorPipeline for normalization (required)
+        preprocessor: PolicyProcessorPipeline for normalization (can be None for identity)
     
     Returns:
         normalized state as numpy array (6,)
-        
-    Raises:
-        ValueError: If preprocessor is None
-        RuntimeError: If preprocessor fails to process the state
     """
-    if preprocessor is None:
-        raise ValueError(
-            "preprocessor is required for normalize_state_for_smolvla().\n"
-            "Load processors using: preprocessor, postprocessor = load_smolvla_processors(pretrained_path)"
-        )
-    
     # Step 1: Convert to physical robot frame
     physical_state = mujoco_to_physical_state(state_radians)
     
-    # Step 2: Apply preprocessor normalization
+    # Step 2: Apply preprocessor normalization if available
+    if preprocessor is None:
+        # Identity normalization - just return physical state
+        return physical_state
+    
     try:
         obs_dict = {"observation.state": torch.from_numpy(physical_state).float().unsqueeze(0)}
         processed = preprocessor(obs_dict)
-        normalized = processed["observation.state"].squeeze(0).numpy()
+        
+        # Handle different preprocessor return formats
+        if isinstance(processed, dict) and "observation" in processed:
+            normalized = processed["observation"]["observation.state"].squeeze(0).numpy()
+        elif "observation.state" in processed:
+            normalized = processed["observation.state"].squeeze(0).numpy()
+        else:
+            # Fallback: return physical state if we can't find the expected key
+            return physical_state
+        
         return normalized
     except Exception as e:
-        raise RuntimeError(
-            f"Preprocessor failed to normalize state.\n"
-            f"Input state: {state_radians}\n"
-            f"Physical state: {physical_state}\n"
-            f"Original error: {e}"
-        ) from e
+        # On error, fall back to identity normalization with warning
+        import warnings
+        warnings.warn(f"Preprocessor failed, using identity normalization: {e}")
+        return physical_state
 
 
 def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
     """
-    Unnormalize action output from SmolVLA.
+    Unnormalize action output from SmolVLA/Pi0.
     
     Pipeline:
-    1. Apply postprocessor denormalization
+    1. Apply postprocessor denormalization (if available)
     2. Physical robot frame -> MuJoCo radians (remove offset)
     
     Args:
         action_normalized: numpy array of normalized actions (6,) or (chunk_size, 6)
-        postprocessor: PolicyProcessorPipeline for denormalization (required)
+        postprocessor: PolicyProcessorPipeline for denormalization (can be None for identity)
     
     Returns:
         action in MuJoCo radians as numpy array
-        
-    Raises:
-        ValueError: If postprocessor is None
-        RuntimeError: If postprocessor fails to process the action
     """
     if postprocessor is None:
-        raise ValueError(
-            "postprocessor is required for unnormalize_action_from_smolvla().\n"
-            "Load processors using: preprocessor, postprocessor = load_smolvla_processors(pretrained_path)"
-        )
+        # Identity denormalization - just convert frame
+        return physical_to_mujoco_action(action_normalized)
     
     # Handle both single action and action chunks
     original_shape = action_normalized.shape
@@ -318,10 +473,11 @@ def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor
 def _unnormalize_single_action(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
     """Helper to unnormalize a single action."""
     # Apply postprocessor denormalization
+    # Note: Pi0's postprocessor expects a raw tensor (PolicyAction), not a dict
     try:
-        action_dict = {"action": torch.from_numpy(action_normalized).float().unsqueeze(0)}
-        processed = postprocessor(action_dict)
-        physical_action = processed["action"].squeeze(0).numpy()
+        action_tensor = torch.from_numpy(action_normalized).float().unsqueeze(0)
+        processed = postprocessor(action_tensor)  # Pass tensor directly
+        physical_action = processed.squeeze(0).numpy()
     except Exception as e:
         raise RuntimeError(
             f"Postprocessor failed to denormalize action.\n"
@@ -348,8 +504,10 @@ def get_robot_state(d):
 
 def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, preprocessor=None, debug=False):
     """
-    Prepare observation dict for SmolVLA policy with multiple cameras.
-    Format based on LeRobot conventions with SmolVLA standardized camera naming.
+    Prepare observation dict for VLA policy (SmolVLA or Pi0) with multiple cameras.
+    
+    This function builds a proper LeRobot EnvTransition dict and passes it through 
+    the preprocessor, which handles all normalization and tokenization reliably.
     
     Args:
         rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
@@ -358,61 +516,93 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         robot_state: numpy array of robot state in RADIANS (from MuJoCo)
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
-        policy: SmolVLA policy object (needed for tokenization)
-        preprocessor: Optional PolicyProcessorPipeline for state normalization
+        policy: VLA policy object (used for fallback tokenization if preprocessor unavailable)
+        preprocessor: PolicyProcessorPipeline for complete preprocessing (recommended)
     
     Returns:
-        observation: dict with images and state tensors using SmolVLA standard keys
+        observation: dict with images, state, and language tensors using VLA standard keys
     """
-    # Convert top camera image to torch tensor and normalize
-    # Expected format: (C, H, W) with values in [0, 1]
-    image_top_tensor = torch.from_numpy(rgb_image_top).float() / 255.0
-    # Transpose from (H, W, C) to (C, H, W)
-    image_top_tensor = image_top_tensor.permute(2, 0, 1)
-    # Add batch dimension
-    image_top_tensor = image_top_tensor.unsqueeze(0)
-    # Move to device
-    image_top_tensor = image_top_tensor.to(device)
+    # Step 1: Convert MuJoCo state to physical robot frame (without normalization)
+    physical_state = mujoco_to_physical_state(robot_state)
     
-    # Convert wrist camera image to torch tensor and normalize
-    image_wrist_tensor = torch.from_numpy(rgb_image_wrist).float() / 255.0
-    image_wrist_tensor = image_wrist_tensor.permute(2, 0, 1)
-    image_wrist_tensor = image_wrist_tensor.unsqueeze(0)
-    image_wrist_tensor = image_wrist_tensor.to(device)
+    # Step 2: Convert images to tensors with [0, 1] range and (C, H, W) format
+    def numpy_to_image_tensor(img_numpy):
+        """Convert (H, W, C) uint8 numpy to (C, H, W) float tensor in [0, 1]."""
+        img_tensor = torch.from_numpy(img_numpy).float() / 255.0
+        return img_tensor.permute(2, 0, 1)  # (H, W, C) -> (C, H, W)
     
-    # Convert side camera image to torch tensor and normalize
-    image_side_tensor = torch.from_numpy(rgb_image_side).float() / 255.0
-    image_side_tensor = image_side_tensor.permute(2, 0, 1)
-    image_side_tensor = image_side_tensor.unsqueeze(0)
-    image_side_tensor = image_side_tensor.to(device)
+    image_top_tensor = numpy_to_image_tensor(rgb_image_top)
+    image_wrist_tensor = numpy_to_image_tensor(rgb_image_wrist)
+    image_side_tensor = numpy_to_image_tensor(rgb_image_side)
+    state_tensor = torch.from_numpy(physical_state).float()
     
-    # Normalize robot state for SmolVLA using preprocessor if available
-    normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
-    state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
+    # Step 3: Use preprocessor if available (recommended path)
+    if preprocessor is not None:
+        # Build a FLAT batch dict - LeRobot's batch_to_transition expects this format
+        # Keys must be prefixed with "observation." and task should be at top level
+        batch = {
+            "observation.images.camera1": image_top_tensor,
+            "observation.images.camera2": image_wrist_tensor,
+            "observation.images.camera3": image_side_tensor,
+            "observation.state": state_tensor,
+            "task": instruction,  # Preprocessor's TokenizerProcessorStep reads this
+        }
+        
+        try:
+            # Pass through preprocessor pipeline
+            # The pipeline handles: batch dimension, normalization, tokenization, device placement
+            processed = preprocessor(batch)
+            
+            # Processed result is a flat dict with observation keys
+            # Build final observation dict, moving to device
+            observation = {}
+            for key, value in processed.items():
+                if isinstance(value, torch.Tensor):
+                    observation[key] = value.to(device)
+                else:
+                    observation[key] = value
+            
+            if debug:
+                print(f"\n[Observation Preparation Debug - Preprocessor Path]")
+                print(f"  Instruction: '{instruction}'")
+                print(f"  Preprocessor: {type(preprocessor).__name__}")
+                for key, val in observation.items():
+                    if isinstance(val, torch.Tensor):
+                        print(f"  {key}: shape={val.shape}, dtype={val.dtype}, device={val.device}")
+                        if "image" in key:
+                            print(f"    range: [{val.min():.3f}, {val.max():.3f}]")
+            
+            return observation
+            
+        except Exception as e:
+            print(f"[Warning] Preprocessor failed: {e}")
+            print(f"[Warning] Falling back to manual preprocessing")
+            # Fall through to manual preprocessing
     
-    # Tokenize the instruction if policy is provided
+    # Step 4: Fallback - manual preprocessing (for backward compatibility)
+    print("[Warning] Using manual preprocessing - preprocessor not available or failed")
+    
+    # Add batch dimension to images and state
+    image_top_tensor = image_top_tensor.unsqueeze(0).to(device)
+    image_wrist_tensor = image_wrist_tensor.unsqueeze(0).to(device)
+    image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
+    state_tensor = state_tensor.unsqueeze(0).to(device)
+    
+    # Manual tokenization if policy has tokenizer
     if policy is not None and hasattr(policy, 'tokenizer'):
-        # Tokenize the instruction
         tokens = policy.tokenizer(
             instruction,
             return_tensors="pt",
             padding=True,
             truncation=True
         )
-        # Move tokens to device and get input_ids and attention_mask
         language_tokens = tokens['input_ids'].to(device)
-        # Convert attention_mask to boolean type
         attention_mask = tokens['attention_mask'].bool().to(device)
     else:
-        # Fallback: create dummy tensors if no tokenizer available
+        # Dummy tokens as last resort
         language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
     
-    # Observation dictionary with all three cameras
-    # Using camera1/camera2/camera3 keys that the pretrained model expects
-    # camera1: Top-down view (corresponds to OBS_IMAGE_1 in documentation)
-    # camera2: Wrist-mounted view (corresponds to OBS_IMAGE_2 in documentation)
-    # camera3: Side view (corresponds to OBS_IMAGE_3 in documentation)
     observation = {
         "observation.images.camera1": image_top_tensor,
         "observation.images.camera2": image_wrist_tensor,
@@ -422,27 +612,17 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         "observation.language.attention_mask": attention_mask,
     }
     
-    # DEBUG: Check if tokenizer worked (only if debug=True)
     if debug:
-        print(f"\n[Observation Preparation Debug]")
+        print(f"\n[Observation Preparation Debug - Manual Fallback]")
         print(f"  Instruction: '{instruction}'")
         print(f"  Policy provided: {policy is not None}")
-        print(f"  Preprocessor provided: {preprocessor is not None}")
         if policy is not None:
             print(f"  Has tokenizer: {hasattr(policy, 'tokenizer')}")
             if hasattr(policy, 'tokenizer'):
                 print(f"  Token shape: {language_tokens.shape}")
-                print(f"  First 15 tokens: {language_tokens[0][:15].tolist()}")
-                print(f"  Attention mask shape: {attention_mask.shape}")
-            else:
-                print(f"  WARNING: Policy has no tokenizer! Using dummy tokens.")
-        print(f"  Image camera1 (top) shape: {image_top_tensor.shape}, range: [{image_top_tensor.min():.3f}, {image_top_tensor.max():.3f}]")
-        print(f"  Image camera2 (wrist) shape: {image_wrist_tensor.shape}, range: [{image_wrist_tensor.min():.3f}, {image_wrist_tensor.max():.3f}]")
-        print(f"  Image camera3 (side) shape: {image_side_tensor.shape}, range: [{image_side_tensor.min():.3f}, {image_side_tensor.max():.3f}]")
-        print(f"  State shape: {state_tensor.shape}")
-        print(f"  Raw state (radians): {robot_state.tolist()}")
-        print(f"  Physical state (with offset): {mujoco_to_physical_state(robot_state).tolist()}")
-        print(f"  Normalized state: {normalized_state.tolist()}")
+        for key, val in observation.items():
+            if isinstance(val, torch.Tensor):
+                print(f"  {key}: shape={val.shape}")
     
     return observation
 
