@@ -270,9 +270,9 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Action shape: {action.shape}")
                     print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
 
-                # Unnormalize action from VLA output using postprocessor (normalized -> physical -> radians)
-                # Note: SmolVLA and Pi0 use the same denormalization pipeline
-                action_radians = unnormalize_action_from_smolvla(action, postprocessor=postprocessor)
+                # Unnormalize action based on model type (SmolVLA uses hardcoded, Pi0 uses postprocessor)
+                # This converts: normalized -> physical -> MuJoCo radians
+                action_radians = unnormalize_action_for_vla(action, MODEL_TYPE, postprocessor)
                 
                 # Convert action to degrees dict for SO101
                 last_action_dict = convert_to_dictionary(action_radians)

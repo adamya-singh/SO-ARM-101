@@ -31,9 +31,14 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from transformers import AutoTokenizer
 
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy, make_att_2d_masks
-from lerobot.utils.constants import OBS_LANGUAGE_TOKENS, OBS_LANGUAGE_ATTENTION_MASK, OBS_STATE
-from so101_mujoco_utils import normalize_state_for_smolvla, load_smolvla_processors
 import torch.nn.functional as F
+
+# LeRobot observation keys - defined locally to avoid import issues across versions
+OBS_LANGUAGE_TOKENS = "observation.language.tokens"
+OBS_LANGUAGE_ATTENTION_MASK = "observation.language.attention_mask"
+OBS_STATE = "observation.state"
+
+from so101_mujoco_utils import normalize_state_for_smolvla
 
 # Import adapters (lazy import to avoid circular deps)
 from vla_policy_interface import VLAPolicyInterface
@@ -807,9 +812,11 @@ def setup_reinflow_policy(
     train_full_expert: bool = False,
     train_noise_head: bool = True,
     train_critic: bool = True,
-) -> Tuple['ReinFlowSmolVLA', Optional[Any], Optional[Any]]:
+) -> 'ReinFlowSmolVLA':
     """
     Load SmolVLA and wrap with ReinFlow for RL training.
+    
+    SmolVLA uses hardcoded normalization stats (no preprocessor/postprocessor needed).
     
     Args:
         pretrained_path: HuggingFace model path or local checkpoint
@@ -822,8 +829,7 @@ def setup_reinflow_policy(
         train_critic: Whether to train critic network (default True for actor-critic)
     
     Returns:
-        Tuple of (ReinFlowSmolVLA policy, preprocessor, postprocessor)
-        The processors handle normalization/denormalization using official model stats.
+        ReinFlowSmolVLA policy (SmolVLA uses hardcoded normalization, no processors needed)
     """
     # Auto-detect device
     if device is None:
@@ -848,16 +854,11 @@ def setup_reinflow_policy(
         tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Video-Instruct")
         base_policy.tokenizer = tokenizer
     
-    # Load preprocessor and postprocessor for normalization
-    # Pass policy config as fallback for creating default processors (identity normalization for RL)
-    preprocessor, postprocessor = load_smolvla_processors(pretrained_path, policy_config=base_policy.config)
-    
     print("[ReinFlow] SmolVLA loaded successfully!")
     print(f"[ReinFlow] Setting up ReinFlow wrapper with {num_steps} denoising steps...")
     print(f"[ReinFlow] Using NOISE NETWORK (not scalar sigmas)")
     print(f"[ReinFlow] Actor-Critic mode: {train_critic}")
-    print(f"[ReinFlow] Preprocessor loaded: {preprocessor is not None}")
-    print(f"[ReinFlow] Postprocessor loaded: {postprocessor is not None}")
+    print(f"[ReinFlow] Using hardcoded normalization stats (no processors)")
     
     # Wrap with ReinFlow
     reinflow_policy = ReinFlowSmolVLA(
@@ -871,7 +872,7 @@ def setup_reinflow_policy(
         device=device,
     )
     
-    return reinflow_policy, preprocessor, postprocessor
+    return reinflow_policy
 
 
 def prepare_observation_for_reinflow(
@@ -882,13 +883,14 @@ def prepare_observation_for_reinflow(
     instruction: str,
     device,
     policy: ReinFlowSmolVLA,
-    preprocessor=None,
 ):
     """
-    Prepare observation dict for ReinFlow policy.
+    Prepare observation dict for ReinFlow policy (SmolVLA).
     
     This is a convenience function that handles image preprocessing and
     tokenization, matching the format expected by SmolVLA.
+    
+    Uses hardcoded normalization stats for SmolVLA (no preprocessor needed).
     
     Args:
         rgb_image_top: (H, W, C) numpy array from top camera [0, 255]
@@ -898,7 +900,6 @@ def prepare_observation_for_reinflow(
         instruction: Task instruction string
         device: Torch device
         policy: ReinFlowSmolVLA policy (for tokenizer access)
-        preprocessor: Optional PolicyProcessorPipeline for state normalization
     
     Returns:
         observation: dict ready for policy.forward()
@@ -918,8 +919,8 @@ def prepare_observation_for_reinflow(
     image_side_tensor = image_side_tensor.permute(2, 0, 1)
     image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
     
-    # Normalize robot state for SmolVLA using preprocessor
-    normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
+    # Normalize robot state for SmolVLA using hardcoded stats
+    normalized_state = normalize_state_for_smolvla(robot_state)
     state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize instruction

@@ -4,128 +4,25 @@ import numpy as np
 import torch
 from typing import Optional, Tuple, Any
 
-# ===== MuJoCo to Physical Robot Coordinate Offset =====
-# Physical Robot Position = MuJoCo Position (radians converted to physical units) + OFFSET
+# ===== MuJoCo to Physical Robot Coordinate Offset (in DEGREES) =====
+# Physical Robot Position = MuJoCo Position (radians converted to degrees) + OFFSET
 # This allows sim-trained policies to deploy on physical robots with different zero-points
 MUJOCO_TO_PHYSICAL_OFFSET = np.array([
-    0.0,    # shoulder_pan
-    0.0,    # shoulder_lift
-    0.0,    # elbow_flex
-    0.0,    # wrist_flex
-    0.0,    # wrist_roll
-    0.0,    # gripper
+    0.0,      # shoulder_pan
+    0.0,      # shoulder_lift
+    100.0,    # elbow_flex - physical robot has different zero point
+    0.0,      # wrist_flex
+    0.0,      # wrist_roll
+    0.0,      # gripper
 ])
 
-# ===== Cached Processors =====
-# Global cache for loaded processors to avoid reloading
-_cached_preprocessor = None
-_cached_postprocessor = None
-_cached_pretrained_path = None
-
-
-def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base", policy_config=None) -> Tuple[Any, Any]:
-    """
-    Load preprocessor and postprocessor from a SmolVLA model repository.
-    
-    Uses LeRobot's PolicyProcessorPipeline to load normalization stats
-    directly from the model. If Hub files don't exist, falls back to creating
-    default processors from the policy config (identity normalization for RL training).
-    
-    Args:
-        pretrained_path: HuggingFace model path or local checkpoint
-        policy_config: Optional SmolVLAConfig for creating default processors
-        
-    Returns:
-        (preprocessor, postprocessor) tuple for normalizing inputs and denormalizing outputs
-        
-    Raises:
-        ImportError: If LeRobot's PolicyProcessorPipeline cannot be imported
-        RuntimeError: If processors cannot be loaded and no policy_config provided
-    """
-    global _cached_preprocessor, _cached_postprocessor, _cached_pretrained_path
-    
-    # Return cached processors if already loaded for this path
-    if _cached_pretrained_path == pretrained_path and _cached_preprocessor is not None:
-        return _cached_preprocessor, _cached_postprocessor
-    
-    # Try to import PolicyProcessorPipeline
-    try:
-        from lerobot.processor import PolicyProcessorPipeline
-    except ImportError as e:
-        raise ImportError(
-            f"Could not import PolicyProcessorPipeline from LeRobot.\n"
-            f"Make sure you have the latest LeRobot installed with processor support.\n"
-            f"Try: pip install --upgrade lerobot\n"
-            f"Or check if your LeRobot fork has the PolicyProcessorPipeline class.\n"
-            f"Original error: {e}"
-        ) from e
-    
-    print(f"[SmolVLA] Loading processors from {pretrained_path}...")
-    
-    preprocessor = None
-    postprocessor = None
-    hub_load_failed = False
-    
-    # Try to load from HuggingFace Hub first
-    try:
-        preprocessor = PolicyProcessorPipeline.from_pretrained(
-            pretrained_path, config_filename="preprocessor_config.json"
-        )
-        postprocessor = PolicyProcessorPipeline.from_pretrained(
-            pretrained_path, config_filename="postprocessor_config.json"
-        )
-        print(f"[SmolVLA] Processors loaded from Hub successfully!")
-    except (FileNotFoundError, Exception) as e:
-        error_msg = str(e)
-        if "404" in error_msg or "Not Found" in error_msg or "Could not find" in error_msg:
-            print(f"[SmolVLA] Processor configs not found on Hub (this is normal for older models)")
-            hub_load_failed = True
-        else:
-            # Re-raise unexpected errors
-            raise RuntimeError(
-                f"Failed to load processors from '{pretrained_path}'.\n"
-                f"Original error: {e}"
-            ) from e
-    
-    # Fall back to creating default processors from policy config
-    if hub_load_failed:
-        if policy_config is None:
-            raise RuntimeError(
-                f"Could not load processors from Hub and no policy_config provided.\n"
-                f"For RL training, pass policy_config=base_policy.config to load_smolvla_processors()."
-            )
-        
-        try:
-            from lerobot.policies.smolvla.processor_smolvla import make_smolvla_pre_post_processors
-            print(f"[SmolVLA] Creating default processors from policy config (identity normalization)...")
-            print(f"[SmolVLA] Note: No dataset stats - using pass-through normalization for RL training")
-            preprocessor, postprocessor = make_smolvla_pre_post_processors(
-                config=policy_config,
-                dataset_stats=None,  # Identity normalization - data passes through unchanged
-            )
-            print(f"[SmolVLA] Default processors created successfully!")
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to create default processors from policy config.\n"
-                f"Original error: {e}"
-            ) from e
-    
-    # Cache for future use
-    _cached_preprocessor = preprocessor
-    _cached_postprocessor = postprocessor
-    _cached_pretrained_path = pretrained_path
-    
-    # Print loaded stats for verification
-    if hasattr(preprocessor, 'steps'):
-        for step in preprocessor.steps:
-            if hasattr(step, 'stats') and step.stats:
-                print(f"[SmolVLA] Preprocessor has normalization stats")
-                break
-        else:
-            print(f"[SmolVLA] Preprocessor using identity normalization (no stats)")
-    
-    return preprocessor, postprocessor
-
+# ===== SmolVLA Normalization Stats (in DEGREES) =====
+# These are the mean/std values from the SO-100 training data
+# Used for z-score normalization: normalized = (value - mean) / std
+SMOLVLA_STATE_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
+SMOLVLA_STATE_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
+SMOLVLA_ACTION_MEAN = np.array([1.596, 119.944, 109.770, 56.706, -27.423, 12.003])
+SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
 
 # ===== Pi0 Processor Cache =====
 _cached_pi0_preprocessor = None
@@ -232,56 +129,94 @@ def load_vla_processors(model_type: str, pretrained_path: str, policy_config=Non
         policy_config: Optional policy config for creating default processors
         
     Returns:
-        (preprocessor, postprocessor) tuple
+        (preprocessor, postprocessor) tuple - (None, None) for SmolVLA which uses hardcoded stats
     """
     if model_type == "smolvla":
-        return load_smolvla_processors(pretrained_path, policy_config)
+        # SmolVLA uses hardcoded normalization stats, no processor needed
+        print(f"[SmolVLA] Using hardcoded normalization stats (no processor)")
+        return None, None
     elif model_type == "pi0":
         return load_pi0_processors(pretrained_path, policy_config)
     else:
         raise ValueError(f"Unknown model type: {model_type}. Must be 'smolvla' or 'pi0'.")
 
 
-def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preprocessor) -> np.ndarray:
+def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preprocessor=None) -> np.ndarray:
     """
-    DEPRECATED: Use prepare_observation() with preprocessor instead.
+    Model-agnostic state normalization.
     
-    This function is kept for backward compatibility with so101_gym_env.py.
-    For inference scripts, use prepare_observation() which handles the full
-    preprocessing pipeline including tokenization.
+    Routes to the correct normalization function based on model type.
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
-        model_type: "smolvla" or "pi0" (currently both use same approach)
-        preprocessor: PolicyProcessorPipeline for normalization (can be None)
+        model_type: "smolvla" or "pi0"
+        preprocessor: PolicyProcessorPipeline for Pi0 (ignored for SmolVLA)
         
     Returns:
         normalized state as numpy array (6,)
     """
-    import warnings
-    warnings.warn(
-        "normalize_state_for_vla() is deprecated. Use prepare_observation() with preprocessor instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return normalize_state_for_smolvla(state_radians, preprocessor=preprocessor)
+    if model_type == "smolvla":
+        return normalize_state_for_smolvla(state_radians)
+    elif model_type == "pi0":
+        return normalize_state_for_pi0(state_radians, preprocessor)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}. Must be 'smolvla' or 'pi0'.")
 
 
-def unnormalize_action_for_vla(action_normalized: np.ndarray, model_type: str, postprocessor) -> np.ndarray:
+def unnormalize_action_for_vla(action_normalized: np.ndarray, model_type: str, postprocessor=None) -> np.ndarray:
     """
     Model-agnostic action denormalization.
     
-    Both SmolVLA and Pi0 use the same denormalization approach via the postprocessor.
+    Routes to the correct denormalization function based on model type.
     
     Args:
         action_normalized: numpy array of normalized actions
-        model_type: "smolvla" or "pi0" (currently both use same approach)
-        postprocessor: PolicyProcessorPipeline for denormalization (can be None)
+        model_type: "smolvla" or "pi0"
+        postprocessor: PolicyProcessorPipeline for Pi0 (ignored for SmolVLA)
         
     Returns:
         action in MuJoCo radians as numpy array
     """
-    return unnormalize_action_from_smolvla(action_normalized, postprocessor=postprocessor)
+    if model_type == "smolvla":
+        return unnormalize_action_from_smolvla(action_normalized)
+    elif model_type == "pi0":
+        return unnormalize_action_for_pi0(action_normalized, postprocessor)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}. Must be 'smolvla' or 'pi0'.")
+
+
+def mujoco_to_physical_degrees(state_radians: np.ndarray) -> np.ndarray:
+    """
+    Convert MuJoCo joint state (radians) to physical robot frame in DEGREES.
+    
+    Pipeline: radians -> degrees -> add offset
+    
+    Args:
+        state_radians: numpy array of joint positions in radians (6,)
+        
+    Returns:
+        state in physical robot frame in degrees
+    """
+    state_degrees = np.degrees(state_radians)
+    physical_degrees = state_degrees + MUJOCO_TO_PHYSICAL_OFFSET
+    return physical_degrees
+
+
+def physical_degrees_to_mujoco(physical_degrees: np.ndarray) -> np.ndarray:
+    """
+    Convert physical robot frame (degrees) to MuJoCo frame (radians).
+    
+    Pipeline: subtract offset -> degrees -> radians
+    
+    Args:
+        physical_degrees: numpy array of actions in physical robot frame in degrees (6,)
+        
+    Returns:
+        action in MuJoCo radians
+    """
+    state_degrees = physical_degrees - MUJOCO_TO_PHYSICAL_OFFSET
+    state_radians = np.radians(state_degrees)
+    return state_radians
 
 
 def mujoco_to_physical_state(state_radians: np.ndarray) -> np.ndarray:
@@ -289,16 +224,18 @@ def mujoco_to_physical_state(state_radians: np.ndarray) -> np.ndarray:
     Convert MuJoCo joint state (radians) to physical robot frame.
     
     This handles coordinate frame conversion WITHOUT normalization.
-    The physical frame is what the SmolVLA model expects as input.
+    The physical frame is what the VLA model expects as input.
+    
+    Note: For Pi0 processor-based approach, this returns radians with offset.
+    For SmolVLA hardcoded approach, use mujoco_to_physical_degrees() instead.
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
         
     Returns:
-        state in physical robot frame (same units as training data)
+        state in physical robot frame (radians with offset applied)
     """
-    # The smolvla_base model expects states in radians (based on LeRobot convention)
-    # Apply offset for any zero-point differences between MuJoCo and physical robot
+    # Apply offset (converted to radians) for Pi0 processor-based approach
     physical_state = state_radians + np.radians(MUJOCO_TO_PHYSICAL_OFFSET)
     return physical_state
 
@@ -309,13 +246,16 @@ def physical_to_mujoco_action(physical_action: np.ndarray) -> np.ndarray:
     
     This handles coordinate frame conversion WITHOUT normalization.
     
+    Note: For Pi0 processor-based approach only.
+    For SmolVLA hardcoded approach, use physical_degrees_to_mujoco() instead.
+    
     Args:
-        physical_action: numpy array of actions in physical robot frame (6,)
+        physical_action: numpy array of actions in physical robot frame (radians) (6,)
         
     Returns:
         action in MuJoCo radians
     """
-    # Remove offset and keep in radians
+    # Remove offset (converted to radians) for Pi0 processor-based approach
     mujoco_action = physical_action - np.radians(MUJOCO_TO_PHYSICAL_OFFSET)
     return mujoco_action
 
@@ -389,15 +329,36 @@ def hold_position(m, d, viewer, duration):
 
 # ===== SmolVLA Helper Functions =====
 
-def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor) -> np.ndarray:
+def normalize_state_for_smolvla(state_radians: np.ndarray) -> np.ndarray:
     """
-    DEPRECATED: For new code, use prepare_observation() with preprocessor instead.
-    
-    Normalize robot state for SmolVLA/Pi0 input.
-    This function is kept for backward compatibility with so101_gym_env.py.
+    Normalize robot state for SmolVLA input using hardcoded stats.
     
     Pipeline:
-    1. MuJoCo radians -> physical robot frame (apply offset)
+    1. MuJoCo radians -> degrees
+    2. Add physical offset (in degrees)
+    3. Z-score normalize with SMOLVLA_STATE_MEAN/STD
+    
+    Args:
+        state_radians: numpy array of joint positions in radians (6,)
+    
+    Returns:
+        normalized state as numpy array (6,)
+    """
+    # Step 1 & 2: Convert to physical robot frame in degrees
+    physical_degrees = mujoco_to_physical_degrees(state_radians)
+    
+    # Step 3: Z-score normalization
+    normalized = (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+    
+    return normalized
+
+
+def normalize_state_for_pi0(state_radians: np.ndarray, preprocessor) -> np.ndarray:
+    """
+    Normalize robot state for Pi0 input using processor pipeline.
+    
+    Pipeline:
+    1. MuJoCo radians -> physical robot frame (apply offset in radians)
     2. Apply preprocessor normalization (if available)
     
     Args:
@@ -407,7 +368,7 @@ def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor) -> np.n
     Returns:
         normalized state as numpy array (6,)
     """
-    # Step 1: Convert to physical robot frame
+    # Step 1: Convert to physical robot frame (radians)
     physical_state = mujoco_to_physical_state(state_radians)
     
     # Step 2: Apply preprocessor normalization if available
@@ -432,13 +393,54 @@ def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor) -> np.n
     except Exception as e:
         # On error, fall back to identity normalization with warning
         import warnings
-        warnings.warn(f"Preprocessor failed, using identity normalization: {e}")
+        warnings.warn(f"Pi0 preprocessor failed, using identity normalization: {e}")
         return physical_state
 
 
-def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
+def unnormalize_action_from_smolvla(action_normalized: np.ndarray) -> np.ndarray:
     """
-    Unnormalize action output from SmolVLA/Pi0.
+    Unnormalize action output from SmolVLA using hardcoded stats.
+    
+    Pipeline:
+    1. Z-score denormalize with SMOLVLA_ACTION_MEAN/STD
+    2. Subtract physical offset (in degrees)
+    3. Convert degrees -> radians for MuJoCo
+    
+    Args:
+        action_normalized: numpy array of normalized actions (6,) or (chunk_size, 6)
+    
+    Returns:
+        action in MuJoCo radians as numpy array
+    """
+    # Handle both single action and action chunks
+    original_shape = action_normalized.shape
+    is_chunk = len(original_shape) > 1
+    
+    if is_chunk:
+        # Process each action in the chunk
+        results = []
+        for action in action_normalized:
+            result = _unnormalize_single_action_smolvla(action)
+            results.append(result)
+        return np.stack(results)
+    else:
+        return _unnormalize_single_action_smolvla(action_normalized)
+
+
+def _unnormalize_single_action_smolvla(action_normalized: np.ndarray) -> np.ndarray:
+    """Helper to unnormalize a single SmolVLA action using hardcoded stats."""
+    # Step 1: Z-score denormalization
+    physical_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
+    
+    # Step 2 & 3: Convert physical degrees to MuJoCo radians
+    mujoco_action = physical_degrees_to_mujoco(physical_degrees)
+    
+    return mujoco_action
+
+
+def unnormalize_action_for_pi0(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
+    """
+    Unnormalize action output from Pi0 using processor pipeline.
     
     Pipeline:
     1. Apply postprocessor denormalization (if available)
@@ -463,15 +465,15 @@ def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor
         # Process each action in the chunk
         results = []
         for action in action_normalized:
-            result = _unnormalize_single_action(action, postprocessor)
+            result = _unnormalize_single_action_pi0(action, postprocessor)
             results.append(result)
         return np.stack(results)
     else:
-        return _unnormalize_single_action(action_normalized, postprocessor)
+        return _unnormalize_single_action_pi0(action_normalized, postprocessor)
 
 
-def _unnormalize_single_action(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
-    """Helper to unnormalize a single action."""
+def _unnormalize_single_action_pi0(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
+    """Helper to unnormalize a single Pi0 action using processor."""
     # Apply postprocessor denormalization
     # Note: Pi0's postprocessor expects a raw tensor (PolicyAction), not a dict
     try:
@@ -480,7 +482,7 @@ def _unnormalize_single_action(action_normalized: np.ndarray, postprocessor) -> 
         physical_action = processed.squeeze(0).numpy()
     except Exception as e:
         raise RuntimeError(
-            f"Postprocessor failed to denormalize action.\n"
+            f"Pi0 postprocessor failed to denormalize action.\n"
             f"Input action: {action_normalized}\n"
             f"Original error: {e}"
         ) from e
@@ -502,12 +504,12 @@ def get_robot_state(d):
     state = d.qpos[:6].copy()
     return state
 
-def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, preprocessor=None, debug=False):
+def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_state, instruction, device, policy=None, preprocessor=None, model_type="smolvla", debug=False):
     """
     Prepare observation dict for VLA policy (SmolVLA or Pi0) with multiple cameras.
     
-    This function builds a proper LeRobot EnvTransition dict and passes it through 
-    the preprocessor, which handles all normalization and tokenization reliably.
+    For SmolVLA: Uses hardcoded normalization (preprocessor can be None)
+    For Pi0: Uses preprocessor pipeline for normalization
     
     Args:
         rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
@@ -516,16 +518,14 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         robot_state: numpy array of robot state in RADIANS (from MuJoCo)
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
-        policy: VLA policy object (used for fallback tokenization if preprocessor unavailable)
-        preprocessor: PolicyProcessorPipeline for complete preprocessing (recommended)
+        policy: VLA policy object (used for tokenization)
+        preprocessor: PolicyProcessorPipeline for Pi0 preprocessing (None for SmolVLA)
+        model_type: "smolvla" or "pi0" - determines normalization approach
     
     Returns:
         observation: dict with images, state, and language tensors using VLA standard keys
     """
-    # Step 1: Convert MuJoCo state to physical robot frame (without normalization)
-    physical_state = mujoco_to_physical_state(robot_state)
-    
-    # Step 2: Convert images to tensors with [0, 1] range and (C, H, W) format
+    # Step 1: Convert images to tensors with [0, 1] range and (C, H, W) format
     def numpy_to_image_tensor(img_numpy):
         """Convert (H, W, C) uint8 numpy to (C, H, W) float tensor in [0, 1]."""
         img_tensor = torch.from_numpy(img_numpy).float() / 255.0
@@ -534,27 +534,28 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
     image_top_tensor = numpy_to_image_tensor(rgb_image_top)
     image_wrist_tensor = numpy_to_image_tensor(rgb_image_wrist)
     image_side_tensor = numpy_to_image_tensor(rgb_image_side)
-    state_tensor = torch.from_numpy(physical_state).float()
     
-    # Step 3: Use preprocessor if available (recommended path)
-    if preprocessor is not None:
-        # Build a FLAT batch dict - LeRobot's batch_to_transition expects this format
-        # Keys must be prefixed with "observation." and task should be at top level
+    # Step 2: Normalize state based on model type
+    if model_type == "smolvla":
+        # SmolVLA uses hardcoded normalization (degrees-based)
+        normalized_state = normalize_state_for_smolvla(robot_state)
+        state_tensor = torch.from_numpy(normalized_state).float()
+    elif model_type == "pi0" and preprocessor is not None:
+        # Pi0 with preprocessor - use processor pipeline path
+        physical_state = mujoco_to_physical_state(robot_state)
+        state_tensor = torch.from_numpy(physical_state).float()
+        
+        # Build batch for preprocessor
         batch = {
             "observation.images.camera1": image_top_tensor,
             "observation.images.camera2": image_wrist_tensor,
             "observation.images.camera3": image_side_tensor,
             "observation.state": state_tensor,
-            "task": instruction,  # Preprocessor's TokenizerProcessorStep reads this
+            "task": instruction,
         }
         
         try:
-            # Pass through preprocessor pipeline
-            # The pipeline handles: batch dimension, normalization, tokenization, device placement
             processed = preprocessor(batch)
-            
-            # Processed result is a flat dict with observation keys
-            # Build final observation dict, moving to device
             observation = {}
             for key, value in processed.items():
                 if isinstance(value, torch.Tensor):
@@ -563,32 +564,32 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
                     observation[key] = value
             
             if debug:
-                print(f"\n[Observation Preparation Debug - Preprocessor Path]")
+                print(f"\n[Observation Preparation Debug - Pi0 Preprocessor Path]")
                 print(f"  Instruction: '{instruction}'")
-                print(f"  Preprocessor: {type(preprocessor).__name__}")
                 for key, val in observation.items():
                     if isinstance(val, torch.Tensor):
-                        print(f"  {key}: shape={val.shape}, dtype={val.dtype}, device={val.device}")
-                        if "image" in key:
-                            print(f"    range: [{val.min():.3f}, {val.max():.3f}]")
+                        print(f"  {key}: shape={val.shape}, dtype={val.dtype}")
             
             return observation
-            
         except Exception as e:
-            print(f"[Warning] Preprocessor failed: {e}")
-            print(f"[Warning] Falling back to manual preprocessing")
-            # Fall through to manual preprocessing
+            print(f"[Warning] Pi0 preprocessor failed: {e}")
+            print(f"[Warning] Falling back to identity normalization")
+            # Fall through to manual path with identity normalization
+            physical_state = mujoco_to_physical_state(robot_state)
+            state_tensor = torch.from_numpy(physical_state).float()
+    else:
+        # Pi0 without preprocessor - identity normalization
+        physical_state = mujoco_to_physical_state(robot_state)
+        state_tensor = torch.from_numpy(physical_state).float()
     
-    # Step 4: Fallback - manual preprocessing (for backward compatibility)
-    print("[Warning] Using manual preprocessing - preprocessor not available or failed")
-    
+    # Step 3: Manual observation building (SmolVLA path, or Pi0 fallback)
     # Add batch dimension to images and state
     image_top_tensor = image_top_tensor.unsqueeze(0).to(device)
     image_wrist_tensor = image_wrist_tensor.unsqueeze(0).to(device)
     image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
     state_tensor = state_tensor.unsqueeze(0).to(device)
     
-    # Manual tokenization if policy has tokenizer
+    # Tokenization
     if policy is not None and hasattr(policy, 'tokenizer'):
         tokens = policy.tokenizer(
             instruction,

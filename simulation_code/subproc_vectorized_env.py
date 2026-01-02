@@ -76,7 +76,6 @@ def _worker(
         set_initial_pose,
         send_position_command,
         convert_to_dictionary,
-        normalize_state_for_smolvla,
         check_gripper_block_contact,
         check_block_gripped_with_force,
         get_floor_contact_force,
@@ -287,7 +286,7 @@ class SubprocMuJoCoEnv:
                 - observation.state: (N, 6) joint positions (normalized)
         """
         # Import here to avoid circular imports in workers
-        from so101_mujoco_utils import normalize_state_for_smolvla
+        from so101_mujoco_utils import normalize_state_for_vla
         
         # Send get_obs command to ALL workers simultaneously (non-blocking sends)
         for conn in self.parent_conns:
@@ -319,10 +318,10 @@ class SubprocMuJoCoEnv:
         batch_wrist = torch.from_numpy(np.stack(batch_wrist)).float().permute(0, 3, 1, 2) / 255.0
         batch_side = torch.from_numpy(np.stack(batch_side)).float().permute(0, 3, 1, 2) / 255.0
         
-        # State: normalize for SmolVLA using preprocessor (MuJoCo radians -> physical -> normalized)
+        # State: normalize based on model type (SmolVLA uses hardcoded, Pi0 uses preprocessor)
         batch_state_np = np.stack(batch_state)
         batch_state_normalized = np.stack([
-            normalize_state_for_smolvla(s, preprocessor=self.preprocessor) for s in batch_state_np
+            normalize_state_for_vla(s, self.model_type, self.preprocessor) for s in batch_state_np
         ])
         batch_state = torch.from_numpy(batch_state_normalized).float()
         

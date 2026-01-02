@@ -83,7 +83,6 @@ from so101_mujoco_utils import (
     compute_reward,
     reset_env,
     reset_reward_state,
-    unnormalize_action_from_smolvla,
     unnormalize_action_for_vla,
     load_vla_processors,
 )
@@ -273,6 +272,11 @@ def train_parallel(config, args, device):
     print("="*60)
     
     # Select appropriate setup function based on model type
+    # SmolVLA uses hardcoded normalization (no processors needed)
+    # Pi0 uses processor-based normalization
+    preprocessor = None
+    postprocessor = None
+    
     if config.model_type == "pi0":
         rl_policy, preprocessor, postprocessor = setup_reinflow_pi0_policy(
             pretrained_path=config.pretrained_path,
@@ -290,7 +294,8 @@ def train_parallel(config, args, device):
         # Pi0 sigma is set in adapter during creation
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     else:
-        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
+        # SmolVLA - no processors needed (uses hardcoded normalization)
+        rl_policy = setup_reinflow_policy(
             pretrained_path=config.pretrained_path,
             device=str(device),
             num_steps=config.num_denoising_steps,
@@ -304,7 +309,9 @@ def train_parallel(config, args, device):
         rl_policy.base.model.sigma_max = config.sigma_max
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
-    # Choose environment implementation (with preprocessor for state normalization)
+    # Choose environment implementation
+    # SmolVLA uses hardcoded normalization (no preprocessor needed)
+    # Pi0 uses processor-based normalization (pass preprocessor)
     if config.use_subproc_env:
         from subproc_vectorized_env import SubprocMuJoCoEnv
         print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
@@ -313,7 +320,8 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
-            preprocessor=preprocessor,
+            model_type=config.model_type,
+            preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
     else:
         from vectorized_env import VectorizedMuJoCoEnv
@@ -323,7 +331,8 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
-            preprocessor=preprocessor,
+            model_type=config.model_type,
+            preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
     
     # Load checkpoint if resuming
@@ -463,8 +472,9 @@ def train_parallel(config, args, device):
                 
                 action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
                 action_chunks_np = action_chunks.detach().cpu().numpy()
+                # Unnormalize actions based on model type
                 action_chunks_radians = np.stack([
-                    np.stack([unnormalize_action_from_smolvla(a, postprocessor=postprocessor) for a in chunk])
+                    np.stack([unnormalize_action_for_vla(a, config.model_type, postprocessor) for a in chunk])
                     for chunk in action_chunks_np
                 ])
                 
@@ -527,10 +537,10 @@ def train_parallel(config, args, device):
                 action_chunks, trajectory, sigmas = rl_policy.forward_batched_with_trajectory(observation)
                 
                 
-                # Unnormalize actions for execution using postprocessor
+                # Unnormalize actions for execution based on model type
                 action_chunks_np = action_chunks.detach().cpu().numpy()
                 action_chunks_radians = np.stack([
-                    np.stack([unnormalize_action_from_smolvla(a, postprocessor=postprocessor) for a in chunk])
+                    np.stack([unnormalize_action_for_vla(a, config.model_type, postprocessor) for a in chunk])
                     for chunk in action_chunks_np
                 ])
                 
@@ -807,6 +817,11 @@ def train_sequential(config, args, device):
     print("="*60)
     
     # Select appropriate setup function based on model type
+    # SmolVLA uses hardcoded normalization (no processors needed)
+    # Pi0 uses processor-based normalization
+    preprocessor = None
+    postprocessor = None
+    
     if config.model_type == "pi0":
         rl_policy, preprocessor, postprocessor = setup_reinflow_pi0_policy(
             pretrained_path=config.pretrained_path,
@@ -823,7 +838,8 @@ def train_sequential(config, args, device):
         )
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     else:
-        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
+        # SmolVLA - no processors needed (uses hardcoded normalization)
+        rl_policy = setup_reinflow_policy(
             pretrained_path=config.pretrained_path,
             device=str(device),
             num_steps=config.num_denoising_steps,
@@ -979,7 +995,7 @@ def train_sequential(config, args, device):
                 
                 warmup_observation = prepare_observation_for_reinflow(
                     rgb_top, rgb_wrist, rgb_side, robot_state,
-                    config.instruction, device, rl_policy, preprocessor=preprocessor
+                    config.instruction, device, rl_policy
                 )
                 
                 action_chunk, _, _ = rl_policy.forward_with_trajectory(warmup_observation)
@@ -994,7 +1010,8 @@ def train_sequential(config, args, device):
                     
                     action = action_chunk[0, action_idx]
                     action_np = action.detach().cpu().numpy()
-                    action_radians = unnormalize_action_from_smolvla(action_np, postprocessor=postprocessor)
+                    # SmolVLA uses hardcoded normalization (no postprocessor)
+                    action_radians = unnormalize_action_for_vla(action_np, config.model_type, postprocessor)
                     action_dict = convert_to_dictionary(action_radians)
                     
                     # Execute action
@@ -1061,7 +1078,7 @@ def train_sequential(config, args, device):
                 
                 observation = prepare_observation_for_reinflow(
                     rgb_top, rgb_wrist, rgb_side, robot_state,
-                    config.instruction, device, rl_policy, preprocessor=preprocessor
+                    config.instruction, device, rl_policy
                 )
                 
                 # Forward pass with trajectory storage
@@ -1077,7 +1094,8 @@ def train_sequential(config, args, device):
                     
                     action = action_chunk[0, action_idx]
                     action_np = action.detach().cpu().numpy()
-                    action_radians = unnormalize_action_from_smolvla(action_np, postprocessor=postprocessor)
+                    # Unnormalize actions based on model type
+                    action_radians = unnormalize_action_for_vla(action_np, config.model_type, postprocessor)
                     action_dict = convert_to_dictionary(action_radians)
                     
                     # Execute action

@@ -26,9 +26,7 @@ from so101_mujoco_utils import (
     set_initial_pose,
     compute_reward,
     reset_reward_state,
-    normalize_state_for_smolvla,
-    unnormalize_action_from_smolvla,
-    # Model-agnostic versions (currently same implementation, but future-proof)
+    # Model-agnostic normalization functions that route based on model_type
     normalize_state_for_vla,
     unnormalize_action_for_vla,
 )
@@ -190,8 +188,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
 
         # Normalize state for VLA if flag is set
         if self._normalize:
-            # Use model-agnostic normalization (currently same for SmolVLA and Pi0)
-            state = normalize_state_for_smolvla(state, preprocessor=self.preprocessor).astype(np.float32)
+            # Use model-agnostic normalization (SmolVLA uses hardcoded, Pi0 uses preprocessor)
+            state = normalize_state_for_vla(state, self.model_type, self.preprocessor).astype(np.float32)
         
         return {
             "observation.images.camera1": camera1_image,
@@ -279,8 +277,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         """
         # Unnormalize action from VLA if flag is set
         if self._normalize:
-            # Use model-agnostic denormalization (currently same for SmolVLA and Pi0)
-            action = unnormalize_action_from_smolvla(action, postprocessor=self.postprocessor)
+            # Use model-agnostic denormalization (SmolVLA uses hardcoded, Pi0 uses postprocessor)
+            action = unnormalize_action_for_vla(action, self.model_type, self.postprocessor)
         
         # Clip action to valid range
         action = np.clip(action, self.joint_limits_low, self.joint_limits_high)

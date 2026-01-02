@@ -295,10 +295,10 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
                     print(f"  Normalized per joint: {[f'{a:.4f}' for a in action]}")
                 
-                # Unnormalize action from SmolVLA output using postprocessor
-                # SmolVLA outputs normalized actions (trained with mean/std normalization)
+                # Unnormalize action based on model type
+                # SmolVLA uses hardcoded stats (no postprocessor), Pi0 uses postprocessor
                 # This converts: normalized -> physical -> MuJoCo radians
-                action_radians = unnormalize_action_from_smolvla(action, postprocessor=postprocessor)
+                action_radians = unnormalize_action_for_vla(action, MODEL_TYPE, postprocessor)
                 
                 if DEBUG_THIS_ITERATION:
                     print(f"  Unnormalized (radians): {[f'{a:.4f}' for a in action_radians]}")
