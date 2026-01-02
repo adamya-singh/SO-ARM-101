@@ -114,7 +114,7 @@ class TrainingConfig:
     num_episodes = 20000
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.000005  # Policy learning rate (paper uses 0.000045 for chunks of size 4-8, our chunks are size 50) (reduced 10x for visual tasks with high-dim actions)
+    policy_lr = 0.0000005  # Policy learning rate (paper uses 0.000045 for chunks of size 4-8, our chunks are size 50) (reduced 10x for visual tasks with high-dim actions)
     critic_lr = 0.0003   # Critic learning rate (can be higher)
     grad_clip_norm = 0.25 #0.5  # Gradient clipping for stability
     
@@ -174,7 +174,7 @@ class TrainingConfig:
     clip_epsilon = 0.05        # PPO clip range (paper uses 0.001 for visual tasks)
     value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
     gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 1.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    target_kl = 10.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
     
     # Gradient accumulation (paper Appendix D)
     gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
