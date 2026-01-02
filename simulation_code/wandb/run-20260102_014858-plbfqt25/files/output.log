@@ -1,0 +1,164 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 2
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 5e-06 -> 5.000000000000001e-07
+Critic LR: 0.0003 -> 2.9999999999999997e-05
+LR warmup iterations: 10
+PPO epochs: 10
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.0005
+GAE lambda: 0.95
+Target KL: 100.0
+Entropy coeff: 0.0
+Critic warmup iters: 2
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 2 iterations...
+/tmp/as4487/SO-ARM-101/simulation_code/so101_mujoco_utils.py:435: UserWarning: Preprocessor failed, using identity normalization: 'task'
+  warnings.warn(f"Preprocessor failed, using identity normalization: {e}")
+  [Warmup 1/2] Critic loss: 15478.9434
+  [Warmup 2/2] Critic loss: 14405.1953
+[Critic Warmup] Complete!
+
+  [KL Early Stop] Epoch 2, KL=162073520.0000 > 150.0000
+Batch    1 (    2 eps) | Reward:  -57.92 | KL: 81036760.0000 | LR: 9.50e-07 | Time: 2.4s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch    2 (    4 eps) | Reward:  -61.48 | KL: 121291312.0000 | LR: 1.40e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch    3 (    6 eps) | Reward:  -56.75 | KL: 161721728.0000 | LR: 1.85e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch    4 (    8 eps) | Reward:  -58.71 | KL: 242582592.0000 | LR: 2.30e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch    5 (   10 eps) | Reward:  -58.62 | KL: 121291312.0000 | LR: 2.75e-06 | Time: 2.2s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch    6 (   12 eps) | Reward:  -57.10 | KL: 161721728.0000 | LR: 3.20e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch    7 (   14 eps) | Reward:  -59.15 | KL: 121291312.0000 | LR: 3.65e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch    8 (   16 eps) | Reward:  -58.86 | KL: 121291312.0000 | LR: 4.10e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721744.0000 > 150.0000
+Batch    9 (   18 eps) | Reward:  -60.81 | KL: 80860872.0000 | LR: 4.55e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721760.0000 > 150.0000
+Batch   10 (   20 eps) | Reward:  -57.11 | KL: 80860880.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   11 (   22 eps) | Reward:  -56.66 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   12 (   24 eps) | Reward:  -59.89 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   13 (   26 eps) | Reward:  -60.13 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=80860880.0000 > 150.0000
+Batch   14 (   28 eps) | Reward:  -56.05 | KL: 40430440.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=80860880.0000 > 150.0000
+Batch   15 (   30 eps) | Reward:  -59.35 | KL: 40430440.0000 | LR: 5.00e-06 | Time: 2.0s
+Batch   16 (   32 eps) | Reward:  -60.11 | KL: 17.1000 | LR: 5.00e-06 | Time: 5.8s
+  [KL Early Stop] Epoch 4, KL=80860880.0000 > 150.0000
+Batch   17 (   34 eps) | Reward:  -57.87 | KL: 20215228.8367 | LR: 5.00e-06 | Time: 3.0s
+  [KL Early Stop] Epoch 2, KL=404304352.0000 > 150.0000
+Batch   18 (   36 eps) | Reward:  -58.25 | KL: 202152176.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=242729248.0000 > 150.0000
+Batch   19 (   38 eps) | Reward:  -58.16 | KL: 121364624.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   20 (   40 eps) | Reward:  -57.31 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   21 (   42 eps) | Reward:  -56.98 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=438012160.0000 > 150.0000
+Batch   22 (   44 eps) | Reward:  -59.45 | KL: 219006080.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   23 (   46 eps) | Reward:  -62.65 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   24 (   48 eps) | Reward:  -62.45 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=242582592.0000 > 150.0000
+Batch   25 (   50 eps) | Reward:  -58.10 | KL: 121291296.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   26 (   52 eps) | Reward:  -55.88 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.3s
+  [KL Early Stop] Epoch 2, KL=404304480.0000 > 150.0000
+Batch   27 (   54 eps) | Reward:  -58.88 | KL: 202152240.0000 | LR: 5.00e-06 | Time: 2.2s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   28 (   56 eps) | Reward:  -61.30 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   29 (   58 eps) | Reward:  -59.81 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   30 (   60 eps) | Reward:  -60.14 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   31 (   62 eps) | Reward:  -63.76 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   32 (   64 eps) | Reward:  -58.89 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   33 (   66 eps) | Reward:  -58.16 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   34 (   68 eps) | Reward:  -66.23 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   35 (   70 eps) | Reward:  -64.00 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   36 (   72 eps) | Reward:  -55.63 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   37 (   74 eps) | Reward:  -57.35 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   38 (   76 eps) | Reward:  -59.45 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.2s
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   39 (   78 eps) | Reward:  -55.53 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242583936.0000 > 150.0000
+Batch   40 (   80 eps) | Reward:  -61.33 | KL: 121291968.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   41 (   82 eps) | Reward:  -59.46 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   42 (   84 eps) | Reward:  -58.26 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=404304320.0000 > 150.0000
+Batch   43 (   86 eps) | Reward:  -63.53 | KL: 202152160.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=80870856.0000 > 150.0000
+Batch   44 (   88 eps) | Reward:  -62.24 | KL: 40435428.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161726448.0000 > 150.0000
+Batch   45 (   90 eps) | Reward:  -60.17 | KL: 80863224.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721760.0000 > 150.0000
+Batch   46 (   92 eps) | Reward:  -60.70 | KL: 80860880.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   47 (   94 eps) | Reward:  -55.28 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721744.0000 > 150.0000
+Batch   48 (   96 eps) | Reward:  -62.40 | KL: 80860872.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=80860880.0000 > 150.0000
+Batch   49 (   98 eps) | Reward:  -62.92 | KL: 40430440.0000 | LR: 5.00e-06 | Time: 2.0s
+Batch   50 (  100 eps) | Reward:  -64.45 | KL: 17.1000 | LR: 5.00e-06 | Time: 5.9s
+  [KL Early Stop] Epoch 2, KL=161721744.0000 > 150.0000
+Batch   51 (  102 eps) | Reward:  -62.65 | KL: 80860872.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   52 (  104 eps) | Reward:  -62.08 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=80860880.0000 > 150.0000
+Batch   53 (  106 eps) | Reward:  -65.43 | KL: 40430440.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=323443456.0000 > 150.0000
+Batch   54 (  108 eps) | Reward:  -59.83 | KL: 161721728.0000 | LR: 5.00e-06 | Time: 2.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=485165184.0000 > 150.0000
+Batch   55 (  110 eps) | Reward:  -63.47 | KL: 242582592.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   56 (  112 eps) | Reward:  -59.59 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242710816.0000 > 150.0000
+Batch   57 (  114 eps) | Reward:  -61.96 | KL: 121355408.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721744.0000 > 150.0000
+Batch   58 (  116 eps) | Reward:  -64.15 | KL: 80860872.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=161721760.0000 > 150.0000
+Batch   59 (  118 eps) | Reward:  -59.47 | KL: 80860880.0000 | LR: 5.00e-06 | Time: 2.0s
+  [KL Early Stop] Epoch 2, KL=242582624.0000 > 150.0000
+Batch   60 (  120 eps) | Reward:  -57.91 | KL: 121291312.0000 | LR: 5.00e-06 | Time: 2.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+  [KL Early Stop] Epoch 2, KL=80860880.0000 > 150.0000
+Batch   61 (  122 eps) | Reward:  -63.78 | KL: 40430440.0000 | LR: 5.00e-06 | Time: 2.0s
+
+
+Training interrupted by user.

@@ -1,0 +1,12 @@
+{"time":"2026-01-02T03:06:45.230055018-05:00","level":"INFO","msg":"stream: starting","core version":"0.21.4"}
+{"time":"2026-01-02T03:06:45.506887288-05:00","level":"INFO","msg":"stream: created new stream","id":"zmb6iacl"}
+{"time":"2026-01-02T03:06:45.506911172-05:00","level":"INFO","msg":"stream: started","id":"zmb6iacl"}
+{"time":"2026-01-02T03:06:45.506924395-05:00","level":"INFO","msg":"writer: started","stream_id":"zmb6iacl"}
+{"time":"2026-01-02T03:06:45.506929905-05:00","level":"INFO","msg":"handler: started","stream_id":"zmb6iacl"}
+{"time":"2026-01-02T03:06:45.506941583-05:00","level":"INFO","msg":"sender: started","stream_id":"zmb6iacl"}
+{"time":"2026-01-02T03:31:02.28094466-05:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"updating run metadata","runtime_seconds":0.000614889}],"total_operations":1}}
+{"time":"2026-01-02T03:31:02.65847919-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-01-02T03:31:03.030697-05:00","level":"INFO","msg":"stream: closing","id":"zmb6iacl"}
+{"time":"2026-01-02T03:31:03.030740639-05:00","level":"INFO","msg":"handler: closed","stream_id":"zmb6iacl"}
+{"time":"2026-01-02T03:31:03.030781939-05:00","level":"INFO","msg":"sender: closed","stream_id":"zmb6iacl"}
+{"time":"2026-01-02T03:31:03.030788725-05:00","level":"INFO","msg":"stream: closed","id":"zmb6iacl"}
