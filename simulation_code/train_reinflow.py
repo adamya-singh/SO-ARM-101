@@ -168,7 +168,7 @@ class TrainingConfig:
     entropy_coeff = 0.0  # Paper uses 0.00-0.01 for visual manipulation
     
     # Critic warmup (paper Appendix D.2)
-    critic_warmup_iters = 10  # Paper uses 2-5 iterations
+    critic_warmup_iters = 30  # Paper uses 2-5 iterations
     
     # What to train
     train_action_head = True   # Train action_out_proj (velocity head)
