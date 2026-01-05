@@ -146,7 +146,7 @@ class TrainingConfig:
     # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
     # gradients are ~6x stronger, so we reduce LR ~100x for stability (5e-7 vs 4.5e-5)
     policy_lr = 0.0000005
-    critic_lr = 0.0003   # Critic learning rate (can be higher, doesn't scale with action dims)
+    critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
     # ReinFlow specific
