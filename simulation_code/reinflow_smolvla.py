@@ -807,6 +807,8 @@ def compute_ppo_loss(
         'clip_fraction': clip_fraction,
         'ratio_mean': ratio.mean().item(),
         'ratio_std': ratio.std().item() if batch_size > 1 else 0.0,
+        'ratio_min': ratio.min().item(),
+        'ratio_max': ratio.max().item(),
         'advantage_mean': advantages.mean().item(),
         'advantage_std': advantages.std().item() if batch_size > 1 else 0.0,
         'log_prob_mean': new_log_probs.mean().item(),

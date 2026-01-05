@@ -91,7 +91,36 @@ from so101_mujoco_utils import (
 # ===== Training Configuration =====
 
 class TrainingConfig:
-    """Configuration for ReinFlow RL training (On-Policy Actor-Critic)."""
+    """
+    Configuration for ReinFlow RL training (On-Policy Actor-Critic).
+    
+    HYPERPARAMETER SCALING FOR SMOLVLA's CHUNK SIZE:
+    ================================================
+    SmolVLA outputs action chunks of size 50 (vs typical 4-8 in ReinFlow paper).
+    This 6-12x increase in action dimensionality (300 dims vs 24-48) affects several quantities:
+    
+    1. LOG PROBABILITY SCALE:
+       - Log prob formula sums over all dimensions: Σ(-0.5 * diff²/σ²)
+       - With 6x more dimensions, log probs are ~6x more negative
+       - This is expected, not a bug
+    
+    2. KL DIVERGENCE SCALE:
+       - KL is computed from log prob differences
+       - With larger log probs, KL values are naturally larger
+       - Paper's target_kl=0.01 → our target_kl=0.05-0.1 (scaled ~6x)
+    
+    3. GRADIENT MAGNITUDE:
+       - Gradients accumulate over 300 output dimensions vs 48
+       - Effective gradient signal is ~6x stronger
+       - Paper's policy_lr=4.5e-5 → our policy_lr=5e-7 (scaled down ~100x for stability)
+    
+    4. PARAMETERS THAT DON'T NEED SCALING:
+       - sigma_min/sigma_max: Per-dimension noise, scale-invariant
+       - clip_epsilon: Ratio-based clipping, scale-invariant
+       - gae_lambda, gamma: Reward-based, independent of action dims
+    
+    Reference: ReinFlow paper Table 7b (visual manipulation settings)
+    """
     
     # Model selection
     model_type = "smolvla"  # "smolvla" (450M) or "pi0" (3.3B)
@@ -114,15 +143,18 @@ class TrainingConfig:
     num_episodes = 20000
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
-    policy_lr = 0.0000005  # Policy learning rate (paper uses 0.000045 for chunks of size 4-8, our chunks are size 50) (reduced 10x for visual tasks with high-dim actions)
-    critic_lr = 0.0003   # Critic learning rate (can be higher)
-    grad_clip_norm = 0.25 #0.5  # Gradient clipping for stability
+    # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
+    # gradients are ~6x stronger, so we reduce LR ~100x for stability (5e-7 vs 4.5e-5)
+    policy_lr = 0.0000005
+    critic_lr = 0.0003   # Critic learning rate (can be higher, doesn't scale with action dims)
+    grad_clip_norm = 0.25  # Gradient clipping for stability
     
     # ReinFlow specific
     num_denoising_steps = 1  # Paper uses K=4 for most tasks (smolvla default was 10)
     chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
     # ReinFlow noise bounds (paper Table 7b - visual manipulation)
+    # NO SCALING NEEDED: Sigma is per-dimension noise, independent of chunk size
     sigma_min = 0.08  # Minimum noise std (paper: 0.05-0.08 for visual)
     sigma_max = 0.16  # Maximum noise std (paper: 0.10-0.14 for visual)
     
@@ -169,12 +201,15 @@ class TrainingConfig:
     wandb_enabled = True
     
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
+    # Note: Some values scaled for SmolVLA's chunk_size=50 (see docstring above)
     num_ppo_epochs = 10          # Number of PPO epochs per update (paper uses 10)
-    minibatch_size = 8          # Mini-batch size for PPO updates
-    clip_epsilon = 0.05        # PPO clip range (paper uses 0.001 for visual tasks)
-    value_clip_epsilon = 0.2    # Clip range for value function (0 to disable)
-    gae_lambda = 0.95           # GAE lambda parameter
-    target_kl = 10.0            # KL divergence threshold (paper uses 0.01 for visual tasks)
+    minibatch_size = 8           # Mini-batch size for PPO updates
+    clip_epsilon = 0.05          # PPO clip range - ratio-based, no scaling needed (paper: 0.001-0.2)
+    value_clip_epsilon = 0.2     # Clip range for value function (0 to disable)
+    gae_lambda = 0.95            # GAE lambda parameter
+    # SCALED FOR CHUNK SIZE 50: Paper uses 0.01 for chunks of 4-8. With 6x more dims,
+    # KL values are naturally ~6x larger, so we scale target_kl accordingly (0.05-0.1)
+    target_kl = 10.0             # KL threshold for early stopping (scaled ~6x from paper's 0.01)
     
     # Gradient accumulation (paper Appendix D)
     gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
@@ -620,6 +655,12 @@ def train_parallel(config, args, device):
                 epoch_critic_losses = []
                 epoch_kl_divs = []
                 
+                # Gradient norm tracking for diagnostics
+                last_policy_grad_norm = 0.0
+                last_critic_grad_norm = 0.0
+                policy_grad_clipped = False
+                critic_grad_clipped = False
+                
                 for epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
                         break
@@ -676,9 +717,12 @@ def train_parallel(config, args, device):
                         
                         # Step optimizer only after accumulating enough gradients
                         if accumulation_counter % config.gradient_accumulation_steps == 0:
-                            torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                            # Capture gradient norms before clipping for diagnostics
+                            last_critic_grad_norm = torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm).item()
+                            critic_grad_clipped = last_critic_grad_norm > config.grad_clip_norm
                             critic_optimizer.step()
-                            torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                            last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
+                            policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                             policy_optimizer.step()
                             
                             policy_optimizer.zero_grad()
@@ -692,9 +736,11 @@ def train_parallel(config, args, device):
                     
                     # Handle remaining gradients if batch doesn't divide evenly
                     if accumulation_counter % config.gradient_accumulation_steps != 0:
-                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        last_critic_grad_norm = torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm).item()
+                        critic_grad_clipped = last_critic_grad_norm > config.grad_clip_norm
                         critic_optimizer.step()
-                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
+                        policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
                 
                 # Step LR schedulers
@@ -707,10 +753,22 @@ def train_parallel(config, args, device):
                 avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
                 
             else:
-                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0, 'clip_fraction': 0}
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0, 'clip_fraction': 0,
+                             'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
+                             'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0}
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
+                last_policy_grad_norm = 0.0
+                last_critic_grad_norm = 0.0
+                policy_grad_clipped = False
+                critic_grad_clipped = False
+                # Set defaults for metrics computed from tensors
+                all_rewards = torch.tensor([0.0], device=device)
+                all_values = torch.tensor([0.0], device=device)
+                returns = torch.tensor([0.0], device=device)
+                advantages = torch.tensor([0.0], device=device)
+                action_chunks = torch.tensor([[[0.0]]], device=device)
             
             batch_time = time.time() - batch_start_time
             
@@ -723,26 +781,86 @@ def train_parallel(config, args, device):
                   f"LR: {current_lr:.2e} | "
                   f"Time: {batch_time:.1f}s")
             
+            # Compute additional diagnostic metrics for wandb
+            with torch.no_grad():
+                # Critic diagnostics
+                returns_var = returns.var() + 1e-8
+                explained_var = (1 - (returns - all_values).var() / returns_var).item()
+                
+                # Action diagnostics (from last forward pass)
+                action_saturation_low = (action_chunks < -0.95).float().mean().item()
+                action_saturation_high = (action_chunks > 0.95).float().mean().item()
+                
+                # Log prob per dimension (action_dim=6, chunk_size=50)
+                log_prob_per_dim = loss_info.get('log_prob_mean', 0) / (6 * 50)
+                log_prob_drift = loss_info.get('log_prob_mean', 0) - loss_info.get('old_log_prob_mean', 0)
+            
             # Log to wandb
             if config.wandb_enabled:
                 log_dict = {
+                    # Basic info
                     "batch": episode_batch + 1,
                     "episodes_total": total_episodes,
+                    "time/batch_seconds": batch_time,
+                    
+                    # Reward metrics (5)
                     "reward/batch_avg": avg_reward,
                     "reward/batch_min": np.min(episode_rewards),
                     "reward/batch_max": np.max(episode_rewards),
+                    "reward/std": all_rewards.std().item(),
+                    "reward/positive_fraction": (all_rewards > 0).float().mean().item(),
+                    
+                    # Loss metrics
                     "loss/policy": avg_policy_loss,
                     "loss/critic": avg_critic_loss,
                     "loss/entropy": loss_info.get('entropy', 0),
+                    
+                    # Critic/Value metrics (7)
+                    "critic/value_mean": loss_info.get('value_mean', 0),
+                    "critic/value_std": all_values.std().item(),
+                    "critic/value_min": all_values.min().item(),
+                    "critic/value_max": all_values.max().item(),
+                    "critic/return_mean": loss_info.get('return_mean', 0),
+                    "critic/return_std": returns.std().item(),
+                    "critic/explained_variance": explained_var,
+                    
+                    # Advantage metrics (4)
+                    "advantage/mean": loss_info.get('advantage_mean', 0),
+                    "advantage/std": loss_info.get('advantage_std', 0),
+                    "advantage/min": advantages.min().item(),
+                    "advantage/max": advantages.max().item(),
+                    
+                    # PPO ratio metrics (4)
+                    "ppo/ratio_mean": loss_info.get('ratio_mean', 0),
+                    "ppo/ratio_std": loss_info.get('ratio_std', 0),
+                    "ppo/ratio_min": loss_info.get('ratio_min', 0),
+                    "ppo/ratio_max": loss_info.get('ratio_max', 0),
+                    
+                    # Log probability metrics (4)
+                    "logprob/new_mean": loss_info.get('log_prob_mean', 0),
+                    "logprob/old_mean": loss_info.get('old_log_prob_mean', 0),
+                    "logprob/per_dimension": log_prob_per_dim,
+                    "logprob/drift": log_prob_drift,
+                    
+                    # Action metrics (4)
+                    "actions/mean": action_chunks.mean().item(),
+                    "actions/std": action_chunks.std().item(),
+                    "actions/saturation_low": action_saturation_low,
+                    "actions/saturation_high": action_saturation_high,
+                    
+                    # Gradient metrics (4)
+                    "gradients/policy_norm": last_policy_grad_norm,
+                    "gradients/critic_norm": last_critic_grad_norm,
+                    "gradients/policy_clipped": float(policy_grad_clipped),
+                    "gradients/critic_clipped": float(critic_grad_clipped),
+                    
+                    # Training dynamics
                     "training/kl_divergence": avg_kl_div,
                     "training/clip_fraction": loss_info.get('clip_fraction', 0),
-                    "training/value_mean": loss_info.get('value_mean', 0),
-                    "training/advantage_mean": loss_info.get('advantage_mean', 0),
                     "training/learning_rate": current_lr,
                     "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                     "training/sigma_min": sigma_min,
                     "training/sigma_max": sigma_max,
-                    "time/batch_seconds": batch_time,
                 }
                 wandb.log(log_dict)
             
@@ -1174,6 +1292,12 @@ def train_sequential(config, args, device):
                 epoch_critic_losses = []
                 epoch_kl_divs = []
                 
+                # Gradient norm tracking for diagnostics
+                last_policy_grad_norm = 0.0
+                last_critic_grad_norm = 0.0
+                policy_grad_clipped = False
+                critic_grad_clipped = False
+                
                 for ppo_epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
                         break
@@ -1229,9 +1353,12 @@ def train_sequential(config, args, device):
                         
                         # Step optimizer only after accumulating enough gradients
                         if accumulation_counter % config.gradient_accumulation_steps == 0:
-                            torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                            # Capture gradient norms before clipping for diagnostics
+                            last_critic_grad_norm = torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm).item()
+                            critic_grad_clipped = last_critic_grad_norm > config.grad_clip_norm
                             critic_optimizer.step()
-                            torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                            last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
+                            policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                             policy_optimizer.step()
                             
                             policy_optimizer.zero_grad()
@@ -1245,9 +1372,11 @@ def train_sequential(config, args, device):
                     
                     # Handle remaining gradients if batch doesn't divide evenly
                     if accumulation_counter % config.gradient_accumulation_steps != 0:
-                        torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm)
+                        last_critic_grad_norm = torch.nn.utils.clip_grad_norm_(critic_params, max_norm=config.grad_clip_norm).item()
+                        critic_grad_clipped = last_critic_grad_norm > config.grad_clip_norm
                         critic_optimizer.step()
-                        torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm)
+                        last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
+                        policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
                 
                 # Step LR schedulers
@@ -1260,10 +1389,22 @@ def train_sequential(config, args, device):
                 avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
                 
             else:
-                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0}
+                loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0,
+                             'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
+                             'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0, 'clip_fraction': 0}
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
+                last_policy_grad_norm = 0.0
+                last_critic_grad_norm = 0.0
+                policy_grad_clipped = False
+                critic_grad_clipped = False
+                # Set defaults for metrics computed from tensors
+                batch_rewards = torch.tensor([0.0], device=device)
+                batch_values = torch.tensor([0.0], device=device)
+                returns = torch.tensor([0.0], device=device)
+                advantages = torch.tensor([0.0], device=device)
+                action_chunk = torch.tensor([[[0.0]]], device=device)
             
             episode_time = time.time() - episode_start_time
             
@@ -1278,23 +1419,83 @@ def train_sequential(config, args, device):
                       f"LR: {current_lr:.2e} | "
                       f"Time: {episode_time:.1f}s")
                 
+                # Compute additional diagnostic metrics for wandb
+                with torch.no_grad():
+                    # Critic diagnostics
+                    returns_var = returns.var() + 1e-8
+                    explained_var = (1 - (returns - batch_values).var() / returns_var).item()
+                    
+                    # Action diagnostics (from last forward pass)
+                    action_saturation_low = (action_chunk < -0.95).float().mean().item()
+                    action_saturation_high = (action_chunk > 0.95).float().mean().item()
+                    
+                    # Log prob per dimension (action_dim=6, chunk_size=50)
+                    log_prob_per_dim = loss_info.get('log_prob_mean', 0) / (6 * 50)
+                    log_prob_drift = loss_info.get('log_prob_mean', 0) - loss_info.get('old_log_prob_mean', 0)
+                
                 if config.wandb_enabled:
                     wandb.log({
+                        # Basic info
                         "episode": episode + 1,
+                        "time/episode_seconds": episode_time,
+                        
+                        # Reward metrics (5)
                         "reward/episode": episode_reward,
                         "reward/avg": avg_reward,
+                        "reward/std": batch_rewards.std().item(),
+                        "reward/positive_fraction": (batch_rewards > 0).float().mean().item(),
+                        
+                        # Loss metrics
                         "loss/policy": avg_policy_loss,
                         "loss/critic": avg_critic_loss,
                         "loss/entropy": loss_info.get('entropy', 0),
+                        
+                        # Critic/Value metrics (7)
+                        "critic/value_mean": loss_info.get('value_mean', 0),
+                        "critic/value_std": batch_values.std().item(),
+                        "critic/value_min": batch_values.min().item(),
+                        "critic/value_max": batch_values.max().item(),
+                        "critic/return_mean": loss_info.get('return_mean', 0),
+                        "critic/return_std": returns.std().item(),
+                        "critic/explained_variance": explained_var,
+                        
+                        # Advantage metrics (4)
+                        "advantage/mean": loss_info.get('advantage_mean', 0),
+                        "advantage/std": loss_info.get('advantage_std', 0),
+                        "advantage/min": advantages.min().item(),
+                        "advantage/max": advantages.max().item(),
+                        
+                        # PPO ratio metrics (4)
+                        "ppo/ratio_mean": loss_info.get('ratio_mean', 0),
+                        "ppo/ratio_std": loss_info.get('ratio_std', 0),
+                        "ppo/ratio_min": loss_info.get('ratio_min', 0),
+                        "ppo/ratio_max": loss_info.get('ratio_max', 0),
+                        
+                        # Log probability metrics (4)
+                        "logprob/new_mean": loss_info.get('log_prob_mean', 0),
+                        "logprob/old_mean": loss_info.get('old_log_prob_mean', 0),
+                        "logprob/per_dimension": log_prob_per_dim,
+                        "logprob/drift": log_prob_drift,
+                        
+                        # Action metrics (4)
+                        "actions/mean": action_chunk.mean().item(),
+                        "actions/std": action_chunk.std().item(),
+                        "actions/saturation_low": action_saturation_low,
+                        "actions/saturation_high": action_saturation_high,
+                        
+                        # Gradient metrics (4)
+                        "gradients/policy_norm": last_policy_grad_norm,
+                        "gradients/critic_norm": last_critic_grad_norm,
+                        "gradients/policy_clipped": float(policy_grad_clipped),
+                        "gradients/critic_clipped": float(critic_grad_clipped),
+                        
+                        # Training dynamics
                         "training/kl_divergence": avg_kl_div,
                         "training/clip_fraction": loss_info.get('clip_fraction', 0),
-                        "training/value_mean": loss_info.get('value_mean', 0),
-                        "training/advantage_mean": loss_info.get('advantage_mean', 0),
                         "training/learning_rate": current_lr,
                         "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                         "training/sigma_min": sigma_min,
                         "training/sigma_max": sigma_max,
-                        "time/episode_seconds": episode_time,
                     })
             
             # Save checkpoint periodically
