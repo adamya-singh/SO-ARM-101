@@ -154,9 +154,11 @@ class TrainingConfig:
     chunks_per_episode = 3   # How many chunks to execute per episode (fresh obs between each)
     
     # ReinFlow noise bounds (paper Table 7b - visual manipulation)
-    # NO SCALING NEEDED: Sigma is per-dimension noise, independent of chunk size
-    sigma_min = 0.08  # Minimum noise std (paper: 0.05-0.08 for visual)
-    sigma_max = 0.16  # Maximum noise std (paper: 0.10-0.14 for visual)
+    # SCALED FOR CHUNK SIZE 50: Sigma must scale as √(D_smolvla / D_paper) ≈ √(300/28) ≈ 3.3×
+    # Paper uses [0.05, 0.14] for ~28 dims → SmolVLA needs [0.16, 0.46] for 300 dims
+    # Using slightly higher values to ensure stable log probabilities
+    sigma_min = 0.25  # Scaled from paper's ~0.08 (0.08 × 3.3 ≈ 0.26)
+    sigma_max = 0.50  # Scaled from paper's ~0.14 (0.14 × 3.3 ≈ 0.46)
     
     # Noise decay schedule (paper Appendix D)
     noise_decay_start = 1.0 #paper says no decay for visual tasks #0.35    # Hold sigma_max for 35% of training
