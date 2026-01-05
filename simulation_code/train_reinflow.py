@@ -209,7 +209,7 @@ class TrainingConfig:
     gae_lambda = 0.95            # GAE lambda parameter
     # SCALED FOR CHUNK SIZE 50: Paper uses 0.01 for chunks of 4-8. With 6x more dims,
     # KL values are naturally ~6x larger, so we scale target_kl accordingly (0.05-0.1)
-    target_kl = 10.0             # KL threshold for early stopping (scaled ~6x from paper's 0.01)
+    target_kl = 0.1             # KL threshold for early stopping (scaled ~6x from paper's 0.01)
     
     # Gradient accumulation (paper Appendix D)
     gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
