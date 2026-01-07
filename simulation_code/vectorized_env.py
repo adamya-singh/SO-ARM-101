@@ -192,8 +192,10 @@ class VectorizedMuJoCoEnv:
         Returns:
             rewards: (N,) array of rewards
             dones: (N,) boolean array indicating episode termination
+            contacts: (N,) int array of contact counts (0 or 1 per step)
         """
         rewards = np.zeros(self.num_envs)
+        contacts = np.zeros(self.num_envs, dtype=int)
         
         for i in range(self.num_envs):
             if self.dones[i]:
@@ -211,12 +213,13 @@ class VectorizedMuJoCoEnv:
                 mujoco.mj_step(self.model, d)
             
             # Compute reward
-            reward, done = self._compute_reward(i)
+            reward, done, contacted = self._compute_reward(i)
             rewards[i] = reward
+            contacts[i] = int(contacted)
             self.dones[i] = done
             self.episode_steps[i] += 1
         
-        return rewards, self.dones.copy()
+        return rewards, self.dones.copy(), contacts
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
@@ -227,6 +230,11 @@ class VectorizedMuJoCoEnv:
         - Contact bonus: +contact_bonus when gripper touches block
         
         Total range per step: ~-0.5 to +0.1
+        
+        Returns:
+            reward: float, the computed reward
+            lifted: bool, whether block is lifted above threshold
+            contacted: bool, whether gripper is touching block
         """
         d = self.datas[env_idx]
 
@@ -239,13 +247,14 @@ class VectorizedMuJoCoEnv:
         reward = -distance
 
         # Contact bonus: positive signal while touching
-        if check_gripper_block_contact(self.model, d, "red_block"):
+        contacted = check_gripper_block_contact(self.model, d, "red_block")
+        if contacted:
             reward += self.contact_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > self.lift_threshold
 
-        return reward, lifted
+        return reward, lifted, contacted
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """
@@ -261,9 +270,11 @@ class VectorizedMuJoCoEnv:
         Returns:
             total_rewards: (N,) array of accumulated rewards over all chunk actions
             dones: (N,) boolean array indicating episode termination
+            total_contacts: (N,) int array of contact counts over chunk
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
+        total_contacts = np.zeros(num_envs, dtype=int)
         
         for action_idx in range(chunk_size):
             # Get actions for this timestep across all environments
@@ -285,12 +296,13 @@ class VectorizedMuJoCoEnv:
                     mujoco.mj_step(self.model, d)
                 
                 # Compute reward for this step
-                reward, done = self._compute_reward(i)
+                reward, done, contacted = self._compute_reward(i)
                 total_rewards[i] += reward
+                total_contacts[i] += int(contacted)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
         
-        return total_rewards, self.dones.copy()
+        return total_rewards, self.dones.copy(), total_contacts
     
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""

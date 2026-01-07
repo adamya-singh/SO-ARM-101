@@ -560,6 +560,7 @@ def train_parallel(config, args, device):
             # Reset all environments
             vec_env.reset_all()
             episode_rewards = np.zeros(num_envs)
+            episode_contacts = np.zeros(num_envs, dtype=int)
             
             # Collect data for this batch (on-policy)
             batch_trajectories = []  # List of trajectories across all envs and chunks
@@ -587,10 +588,11 @@ def train_parallel(config, args, device):
                 ])
                 
                 # Execute chunk and get rewards
-                chunk_rewards, dones = vec_env.step_all_chunk(
+                chunk_rewards, dones, chunk_contacts = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 episode_rewards += chunk_rewards
+                episode_contacts += chunk_contacts
                 
                 # Store data for on-policy update (one entry per environment)
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
@@ -816,6 +818,11 @@ def train_parallel(config, args, device):
                     "reward/batch_max": np.max(episode_rewards),
                     "reward/std": all_rewards.std().item(),
                     "reward/positive_fraction": (all_rewards > 0).float().mean().item(),
+                    
+                    # Contact metrics (3)
+                    "reward/contact_count_avg": episode_contacts.mean(),
+                    "reward/contact_count_max": episode_contacts.max(),
+                    "reward/contact_rate": episode_contacts.sum() / (num_envs * config.chunks_per_episode * 50),
                     
                     # Loss metrics
                     "loss/policy": avg_policy_loss,

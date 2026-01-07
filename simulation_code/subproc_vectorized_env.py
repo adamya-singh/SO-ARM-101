@@ -129,7 +129,13 @@ def _worker(
         return (rgb_top, rgb_wrist, rgb_side, state)
     
     def step_physics(action_radians, steps_per_action):
-        """Step the physics simulation and compute reward."""
+        """Step the physics simulation and compute reward.
+        
+        Returns:
+            reward: float, the computed reward
+            lifted: bool, whether block is lifted above threshold
+            contacted: bool, whether gripper is touching block
+        """
         action_dict = convert_to_dictionary(action_radians)
 
         for _ in range(steps_per_action):
@@ -145,13 +151,14 @@ def _worker(
         reward = -distance
 
         # Contact bonus: positive signal while touching
-        if check_gripper_block_contact(model, data, "red_block"):
+        contacted = check_gripper_block_contact(model, data, "red_block")
+        if contacted:
             reward += contact_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > lift_threshold
 
-        return reward, lifted
+        return reward, lifted, contacted
     
     # Main worker loop
     try:
@@ -168,8 +175,8 @@ def _worker(
             
             elif cmd == 'step':
                 action_radians, steps_per_action = payload
-                reward, done = step_physics(action_radians, steps_per_action)
-                remote.send((reward, done))
+                reward, done, contacted = step_physics(action_radians, steps_per_action)
+                remote.send((reward, done, contacted))
             
             elif cmd == 'close':
                 renderer.close()
@@ -353,8 +360,10 @@ class SubprocMuJoCoEnv:
         Returns:
             rewards: (N,) array of rewards
             dones: (N,) boolean array indicating episode termination
+            contacts: (N,) int array of contact counts (0 or 1 per step)
         """
         rewards = np.zeros(self.num_envs)
+        contacts = np.zeros(self.num_envs, dtype=int)
         
         # Send step commands to all workers (skip done environments)
         active_indices = []
@@ -366,15 +375,17 @@ class SubprocMuJoCoEnv:
         # Collect results from active workers
         for i in active_indices:
             result = self.parent_conns[i].recv()
-            if isinstance(result, tuple) and len(result) == 2:
-                if result[0] == 'error':
-                    raise RuntimeError(f"Worker {i} error: {result[1]}")
-                reward, done = result
+            if isinstance(result, tuple) and len(result) == 3:
+                reward, done, contacted = result
                 rewards[i] = reward
+                contacts[i] = int(contacted)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
+            elif isinstance(result, tuple) and len(result) == 2:
+                if result[0] == 'error':
+                    raise RuntimeError(f"Worker {i} error: {result[1]}")
         
-        return rewards, self.dones.copy()
+        return rewards, self.dones.copy(), contacts
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """
@@ -390,9 +401,11 @@ class SubprocMuJoCoEnv:
         Returns:
             total_rewards: (N,) array of accumulated rewards over all chunk actions
             dones: (N,) boolean array indicating episode termination
+            total_contacts: (N,) int array of contact counts over chunk
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
+        total_contacts = np.zeros(num_envs, dtype=int)
         
         # Execute each action in the chunk sequentially across all envs
         for action_idx in range(chunk_size):
@@ -400,16 +413,17 @@ class SubprocMuJoCoEnv:
             actions_radians = action_chunks[:, action_idx, :]
             
             # Step all active environments
-            step_rewards, _ = self.step_all(actions_radians, steps_per_action)
+            step_rewards, _, step_contacts = self.step_all(actions_radians, steps_per_action)
             
-            # Accumulate rewards
+            # Accumulate rewards and contacts
             total_rewards += step_rewards
+            total_contacts += step_contacts
             
             # If all environments are done, stop early
             if self.dones.all():
                 break
         
-        return total_rewards, self.dones.copy()
+        return total_rewards, self.dones.copy(), total_contacts
     
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""
