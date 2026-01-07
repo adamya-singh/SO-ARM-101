@@ -43,6 +43,7 @@ class VectorizedMuJoCoEnv:
         starting_position: Dict of joint positions in degrees
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
+        contact_bonus: Bonus reward while gripper contacts block
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -54,6 +55,7 @@ class VectorizedMuJoCoEnv:
         starting_position: dict,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
+        contact_bonus: float = 0.1,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -61,6 +63,7 @@ class VectorizedMuJoCoEnv:
         self.starting_position = starting_position
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
+        self.contact_bonus = contact_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -217,12 +220,13 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        SIMPLIFIED reward: Just negative distance from end effector to block.
-
-        This is a minimal reward to verify the learning pipeline works.
-        The reward is simply: -distance (so closer = higher reward = less negative)
-
-        Range: approximately -0.5 (far) to 0.0 (touching block)
+        Reward with distance penalty + contact bonus.
+        
+        Components:
+        - Distance: -distance (range: -0.5 to 0.0)
+        - Contact bonus: +contact_bonus when gripper touches block
+        
+        Total range per step: ~-0.5 to +0.1
         """
         d = self.datas[env_idx]
 
@@ -230,9 +234,13 @@ class VectorizedMuJoCoEnv:
         gripper_pos = d.site("gripperframe").xpos.copy()
         block_pos = d.body("red_block").xpos.copy()
 
-        # Simple distance reward: closer = better (less negative)
+        # Distance reward: closer = better (less negative)
         distance = np.linalg.norm(gripper_pos - block_pos)
         reward = -distance
+
+        # Contact bonus: positive signal while touching
+        if check_gripper_block_contact(self.model, d, "red_block"):
+            reward += self.contact_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > self.lift_threshold

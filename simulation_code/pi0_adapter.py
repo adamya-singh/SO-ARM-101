@@ -45,8 +45,8 @@ class Pi0Adapter(nn.Module, VLAPolicyInterface, ReinFlowCapableMixin):
     def __init__(
         self,
         base_policy: PI0Policy,
-        sigma_min: float = 0.08,
-        sigma_max: float = 0.16,
+        sigma_min: float = 0.25,  # Scaled for high-dim actions: √(D/28) ≈ 3.3x
+        sigma_max: float = 0.50,  # See notes/sigma-scaling-bug-fix.md
     ):
         super().__init__()
         self.base = base_policy

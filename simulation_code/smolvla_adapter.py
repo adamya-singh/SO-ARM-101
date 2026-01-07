@@ -10,7 +10,7 @@ Key characteristics of SmolVLA:
 - State is embedded in prefix (via embed_prefix(state=state))
 - denoise_step() does NOT need state parameter
 - Has built-in noise_mlp for ReinFlow
-- VLM hidden size: 1024
+- VLM hidden size: 960
 """
 
 from typing import Dict, List, Tuple, Optional, Any
@@ -41,7 +41,7 @@ class SmolVLAAdapter(VLAPolicyInterface, ReinFlowCapableMixin):
     
     @property
     def vlm_hidden_size(self) -> int:
-        """SmolVLA uses SmolVLM2 with 1024 hidden size."""
+        """SmolVLA uses SmolVLM2-500M with 960 hidden size."""
         return self.base.model.vlm_with_expert.config.text_config.hidden_size
     
     @property

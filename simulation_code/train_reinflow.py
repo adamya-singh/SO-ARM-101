@@ -115,9 +115,11 @@ class TrainingConfig:
        - Paper's policy_lr=4.5e-5 → our policy_lr=5e-7 (scaled down ~100x for stability)
     
     4. PARAMETERS THAT DON'T NEED SCALING:
-       - sigma_min/sigma_max: Per-dimension noise, scale-invariant
        - clip_epsilon: Ratio-based clipping, scale-invariant
        - gae_lambda, gamma: Reward-based, independent of action dims
+       
+       NOTE: sigma_min/sigma_max DO need scaling! See notes/sigma-scaling-bug-fix.md.
+       Sigma scales as √(D_new/D_old) to maintain stable log probability variance.
     
     Reference: ReinFlow paper Table 7b (visual manipulation settings)
     """
@@ -144,8 +146,8 @@ class TrainingConfig:
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
     # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
-    # gradients are ~6x stronger, so we reduce LR ~100x for stability (5e-7 vs 4.5e-5)
-    policy_lr = 0.0000005
+    # gradients are ~6x stronger, so we reduce LR ~50x for stability (1e-6 vs 4.5e-5)
+    policy_lr = 0.000001
     critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
@@ -182,6 +184,7 @@ class TrainingConfig:
     
     # Reward
     lift_threshold = 0.08
+    contact_bonus = 0.1   # Bonus reward while gripper contacts block
     
     # Logging
     log_interval = 1
@@ -357,6 +360,7 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
+            contact_bonus=config.contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
@@ -368,6 +372,7 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
+            contact_bonus=config.contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )

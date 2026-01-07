@@ -739,17 +739,18 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
     return np.linalg.norm(total_force)
 
 
-def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
+def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1):
     """
-    SIMPLIFIED reward: Just negative distance from end effector to block.
-
-    This is a minimal reward to verify the learning pipeline works.
-    The reward is simply: -distance (so closer = higher reward = less negative)
-
-    Range: approximately -0.5 (far) to 0.0 (touching block)
+    Reward with distance penalty + contact bonus.
+    
+    Components:
+    - Distance: -distance (range: -0.5 to 0.0)
+    - Contact bonus: +contact_bonus when gripper touches block
+    
+    Total range per step: ~-0.5 to +0.1
 
     Returns:
-        reward: float - negative distance to block
+        reward: float - negative distance to block + contact bonus
         done: bool - True if block is lifted above threshold (for episode termination)
     """
     # Get gripper position (end effector)
@@ -758,9 +759,13 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08):
     # Get block position (current, not initial)
     block_pos = d.body(block_name).xpos.copy()
 
-    # Simple distance reward: closer = better (less negative)
+    # Distance reward: closer = better (less negative)
     distance = np.linalg.norm(gripper_pos - block_pos)
     reward = -distance
+
+    # Contact bonus: positive signal while touching
+    if check_gripper_block_contact(m, d, block_name):
+        reward += contact_bonus
 
     # Check if block is lifted (for episode termination only, not reward)
     lifted = block_pos[2] > lift_threshold

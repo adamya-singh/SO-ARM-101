@@ -94,7 +94,7 @@ class ReinFlowCritic(nn.Module):
         hidden_size: Size of hidden layers
     """
     
-    def __init__(self, input_size: int = 1024, hidden_size: int = 512):
+    def __init__(self, input_size: int = 960, hidden_size: int = 512):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_size, hidden_size),
@@ -1213,7 +1213,7 @@ class ReinFlowPi0(nn.Module):
     
     Key differences from ReinFlowSmolVLA:
     - Uses Pi0Adapter which adds noise_mlp to Pi0
-    - VLM hidden size is 2048 (vs 1024 for SmolVLA)
+    - VLM hidden size is 2048 (vs 960 for SmolVLA)
     - State is embedded in suffix, not prefix
     
     Args:

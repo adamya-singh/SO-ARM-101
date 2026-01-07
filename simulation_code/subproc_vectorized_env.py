@@ -33,6 +33,7 @@ def _worker(
     starting_position,
     block_pos,
     lift_threshold,
+    contact_bonus,
     worker_idx,
 ):
     """
@@ -135,14 +136,17 @@ def _worker(
             send_position_command(data, action_dict)
             mujoco.mj_step(model, data)
 
-        # SIMPLIFIED reward: Just negative distance from end effector to block
-        # This is a minimal reward to verify the learning pipeline works.
+        # Reward with distance penalty + contact bonus
         gripper_pos = data.site("gripperframe").xpos.copy()
         block_pos = data.body("red_block").xpos.copy()
 
-        # Simple distance reward: closer = better (less negative)
+        # Distance reward: closer = better (less negative)
         distance = np.linalg.norm(gripper_pos - block_pos)
         reward = -distance
+
+        # Contact bonus: positive signal while touching
+        if check_gripper_block_contact(model, data, "red_block"):
+            reward += contact_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > lift_threshold
@@ -195,6 +199,7 @@ class SubprocMuJoCoEnv:
         starting_position: Dict of joint positions in degrees
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
+        contact_bonus: Bonus reward while gripper contacts block
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -206,6 +211,7 @@ class SubprocMuJoCoEnv:
         starting_position: dict,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
+        contact_bonus: float = 0.1,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -214,6 +220,7 @@ class SubprocMuJoCoEnv:
         self.starting_position = starting_position
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
+        self.contact_bonus = contact_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -245,6 +252,7 @@ class SubprocMuJoCoEnv:
                     starting_position,
                     block_pos,
                     lift_threshold,
+                    contact_bonus,
                     i,
                 ),
                 daemon=True,
