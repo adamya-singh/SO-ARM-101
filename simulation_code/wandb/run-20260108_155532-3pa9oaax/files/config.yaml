@@ -1,0 +1,121 @@
+_wandb:
+    value:
+        cli_version: 0.21.4
+        e:
+            bt9wxuwco5zpmyiildvu31g3cqxue97k:
+                args:
+                    - --parallel-envs
+                    - "10"
+                    - --no-render
+                    - --headless
+                codePath: simulation_code/train_reinflow.py
+                codePathLocal: train_reinflow.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "12.8"
+                disk:
+                    /:
+                        total: "201786429440"
+                        used: "75188256768"
+                email: 7adamyasingh@gmail.com
+                executable: /tmp/as4487/lerobot-venv/bin/python
+                git:
+                    commit: aadf1fa17a6d410dc6b410dd457dbbff0bb1d158
+                    remote: git@github.com:adamya-singh/SO-ARM-101.git
+                gpu: NVIDIA H200
+                gpu_count: 4
+                gpu_nvidia:
+                    - architecture: Hopper
+                      cudaCores: 16896
+                      memoryTotal: "150754820096"
+                      name: NVIDIA H200
+                      uuid: GPU-34097e24-b09c-df30-e53a-64e923d9afad
+                    - architecture: Hopper
+                      cudaCores: 16896
+                      memoryTotal: "150754820096"
+                      name: NVIDIA H200
+                      uuid: GPU-0a9d04ae-7b0d-981f-3841-5e32a9533bed
+                    - architecture: Hopper
+                      cudaCores: 16896
+                      memoryTotal: "150754820096"
+                      name: NVIDIA H200
+                      uuid: GPU-fae41ea7-42cf-c5c2-f757-f0646326662e
+                    - architecture: Hopper
+                      cudaCores: 16896
+                      memoryTotal: "150754820096"
+                      name: NVIDIA H200
+                      uuid: GPU-cc18e388-7b23-698f-e0ab-9727dfb51d19
+                host: trustai.cs.rutgers.edu
+                memory:
+                    total: "1077290586112"
+                os: Linux-6.8.0-85-generic-x86_64-with-glibc2.39
+                program: /tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py
+                python: CPython 3.10.19
+                root: /tmp/as4487/SO-ARM-101/simulation_code
+                startedAt: "2026-01-08T20:55:32.967890Z"
+                writerId: bt9wxuwco5zpmyiildvu31g3cqxue97k
+        m: []
+        python_version: 3.10.19
+        t:
+            "1":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+                - 83
+            "2":
+                - 1
+                - 11
+                - 41
+                - 49
+                - 51
+                - 71
+                - 83
+            "3":
+                - 2
+                - 16
+            "4": 3.10.19
+            "5": 0.21.4
+            "6": 4.53.3
+            "12": 0.21.4
+            "13": linux-x86_64
+chunks_per_episode:
+    value: 3
+clip_epsilon:
+    value: 0.15
+critic_lr:
+    value: 0.0001
+gae_lambda:
+    value: 0.95
+gamma:
+    value: 0.999
+gradient_checkpointing:
+    value: false
+minibatch_size:
+    value: 8
+model_type:
+    value: smolvla
+num_denoising_steps:
+    value: 1
+num_parallel_envs:
+    value: 10
+num_ppo_epochs:
+    value: 5
+policy_lr:
+    value: 3e-06
+target_kl:
+    value: 0.1
+train_action_head:
+    value: true
+train_critic:
+    value: true
+train_full_expert:
+    value: true
+train_noise_head:
+    value: true
+train_time_mlp:
+    value: true
+training_mode:
+    value: ppo-on-policy
