@@ -539,7 +539,7 @@ def train_parallel(config, args, device):
                     for chunk in action_chunks_np
                 ])
                 
-                chunk_rewards, dones, _, _, _ = vec_env.step_all_chunk(
+                chunk_rewards, dones, _, _, _, _ = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 warmup_rewards.extend(chunk_rewards.tolist())
