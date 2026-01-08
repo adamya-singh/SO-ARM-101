@@ -745,9 +745,10 @@ _consecutive_contact = 0
 
 def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, 
                    height_alignment_bonus=0.05, grasp_bonus=0.15,
+                   lift_bonus=0.2, lift_bonus_threshold=0.04,
                    sustained_contact_threshold=5, sustained_contact_bonus=0.2):
     """
-    Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp.
+    Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp + lift.
     
     Components:
     - Distance: -distance (range: -0.5 to 0.0)
@@ -755,16 +756,18 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     - Sustained contact: +sustained_contact_bonus after threshold consecutive contact frames
     - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
     - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
+    - Lift bonus: +lift_bonus when block is elevated above lift_bonus_threshold
     
-    Total range per step: ~-0.5 to +0.50
+    Total range per step: ~-0.5 to +0.70
 
     Returns:
         reward: float - negative distance to block + bonuses
-        done: bool - True if block is lifted above threshold (for episode termination)
+        done: bool - True if block is lifted above lift_threshold (for episode termination)
         contacted: bool - whether gripper is touching block
         gripped: bool - whether both gripper sides are squeezing block
         sustained: bool - whether contact has been sustained above threshold
         height_aligned: bool - whether gripper is above block and close horizontally
+        block_lifted: bool - whether block is elevated above lift_bonus_threshold
     """
     global _consecutive_contact
     
@@ -805,10 +808,15 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     if gripped:
         reward += grasp_bonus
 
-    # Check if block is lifted (for episode termination only, not reward)
-    lifted = block_pos[2] > lift_threshold
+    # Lift bonus: reward when block is elevated above threshold
+    block_lifted = block_pos[2] > lift_bonus_threshold
+    if block_lifted:
+        reward += lift_bonus
 
-    return reward, lifted, contacted, gripped, sustained, height_aligned
+    # Check if block is lifted high enough for episode termination
+    done = block_pos[2] > lift_threshold
+
+    return reward, done, contacted, gripped, sustained, height_aligned, block_lifted
 
 
 def reset_reward_state():

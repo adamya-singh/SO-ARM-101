@@ -46,6 +46,8 @@ class VectorizedMuJoCoEnv:
         contact_bonus: Bonus reward while gripper contacts block
         height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
         grasp_bonus: Bonus reward when both sides of gripper squeeze block
+        lift_bonus: Bonus reward when block is lifted above threshold
+        lift_bonus_threshold: Height (meters) to trigger lift bonus
         sustained_contact_threshold: Frames of continuous contact before bonus triggers
         sustained_contact_bonus: Extra reward per step after sustained threshold reached
         preprocessor: Optional PolicyProcessorPipeline for state normalization
@@ -62,6 +64,8 @@ class VectorizedMuJoCoEnv:
         contact_bonus: float = 0.1,
         height_alignment_bonus: float = 0.05,
         grasp_bonus: float = 0.15,
+        lift_bonus: float = 0.2,
+        lift_bonus_threshold: float = 0.04,
         sustained_contact_threshold: int = 5,
         sustained_contact_bonus: float = 0.2,
         preprocessor=None,
@@ -74,6 +78,8 @@ class VectorizedMuJoCoEnv:
         self.contact_bonus = contact_bonus
         self.height_alignment_bonus = height_alignment_bonus
         self.grasp_bonus = grasp_bonus
+        self.lift_bonus = lift_bonus
+        self.lift_bonus_threshold = lift_bonus_threshold
         self.sustained_contact_threshold = sustained_contact_threshold
         self.sustained_contact_bonus = sustained_contact_bonus
         self.preprocessor = preprocessor
@@ -236,7 +242,7 @@ class VectorizedMuJoCoEnv:
                 mujoco.mj_step(self.model, d)
             
             # Compute reward
-            reward, done, contacted, gripped, sustained, height_aligned = self._compute_reward(i)
+            reward, done, contacted, gripped, sustained, height_aligned, block_lifted = self._compute_reward(i)
             rewards[i] = reward
             contacts[i] = int(contacted)
             grasps[i] = int(gripped)
@@ -249,7 +255,7 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp.
+        Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp + lift.
         
         Components:
         - Distance: -distance (range: -0.5 to 0.0)
@@ -257,16 +263,18 @@ class VectorizedMuJoCoEnv:
         - Sustained contact: +sustained_contact_bonus after threshold consecutive frames
         - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
         - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
+        - Lift bonus: +lift_bonus when block is elevated above lift_bonus_threshold
         
-        Total range per step: ~-0.5 to +0.50
+        Total range per step: ~-0.5 to +0.70
         
         Returns:
             reward: float, the computed reward
-            lifted: bool, whether block is lifted above threshold
+            done: bool, whether block is lifted above terminal threshold
             contacted: bool, whether gripper is touching block
             gripped: bool, whether both gripper sides are squeezing block
             sustained: bool, whether contact has been sustained above threshold
             height_aligned: bool, whether gripper is above block and close horizontally
+            block_lifted: bool, whether block is elevated above lift_bonus_threshold
         """
         d = self.datas[env_idx]
 
@@ -305,10 +313,15 @@ class VectorizedMuJoCoEnv:
         if gripped:
             reward += self.grasp_bonus
 
-        # Check if block is lifted (for episode termination only, not reward)
-        lifted = block_pos[2] > self.lift_threshold
+        # Lift bonus: reward when block is elevated above threshold
+        block_lifted = block_pos[2] > self.lift_bonus_threshold
+        if block_lifted:
+            reward += self.lift_bonus
 
-        return reward, lifted, contacted, gripped, sustained, height_aligned
+        # Check if block is lifted high enough for episode termination
+        done = block_pos[2] > self.lift_threshold
+
+        return reward, done, contacted, gripped, sustained, height_aligned, block_lifted
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """

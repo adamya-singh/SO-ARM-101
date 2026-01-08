@@ -115,11 +115,13 @@ Parameters you may adjust for specific experiments or hardware constraints.
 | `sustained_contact_bonus` | `0.2` | N/A | Extra reward per step after sustained contact threshold reached. Larger than contact_bonus to strongly encourage maintaining grip. |
 | `height_alignment_bonus` | `0.05` | N/A | Positive reward when gripper is above block and close horizontally (within 10cm horizontal, 2cm+ above). Encourages top-down grasping approach rather than sideways bumping. |
 | `grasp_bonus` | `0.15` | N/A | Positive reward when both sides of gripper squeeze block (force > 0.1N each). Stronger signal than contact; directly precedes successful lifting. |
+| `lift_bonus` | `0.2` | N/A | Positive reward when block is elevated above lift_bonus_threshold. Largest bonus, directly rewards the ultimate goal of lifting. |
+| `lift_bonus_threshold` | `0.04` | N/A | Block height (meters) to trigger lift bonus. Set lower than terminal lift_threshold (8cm) to reward partial lifts. Block starts at ~1.25cm, so 4cm = ~2.75cm actual lift. |
 | `lift_threshold` | `0.08` | N/A | Block height (meters) for episode termination. 8cm ensures block is clearly lifted, not just nudged. |
 
 **Reward Formula**:
 ```
-reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact_bonus if touching else 0) + (sustained_contact_bonus if sustained else 0) + (grasp_bonus if gripped else 0)
+reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact_bonus if touching else 0) + (sustained_contact_bonus if sustained else 0) + (grasp_bonus if gripped else 0) + (lift_bonus if block_z > lift_bonus_threshold else 0)
 ```
 
 **Alignment Conditions**:
@@ -135,6 +137,11 @@ reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact
 - Both gripper body AND moving_jaw contact block
 - Each side applies force > 0.1N
 
+**Lift Conditions**:
+- Block height > `lift_bonus_threshold` (4cm)
+- Binary reward (not scaled by height)
+- Separate from terminal threshold (8cm) to allow reward before episode ends
+
 **Component Ranges**:
 
 | Component | Per-step Range | Per-episode (150 actions) |
@@ -144,11 +151,13 @@ reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact
 | Contact bonus | 0.0 or +0.1 | 0 to +15 |
 | Sustained contact bonus | 0.0 or +0.2 | 0 to +30 |
 | Grasp bonus | 0.0 or +0.15 | 0 to +22.5 |
+| Lift bonus | 0.0 or +0.2 | 0 to +30 |
 | **Net (no contact, no align)** | -0.5 to 0.0 | ~-30 |
 | **Net (aligned, no contact)** | -0.45 to +0.05 | ~-20 |
 | **Net (brief contact)** | -0.4 to +0.15 | ~+15 |
 | **Net (sustained contact)** | -0.2 to +0.35 | ~+25 |
 | **Net (with grasp)** | -0.05 to +0.50 | ~+45 |
+| **Net (with lift)** | +0.15 to +0.70 | ~+75 |
 
 **Source**: `so101_mujoco_utils.py` (compute_reward), `train_reinflow.py` (TrainingConfig)
 
@@ -436,6 +445,8 @@ sustained_contact_threshold = 5
 sustained_contact_bonus = 0.2
 height_alignment_bonus = 0.05
 grasp_bonus = 0.15
+lift_bonus = 0.2
+lift_bonus_threshold = 0.04
 steps_per_action = 10
 image_size = 256
 ```
@@ -448,6 +459,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-01-08 | Added `lift_bonus = 0.2` and `lift_bonus_threshold = 0.04` reward shaping; rewards when block is elevated above 4cm. Provides dense reward for lifting before episode terminates at 8cm. Reward progression: align → contact → grasp → lift |
 | 2026-01-08 | Added sustained contact reward: `sustained_contact_threshold = 5` (frames before bonus), `sustained_contact_bonus = 0.2` (extra reward per step). Creates reward gradient: approach → touch → hold → grasp. Added wandb metrics: grasp_rate, grasp_count_avg, sustained_contact_rate |
 | 2026-01-08 | Added `grasp_bonus = 0.15` reward shaping parameter; rewards when both sides of gripper squeeze block (bilateral force > 0.1N), bridging gap between contact and lift |
 | 2026-01-08 | Added `height_alignment_bonus = 0.05` reward shaping parameter; encourages top-down grasping approach by rewarding gripper being above block when close horizontally |

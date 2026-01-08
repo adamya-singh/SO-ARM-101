@@ -187,6 +187,8 @@ class TrainingConfig:
     contact_bonus = 0.1   # Bonus reward while gripper contacts block
     height_alignment_bonus = 0.05  # Bonus when gripper is above block (top-down approach)
     grasp_bonus = 0.15  # Bonus when both sides of gripper squeeze block
+    lift_bonus = 0.2  # Bonus when block is lifted above threshold
+    lift_bonus_threshold = 0.04  # Height (meters) to trigger lift bonus (lower than terminal)
     sustained_contact_threshold = 5   # Frames of continuous contact before bonus triggers
     sustained_contact_bonus = 0.2     # Extra reward per step after threshold reached
     
@@ -367,6 +369,8 @@ def train_parallel(config, args, device):
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
             grasp_bonus=config.grasp_bonus,
+            lift_bonus=config.lift_bonus,
+            lift_bonus_threshold=config.lift_bonus_threshold,
             sustained_contact_threshold=config.sustained_contact_threshold,
             sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
@@ -383,6 +387,8 @@ def train_parallel(config, args, device):
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
             grasp_bonus=config.grasp_bonus,
+            lift_bonus=config.lift_bonus,
+            lift_bonus_threshold=config.lift_bonus_threshold,
             sustained_contact_threshold=config.sustained_contact_threshold,
             sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
