@@ -739,18 +739,19 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
     return np.linalg.norm(total_force)
 
 
-def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1):
+def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, height_alignment_bonus=0.05):
     """
-    Reward with distance penalty + contact bonus.
+    Reward with distance penalty + contact bonus + height alignment bonus.
     
     Components:
     - Distance: -distance (range: -0.5 to 0.0)
     - Contact bonus: +contact_bonus when gripper touches block
+    - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
     
-    Total range per step: ~-0.5 to +0.1
+    Total range per step: ~-0.5 to +0.15
 
     Returns:
-        reward: float - negative distance to block + contact bonus
+        reward: float - negative distance to block + bonuses
         done: bool - True if block is lifted above threshold (for episode termination)
     """
     # Get gripper position (end effector)
@@ -762,6 +763,13 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     # Distance reward: closer = better (less negative)
     distance = np.linalg.norm(gripper_pos - block_pos)
     reward = -distance
+
+    # Height alignment bonus: reward gripper being above block when close horizontally
+    # Encourages top-down approach rather than sideways bumping
+    horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
+    height_above = gripper_pos[2] - block_pos[2]
+    if horizontal_dist < 0.1 and height_above > 0.02:  # Close horizontally, above block
+        reward += height_alignment_bonus
 
     # Contact bonus: positive signal while touching
     if check_gripper_block_contact(m, d, block_name):

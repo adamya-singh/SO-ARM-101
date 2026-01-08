@@ -185,6 +185,7 @@ class TrainingConfig:
     # Reward
     lift_threshold = 0.08
     contact_bonus = 0.1   # Bonus reward while gripper contacts block
+    height_alignment_bonus = 0.05  # Bonus when gripper is above block (top-down approach)
     
     # Logging
     log_interval = 1
@@ -361,6 +362,7 @@ def train_parallel(config, args, device):
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
             contact_bonus=config.contact_bonus,
+            height_alignment_bonus=config.height_alignment_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
@@ -373,6 +375,7 @@ def train_parallel(config, args, device):
             starting_position=config.starting_position,
             lift_threshold=config.lift_threshold,
             contact_bonus=config.contact_bonus,
+            height_alignment_bonus=config.height_alignment_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )

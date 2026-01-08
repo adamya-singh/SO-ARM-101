@@ -44,6 +44,7 @@ class VectorizedMuJoCoEnv:
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
         contact_bonus: Bonus reward while gripper contacts block
+        height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -56,6 +57,7 @@ class VectorizedMuJoCoEnv:
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
         contact_bonus: float = 0.1,
+        height_alignment_bonus: float = 0.05,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -64,6 +66,7 @@ class VectorizedMuJoCoEnv:
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
         self.contact_bonus = contact_bonus
+        self.height_alignment_bonus = height_alignment_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -223,13 +226,14 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Reward with distance penalty + contact bonus.
+        Reward with distance penalty + contact bonus + height alignment bonus.
         
         Components:
         - Distance: -distance (range: -0.5 to 0.0)
         - Contact bonus: +contact_bonus when gripper touches block
+        - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
         
-        Total range per step: ~-0.5 to +0.1
+        Total range per step: ~-0.5 to +0.15
         
         Returns:
             reward: float, the computed reward
@@ -245,6 +249,13 @@ class VectorizedMuJoCoEnv:
         # Distance reward: closer = better (less negative)
         distance = np.linalg.norm(gripper_pos - block_pos)
         reward = -distance
+
+        # Height alignment bonus: reward gripper being above block when close horizontally
+        # Encourages top-down approach rather than sideways bumping
+        horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
+        height_above = gripper_pos[2] - block_pos[2]
+        if horizontal_dist < 0.1 and height_above > 0.02:  # Close horizontally, above block
+            reward += self.height_alignment_bonus
 
         # Contact bonus: positive signal while touching
         contacted = check_gripper_block_contact(self.model, d, "red_block")

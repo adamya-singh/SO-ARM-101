@@ -111,21 +111,28 @@ Parameters you may adjust for specific experiments or hardware constraints.
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
 | `contact_bonus` | `0.1` | N/A | Positive reward when gripper contacts block. Provides clear gradient signal for contact-seeking behavior. Value chosen to exceed distance penalty when close (~0.03) but not dominate when far. |
+| `height_alignment_bonus` | `0.05` | N/A | Positive reward when gripper is above block and close horizontally (within 10cm horizontal, 2cm+ above). Encourages top-down grasping approach rather than sideways bumping. |
 | `lift_threshold` | `0.08` | N/A | Block height (meters) for episode termination. 8cm ensures block is clearly lifted, not just nudged. |
 
 **Reward Formula**:
 ```
-reward = -distance + (contact_bonus if touching else 0)
+reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact_bonus if touching else 0)
 ```
+
+**Alignment Conditions**:
+- `horizontal_dist < 0.1` (within 10cm horizontally)
+- `height_above > 0.02` (at least 2cm above block)
 
 **Component Ranges**:
 
 | Component | Per-step Range | Per-episode (150 actions) |
 |-----------|----------------|---------------------------|
 | Distance penalty | -0.5 to 0.0 | -75 to 0 |
+| Height alignment bonus | 0.0 or +0.05 | 0 to +7.5 |
 | Contact bonus | 0.0 or +0.1 | 0 to +15 |
-| **Net (no contact)** | -0.5 to 0.0 | ~-30 |
-| **Net (with contact)** | -0.4 to +0.1 | ~+10 |
+| **Net (no contact, no align)** | -0.5 to 0.0 | ~-30 |
+| **Net (aligned, no contact)** | -0.45 to +0.05 | ~-20 |
+| **Net (with contact)** | -0.4 to +0.15 | ~+15 |
 
 **Source**: `so101_mujoco_utils.py` (compute_reward), `train_reinflow.py` (TrainingConfig)
 
@@ -409,6 +416,7 @@ action_dim = 6   # fixed
 # Tier 4: Environment
 lift_threshold = 0.08
 contact_bonus = 0.1
+height_alignment_bonus = 0.05
 steps_per_action = 10
 image_size = 256
 ```
@@ -421,6 +429,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-01-08 | Added `height_alignment_bonus = 0.05` reward shaping parameter; encourages top-down grasping approach by rewarding gripper being above block when close horizontally |
 | 2026-01-08 | Updated clip_epsilon (0.05→0.15), policy_lr (1e-6→3e-6), num_ppo_epochs (10→5) to address 83% clip fraction observed in 2.3k episode run |
 | 2026-01-07 | Added `contact_bonus = 0.1` reward shaping parameter; added Reward Shaping documentation section with formula and component ranges |
 | 2026-01-07 | Increased `policy_lr` from 5e-7 to 1e-6 after 17k episodes showed no reward improvement (wandb run 71) |
