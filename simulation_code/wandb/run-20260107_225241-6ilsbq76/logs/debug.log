@@ -1,0 +1,27 @@
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_setup.py:_flush():81] Current SDK version is 0.21.4
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_setup.py:_flush():81] Configure stats pid to 3206596
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_setup.py:_flush():81] Loading settings from /common/home/as4487/.config/wandb/settings
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_setup.py:_flush():81] Loading settings from /freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/wandb/settings
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_init.py:setup_run_log_directory():686] Logging user logs to /freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/wandb/run-20260107_225241-6ilsbq76/logs/debug.log
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_init.py:setup_run_log_directory():687] Logging internal logs to /freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/wandb/run-20260107_225241-6ilsbq76/logs/debug-internal.log
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_init.py:init():813] calling init triggers
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_init.py:init():818] wandb.init called with sweep_config: {}
+config: {'model_type': 'smolvla', 'policy_lr': 1e-06, 'critic_lr': 0.0001, 'gamma': 0.999, 'gae_lambda': 0.95, 'clip_epsilon': 0.05, 'num_ppo_epochs': 10, 'minibatch_size': 8, 'target_kl': 0.1, 'num_denoising_steps': 1, 'chunks_per_episode': 3, 'train_action_head': True, 'train_time_mlp': True, 'train_full_expert': True, 'train_noise_head': True, 'train_critic': True, 'num_parallel_envs': 10, 'training_mode': 'ppo-on-policy', 'gradient_checkpointing': False, '_wandb': {}}
+2026-01-07 22:52:41,991 INFO    MainThread:3206596 [wandb_init.py:init():854] starting backend
+2026-01-07 22:52:42,199 INFO    MainThread:3206596 [wandb_init.py:init():857] sending inform_init request
+2026-01-07 22:52:42,203 INFO    MainThread:3206596 [wandb_init.py:init():865] backend started and connected
+2026-01-07 22:52:42,206 INFO    MainThread:3206596 [wandb_init.py:init():936] updated telemetry
+2026-01-07 22:52:42,215 INFO    MainThread:3206596 [wandb_init.py:init():960] communicating run to backend with 90.0 second timeout
+2026-01-07 22:52:42,670 INFO    MainThread:3206596 [wandb_init.py:init():1006] run resumed
+2026-01-07 22:52:42,672 INFO    MainThread:3206596 [wandb_init.py:init():1011] starting run threads in backend
+2026-01-07 22:52:42,803 INFO    MainThread:3206596 [wandb_run.py:_console_start():2506] atexit reg
+2026-01-07 22:52:42,803 INFO    MainThread:3206596 [wandb_run.py:_redirect():2354] redirect: wrap_raw
+2026-01-07 22:52:42,804 INFO    MainThread:3206596 [wandb_run.py:_redirect():2423] Wrapping output streams.
+2026-01-07 22:52:42,804 INFO    MainThread:3206596 [wandb_run.py:_redirect():2446] Redirects installed.
+2026-01-07 22:52:42,807 INFO    MainThread:3206596 [wandb_init.py:init():1049] run started, returning control to user process
+2026-01-08 00:29:04,751 INFO    MainThread:3206596 [wandb_run.py:_finish():2272] finishing run 7adamyasingh-rutgers-university/reinflow-smolvla/6ilsbq76
+2026-01-08 00:29:04,751 INFO    MainThread:3206596 [wandb_run.py:_atexit_cleanup():2471] got exitcode: 0
+2026-01-08 00:29:04,751 INFO    MainThread:3206596 [wandb_run.py:_restore():2453] restore
+2026-01-08 00:29:04,752 INFO    MainThread:3206596 [wandb_run.py:_restore():2459] restore done
+2026-01-08 00:29:05,439 INFO    MainThread:3206596 [wandb_run.py:_footer_sync_info():3867] logging synced files

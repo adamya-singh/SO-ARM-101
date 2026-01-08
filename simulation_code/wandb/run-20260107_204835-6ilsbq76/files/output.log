@@ -1,0 +1,74 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 1e-06 -> 1e-07
+Critic LR: 0.0001 -> 1e-05
+LR warmup iterations: 10
+PPO epochs: 10
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.05
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.0
+Critic warmup iters: 30
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 30 iterations...
+  [Warmup 1/30] Critic loss: 36317.9258
+  [Warmup 2/30] Critic loss: 34597.6680
+  [Warmup 3/30] Critic loss: 32734.1133
+  [Warmup 4/30] Critic loss: 31876.7637
+  [Warmup 5/30] Critic loss: 29792.0918
+  [Warmup 6/30] Critic loss: 29189.4590
+  [Warmup 7/30] Critic loss: 27531.9375
+  [Warmup 8/30] Critic loss: 26245.6875
+  [Warmup 9/30] Critic loss: 24874.2148
+  [Warmup 10/30] Critic loss: 23432.5879
+  [Warmup 11/30] Critic loss: 22869.6016
+  [Warmup 12/30] Critic loss: 21825.9746
+  [Warmup 13/30] Critic loss: 20313.5625
+  [Warmup 14/30] Critic loss: 19797.0391
+  [Warmup 15/30] Critic loss: 18748.4473
+  [Warmup 16/30] Critic loss: 17354.0820
+  [Warmup 17/30] Critic loss: 16497.4277
+Traceback (most recent call last):
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1669, in <module>
+    train(args=args)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1662, in train
+    return train_parallel(config, args, device)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 515, in train_parallel
+    action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 341, in forward_batched_with_trajectory
+    return self.forward_with_trajectory(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 313, in forward_with_trajectory
+    action_chunk, trajectory, sigmas = self.base.model.sample_actions_reinflow(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/modeling_smolvla.py", line 894, in sample_actions_reinflow
+    prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/modeling_smolvla.py", line 646, in embed_prefix
+    img_emb = img_emb * torch.tensor(img_emb_dim**0.5, dtype=img_emb.dtype, device=img_emb.device)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1669, in <module>
+    train(args=args)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 1662, in train
+    return train_parallel(config, args, device)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/train_reinflow.py", line 515, in train_parallel
+    action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 341, in forward_batched_with_trajectory
+    return self.forward_with_trajectory(observation)
+  File "/freespace/local/as4487/mujoco/SO-ARM-101/simulation_code/reinflow_smolvla.py", line 313, in forward_with_trajectory
+    action_chunk, trajectory, sigmas = self.base.model.sample_actions_reinflow(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/modeling_smolvla.py", line 894, in sample_actions_reinflow
+    prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
+  File "/freespace/local/as4487/mujoco/lerobot-fork/src/lerobot/policies/smolvla/modeling_smolvla.py", line 646, in embed_prefix
+    img_emb = img_emb * torch.tensor(img_emb_dim**0.5, dtype=img_emb.dtype, device=img_emb.device)
+KeyboardInterrupt
