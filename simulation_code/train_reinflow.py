@@ -496,7 +496,8 @@ def train_parallel(config, args, device):
     # ===== CRITIC WARMUP (paper Appendix D.2) =====
     # Train critic for a few iterations before updating actor
     # This ensures value estimates are reasonable before policy gradients
-    if config.critic_warmup_iters > 0:
+    # SKIP if resuming from checkpoint (critic already trained)
+    if config.critic_warmup_iters > 0 and start_episode == 0:
         print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
         for warmup_iter in range(config.critic_warmup_iters):
             vec_env.reset_all()
@@ -545,7 +546,8 @@ def train_parallel(config, args, device):
                 print(f"  [Warmup {warmup_iter+1}/{config.critic_warmup_iters}] Critic loss: {critic_loss.item():.4f}")
         
         print(f"[Critic Warmup] Complete!\n")
-        
+    elif start_episode > 0:
+        print(f"\n[Critic Warmup] Skipping warmup (resuming from episode {start_episode})\n")
     
     try:
         for episode_batch in range(config.num_episodes // num_envs):
@@ -1105,7 +1107,8 @@ def train_sequential(config, args, device):
     
     # ===== CRITIC WARMUP (paper Appendix D.2) =====
     # Train critic for a few iterations before updating actor
-    if config.critic_warmup_iters > 0:
+    # SKIP if resuming from checkpoint (critic already trained)
+    if config.critic_warmup_iters > 0 and start_episode == 0:
         print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
         for warmup_iter in range(config.critic_warmup_iters):
             reset_env(m, d, config.starting_position)
@@ -1174,6 +1177,8 @@ def train_sequential(config, args, device):
                 print(f"  [Warmup {warmup_iter+1}/{config.critic_warmup_iters}] Critic loss: {critic_loss.item():.4f}, Reward: {total_reward:.4f}")
         
         print(f"[Critic Warmup] Complete!\n")
+    elif start_episode > 0:
+        print(f"\n[Critic Warmup] Skipping warmup (resuming from episode {start_episode})\n")
     
     try:
         for episode in range(start_episode, config.num_episodes):
