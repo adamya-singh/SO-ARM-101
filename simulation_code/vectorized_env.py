@@ -45,6 +45,7 @@ class VectorizedMuJoCoEnv:
         lift_threshold: Height threshold for successful lift
         contact_bonus: Bonus reward while gripper contacts block
         height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
+        grasp_bonus: Bonus reward when both sides of gripper squeeze block
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -58,6 +59,7 @@ class VectorizedMuJoCoEnv:
         lift_threshold: float = 0.08,
         contact_bonus: float = 0.1,
         height_alignment_bonus: float = 0.05,
+        grasp_bonus: float = 0.15,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -67,6 +69,7 @@ class VectorizedMuJoCoEnv:
         self.lift_threshold = lift_threshold
         self.contact_bonus = contact_bonus
         self.height_alignment_bonus = height_alignment_bonus
+        self.grasp_bonus = grasp_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -226,14 +229,15 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Reward with distance penalty + contact bonus + height alignment bonus.
+        Reward with distance penalty + contact bonus + height alignment bonus + grasp bonus.
         
         Components:
         - Distance: -distance (range: -0.5 to 0.0)
         - Contact bonus: +contact_bonus when gripper touches block
         - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
+        - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
         
-        Total range per step: ~-0.5 to +0.15
+        Total range per step: ~-0.5 to +0.30
         
         Returns:
             reward: float, the computed reward
@@ -261,6 +265,11 @@ class VectorizedMuJoCoEnv:
         contacted = check_gripper_block_contact(self.model, d, "red_block")
         if contacted:
             reward += self.contact_bonus
+
+        # Grasp bonus: reward when both sides of gripper squeeze block
+        gripped, _ = check_block_gripped_with_force(self.model, d, "red_block")
+        if gripped:
+            reward += self.grasp_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > self.lift_threshold

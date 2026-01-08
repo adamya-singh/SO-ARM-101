@@ -112,16 +112,21 @@ Parameters you may adjust for specific experiments or hardware constraints.
 |-----------|---------------|-------------|-----------|
 | `contact_bonus` | `0.1` | N/A | Positive reward when gripper contacts block. Provides clear gradient signal for contact-seeking behavior. Value chosen to exceed distance penalty when close (~0.03) but not dominate when far. |
 | `height_alignment_bonus` | `0.05` | N/A | Positive reward when gripper is above block and close horizontally (within 10cm horizontal, 2cm+ above). Encourages top-down grasping approach rather than sideways bumping. |
+| `grasp_bonus` | `0.15` | N/A | Positive reward when both sides of gripper squeeze block (force > 0.1N each). Stronger signal than contact; directly precedes successful lifting. |
 | `lift_threshold` | `0.08` | N/A | Block height (meters) for episode termination. 8cm ensures block is clearly lifted, not just nudged. |
 
 **Reward Formula**:
 ```
-reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact_bonus if touching else 0)
+reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact_bonus if touching else 0) + (grasp_bonus if gripped else 0)
 ```
 
 **Alignment Conditions**:
 - `horizontal_dist < 0.1` (within 10cm horizontally)
 - `height_above > 0.02` (at least 2cm above block)
+
+**Grasp Conditions**:
+- Both gripper body AND moving_jaw contact block
+- Each side applies force > 0.1N
 
 **Component Ranges**:
 
@@ -130,9 +135,11 @@ reward = -distance + (height_alignment_bonus if aligned_above else 0) + (contact
 | Distance penalty | -0.5 to 0.0 | -75 to 0 |
 | Height alignment bonus | 0.0 or +0.05 | 0 to +7.5 |
 | Contact bonus | 0.0 or +0.1 | 0 to +15 |
+| Grasp bonus | 0.0 or +0.15 | 0 to +22.5 |
 | **Net (no contact, no align)** | -0.5 to 0.0 | ~-30 |
 | **Net (aligned, no contact)** | -0.45 to +0.05 | ~-20 |
 | **Net (with contact)** | -0.4 to +0.15 | ~+15 |
+| **Net (with grasp)** | -0.25 to +0.30 | ~+30 |
 
 **Source**: `so101_mujoco_utils.py` (compute_reward), `train_reinflow.py` (TrainingConfig)
 
@@ -417,6 +424,7 @@ action_dim = 6   # fixed
 lift_threshold = 0.08
 contact_bonus = 0.1
 height_alignment_bonus = 0.05
+grasp_bonus = 0.15
 steps_per_action = 10
 image_size = 256
 ```
@@ -429,6 +437,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-01-08 | Added `grasp_bonus = 0.15` reward shaping parameter; rewards when both sides of gripper squeeze block (bilateral force > 0.1N), bridging gap between contact and lift |
 | 2026-01-08 | Added `height_alignment_bonus = 0.05` reward shaping parameter; encourages top-down grasping approach by rewarding gripper being above block when close horizontally |
 | 2026-01-08 | Updated clip_epsilon (0.05→0.15), policy_lr (1e-6→3e-6), num_ppo_epochs (10→5) to address 83% clip fraction observed in 2.3k episode run |
 | 2026-01-07 | Added `contact_bonus = 0.1` reward shaping parameter; added Reward Shaping documentation section with formula and component ranges |

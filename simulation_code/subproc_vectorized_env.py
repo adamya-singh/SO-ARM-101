@@ -35,6 +35,7 @@ def _worker(
     lift_threshold,
     contact_bonus,
     height_alignment_bonus,
+    grasp_bonus,
     worker_idx,
 ):
     """
@@ -143,7 +144,7 @@ def _worker(
             send_position_command(data, action_dict)
             mujoco.mj_step(model, data)
 
-        # Reward with distance penalty + contact bonus + height alignment
+        # Reward with distance penalty + contact bonus + height alignment + grasp bonus
         gripper_pos = data.site("gripperframe").xpos.copy()
         block_pos = data.body("red_block").xpos.copy()
 
@@ -162,6 +163,11 @@ def _worker(
         contacted = check_gripper_block_contact(model, data, "red_block")
         if contacted:
             reward += contact_bonus
+
+        # Grasp bonus: reward when both sides of gripper squeeze block
+        gripped, _ = check_block_gripped_with_force(model, data, "red_block")
+        if gripped:
+            reward += grasp_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > lift_threshold
@@ -216,6 +222,7 @@ class SubprocMuJoCoEnv:
         lift_threshold: Height threshold for successful lift
         contact_bonus: Bonus reward while gripper contacts block
         height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
+        grasp_bonus: Bonus reward when both sides of gripper squeeze block
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -229,6 +236,7 @@ class SubprocMuJoCoEnv:
         lift_threshold: float = 0.08,
         contact_bonus: float = 0.1,
         height_alignment_bonus: float = 0.05,
+        grasp_bonus: float = 0.15,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -239,6 +247,7 @@ class SubprocMuJoCoEnv:
         self.lift_threshold = lift_threshold
         self.contact_bonus = contact_bonus
         self.height_alignment_bonus = height_alignment_bonus
+        self.grasp_bonus = grasp_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -272,6 +281,7 @@ class SubprocMuJoCoEnv:
                     lift_threshold,
                     contact_bonus,
                     height_alignment_bonus,
+                    grasp_bonus,
                     i,
                 ),
                 daemon=True,

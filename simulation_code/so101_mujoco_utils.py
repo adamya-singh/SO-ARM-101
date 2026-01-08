@@ -739,16 +739,17 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
     return np.linalg.norm(total_force)
 
 
-def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, height_alignment_bonus=0.05):
+def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, height_alignment_bonus=0.05, grasp_bonus=0.15):
     """
-    Reward with distance penalty + contact bonus + height alignment bonus.
+    Reward with distance penalty + contact bonus + height alignment bonus + grasp bonus.
     
     Components:
     - Distance: -distance (range: -0.5 to 0.0)
     - Contact bonus: +contact_bonus when gripper touches block
     - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
+    - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
     
-    Total range per step: ~-0.5 to +0.15
+    Total range per step: ~-0.5 to +0.30
 
     Returns:
         reward: float - negative distance to block + bonuses
@@ -774,6 +775,11 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     # Contact bonus: positive signal while touching
     if check_gripper_block_contact(m, d, block_name):
         reward += contact_bonus
+
+    # Grasp bonus: reward when both sides of gripper squeeze block
+    gripped, _ = check_block_gripped_with_force(m, d, block_name)
+    if gripped:
+        reward += grasp_bonus
 
     # Check if block is lifted (for episode termination only, not reward)
     lifted = block_pos[2] > lift_threshold
