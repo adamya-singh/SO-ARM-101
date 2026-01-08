@@ -1,0 +1,41 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 3e-06 -> 3.0000000000000004e-07
+Critic LR: 0.0001 -> 1e-05
+LR warmup iterations: 10
+PPO epochs: 5
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.15
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.0
+Critic warmup iters: 30
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Training critic for 30 iterations...
+Traceback (most recent call last):
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 1746, in <module>
+    train(args=args)
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 1739, in train
+    return train_parallel(config, args, device)
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 542, in train_parallel
+    chunk_rewards, dones, _, _, _ = vec_env.step_all_chunk(
+ValueError: too many values to unpack (expected 5)
+Traceback (most recent call last):
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 1746, in <module>
+    train(args=args)
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 1739, in train
+    return train_parallel(config, args, device)
+  File "/tmp/as4487/SO-ARM-101/simulation_code/train_reinflow.py", line 542, in train_parallel
+    chunk_rewards, dones, _, _, _ = vec_env.step_all_chunk(
+ValueError: too many values to unpack (expected 5)
