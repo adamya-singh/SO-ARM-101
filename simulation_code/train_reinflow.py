@@ -146,8 +146,8 @@ class TrainingConfig:
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
     # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
-    # gradients are ~6x stronger. Increased from 1e-6 to 3e-6 after addressing clip fraction issue.
-    policy_lr = 0.000003  # 3e-6 - can increase since clip_epsilon=0.15 protects against large updates
+    # gradients are ~6x stronger. Reverted to 1e-6 for stability (3e-6 caused KL explosion at 4.5k eps).
+    policy_lr = 0.000001  # 1e-6 - conservative value that showed stable KL for 740+ episodes
     critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
@@ -215,7 +215,7 @@ class TrainingConfig:
     # Note: Some values scaled for SmolVLA's chunk_size=50 (see docstring above)
     num_ppo_epochs = 5           # Reduced from 10 to prevent ratio drift over epochs
     minibatch_size = 8           # Mini-batch size for PPO updates
-    clip_epsilon = 0.15          # Increased from 0.05 to reduce 83% clip fraction (paper: 0.1-0.2)
+    clip_epsilon = 0.05          # Reverted to 0.05 for stability (0.15 caused KL explosion at 4.5k eps)
     value_clip_epsilon = 0.2     # Clip range for value function (0 to disable)
     gae_lambda = 0.95            # GAE lambda parameter
     # SCALED FOR CHUNK SIZE 50: Paper uses 0.01 for chunks of 4-8. With 6x more dims,

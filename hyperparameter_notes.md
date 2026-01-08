@@ -25,7 +25,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `policy_lr` | `3e-6` | `4.5e-5` | Increased from 1e-6 after addressing clip fraction issue. With clip_epsilon=0.15 protecting against large updates, higher LR accelerates learning. |
+| `policy_lr` | `1e-6` | `4.5e-5` | Reverted to 1e-6 for stability. 3e-6 + clip_epsilon=0.15 caused KL explosion at ~4.5k episodes. Conservative value showed stable KL (0.01-0.03) for 740+ episodes. |
 | `critic_lr` | `1e-4` | N/A | Critic learning rate can be higher than policy LR since it doesn't directly affect action distribution stability. Value function converges faster with higher LR. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -34,7 +34,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `clip_epsilon` | `0.15` | `0.001-0.2` | Increased from 0.05 after observing 83% clip fraction. Higher-dimensional action spaces cause more ratio drift, requiring wider clip range. |
+| `clip_epsilon` | `0.05` | `0.001-0.2` | Reverted to 0.05 for stability. 0.15 removed PPO's protection against large updates, leading to KL explosion at ~4.5k episodes. 83% clip fraction was actually correct behavior. |
 | `target_kl` | `0.1` | `0.01` | Scaled ~10x from paper because KL divergence naturally scales with action dimensionality. With 300 dims (vs ~48), KL values are ~6x larger. Early stopping threshold for PPO epochs. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -413,9 +413,9 @@ These parameters are **scale-invariant** and can use paper values directly:
 
 ```python
 # Tier 1: Critical
-policy_lr = 3e-6
+policy_lr = 1e-6
 critic_lr = 1e-4
-clip_epsilon = 0.15
+clip_epsilon = 0.05
 target_kl = 0.1
 sigma_min = 0.25
 sigma_max = 0.50
@@ -459,6 +459,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-01-08 | REVERTED policy_lr (3e-6→1e-6) and clip_epsilon (0.15→0.05). Analysis showed pre-515b18d run had stable KL (0.01-0.03) for 740 eps with zero early stops. Post-commit runs collapsed at ~4.5k eps. The 83% clip fraction was PPO correctly constraining updates. |
 | 2026-01-08 | REVERTED `recompute_old_log_probs` - the fix prevented cumulative learning across PPO epochs. 900-ep test showed worse rewards (-46 vs -8) and no grasps despite "healthier" KL metrics. Original staleness was a symptom of learning, not the root cause. |
 | 2026-01-08 | Added `lift_bonus = 0.2` and `lift_bonus_threshold = 0.04` reward shaping; rewards when block is elevated above 4cm. Provides dense reward for lifting before episode terminates at 8cm. Reward progression: align → contact → grasp → lift |
 | 2026-01-08 | Added sustained contact reward: `sustained_contact_threshold = 5` (frames before bonus), `sustained_contact_bonus = 0.2` (extra reward per step). Creates reward gradient: approach → touch → hold → grasp. Added wandb metrics: grasp_rate, grasp_count_avg, sustained_contact_rate |
