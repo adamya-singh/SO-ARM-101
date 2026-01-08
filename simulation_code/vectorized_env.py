@@ -369,7 +369,7 @@ class VectorizedMuJoCoEnv:
                     mujoco.mj_step(self.model, d)
                 
                 # Compute reward for this step
-                reward, done, contacted, gripped, sustained, height_aligned = self._compute_reward(i)
+                reward, done, contacted, gripped, sustained, height_aligned, block_lifted = self._compute_reward(i)
                 total_rewards[i] += reward
                 total_contacts[i] += int(contacted)
                 total_grasps[i] += int(gripped)

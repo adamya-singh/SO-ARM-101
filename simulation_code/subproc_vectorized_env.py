@@ -216,8 +216,8 @@ def _worker(
             
             elif cmd == 'step':
                 action_radians, steps_per_action = payload
-                reward, done, contacted, gripped, sustained, height_aligned = step_physics(action_radians, steps_per_action)
-                remote.send((reward, done, contacted, gripped, sustained, height_aligned))
+                reward, done, contacted, gripped, sustained, height_aligned, block_lifted = step_physics(action_radians, steps_per_action)
+                remote.send((reward, done, contacted, gripped, sustained, height_aligned, block_lifted))
             
             elif cmd == 'close':
                 renderer.close()
