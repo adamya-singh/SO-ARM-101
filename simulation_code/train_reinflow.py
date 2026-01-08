@@ -222,6 +222,11 @@ class TrainingConfig:
     # KL values are naturally ~6x larger, so we scale target_kl accordingly (0.05-0.1)
     target_kl = 0.1             # KL threshold for early stopping (scaled ~6x from paper's 0.01)
     
+    # Recompute old_log_probs at start of each PPO epoch to prevent staleness.
+    # With 300-dim actions, log prob ratios diverge quickly if old_log_probs are stale.
+    # Setting this to True adds ~20% compute overhead but prevents policy collapse.
+    recompute_old_log_probs = True
+    
     # Gradient accumulation (paper Appendix D)
     gradient_accumulation_steps = 15  # Paper uses 15 for visual tasks
     
@@ -677,13 +682,6 @@ def train_parallel(config, args, device):
                 if batch_size > 1:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 
-                # Compute old log probabilities (detached for PPO ratio)
-                with torch.no_grad():
-                    old_log_probs = compute_trajectory_log_probs_onpolicy(
-                        rl_policy, all_trajectories, all_observations
-                    )
-                    old_values = all_values.clone()
-                
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
@@ -696,9 +694,22 @@ def train_parallel(config, args, device):
                 policy_grad_clipped = False
                 critic_grad_clipped = False
                 
+                # Initialize old_log_probs and old_values (will be computed in loop)
+                old_log_probs = None
+                old_values = None
+                
                 for epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
                         break
+                    
+                    # Compute old log probabilities at start of each epoch to prevent staleness.
+                    # With 300-dim actions, ratios diverge quickly if old_log_probs become stale.
+                    if config.recompute_old_log_probs or epoch == 0:
+                        with torch.no_grad():
+                            old_log_probs = compute_trajectory_log_probs_onpolicy(
+                                rl_policy, all_trajectories, all_observations
+                            )
+                            old_values = rl_policy.get_value(all_observations)
                     
                     # Shuffle indices for mini-batching
                     indices = torch.randperm(batch_size, device=device)
@@ -1354,13 +1365,6 @@ def train_sequential(config, args, device):
                 if batch_size > 1:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 
-                # Compute old log probabilities (detached for PPO ratio)
-                with torch.no_grad():
-                    old_log_probs = compute_trajectory_log_probs_onpolicy(
-                        rl_policy, batch_trajectories, batch_observations
-                    )
-                    old_values = batch_values.clone()
-                
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
@@ -1373,9 +1377,22 @@ def train_sequential(config, args, device):
                 policy_grad_clipped = False
                 critic_grad_clipped = False
                 
+                # Initialize old_log_probs and old_values (will be computed in loop)
+                old_log_probs = None
+                old_values = None
+                
                 for ppo_epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
                         break
+                    
+                    # Compute old log probabilities at start of each epoch to prevent staleness.
+                    # With 300-dim actions, ratios diverge quickly if old_log_probs become stale.
+                    if config.recompute_old_log_probs or ppo_epoch == 0:
+                        with torch.no_grad():
+                            old_log_probs = compute_trajectory_log_probs_onpolicy(
+                                rl_policy, batch_trajectories, batch_observations
+                            )
+                            old_values = rl_policy.get_value(batch_observations)
                     
                     # Shuffle indices for mini-batching
                     indices = torch.randperm(batch_size, device=device)
