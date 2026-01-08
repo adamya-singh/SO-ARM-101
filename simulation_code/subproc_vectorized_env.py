@@ -36,6 +36,8 @@ def _worker(
     contact_bonus,
     height_alignment_bonus,
     grasp_bonus,
+    sustained_contact_threshold,
+    sustained_contact_bonus,
     worker_idx,
 ):
     """
@@ -93,10 +95,11 @@ def _worker(
     prev_gripper_pos = None
     prev_block_pos = None
     initial_block_pos = None
+    consecutive_contact = 0  # Track consecutive contact frames for sustained bonus
     
     def reset_env():
         """Reset the environment to starting state."""
-        nonlocal prev_gripper_pos, prev_block_pos, initial_block_pos
+        nonlocal prev_gripper_pos, prev_block_pos, initial_block_pos, consecutive_contact
         
         mujoco.mj_resetData(model, data)
         set_initial_pose(data, starting_position)
@@ -112,6 +115,7 @@ def _worker(
         prev_gripper_pos = None
         prev_block_pos = None
         initial_block_pos = None
+        consecutive_contact = 0
     
     def get_observation():
         """Render all cameras and return observations."""
@@ -137,32 +141,47 @@ def _worker(
             reward: float, the computed reward
             lifted: bool, whether block is lifted above threshold
             contacted: bool, whether gripper is touching block
+            gripped: bool, whether both gripper sides are squeezing block
+            sustained: bool, whether contact has been sustained above threshold
+            height_aligned: bool, whether gripper is above block and close horizontally
         """
+        nonlocal consecutive_contact
+        
         action_dict = convert_to_dictionary(action_radians)
 
         for _ in range(steps_per_action):
             send_position_command(data, action_dict)
             mujoco.mj_step(model, data)
 
-        # Reward with distance penalty + contact bonus + height alignment + grasp bonus
+        # Reward with distance penalty + contact bonus + sustained + height alignment + grasp
         gripper_pos = data.site("gripperframe").xpos.copy()
-        block_pos = data.body("red_block").xpos.copy()
+        block_pos_current = data.body("red_block").xpos.copy()
 
         # Distance reward: closer = better (less negative)
-        distance = np.linalg.norm(gripper_pos - block_pos)
+        distance = np.linalg.norm(gripper_pos - block_pos_current)
         reward = -distance
 
         # Height alignment bonus: reward gripper being above block when close horizontally
         # Encourages top-down approach rather than sideways bumping
-        horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
-        height_above = gripper_pos[2] - block_pos[2]
-        if horizontal_dist < 0.1 and height_above > 0.02:  # Close horizontally, above block
+        horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos_current[:2])
+        height_above = gripper_pos[2] - block_pos_current[2]
+        height_aligned = horizontal_dist < 0.1 and height_above > 0.02
+        if height_aligned:
             reward += height_alignment_bonus
 
         # Contact bonus: positive signal while touching
         contacted = check_gripper_block_contact(model, data, "red_block")
+        sustained = False
         if contacted:
             reward += contact_bonus
+            # Track consecutive contact for sustained bonus
+            consecutive_contact += 1
+            if consecutive_contact >= sustained_contact_threshold:
+                reward += sustained_contact_bonus
+                sustained = True
+        else:
+            # Reset consecutive contact counter on contact loss
+            consecutive_contact = 0
 
         # Grasp bonus: reward when both sides of gripper squeeze block
         gripped, _ = check_block_gripped_with_force(model, data, "red_block")
@@ -170,9 +189,9 @@ def _worker(
             reward += grasp_bonus
 
         # Check if block is lifted (for episode termination only, not reward)
-        lifted = block_pos[2] > lift_threshold
+        lifted = block_pos_current[2] > lift_threshold
 
-        return reward, lifted, contacted
+        return reward, lifted, contacted, gripped, sustained, height_aligned
     
     # Main worker loop
     try:
@@ -189,8 +208,8 @@ def _worker(
             
             elif cmd == 'step':
                 action_radians, steps_per_action = payload
-                reward, done, contacted = step_physics(action_radians, steps_per_action)
-                remote.send((reward, done, contacted))
+                reward, done, contacted, gripped, sustained, height_aligned = step_physics(action_radians, steps_per_action)
+                remote.send((reward, done, contacted, gripped, sustained, height_aligned))
             
             elif cmd == 'close':
                 renderer.close()
@@ -223,6 +242,8 @@ class SubprocMuJoCoEnv:
         contact_bonus: Bonus reward while gripper contacts block
         height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
         grasp_bonus: Bonus reward when both sides of gripper squeeze block
+        sustained_contact_threshold: Frames of continuous contact before bonus triggers
+        sustained_contact_bonus: Extra reward per step after sustained threshold reached
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -237,6 +258,8 @@ class SubprocMuJoCoEnv:
         contact_bonus: float = 0.1,
         height_alignment_bonus: float = 0.05,
         grasp_bonus: float = 0.15,
+        sustained_contact_threshold: int = 5,
+        sustained_contact_bonus: float = 0.2,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -248,6 +271,8 @@ class SubprocMuJoCoEnv:
         self.contact_bonus = contact_bonus
         self.height_alignment_bonus = height_alignment_bonus
         self.grasp_bonus = grasp_bonus
+        self.sustained_contact_threshold = sustained_contact_threshold
+        self.sustained_contact_bonus = sustained_contact_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -282,6 +307,8 @@ class SubprocMuJoCoEnv:
                     contact_bonus,
                     height_alignment_bonus,
                     grasp_bonus,
+                    sustained_contact_threshold,
+                    sustained_contact_bonus,
                     i,
                 ),
                 daemon=True,
@@ -383,9 +410,15 @@ class SubprocMuJoCoEnv:
             rewards: (N,) array of rewards
             dones: (N,) boolean array indicating episode termination
             contacts: (N,) int array of contact counts (0 or 1 per step)
+            grasps: (N,) int array of grasp counts (0 or 1 per step)
+            sustained_contacts: (N,) int array of sustained contact counts (0 or 1 per step)
+            height_alignments: (N,) int array of height alignment counts (0 or 1 per step)
         """
         rewards = np.zeros(self.num_envs)
         contacts = np.zeros(self.num_envs, dtype=int)
+        grasps = np.zeros(self.num_envs, dtype=int)
+        sustained_contacts = np.zeros(self.num_envs, dtype=int)
+        height_alignments = np.zeros(self.num_envs, dtype=int)
         
         # Send step commands to all workers (skip done environments)
         active_indices = []
@@ -397,17 +430,20 @@ class SubprocMuJoCoEnv:
         # Collect results from active workers
         for i in active_indices:
             result = self.parent_conns[i].recv()
-            if isinstance(result, tuple) and len(result) == 3:
-                reward, done, contacted = result
+            if isinstance(result, tuple) and len(result) == 6:
+                reward, done, contacted, gripped, sustained, height_aligned = result
                 rewards[i] = reward
                 contacts[i] = int(contacted)
+                grasps[i] = int(gripped)
+                sustained_contacts[i] = int(sustained)
+                height_alignments[i] = int(height_aligned)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
             elif isinstance(result, tuple) and len(result) == 2:
                 if result[0] == 'error':
                     raise RuntimeError(f"Worker {i} error: {result[1]}")
         
-        return rewards, self.dones.copy(), contacts
+        return rewards, self.dones.copy(), contacts, grasps, sustained_contacts, height_alignments
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """
@@ -424,10 +460,16 @@ class SubprocMuJoCoEnv:
             total_rewards: (N,) array of accumulated rewards over all chunk actions
             dones: (N,) boolean array indicating episode termination
             total_contacts: (N,) int array of contact counts over chunk
+            total_grasps: (N,) int array of grasp counts over chunk
+            total_sustained: (N,) int array of sustained contact counts over chunk
+            total_height_aligned: (N,) int array of height alignment counts over chunk
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
         total_contacts = np.zeros(num_envs, dtype=int)
+        total_grasps = np.zeros(num_envs, dtype=int)
+        total_sustained = np.zeros(num_envs, dtype=int)
+        total_height_aligned = np.zeros(num_envs, dtype=int)
         
         # Execute each action in the chunk sequentially across all envs
         for action_idx in range(chunk_size):
@@ -435,17 +477,20 @@ class SubprocMuJoCoEnv:
             actions_radians = action_chunks[:, action_idx, :]
             
             # Step all active environments
-            step_rewards, _, step_contacts = self.step_all(actions_radians, steps_per_action)
+            step_rewards, _, step_contacts, step_grasps, step_sustained, step_height_aligned = self.step_all(actions_radians, steps_per_action)
             
             # Accumulate rewards and contacts
             total_rewards += step_rewards
             total_contacts += step_contacts
+            total_grasps += step_grasps
+            total_sustained += step_sustained
+            total_height_aligned += step_height_aligned
             
             # If all environments are done, stop early
             if self.dones.all():
                 break
         
-        return total_rewards, self.dones.copy(), total_contacts
+        return total_rewards, self.dones.copy(), total_contacts, total_grasps, total_sustained, total_height_aligned
     
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""

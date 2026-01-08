@@ -187,6 +187,8 @@ class TrainingConfig:
     contact_bonus = 0.1   # Bonus reward while gripper contacts block
     height_alignment_bonus = 0.05  # Bonus when gripper is above block (top-down approach)
     grasp_bonus = 0.15  # Bonus when both sides of gripper squeeze block
+    sustained_contact_threshold = 5   # Frames of continuous contact before bonus triggers
+    sustained_contact_bonus = 0.2     # Extra reward per step after threshold reached
     
     # Logging
     log_interval = 1
@@ -365,6 +367,8 @@ def train_parallel(config, args, device):
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
             grasp_bonus=config.grasp_bonus,
+            sustained_contact_threshold=config.sustained_contact_threshold,
+            sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
@@ -379,6 +383,8 @@ def train_parallel(config, args, device):
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
             grasp_bonus=config.grasp_bonus,
+            sustained_contact_threshold=config.sustained_contact_threshold,
+            sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
         )
@@ -497,7 +503,7 @@ def train_parallel(config, args, device):
     print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
     
-    total_episodes = 0
+    total_episodes = start_episode  # Initialize with checkpoint episode count when resuming
     
     # ===== CRITIC WARMUP (paper Appendix D.2) =====
     # Train critic for a few iterations before updating actor
@@ -527,7 +533,7 @@ def train_parallel(config, args, device):
                     for chunk in action_chunks_np
                 ])
                 
-                chunk_rewards, dones, _ = vec_env.step_all_chunk(
+                chunk_rewards, dones, _, _, _ = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 warmup_rewards.extend(chunk_rewards.tolist())
@@ -569,6 +575,9 @@ def train_parallel(config, args, device):
             vec_env.reset_all()
             episode_rewards = np.zeros(num_envs)
             episode_contacts = np.zeros(num_envs, dtype=int)
+            episode_grasps = np.zeros(num_envs, dtype=int)
+            episode_sustained = np.zeros(num_envs, dtype=int)
+            episode_height_aligned = np.zeros(num_envs, dtype=int)
             
             # Collect data for this batch (on-policy)
             batch_trajectories = []  # List of trajectories across all envs and chunks
@@ -596,11 +605,14 @@ def train_parallel(config, args, device):
                 ])
                 
                 # Execute chunk and get rewards
-                chunk_rewards, dones, chunk_contacts = vec_env.step_all_chunk(
+                chunk_rewards, dones, chunk_contacts, chunk_grasps, chunk_sustained, chunk_height_aligned = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 episode_rewards += chunk_rewards
                 episode_contacts += chunk_contacts
+                episode_grasps += chunk_grasps
+                episode_sustained += chunk_sustained
+                episode_height_aligned += chunk_height_aligned
                 
                 # Store data for on-policy update (one entry per environment)
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
@@ -831,6 +843,18 @@ def train_parallel(config, args, device):
                     "reward/contact_count_avg": episode_contacts.mean(),
                     "reward/contact_count_max": episode_contacts.max(),
                     "reward/contact_rate": episode_contacts.sum() / (num_envs * config.chunks_per_episode * 50),
+                    # Grasp metrics (3)
+                    "reward/grasp_count_avg": episode_grasps.mean(),
+                    "reward/grasp_count_max": episode_grasps.max(),
+                    "reward/grasp_rate": episode_grasps.sum() / (num_envs * config.chunks_per_episode * 50),
+                    # Sustained contact metrics (3)
+                    "reward/sustained_count_avg": episode_sustained.mean(),
+                    "reward/sustained_count_max": episode_sustained.max(),
+                    "reward/sustained_contact_rate": episode_sustained.sum() / (num_envs * config.chunks_per_episode * 50),
+                    # Height alignment metrics (3)
+                    "reward/height_align_count_avg": episode_height_aligned.mean(),
+                    "reward/height_align_count_max": episode_height_aligned.max(),
+                    "reward/height_align_rate": episode_height_aligned.sum() / (num_envs * config.chunks_per_episode * 50),
                     
                     # Loss metrics
                     "loss/policy": avg_policy_loss,
@@ -1202,6 +1226,12 @@ def train_sequential(config, args, device):
             episode_reward = 0.0
             done = False
             
+            # Track reward components for this episode
+            episode_contacts = 0
+            episode_grasps = 0
+            episode_sustained = 0
+            episode_height_aligned = 0
+            
             # Collect data for this episode (on-policy)
             episode_trajectories = []  # List of trajectories for each chunk
             episode_observations = []  # List of observations for each chunk
@@ -1248,9 +1278,23 @@ def train_sequential(config, args, device):
                         if viewer is not None:
                             viewer.sync()
                     
-                    # Get reward
-                    reward, done = compute_reward(m, d, lift_threshold=config.lift_threshold)
+                    # Get reward with component flags
+                    reward, done, contacted, gripped, sustained, height_aligned = compute_reward(
+                        m, d, 
+                        lift_threshold=config.lift_threshold,
+                        contact_bonus=config.contact_bonus,
+                        height_alignment_bonus=config.height_alignment_bonus,
+                        grasp_bonus=config.grasp_bonus,
+                        sustained_contact_threshold=config.sustained_contact_threshold,
+                        sustained_contact_bonus=config.sustained_contact_bonus,
+                    )
                     chunk_reward += reward
+                    
+                    # Track reward components
+                    episode_contacts += int(contacted)
+                    episode_grasps += int(gripped)
+                    episode_sustained += int(sustained)
+                    episode_height_aligned += int(height_aligned)
                     
                     if done:
                         print(f"  Episode {episode+1}: SUCCESS! Block lifted at chunk {chunk_idx+1}, action {action_idx+1}")
@@ -1458,17 +1502,33 @@ def train_sequential(config, args, device):
                     log_prob_per_dim = loss_info.get('log_prob_mean', 0) / (6 * 50)
                     log_prob_drift = loss_info.get('log_prob_mean', 0) - loss_info.get('old_log_prob_mean', 0)
                 
+                # Compute total steps in episode for rate calculation
+                total_steps = config.chunks_per_episode * 50  # chunk_size=50
+                
                 if config.wandb_enabled:
                     wandb.log({
                         # Basic info
                         "episode": episode + 1,
                         "time/episode_seconds": episode_time,
                         
-                        # Reward metrics (5)
+                        # Reward metrics (4)
                         "reward/episode": episode_reward,
                         "reward/avg": avg_reward,
                         "reward/std": batch_rewards.std().item(),
                         "reward/positive_fraction": (batch_rewards > 0).float().mean().item(),
+                        
+                        # Contact metrics (3)
+                        "reward/contact_count": episode_contacts,
+                        "reward/contact_rate": episode_contacts / total_steps,
+                        # Grasp metrics (2)
+                        "reward/grasp_count": episode_grasps,
+                        "reward/grasp_rate": episode_grasps / total_steps,
+                        # Sustained contact metrics (2)
+                        "reward/sustained_count": episode_sustained,
+                        "reward/sustained_contact_rate": episode_sustained / total_steps,
+                        # Height alignment metrics (2)
+                        "reward/height_align_count": episode_height_aligned,
+                        "reward/height_align_rate": episode_height_aligned / total_steps,
                         
                         # Loss metrics
                         "loss/policy": avg_policy_loss,

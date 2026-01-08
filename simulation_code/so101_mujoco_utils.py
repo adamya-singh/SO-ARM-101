@@ -739,22 +739,35 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
     return np.linalg.norm(total_force)
 
 
-def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, height_alignment_bonus=0.05, grasp_bonus=0.15):
+# Global state for tracking consecutive contact (for sustained contact bonus)
+_consecutive_contact = 0
+
+
+def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, 
+                   height_alignment_bonus=0.05, grasp_bonus=0.15,
+                   sustained_contact_threshold=5, sustained_contact_bonus=0.2):
     """
-    Reward with distance penalty + contact bonus + height alignment bonus + grasp bonus.
+    Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp.
     
     Components:
     - Distance: -distance (range: -0.5 to 0.0)
     - Contact bonus: +contact_bonus when gripper touches block
+    - Sustained contact: +sustained_contact_bonus after threshold consecutive contact frames
     - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
     - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
     
-    Total range per step: ~-0.5 to +0.30
+    Total range per step: ~-0.5 to +0.50
 
     Returns:
         reward: float - negative distance to block + bonuses
         done: bool - True if block is lifted above threshold (for episode termination)
+        contacted: bool - whether gripper is touching block
+        gripped: bool - whether both gripper sides are squeezing block
+        sustained: bool - whether contact has been sustained above threshold
+        height_aligned: bool - whether gripper is above block and close horizontally
     """
+    global _consecutive_contact
+    
     # Get gripper position (end effector)
     gripper_pos = d.site("gripperframe").xpos.copy()
 
@@ -769,12 +782,23 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     # Encourages top-down approach rather than sideways bumping
     horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
     height_above = gripper_pos[2] - block_pos[2]
-    if horizontal_dist < 0.1 and height_above > 0.02:  # Close horizontally, above block
+    height_aligned = horizontal_dist < 0.1 and height_above > 0.02
+    if height_aligned:
         reward += height_alignment_bonus
 
     # Contact bonus: positive signal while touching
-    if check_gripper_block_contact(m, d, block_name):
+    contacted = check_gripper_block_contact(m, d, block_name)
+    sustained = False
+    if contacted:
         reward += contact_bonus
+        # Track consecutive contact for sustained bonus
+        _consecutive_contact += 1
+        if _consecutive_contact >= sustained_contact_threshold:
+            reward += sustained_contact_bonus
+            sustained = True
+    else:
+        # Reset consecutive contact counter on contact loss
+        _consecutive_contact = 0
 
     # Grasp bonus: reward when both sides of gripper squeeze block
     gripped, _ = check_block_gripped_with_force(m, d, block_name)
@@ -784,15 +808,16 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
     # Check if block is lifted (for episode termination only, not reward)
     lifted = block_pos[2] > lift_threshold
 
-    return reward, lifted
+    return reward, lifted, contacted, gripped, sustained, height_aligned
 
 
 def reset_reward_state():
     """Reset the reward state (call at episode start)."""
-    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
+    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos, _consecutive_contact
     _prev_gripper_pos = None
     _prev_block_pos = None
     _initial_block_pos = None
+    _consecutive_contact = 0
 
 
 def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):

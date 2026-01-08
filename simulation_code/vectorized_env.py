@@ -46,6 +46,8 @@ class VectorizedMuJoCoEnv:
         contact_bonus: Bonus reward while gripper contacts block
         height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
         grasp_bonus: Bonus reward when both sides of gripper squeeze block
+        sustained_contact_threshold: Frames of continuous contact before bonus triggers
+        sustained_contact_bonus: Extra reward per step after sustained threshold reached
         preprocessor: Optional PolicyProcessorPipeline for state normalization
         model_type: "smolvla" or "pi0" - for future model-specific handling
     """
@@ -60,6 +62,8 @@ class VectorizedMuJoCoEnv:
         contact_bonus: float = 0.1,
         height_alignment_bonus: float = 0.05,
         grasp_bonus: float = 0.15,
+        sustained_contact_threshold: int = 5,
+        sustained_contact_bonus: float = 0.2,
         preprocessor=None,
         model_type: str = "smolvla",
     ):
@@ -70,6 +74,8 @@ class VectorizedMuJoCoEnv:
         self.contact_bonus = contact_bonus
         self.height_alignment_bonus = height_alignment_bonus
         self.grasp_bonus = grasp_bonus
+        self.sustained_contact_threshold = sustained_contact_threshold
+        self.sustained_contact_bonus = sustained_contact_bonus
         self.preprocessor = preprocessor
         self.model_type = model_type
         
@@ -89,6 +95,9 @@ class VectorizedMuJoCoEnv:
         self.dones = np.zeros(num_envs, dtype=bool)
         self.episode_steps = np.zeros(num_envs, dtype=int)
         
+        # Sustained contact tracking (per environment)
+        self.consecutive_contact = np.zeros(num_envs, dtype=int)
+        
         print(f"[VectorizedEnv] Created {num_envs} parallel environments (model_type={model_type})")
     
     def reset_all(self):
@@ -97,6 +106,7 @@ class VectorizedMuJoCoEnv:
             self._reset_env(i)
         self.dones[:] = False
         self.episode_steps[:] = 0
+        self.consecutive_contact[:] = 0
     
     def reset_done_envs(self):
         """Reset only environments that are done (for continuous training)."""
@@ -128,6 +138,7 @@ class VectorizedMuJoCoEnv:
         self.prev_block_pos[env_idx] = None
         self.initial_block_pos[env_idx] = None
         self.episode_steps[env_idx] = 0
+        self.consecutive_contact[env_idx] = 0
     
     def get_batched_observations(self, device: torch.device) -> dict:
         """
@@ -199,9 +210,15 @@ class VectorizedMuJoCoEnv:
             rewards: (N,) array of rewards
             dones: (N,) boolean array indicating episode termination
             contacts: (N,) int array of contact counts (0 or 1 per step)
+            grasps: (N,) int array of grasp counts (0 or 1 per step)
+            sustained_contacts: (N,) int array of sustained contact counts (0 or 1 per step)
+            height_alignments: (N,) int array of height alignment counts (0 or 1 per step)
         """
         rewards = np.zeros(self.num_envs)
         contacts = np.zeros(self.num_envs, dtype=int)
+        grasps = np.zeros(self.num_envs, dtype=int)
+        sustained_contacts = np.zeros(self.num_envs, dtype=int)
+        height_alignments = np.zeros(self.num_envs, dtype=int)
         
         for i in range(self.num_envs):
             if self.dones[i]:
@@ -219,30 +236,37 @@ class VectorizedMuJoCoEnv:
                 mujoco.mj_step(self.model, d)
             
             # Compute reward
-            reward, done, contacted = self._compute_reward(i)
+            reward, done, contacted, gripped, sustained, height_aligned = self._compute_reward(i)
             rewards[i] = reward
             contacts[i] = int(contacted)
+            grasps[i] = int(gripped)
+            sustained_contacts[i] = int(sustained)
+            height_alignments[i] = int(height_aligned)
             self.dones[i] = done
             self.episode_steps[i] += 1
         
-        return rewards, self.dones.copy(), contacts
+        return rewards, self.dones.copy(), contacts, grasps, sustained_contacts, height_alignments
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Reward with distance penalty + contact bonus + height alignment bonus + grasp bonus.
+        Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp.
         
         Components:
         - Distance: -distance (range: -0.5 to 0.0)
         - Contact bonus: +contact_bonus when gripper touches block
+        - Sustained contact: +sustained_contact_bonus after threshold consecutive frames
         - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
         - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
         
-        Total range per step: ~-0.5 to +0.30
+        Total range per step: ~-0.5 to +0.50
         
         Returns:
             reward: float, the computed reward
             lifted: bool, whether block is lifted above threshold
             contacted: bool, whether gripper is touching block
+            gripped: bool, whether both gripper sides are squeezing block
+            sustained: bool, whether contact has been sustained above threshold
+            height_aligned: bool, whether gripper is above block and close horizontally
         """
         d = self.datas[env_idx]
 
@@ -258,13 +282,23 @@ class VectorizedMuJoCoEnv:
         # Encourages top-down approach rather than sideways bumping
         horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
         height_above = gripper_pos[2] - block_pos[2]
-        if horizontal_dist < 0.1 and height_above > 0.02:  # Close horizontally, above block
+        height_aligned = horizontal_dist < 0.1 and height_above > 0.02
+        if height_aligned:
             reward += self.height_alignment_bonus
 
         # Contact bonus: positive signal while touching
         contacted = check_gripper_block_contact(self.model, d, "red_block")
+        sustained = False
         if contacted:
             reward += self.contact_bonus
+            # Track consecutive contact for sustained bonus
+            self.consecutive_contact[env_idx] += 1
+            if self.consecutive_contact[env_idx] >= self.sustained_contact_threshold:
+                reward += self.sustained_contact_bonus
+                sustained = True
+        else:
+            # Reset consecutive contact counter on contact loss
+            self.consecutive_contact[env_idx] = 0
 
         # Grasp bonus: reward when both sides of gripper squeeze block
         gripped, _ = check_block_gripped_with_force(self.model, d, "red_block")
@@ -274,7 +308,7 @@ class VectorizedMuJoCoEnv:
         # Check if block is lifted (for episode termination only, not reward)
         lifted = block_pos[2] > self.lift_threshold
 
-        return reward, lifted, contacted
+        return reward, lifted, contacted, gripped, sustained, height_aligned
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """
@@ -291,10 +325,16 @@ class VectorizedMuJoCoEnv:
             total_rewards: (N,) array of accumulated rewards over all chunk actions
             dones: (N,) boolean array indicating episode termination
             total_contacts: (N,) int array of contact counts over chunk
+            total_grasps: (N,) int array of grasp counts over chunk
+            total_sustained: (N,) int array of sustained contact counts over chunk
+            total_height_aligned: (N,) int array of height alignment counts over chunk
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
         total_contacts = np.zeros(num_envs, dtype=int)
+        total_grasps = np.zeros(num_envs, dtype=int)
+        total_sustained = np.zeros(num_envs, dtype=int)
+        total_height_aligned = np.zeros(num_envs, dtype=int)
         
         for action_idx in range(chunk_size):
             # Get actions for this timestep across all environments
@@ -316,13 +356,16 @@ class VectorizedMuJoCoEnv:
                     mujoco.mj_step(self.model, d)
                 
                 # Compute reward for this step
-                reward, done, contacted = self._compute_reward(i)
+                reward, done, contacted, gripped, sustained, height_aligned = self._compute_reward(i)
                 total_rewards[i] += reward
                 total_contacts[i] += int(contacted)
+                total_grasps[i] += int(gripped)
+                total_sustained[i] += int(sustained)
+                total_height_aligned[i] += int(height_aligned)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
         
-        return total_rewards, self.dones.copy(), total_contacts
+        return total_rewards, self.dones.copy(), total_contacts, total_grasps, total_sustained, total_height_aligned
     
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""
