@@ -114,8 +114,8 @@ class TrainingConfig:
        - Effective gradient signal is ~6x stronger
        - Paper's policy_lr=4.5e-5 → our policy_lr=5e-7 (scaled down ~100x for stability)
     
-    4. PARAMETERS THAT DON'T NEED SCALING:
-       - clip_epsilon: Ratio-based clipping, scale-invariant
+    4. PARAMETERS THAT NEED ADJUSTMENT FOR HIGH DIMS:
+       - clip_epsilon: While ratio-based, high-dim actions cause more ratio drift. Use 0.15-0.2.
        - gae_lambda, gamma: Reward-based, independent of action dims
        
        NOTE: sigma_min/sigma_max DO need scaling! See notes/sigma-scaling-bug-fix.md.
@@ -146,8 +146,8 @@ class TrainingConfig:
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
     # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
-    # gradients are ~6x stronger, so we reduce LR ~50x for stability (1e-6 vs 4.5e-5)
-    policy_lr = 0.000001
+    # gradients are ~6x stronger. Increased from 1e-6 to 3e-6 after addressing clip fraction issue.
+    policy_lr = 0.000003  # 3e-6 - can increase since clip_epsilon=0.15 protects against large updates
     critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
@@ -207,9 +207,9 @@ class TrainingConfig:
     
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
     # Note: Some values scaled for SmolVLA's chunk_size=50 (see docstring above)
-    num_ppo_epochs = 10          # Number of PPO epochs per update (paper uses 10)
+    num_ppo_epochs = 5           # Reduced from 10 to prevent ratio drift over epochs
     minibatch_size = 8           # Mini-batch size for PPO updates
-    clip_epsilon = 0.05          # PPO clip range - ratio-based, no scaling needed (paper: 0.001-0.2)
+    clip_epsilon = 0.15          # Increased from 0.05 to reduce 83% clip fraction (paper: 0.1-0.2)
     value_clip_epsilon = 0.2     # Clip range for value function (0 to disable)
     gae_lambda = 0.95            # GAE lambda parameter
     # SCALED FOR CHUNK SIZE 50: Paper uses 0.01 for chunks of 4-8. With 6x more dims,

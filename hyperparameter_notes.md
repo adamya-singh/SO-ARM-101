@@ -25,7 +25,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `policy_lr` | `1e-6` | `4.5e-5` | Reduced ~50x from paper because SmolVLA's chunk_size=50 (vs 4-8 in paper) creates ~6x stronger gradient signals that accumulate over 300 output dimensions. |
+| `policy_lr` | `3e-6` | `4.5e-5` | Increased from 1e-6 after addressing clip fraction issue. With clip_epsilon=0.15 protecting against large updates, higher LR accelerates learning. |
 | `critic_lr` | `1e-4` | N/A | Critic learning rate can be higher than policy LR since it doesn't directly affect action distribution stability. Value function converges faster with higher LR. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -34,7 +34,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `clip_epsilon` | `0.05` | `0.001-0.2` | PPO clip range for policy ratio. Ratio-based clipping is scale-invariant, so no scaling needed for larger action dimensions. Smaller values = more conservative updates. |
+| `clip_epsilon` | `0.15` | `0.001-0.2` | Increased from 0.05 after observing 83% clip fraction. Higher-dimensional action spaces cause more ratio drift, requiring wider clip range. |
 | `target_kl` | `0.1` | `0.01` | Scaled ~10x from paper because KL divergence naturally scales with action dimensionality. With 300 dims (vs ~48), KL values are ~6x larger. Early stopping threshold for PPO epochs. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -67,7 +67,7 @@ Parameters you may adjust for specific experiments or hardware constraints.
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `num_ppo_epochs` | `10` | `10` | Number of optimization epochs per collected batch. Paper uses 10 for visual manipulation tasks. More epochs = better sample efficiency but risk of overfitting to batch. |
+| `num_ppo_epochs` | `5` | `10` | Reduced from 10 to prevent ratio drift. Each epoch makes old_log_probs more stale, increasing clipping. |
 | `minibatch_size` | `8` | Varies | Mini-batch size for PPO updates. Smaller = more gradient updates per batch but noisier gradients. Adjust based on GPU memory. |
 | `gae_lambda` | `0.95` | `0.95` | GAE (Generalized Advantage Estimation) lambda parameter. Controls bias-variance tradeoff. 0.95-0.99 is standard. Higher = less bias, more variance. |
 | `gradient_accumulation_steps` | `15` | `15` | Paper uses 15 for visual tasks. Accumulates gradients over multiple mini-batches before optimizer step. Effective batch size = minibatch_size × gradient_accumulation_steps. |
@@ -369,11 +369,11 @@ These parameters are **scale-invariant** and can use paper values directly:
 
 | Parameter | Why No Scaling |
 |-----------|----------------|
-| `clip_epsilon` | Ratio-based clipping, independent of absolute log prob magnitude |
 | `gae_lambda` | Reward-based, independent of action dimensions |
 | `gamma` | Reward-based discount factor |
-| `num_ppo_epochs` | Optimization iteration count |
 | `gradient_accumulation_steps` | Batch size multiplier |
+
+**Note**: `clip_epsilon` and `num_ppo_epochs` were previously listed here but actually DO need adjustment for high-dimensional action spaces due to ratio drift.
 
 ---
 
@@ -381,17 +381,17 @@ These parameters are **scale-invariant** and can use paper values directly:
 
 ```python
 # Tier 1: Critical
-policy_lr = 1e-6
+policy_lr = 3e-6
 critic_lr = 1e-4
-clip_epsilon = 0.05
+clip_epsilon = 0.15
 target_kl = 0.1
 sigma_min = 0.25
 sigma_max = 0.50
 num_episodes = 20000
 num_parallel_envs = 1
+num_ppo_epochs = 5
 
 # Tier 2: Important
-num_ppo_epochs = 10
 minibatch_size = 8
 gae_lambda = 0.95
 gradient_accumulation_steps = 15
@@ -421,6 +421,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-01-08 | Updated clip_epsilon (0.05→0.15), policy_lr (1e-6→3e-6), num_ppo_epochs (10→5) to address 83% clip fraction observed in 2.3k episode run |
 | 2026-01-07 | Added `contact_bonus = 0.1` reward shaping parameter; added Reward Shaping documentation section with formula and component ranges |
 | 2026-01-07 | Increased `policy_lr` from 5e-7 to 1e-6 after 17k episodes showed no reward improvement (wandb run 71) |
 | 2026-01-06 | Initial comprehensive documentation |
