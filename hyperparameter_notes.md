@@ -67,12 +67,11 @@ Parameters you may adjust for specific experiments or hardware constraints.
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `num_ppo_epochs` | `5` | `10` | Number of PPO epochs per batch. With `recompute_old_log_probs=True`, can safely use more epochs since staleness is prevented. |
+| `num_ppo_epochs` | `5` | `10` | Reduced from 10 to prevent ratio drift. Each epoch makes old_log_probs more stale, increasing clipping. |
 | `minibatch_size` | `8` | Varies | Mini-batch size for PPO updates. Smaller = more gradient updates per batch but noisier gradients. Adjust based on GPU memory. |
 | `gae_lambda` | `0.95` | `0.95` | GAE (Generalized Advantage Estimation) lambda parameter. Controls bias-variance tradeoff. 0.95-0.99 is standard. Higher = less bias, more variance. |
 | `gradient_accumulation_steps` | `15` | `15` | Paper uses 15 for visual tasks. Accumulates gradients over multiple mini-batches before optimizer step. Effective batch size = minibatch_size × gradient_accumulation_steps. |
 | `value_clip_epsilon` | `0.2` | N/A | Clip range for value function updates. Set to 0 to disable clipping. Prevents large value function updates that can destabilize training. |
-| `recompute_old_log_probs` | `True` | N/A | Recompute old_log_probs at start of each PPO epoch. Prevents staleness that causes ratio explosion with 300-dim actions. Adds ~20% compute overhead but prevents policy collapse. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
 
@@ -460,7 +459,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
-| 2026-01-08 | Added `recompute_old_log_probs = True` to fix PPO ratio explosion with 300-dim actions. Recomputes old_log_probs at start of each PPO epoch to prevent staleness. Analysis of 20k episode run showed KL divergence exploding (4000+) and epochs early-stopping after epoch 1 due to stale log probs causing ratio divergence. |
+| 2026-01-08 | REVERTED `recompute_old_log_probs` - the fix prevented cumulative learning across PPO epochs. 900-ep test showed worse rewards (-46 vs -8) and no grasps despite "healthier" KL metrics. Original staleness was a symptom of learning, not the root cause. |
 | 2026-01-08 | Added `lift_bonus = 0.2` and `lift_bonus_threshold = 0.04` reward shaping; rewards when block is elevated above 4cm. Provides dense reward for lifting before episode terminates at 8cm. Reward progression: align → contact → grasp → lift |
 | 2026-01-08 | Added sustained contact reward: `sustained_contact_threshold = 5` (frames before bonus), `sustained_contact_bonus = 0.2` (extra reward per step). Creates reward gradient: approach → touch → hold → grasp. Added wandb metrics: grasp_rate, grasp_count_avg, sustained_contact_rate |
 | 2026-01-08 | Added `grasp_bonus = 0.15` reward shaping parameter; rewards when both sides of gripper squeeze block (bilateral force > 0.1N), bridging gap between contact and lift |
