@@ -1,0 +1,603 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 1e-06 -> 1e-07
+Critic LR: 0.0001 -> 1e-05
+LR warmup iterations: 10
+PPO epochs: 5
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.05
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.0
+Critic warmup iters: 30
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Skipping warmup (resuming from episode 1170)
+
+Batch    1 ( 1180 eps) | Reward:  -32.04 | KL: 0.0111 | LR: 1.90e-07 | Time: 13.1s
+Batch    2 ( 1190 eps) | Reward:  -30.34 | KL: 0.0137 | LR: 2.80e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 ( 1200 eps) | Reward:  -40.71 | KL: 0.0140 | LR: 3.70e-07 | Time: 12.0s
+Batch    4 ( 1210 eps) | Reward:  -30.83 | KL: 0.0142 | LR: 4.60e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    5 ( 1220 eps) | Reward:  -40.21 | KL: 0.0108 | LR: 5.50e-07 | Time: 12.3s
+Batch    6 ( 1230 eps) | Reward:  -33.62 | KL: 0.0128 | LR: 6.40e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    7 ( 1240 eps) | Reward:  -30.52 | KL: 0.0130 | LR: 7.30e-07 | Time: 12.0s
+Batch    8 ( 1250 eps) | Reward:  -40.90 | KL: 0.0143 | LR: 8.20e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    9 ( 1260 eps) | Reward:  -43.53 | KL: 0.0119 | LR: 9.10e-07 | Time: 12.1s
+Batch   10 ( 1270 eps) | Reward:  -33.31 | KL: 0.0075 | LR: 1.00e-06 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   11 ( 1280 eps) | Reward:  -36.04 | KL: 0.0151 | LR: 1.00e-06 | Time: 12.0s
+Batch   12 ( 1290 eps) | Reward:  -38.72 | KL: 0.0172 | LR: 1.00e-06 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   13 ( 1300 eps) | Reward:  -37.54 | KL: 0.0098 | LR: 1.00e-06 | Time: 12.1s
+Batch   14 ( 1310 eps) | Reward:  -30.80 | KL: 0.0160 | LR: 1.00e-06 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   15 ( 1320 eps) | Reward:  -38.81 | KL: 0.0174 | LR: 1.00e-06 | Time: 12.1s
+Batch   16 ( 1330 eps) | Reward:  -33.29 | KL: 0.0157 | LR: 1.00e-06 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   17 ( 1340 eps) | Reward:  -38.50 | KL: 0.0135 | LR: 1.00e-06 | Time: 12.0s
+Batch   18 ( 1350 eps) | Reward:  -30.51 | KL: 0.0116 | LR: 1.00e-06 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   19 ( 1360 eps) | Reward:  -39.71 | KL: 0.0140 | LR: 1.00e-06 | Time: 12.5s
+Batch   20 ( 1370 eps) | Reward:  -34.68 | KL: 0.0143 | LR: 1.00e-06 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   21 ( 1380 eps) | Reward:  -39.58 | KL: 0.0218 | LR: 1.00e-06 | Time: 12.5s
+Batch   22 ( 1390 eps) | Reward:  -31.12 | KL: 0.0130 | LR: 1.00e-06 | Time: 12.5s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   23 ( 1400 eps) | Reward:  -36.14 | KL: 0.0116 | LR: 1.00e-06 | Time: 12.4s
+Batch   24 ( 1410 eps) | Reward:  -31.59 | KL: 0.0087 | LR: 1.00e-06 | Time: 12.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   25 ( 1420 eps) | Reward:  -40.87 | KL: 0.0199 | LR: 1.00e-06 | Time: 12.3s
+Batch   26 ( 1430 eps) | Reward:  -37.83 | KL: 0.0115 | LR: 1.00e-06 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   27 ( 1440 eps) | Reward:  -29.02 | KL: 0.0186 | LR: 1.00e-06 | Time: 12.5s
+Batch   28 ( 1450 eps) | Reward:  -29.61 | KL: 0.0119 | LR: 1.00e-06 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   29 ( 1460 eps) | Reward:  -32.25 | KL: 0.0120 | LR: 1.00e-06 | Time: 12.1s
+Batch   30 ( 1470 eps) | Reward:  -34.01 | KL: 0.0150 | LR: 1.00e-06 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   31 ( 1480 eps) | Reward:  -31.88 | KL: 0.0201 | LR: 1.00e-06 | Time: 12.0s
+Batch   32 ( 1490 eps) | Reward:  -37.36 | KL: 0.0137 | LR: 1.00e-06 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   33 ( 1500 eps) | Reward:  -39.68 | KL: 0.0152 | LR: 1.00e-06 | Time: 12.3s
+Batch   34 ( 1510 eps) | Reward:  -31.54 | KL: 0.0149 | LR: 1.00e-06 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   35 ( 1520 eps) | Reward:  -35.15 | KL: 0.0117 | LR: 1.00e-06 | Time: 12.2s
+Batch   36 ( 1530 eps) | Reward:  -32.33 | KL: 0.0180 | LR: 1.00e-06 | Time: 12.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   37 ( 1540 eps) | Reward:  -30.92 | KL: 0.0098 | LR: 1.00e-06 | Time: 12.4s
+Batch   38 ( 1550 eps) | Reward:  -31.23 | KL: 0.0084 | LR: 1.00e-06 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   39 ( 1560 eps) | Reward:  -37.50 | KL: 0.0093 | LR: 1.00e-06 | Time: 12.0s
+Batch   40 ( 1570 eps) | Reward:  -29.18 | KL: 0.0130 | LR: 9.99e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   41 ( 1580 eps) | Reward:  -31.10 | KL: 0.0171 | LR: 9.99e-07 | Time: 12.2s
+Batch   42 ( 1590 eps) | Reward:  -40.59 | KL: 0.0126 | LR: 9.99e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   43 ( 1600 eps) | Reward:  -36.10 | KL: 0.0105 | LR: 9.99e-07 | Time: 12.2s
+Batch   44 ( 1610 eps) | Reward:  -37.58 | KL: 0.0204 | LR: 9.99e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   45 ( 1620 eps) | Reward:  -32.43 | KL: 0.0132 | LR: 9.99e-07 | Time: 12.0s
+Batch   46 ( 1630 eps) | Reward:  -38.76 | KL: 0.0100 | LR: 9.99e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   47 ( 1640 eps) | Reward:  -44.38 | KL: 0.0106 | LR: 9.99e-07 | Time: 11.9s
+Batch   48 ( 1650 eps) | Reward:  -30.10 | KL: 0.0186 | LR: 9.99e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   49 ( 1660 eps) | Reward:  -35.28 | KL: 0.0113 | LR: 9.99e-07 | Time: 12.1s
+Batch   50 ( 1670 eps) | Reward:  -28.10 | KL: 0.0163 | LR: 9.99e-07 | Time: 12.6s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   51 ( 1680 eps) | Reward:  -37.09 | KL: 0.0188 | LR: 9.99e-07 | Time: 12.2s
+Batch   52 ( 1690 eps) | Reward:  -34.63 | KL: 0.0165 | LR: 9.99e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   53 ( 1700 eps) | Reward:  -36.57 | KL: 0.0121 | LR: 9.99e-07 | Time: 12.0s
+Batch   54 ( 1710 eps) | Reward:  -35.94 | KL: 0.0124 | LR: 9.99e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   55 ( 1720 eps) | Reward:  -39.59 | KL: 0.0100 | LR: 9.99e-07 | Time: 12.0s
+Batch   56 ( 1730 eps) | Reward:  -35.26 | KL: 0.0198 | LR: 9.99e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   57 ( 1740 eps) | Reward:  -34.40 | KL: 0.0151 | LR: 9.99e-07 | Time: 12.0s
+Batch   58 ( 1750 eps) | Reward:  -35.75 | KL: 0.0132 | LR: 9.99e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   59 ( 1760 eps) | Reward:  -38.08 | KL: 0.0116 | LR: 9.99e-07 | Time: 12.2s
+Batch   60 ( 1770 eps) | Reward:  -35.69 | KL: 0.0170 | LR: 9.99e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   61 ( 1780 eps) | Reward:  -37.76 | KL: 0.0148 | LR: 9.99e-07 | Time: 11.9s
+Batch   62 ( 1790 eps) | Reward:  -29.27 | KL: 0.0086 | LR: 9.98e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   63 ( 1800 eps) | Reward:  -33.13 | KL: 0.0144 | LR: 9.98e-07 | Time: 12.2s
+Batch   64 ( 1810 eps) | Reward:  -34.97 | KL: 0.0148 | LR: 9.98e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   65 ( 1820 eps) | Reward:  -42.62 | KL: 0.0159 | LR: 9.98e-07 | Time: 11.9s
+Batch   66 ( 1830 eps) | Reward:  -30.46 | KL: 0.0129 | LR: 9.98e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   67 ( 1840 eps) | Reward:  -30.65 | KL: 0.0195 | LR: 9.98e-07 | Time: 12.2s
+Batch   68 ( 1850 eps) | Reward:  -34.58 | KL: 0.0141 | LR: 9.98e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   69 ( 1860 eps) | Reward:  -35.25 | KL: 0.0111 | LR: 9.98e-07 | Time: 12.2s
+Batch   70 ( 1870 eps) | Reward:  -40.29 | KL: 0.0165 | LR: 9.98e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   71 ( 1880 eps) | Reward:  -32.40 | KL: 0.0168 | LR: 9.98e-07 | Time: 12.1s
+Batch   72 ( 1890 eps) | Reward:  -34.08 | KL: 0.0092 | LR: 9.98e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   73 ( 1900 eps) | Reward:  -36.79 | KL: 0.0098 | LR: 9.98e-07 | Time: 12.1s
+Batch   74 ( 1910 eps) | Reward:  -33.61 | KL: 0.0114 | LR: 9.98e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   75 ( 1920 eps) | Reward:  -30.47 | KL: 0.0211 | LR: 9.98e-07 | Time: 12.0s
+Batch   76 ( 1930 eps) | Reward:  -31.28 | KL: 0.0113 | LR: 9.98e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   77 ( 1940 eps) | Reward:  -39.63 | KL: 0.0168 | LR: 9.97e-07 | Time: 12.0s
+Batch   78 ( 1950 eps) | Reward:  -42.41 | KL: 0.0136 | LR: 9.97e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   79 ( 1960 eps) | Reward:  -30.94 | KL: 0.0109 | LR: 9.97e-07 | Time: 12.1s
+Batch   80 ( 1970 eps) | Reward:  -36.27 | KL: 0.0143 | LR: 9.97e-07 | Time: 12.4s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   81 ( 1980 eps) | Reward:  -42.74 | KL: 0.0122 | LR: 9.97e-07 | Time: 12.1s
+Batch   82 ( 1990 eps) | Reward:  -39.70 | KL: 0.0113 | LR: 9.97e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   83 ( 2000 eps) | Reward:  -31.35 | KL: 0.0116 | LR: 9.97e-07 | Time: 12.1s
+Batch   84 ( 2010 eps) | Reward:  -40.31 | KL: 0.0228 | LR: 9.97e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   85 ( 2020 eps) | Reward:  -38.26 | KL: 0.0100 | LR: 9.97e-07 | Time: 12.1s
+Batch   86 ( 2030 eps) | Reward:  -41.28 | KL: 0.0141 | LR: 9.97e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   87 ( 2040 eps) | Reward:  -34.62 | KL: 0.0115 | LR: 9.97e-07 | Time: 12.2s
+Batch   88 ( 2050 eps) | Reward:  -35.02 | KL: 0.0141 | LR: 9.97e-07 | Time: 12.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   89 ( 2060 eps) | Reward:  -34.44 | KL: 0.0180 | LR: 9.97e-07 | Time: 12.3s
+Batch   90 ( 2070 eps) | Reward:  -38.28 | KL: 0.0166 | LR: 9.96e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   91 ( 2080 eps) | Reward:  -31.78 | KL: 0.0243 | LR: 9.96e-07 | Time: 12.1s
+Batch   92 ( 2090 eps) | Reward:  -30.86 | KL: 0.0197 | LR: 9.96e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   93 ( 2100 eps) | Reward:  -37.76 | KL: 0.0109 | LR: 9.96e-07 | Time: 12.2s
+Batch   94 ( 2110 eps) | Reward:  -38.13 | KL: 0.0096 | LR: 9.96e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   95 ( 2120 eps) | Reward:  -30.91 | KL: 0.0117 | LR: 9.96e-07 | Time: 12.4s
+Batch   96 ( 2130 eps) | Reward:  -32.85 | KL: 0.0097 | LR: 9.96e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   97 ( 2140 eps) | Reward:  -31.96 | KL: 0.0166 | LR: 9.96e-07 | Time: 12.2s
+Batch   98 ( 2150 eps) | Reward:  -35.10 | KL: 0.0146 | LR: 9.96e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch   99 ( 2160 eps) | Reward:  -34.66 | KL: 0.0180 | LR: 9.96e-07 | Time: 12.0s
+Batch  100 ( 2170 eps) | Reward:  -32.21 | KL: 0.0142 | LR: 9.95e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  101 ( 2180 eps) | Reward:  -32.11 | KL: 0.0089 | LR: 9.95e-07 | Time: 12.1s
+Batch  102 ( 2190 eps) | Reward:  -34.07 | KL: 0.0151 | LR: 9.95e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  103 ( 2200 eps) | Reward:  -38.91 | KL: 0.0087 | LR: 9.95e-07 | Time: 12.3s
+Batch  104 ( 2210 eps) | Reward:  -33.66 | KL: 0.0123 | LR: 9.95e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  105 ( 2220 eps) | Reward:  -30.00 | KL: 0.0115 | LR: 9.95e-07 | Time: 12.0s
+Batch  106 ( 2230 eps) | Reward:  -33.34 | KL: 0.0121 | LR: 9.95e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  107 ( 2240 eps) | Reward:  -35.84 | KL: 0.0139 | LR: 9.95e-07 | Time: 12.0s
+Batch  108 ( 2250 eps) | Reward:  -37.06 | KL: 0.0112 | LR: 9.95e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  109 ( 2260 eps) | Reward:  -38.40 | KL: 0.0131 | LR: 9.95e-07 | Time: 12.2s
+Batch  110 ( 2270 eps) | Reward:  -36.46 | KL: 0.0159 | LR: 9.94e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  111 ( 2280 eps) | Reward:  -41.67 | KL: 0.0122 | LR: 9.94e-07 | Time: 12.0s
+Batch  112 ( 2290 eps) | Reward:  -37.35 | KL: 0.0190 | LR: 9.94e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  113 ( 2300 eps) | Reward:  -38.59 | KL: 0.0158 | LR: 9.94e-07 | Time: 12.1s
+Batch  114 ( 2310 eps) | Reward:  -33.45 | KL: 0.0187 | LR: 9.94e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  115 ( 2320 eps) | Reward:  -40.80 | KL: 0.0147 | LR: 9.94e-07 | Time: 12.0s
+Batch  116 ( 2330 eps) | Reward:  -37.73 | KL: 0.0195 | LR: 9.94e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  117 ( 2340 eps) | Reward:  -41.19 | KL: 0.0255 | LR: 9.94e-07 | Time: 12.1s
+Batch  118 ( 2350 eps) | Reward:  -33.77 | KL: 0.0128 | LR: 9.93e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  119 ( 2360 eps) | Reward:  -44.57 | KL: 0.0165 | LR: 9.93e-07 | Time: 12.2s
+Batch  120 ( 2370 eps) | Reward:  -38.36 | KL: 0.0105 | LR: 9.93e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  121 ( 2380 eps) | Reward:  -30.16 | KL: 0.0116 | LR: 9.93e-07 | Time: 12.0s
+Batch  122 ( 2390 eps) | Reward:  -39.22 | KL: 0.0161 | LR: 9.93e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  123 ( 2400 eps) | Reward:  -35.71 | KL: 0.0154 | LR: 9.93e-07 | Time: 11.9s
+Batch  124 ( 2410 eps) | Reward:  -38.21 | KL: 0.0141 | LR: 9.93e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  125 ( 2420 eps) | Reward:  -34.03 | KL: 0.0174 | LR: 9.93e-07 | Time: 11.9s
+Batch  126 ( 2430 eps) | Reward:  -31.35 | KL: 0.0237 | LR: 9.92e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  127 ( 2440 eps) | Reward:  -34.03 | KL: 0.0180 | LR: 9.92e-07 | Time: 12.0s
+Batch  128 ( 2450 eps) | Reward:  -35.04 | KL: 0.0117 | LR: 9.92e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  129 ( 2460 eps) | Reward:  -38.45 | KL: 0.0109 | LR: 9.92e-07 | Time: 12.0s
+Batch  130 ( 2470 eps) | Reward:  -40.85 | KL: 0.0187 | LR: 9.92e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  131 ( 2480 eps) | Reward:  -31.09 | KL: 0.0141 | LR: 9.92e-07 | Time: 12.0s
+Batch  132 ( 2490 eps) | Reward:  -38.86 | KL: 0.0163 | LR: 9.92e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  133 ( 2500 eps) | Reward:  -33.36 | KL: 0.0115 | LR: 9.92e-07 | Time: 12.0s
+Batch  134 ( 2510 eps) | Reward:  -32.02 | KL: 0.0097 | LR: 9.91e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  135 ( 2520 eps) | Reward:  -31.39 | KL: 0.0132 | LR: 9.91e-07 | Time: 12.0s
+Batch  136 ( 2530 eps) | Reward:  -35.26 | KL: 0.0108 | LR: 9.91e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  137 ( 2540 eps) | Reward:  -36.80 | KL: 0.0152 | LR: 9.91e-07 | Time: 11.9s
+Batch  138 ( 2550 eps) | Reward:  -35.28 | KL: 0.0122 | LR: 9.91e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  139 ( 2560 eps) | Reward:  -29.56 | KL: 0.0151 | LR: 9.91e-07 | Time: 11.8s
+Batch  140 ( 2570 eps) | Reward:  -36.58 | KL: 0.0134 | LR: 9.91e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  141 ( 2580 eps) | Reward:  -33.66 | KL: 0.0095 | LR: 9.90e-07 | Time: 11.9s
+Batch  142 ( 2590 eps) | Reward:  -34.50 | KL: 0.0178 | LR: 9.90e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  143 ( 2600 eps) | Reward:  -33.55 | KL: 0.0157 | LR: 9.90e-07 | Time: 11.9s
+Batch  144 ( 2610 eps) | Reward:  -38.45 | KL: 0.0185 | LR: 9.90e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  145 ( 2620 eps) | Reward:  -39.67 | KL: 0.0124 | LR: 9.90e-07 | Time: 11.9s
+Batch  146 ( 2630 eps) | Reward:  -37.84 | KL: 0.0132 | LR: 9.90e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  147 ( 2640 eps) | Reward:  -39.02 | KL: 0.0118 | LR: 9.90e-07 | Time: 11.9s
+Batch  148 ( 2650 eps) | Reward:  -32.15 | KL: 0.0195 | LR: 9.89e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  149 ( 2660 eps) | Reward:  -33.13 | KL: 0.0110 | LR: 9.89e-07 | Time: 12.0s
+Batch  150 ( 2670 eps) | Reward:  -39.79 | KL: 0.0110 | LR: 9.89e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  151 ( 2680 eps) | Reward:  -36.65 | KL: 0.0164 | LR: 9.89e-07 | Time: 11.9s
+Batch  152 ( 2690 eps) | Reward:  -39.92 | KL: 0.0110 | LR: 9.89e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  153 ( 2700 eps) | Reward:  -40.35 | KL: 0.0143 | LR: 9.89e-07 | Time: 12.0s
+Batch  154 ( 2710 eps) | Reward:  -35.47 | KL: 0.0118 | LR: 9.88e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  155 ( 2720 eps) | Reward:  -30.35 | KL: 0.0126 | LR: 9.88e-07 | Time: 12.0s
+Batch  156 ( 2730 eps) | Reward:  -39.12 | KL: 0.0133 | LR: 9.88e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  157 ( 2740 eps) | Reward:  -35.97 | KL: 0.0119 | LR: 9.88e-07 | Time: 11.9s
+Batch  158 ( 2750 eps) | Reward:  -32.98 | KL: 0.0148 | LR: 9.88e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  159 ( 2760 eps) | Reward:  -33.30 | KL: 0.0114 | LR: 9.88e-07 | Time: 11.9s
+Batch  160 ( 2770 eps) | Reward:  -44.52 | KL: 0.0185 | LR: 9.87e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  161 ( 2780 eps) | Reward:  -36.50 | KL: 0.0139 | LR: 9.87e-07 | Time: 12.0s
+Batch  162 ( 2790 eps) | Reward:  -36.36 | KL: 0.0140 | LR: 9.87e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  163 ( 2800 eps) | Reward:  -37.71 | KL: 0.0120 | LR: 9.87e-07 | Time: 11.9s
+Batch  164 ( 2810 eps) | Reward:  -30.82 | KL: 0.0137 | LR: 9.87e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  165 ( 2820 eps) | Reward:  -34.08 | KL: 0.0171 | LR: 9.87e-07 | Time: 12.1s
+Batch  166 ( 2830 eps) | Reward:  -29.63 | KL: 0.0148 | LR: 9.86e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  167 ( 2840 eps) | Reward:  -37.12 | KL: 0.0138 | LR: 9.86e-07 | Time: 11.9s
+Batch  168 ( 2850 eps) | Reward:  -37.23 | KL: 0.0142 | LR: 9.86e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  169 ( 2860 eps) | Reward:  -32.06 | KL: 0.0102 | LR: 9.86e-07 | Time: 12.0s
+Batch  170 ( 2870 eps) | Reward:  -30.54 | KL: 0.0164 | LR: 9.86e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  171 ( 2880 eps) | Reward:  -36.41 | KL: 0.0169 | LR: 9.86e-07 | Time: 12.0s
+Batch  172 ( 2890 eps) | Reward:  -28.54 | KL: 0.0175 | LR: 9.85e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  173 ( 2900 eps) | Reward:  -42.94 | KL: 0.0142 | LR: 9.85e-07 | Time: 12.1s
+Batch  174 ( 2910 eps) | Reward:  -38.70 | KL: 0.0119 | LR: 9.85e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  175 ( 2920 eps) | Reward:  -38.96 | KL: 0.0110 | LR: 9.85e-07 | Time: 11.9s
+Batch  176 ( 2930 eps) | Reward:  -29.67 | KL: 0.0183 | LR: 9.85e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  177 ( 2940 eps) | Reward:  -40.23 | KL: 0.0187 | LR: 9.84e-07 | Time: 11.9s
+Batch  178 ( 2950 eps) | Reward:  -39.41 | KL: 0.0096 | LR: 9.84e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  179 ( 2960 eps) | Reward:  -36.46 | KL: 0.0158 | LR: 9.84e-07 | Time: 11.9s
+Batch  180 ( 2970 eps) | Reward:  -42.58 | KL: 0.0112 | LR: 9.84e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  181 ( 2980 eps) | Reward:  -37.31 | KL: 0.0149 | LR: 9.84e-07 | Time: 12.0s
+Batch  182 ( 2990 eps) | Reward:  -34.96 | KL: 0.0107 | LR: 9.84e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  183 ( 3000 eps) | Reward:  -38.05 | KL: 0.0191 | LR: 9.83e-07 | Time: 11.9s
+Batch  184 ( 3010 eps) | Reward:  -34.02 | KL: 0.0169 | LR: 9.83e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  185 ( 3020 eps) | Reward:  -31.93 | KL: 0.0162 | LR: 9.83e-07 | Time: 11.9s
+Batch  186 ( 3030 eps) | Reward:  -38.97 | KL: 0.0130 | LR: 9.83e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  187 ( 3040 eps) | Reward:  -27.30 | KL: 0.0125 | LR: 9.83e-07 | Time: 11.9s
+Batch  188 ( 3050 eps) | Reward:  -32.61 | KL: 0.0179 | LR: 9.82e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  189 ( 3060 eps) | Reward:  -31.01 | KL: 0.0158 | LR: 9.82e-07 | Time: 12.1s
+Batch  190 ( 3070 eps) | Reward:  -39.53 | KL: 0.0128 | LR: 9.82e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  191 ( 3080 eps) | Reward:  -33.62 | KL: 0.0090 | LR: 9.82e-07 | Time: 12.0s
+Batch  192 ( 3090 eps) | Reward:  -38.88 | KL: 0.0149 | LR: 9.82e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  193 ( 3100 eps) | Reward:  -32.87 | KL: 0.0158 | LR: 9.81e-07 | Time: 11.9s
+Batch  194 ( 3110 eps) | Reward:  -28.09 | KL: 0.0138 | LR: 9.81e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  195 ( 3120 eps) | Reward:  -36.01 | KL: 0.0153 | LR: 9.81e-07 | Time: 11.9s
+Batch  196 ( 3130 eps) | Reward:  -32.32 | KL: 0.0112 | LR: 9.81e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  197 ( 3140 eps) | Reward:  -33.82 | KL: 0.0191 | LR: 9.81e-07 | Time: 11.9s
+Batch  198 ( 3150 eps) | Reward:  -33.87 | KL: 0.0133 | LR: 9.80e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  199 ( 3160 eps) | Reward:  -37.96 | KL: 0.0180 | LR: 9.80e-07 | Time: 12.0s
+Batch  200 ( 3170 eps) | Reward:  -43.95 | KL: 0.0127 | LR: 9.80e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  201 ( 3180 eps) | Reward:  -39.05 | KL: 0.0105 | LR: 9.80e-07 | Time: 12.0s
+Batch  202 ( 3190 eps) | Reward:  -33.11 | KL: 0.0102 | LR: 9.79e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  203 ( 3200 eps) | Reward:  -38.52 | KL: 0.0137 | LR: 9.79e-07 | Time: 11.9s
+Batch  204 ( 3210 eps) | Reward:  -35.31 | KL: 0.0113 | LR: 9.79e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  205 ( 3220 eps) | Reward:  -36.07 | KL: 0.0142 | LR: 9.79e-07 | Time: 12.0s
+Batch  206 ( 3230 eps) | Reward:  -44.45 | KL: 0.0121 | LR: 9.79e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  207 ( 3240 eps) | Reward:  -28.45 | KL: 0.0101 | LR: 9.78e-07 | Time: 12.0s
+Batch  208 ( 3250 eps) | Reward:  -37.71 | KL: 0.0140 | LR: 9.78e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  209 ( 3260 eps) | Reward:  -29.07 | KL: 0.0185 | LR: 9.78e-07 | Time: 12.0s
+Batch  210 ( 3270 eps) | Reward:  -30.79 | KL: 0.0090 | LR: 9.78e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  211 ( 3280 eps) | Reward:  -42.20 | KL: 0.0104 | LR: 9.78e-07 | Time: 11.9s
+Batch  212 ( 3290 eps) | Reward:  -35.83 | KL: 0.0131 | LR: 9.77e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  213 ( 3300 eps) | Reward:  -27.42 | KL: 0.0147 | LR: 9.77e-07 | Time: 12.0s
+Batch  214 ( 3310 eps) | Reward:  -33.72 | KL: 0.0099 | LR: 9.77e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  215 ( 3320 eps) | Reward:  -35.56 | KL: 0.0106 | LR: 9.77e-07 | Time: 11.9s
+Batch  216 ( 3330 eps) | Reward:  -33.19 | KL: 0.0260 | LR: 9.76e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  217 ( 3340 eps) | Reward:  -32.85 | KL: 0.0132 | LR: 9.76e-07 | Time: 11.9s
+Batch  218 ( 3350 eps) | Reward:  -42.56 | KL: 0.0106 | LR: 9.76e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  219 ( 3360 eps) | Reward:  -41.47 | KL: 0.0072 | LR: 9.76e-07 | Time: 11.9s
+Batch  220 ( 3370 eps) | Reward:  -33.30 | KL: 0.0128 | LR: 9.75e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  221 ( 3380 eps) | Reward:  -36.80 | KL: 0.0138 | LR: 9.75e-07 | Time: 11.9s
+Batch  222 ( 3390 eps) | Reward:  -38.85 | KL: 0.0145 | LR: 9.75e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  223 ( 3400 eps) | Reward:  -40.08 | KL: 0.0150 | LR: 9.75e-07 | Time: 11.9s
+Batch  224 ( 3410 eps) | Reward:  -36.80 | KL: 0.0098 | LR: 9.75e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  225 ( 3420 eps) | Reward:  -37.49 | KL: 0.0098 | LR: 9.74e-07 | Time: 11.8s
+Batch  226 ( 3430 eps) | Reward:  -36.14 | KL: 0.0137 | LR: 9.74e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  227 ( 3440 eps) | Reward:  -35.84 | KL: 0.0089 | LR: 9.74e-07 | Time: 12.0s
+Batch  228 ( 3450 eps) | Reward:  -34.70 | KL: 0.0078 | LR: 9.74e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  229 ( 3460 eps) | Reward:  -33.16 | KL: 0.0096 | LR: 9.73e-07 | Time: 11.9s
+Batch  230 ( 3470 eps) | Reward:  -36.91 | KL: 0.0119 | LR: 9.73e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  231 ( 3480 eps) | Reward:  -36.44 | KL: 0.0112 | LR: 9.73e-07 | Time: 11.9s
+Batch  232 ( 3490 eps) | Reward:  -30.86 | KL: 0.0095 | LR: 9.73e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  233 ( 3500 eps) | Reward:  -33.00 | KL: 0.0146 | LR: 9.72e-07 | Time: 11.9s
+Batch  234 ( 3510 eps) | Reward:  -31.37 | KL: 0.0110 | LR: 9.72e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  235 ( 3520 eps) | Reward:  -31.56 | KL: 0.0191 | LR: 9.72e-07 | Time: 12.1s
+Batch  236 ( 3530 eps) | Reward:  -37.29 | KL: 0.0156 | LR: 9.72e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  237 ( 3540 eps) | Reward:  -39.35 | KL: 0.0121 | LR: 9.71e-07 | Time: 11.9s
+Batch  238 ( 3550 eps) | Reward:  -34.69 | KL: 0.0108 | LR: 9.71e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  239 ( 3560 eps) | Reward:  -31.63 | KL: 0.0104 | LR: 9.71e-07 | Time: 12.0s
+Batch  240 ( 3570 eps) | Reward:  -37.96 | KL: 0.0102 | LR: 9.71e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  241 ( 3580 eps) | Reward:  -34.73 | KL: 0.0134 | LR: 9.70e-07 | Time: 12.0s
+Batch  242 ( 3590 eps) | Reward:  -36.50 | KL: 0.0162 | LR: 9.70e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  243 ( 3600 eps) | Reward:  -41.63 | KL: 0.0112 | LR: 9.70e-07 | Time: 12.1s
+Batch  244 ( 3610 eps) | Reward:  -35.32 | KL: 0.0132 | LR: 9.70e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  245 ( 3620 eps) | Reward:  -38.56 | KL: 0.0171 | LR: 9.69e-07 | Time: 11.9s
+Batch  246 ( 3630 eps) | Reward:  -34.57 | KL: 0.0160 | LR: 9.69e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  247 ( 3640 eps) | Reward:  -34.63 | KL: 0.0131 | LR: 9.69e-07 | Time: 11.9s
+Batch  248 ( 3650 eps) | Reward:  -30.56 | KL: 0.0158 | LR: 9.69e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  249 ( 3660 eps) | Reward:  -30.69 | KL: 0.0117 | LR: 9.68e-07 | Time: 11.9s
+Batch  250 ( 3670 eps) | Reward:  -37.58 | KL: 0.0113 | LR: 9.68e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  251 ( 3680 eps) | Reward:  -40.96 | KL: 0.0102 | LR: 9.68e-07 | Time: 12.0s
+Batch  252 ( 3690 eps) | Reward:  -31.60 | KL: 0.0099 | LR: 9.68e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  253 ( 3700 eps) | Reward:  -31.02 | KL: 0.0118 | LR: 9.67e-07 | Time: 11.9s
+Batch  254 ( 3710 eps) | Reward:  -39.90 | KL: 0.0124 | LR: 9.67e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  255 ( 3720 eps) | Reward:  -38.94 | KL: 0.0128 | LR: 9.67e-07 | Time: 12.0s
+Batch  256 ( 3730 eps) | Reward:  -31.57 | KL: 0.0115 | LR: 9.66e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  257 ( 3740 eps) | Reward:  -35.04 | KL: 0.0124 | LR: 9.66e-07 | Time: 11.9s
+Batch  258 ( 3750 eps) | Reward:  -33.27 | KL: 0.0119 | LR: 9.66e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  259 ( 3760 eps) | Reward:  -30.81 | KL: 0.0141 | LR: 9.66e-07 | Time: 12.0s
+Batch  260 ( 3770 eps) | Reward:  -38.66 | KL: 0.0108 | LR: 9.65e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  261 ( 3780 eps) | Reward:  -33.46 | KL: 0.0133 | LR: 9.65e-07 | Time: 11.9s
+Batch  262 ( 3790 eps) | Reward:  -38.07 | KL: 0.0119 | LR: 9.65e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  263 ( 3800 eps) | Reward:  -33.75 | KL: 0.0113 | LR: 9.65e-07 | Time: 12.0s
+Batch  264 ( 3810 eps) | Reward:  -36.58 | KL: 0.0149 | LR: 9.64e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  265 ( 3820 eps) | Reward:  -38.03 | KL: 0.0145 | LR: 9.64e-07 | Time: 12.0s
+Batch  266 ( 3830 eps) | Reward:  -36.66 | KL: 0.0096 | LR: 9.64e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  267 ( 3840 eps) | Reward:  -34.61 | KL: 0.0144 | LR: 9.63e-07 | Time: 11.9s
+Batch  268 ( 3850 eps) | Reward:  -36.51 | KL: 0.0129 | LR: 9.63e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  269 ( 3860 eps) | Reward:  -40.76 | KL: 0.0147 | LR: 9.63e-07 | Time: 11.9s
+Batch  270 ( 3870 eps) | Reward:  -39.83 | KL: 0.0156 | LR: 9.63e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  271 ( 3880 eps) | Reward:  -45.49 | KL: 0.0114 | LR: 9.62e-07 | Time: 11.9s
+Batch  272 ( 3890 eps) | Reward:  -32.36 | KL: 0.0195 | LR: 9.62e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  273 ( 3900 eps) | Reward:  -34.99 | KL: 0.0113 | LR: 9.62e-07 | Time: 12.0s
+Batch  274 ( 3910 eps) | Reward:  -32.01 | KL: 0.0176 | LR: 9.61e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  275 ( 3920 eps) | Reward:  -40.13 | KL: 0.0167 | LR: 9.61e-07 | Time: 12.0s
+Batch  276 ( 3930 eps) | Reward:  -32.05 | KL: 0.0161 | LR: 9.61e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  277 ( 3940 eps) | Reward:  -41.22 | KL: 0.0121 | LR: 9.61e-07 | Time: 11.9s
+Batch  278 ( 3950 eps) | Reward:  -34.80 | KL: 0.0104 | LR: 9.60e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  279 ( 3960 eps) | Reward:  -37.15 | KL: 0.0135 | LR: 9.60e-07 | Time: 11.9s
+Batch  280 ( 3970 eps) | Reward:  -34.70 | KL: 0.0130 | LR: 9.60e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  281 ( 3980 eps) | Reward:  -42.78 | KL: 0.0158 | LR: 9.59e-07 | Time: 11.9s
+Batch  282 ( 3990 eps) | Reward:  -36.93 | KL: 0.0170 | LR: 9.59e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  283 ( 4000 eps) | Reward:  -36.72 | KL: 0.0180 | LR: 9.59e-07 | Time: 11.9s
+Batch  284 ( 4010 eps) | Reward:  -37.06 | KL: 0.0206 | LR: 9.59e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  285 ( 4020 eps) | Reward:  -31.47 | KL: 0.0143 | LR: 9.58e-07 | Time: 12.0s
+Batch  286 ( 4030 eps) | Reward:  -31.39 | KL: 0.0125 | LR: 9.58e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  287 ( 4040 eps) | Reward:  -33.01 | KL: 0.0116 | LR: 9.58e-07 | Time: 11.8s
+Batch  288 ( 4050 eps) | Reward:  -36.87 | KL: 0.0154 | LR: 9.57e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  289 ( 4060 eps) | Reward:  -39.55 | KL: 0.0144 | LR: 9.57e-07 | Time: 11.9s
+Batch  290 ( 4070 eps) | Reward:  -37.82 | KL: 0.0163 | LR: 9.57e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  291 ( 4080 eps) | Reward:  -35.62 | KL: 0.0123 | LR: 9.56e-07 | Time: 11.9s
+Batch  292 ( 4090 eps) | Reward:  -39.48 | KL: 0.0140 | LR: 9.56e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  293 ( 4100 eps) | Reward:  -35.65 | KL: 0.0111 | LR: 9.56e-07 | Time: 11.9s
+Batch  294 ( 4110 eps) | Reward:  -36.57 | KL: 0.0180 | LR: 9.56e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  295 ( 4120 eps) | Reward:  -33.47 | KL: 0.0131 | LR: 9.55e-07 | Time: 12.0s
+Batch  296 ( 4130 eps) | Reward:  -32.15 | KL: 0.0133 | LR: 9.55e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  297 ( 4140 eps) | Reward:  -33.79 | KL: 0.0159 | LR: 9.55e-07 | Time: 11.9s
+Batch  298 ( 4150 eps) | Reward:  -31.27 | KL: 0.0125 | LR: 9.54e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  299 ( 4160 eps) | Reward:  -38.30 | KL: 0.0142 | LR: 9.54e-07 | Time: 11.8s
+Batch  300 ( 4170 eps) | Reward:  -31.49 | KL: 0.0154 | LR: 9.54e-07 | Time: 11.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  301 ( 4180 eps) | Reward:  -26.93 | KL: 0.0098 | LR: 9.53e-07 | Time: 11.8s
+Batch  302 ( 4190 eps) | Reward:  -35.27 | KL: 0.0187 | LR: 9.53e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  303 ( 4200 eps) | Reward:  -38.77 | KL: 0.0116 | LR: 9.53e-07 | Time: 11.9s
+Batch  304 ( 4210 eps) | Reward:  -35.41 | KL: 0.0180 | LR: 9.52e-07 | Time: 11.8s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  305 ( 4220 eps) | Reward:  -32.41 | KL: 0.0130 | LR: 9.52e-07 | Time: 12.0s
+Batch  306 ( 4230 eps) | Reward:  -38.97 | KL: 0.0192 | LR: 9.52e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  307 ( 4240 eps) | Reward:  -33.97 | KL: 0.0104 | LR: 9.51e-07 | Time: 12.0s
+Batch  308 ( 4250 eps) | Reward:  -40.51 | KL: 0.0102 | LR: 9.51e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  309 ( 4260 eps) | Reward:  -39.94 | KL: 0.0211 | LR: 9.51e-07 | Time: 11.9s
+Batch  310 ( 4270 eps) | Reward:  -33.56 | KL: 0.0121 | LR: 9.50e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  311 ( 4280 eps) | Reward:  -29.77 | KL: 0.0149 | LR: 9.50e-07 | Time: 12.0s
+Batch  312 ( 4290 eps) | Reward:  -31.61 | KL: 0.0172 | LR: 9.50e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  313 ( 4300 eps) | Reward:  -34.04 | KL: 0.0115 | LR: 9.49e-07 | Time: 12.1s
+Batch  314 ( 4310 eps) | Reward:  -30.56 | KL: 0.0148 | LR: 9.49e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  315 ( 4320 eps) | Reward:  -32.98 | KL: 0.0127 | LR: 9.49e-07 | Time: 12.0s
+Batch  316 ( 4330 eps) | Reward:  -36.10 | KL: 0.0139 | LR: 9.49e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  317 ( 4340 eps) | Reward:  -28.06 | KL: 0.0183 | LR: 9.48e-07 | Time: 11.9s
+Batch  318 ( 4350 eps) | Reward:  -39.99 | KL: 0.0156 | LR: 9.48e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  319 ( 4360 eps) | Reward:  -35.46 | KL: 0.0097 | LR: 9.48e-07 | Time: 11.9s
+Batch  320 ( 4370 eps) | Reward:  -43.26 | KL: 0.0089 | LR: 9.47e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  321 ( 4380 eps) | Reward:  -33.49 | KL: 0.0129 | LR: 9.47e-07 | Time: 12.0s
+Batch  322 ( 4390 eps) | Reward:  -34.75 | KL: 0.0135 | LR: 9.47e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  323 ( 4400 eps) | Reward:  -36.58 | KL: 0.0141 | LR: 9.46e-07 | Time: 12.0s
+Batch  324 ( 4410 eps) | Reward:  -41.32 | KL: 0.0127 | LR: 9.46e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  325 ( 4420 eps) | Reward:  -31.41 | KL: 0.0212 | LR: 9.45e-07 | Time: 12.1s
+Batch  326 ( 4430 eps) | Reward:  -42.14 | KL: 0.0178 | LR: 9.45e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  327 ( 4440 eps) | Reward:  -34.48 | KL: 0.0181 | LR: 9.45e-07 | Time: 12.0s
+Batch  328 ( 4450 eps) | Reward:  -39.20 | KL: 0.0121 | LR: 9.44e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  329 ( 4460 eps) | Reward:  -31.40 | KL: 0.0100 | LR: 9.44e-07 | Time: 12.1s
+Batch  330 ( 4470 eps) | Reward:  -29.80 | KL: 0.0172 | LR: 9.44e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  331 ( 4480 eps) | Reward:  -36.20 | KL: 0.0127 | LR: 9.43e-07 | Time: 11.9s
+Batch  332 ( 4490 eps) | Reward:  -36.07 | KL: 0.0112 | LR: 9.43e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  333 ( 4500 eps) | Reward:  -40.82 | KL: 0.0171 | LR: 9.43e-07 | Time: 12.0s
+Batch  334 ( 4510 eps) | Reward:  -38.10 | KL: 0.0192 | LR: 9.42e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  335 ( 4520 eps) | Reward:  -33.41 | KL: 0.0126 | LR: 9.42e-07 | Time: 11.9s
+Batch  336 ( 4530 eps) | Reward:  -32.96 | KL: 0.0133 | LR: 9.42e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  337 ( 4540 eps) | Reward:  -30.41 | KL: 0.0165 | LR: 9.41e-07 | Time: 11.9s
+Batch  338 ( 4550 eps) | Reward:  -33.63 | KL: 0.0130 | LR: 9.41e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  339 ( 4560 eps) | Reward:  -34.92 | KL: 0.0118 | LR: 9.41e-07 | Time: 11.9s
+Batch  340 ( 4570 eps) | Reward:  -31.28 | KL: 0.0109 | LR: 9.40e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  341 ( 4580 eps) | Reward:  -45.00 | KL: 0.0180 | LR: 9.40e-07 | Time: 12.0s
+Batch  342 ( 4590 eps) | Reward:  -39.61 | KL: 0.0170 | LR: 9.40e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  343 ( 4600 eps) | Reward:  -29.66 | KL: 0.0134 | LR: 9.39e-07 | Time: 12.0s
+Batch  344 ( 4610 eps) | Reward:  -40.85 | KL: 0.0140 | LR: 9.39e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  345 ( 4620 eps) | Reward:  -33.82 | KL: 0.0137 | LR: 9.39e-07 | Time: 12.0s
+Batch  346 ( 4630 eps) | Reward:  -35.75 | KL: 0.0198 | LR: 9.38e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  347 ( 4640 eps) | Reward:  -35.16 | KL: 0.0201 | LR: 9.38e-07 | Time: 12.0s
+Batch  348 ( 4650 eps) | Reward:  -39.67 | KL: 0.0132 | LR: 9.37e-07 | Time: 12.2s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  349 ( 4660 eps) | Reward:  -35.25 | KL: 0.0198 | LR: 9.37e-07 | Time: 12.0s
+Batch  350 ( 4670 eps) | Reward:  -34.29 | KL: 0.0281 | LR: 9.37e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  351 ( 4680 eps) | Reward:  -42.76 | KL: 0.0173 | LR: 9.36e-07 | Time: 12.1s
+Batch  352 ( 4690 eps) | Reward:  -30.46 | KL: 0.0157 | LR: 9.36e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  353 ( 4700 eps) | Reward:  -29.67 | KL: 0.0148 | LR: 9.36e-07 | Time: 12.0s
+Batch  354 ( 4710 eps) | Reward:  -30.74 | KL: 0.0284 | LR: 9.35e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  355 ( 4720 eps) | Reward:  -40.94 | KL: 0.0176 | LR: 9.35e-07 | Time: 12.0s
+Batch  356 ( 4730 eps) | Reward:  -34.03 | KL: 0.0174 | LR: 9.35e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  357 ( 4740 eps) | Reward:  -37.17 | KL: 0.0133 | LR: 9.34e-07 | Time: 12.0s
+Batch  358 ( 4750 eps) | Reward:  -36.04 | KL: 0.0157 | LR: 9.34e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  359 ( 4760 eps) | Reward:  -34.61 | KL: 0.0148 | LR: 9.33e-07 | Time: 12.0s
+Batch  360 ( 4770 eps) | Reward:  -40.66 | KL: 0.0171 | LR: 9.33e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  361 ( 4780 eps) | Reward:  -31.32 | KL: 0.0129 | LR: 9.33e-07 | Time: 11.9s
+Batch  362 ( 4790 eps) | Reward:  -34.29 | KL: 0.0113 | LR: 9.32e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  363 ( 4800 eps) | Reward:  -31.67 | KL: 0.0124 | LR: 9.32e-07 | Time: 12.0s
+Batch  364 ( 4810 eps) | Reward:  -39.19 | KL: 0.0159 | LR: 9.32e-07 | Time: 12.1s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  365 ( 4820 eps) | Reward:  -34.75 | KL: 0.0115 | LR: 9.31e-07 | Time: 11.9s
+Batch  366 ( 4830 eps) | Reward:  -33.61 | KL: 0.0126 | LR: 9.31e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  367 ( 4840 eps) | Reward:  -38.09 | KL: 0.0225 | LR: 9.30e-07 | Time: 11.9s
+Batch  368 ( 4850 eps) | Reward:  -33.33 | KL: 0.0212 | LR: 9.30e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  369 ( 4860 eps) | Reward:  -40.60 | KL: 0.0107 | LR: 9.30e-07 | Time: 11.9s
+Batch  370 ( 4870 eps) | Reward:  -38.87 | KL: 0.0223 | LR: 9.29e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  371 ( 4880 eps) | Reward:  -31.33 | KL: 0.0183 | LR: 9.29e-07 | Time: 12.0s
+Batch  372 ( 4890 eps) | Reward:  -31.50 | KL: 0.0243 | LR: 9.28e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  373 ( 4900 eps) | Reward:  -36.91 | KL: 0.0172 | LR: 9.28e-07 | Time: 12.0s
+Batch  374 ( 4910 eps) | Reward:  -36.64 | KL: 0.0182 | LR: 9.28e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  375 ( 4920 eps) | Reward:  -41.70 | KL: 0.0166 | LR: 9.27e-07 | Time: 12.1s
+Batch  376 ( 4930 eps) | Reward:  -37.19 | KL: 0.0143 | LR: 9.27e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  377 ( 4940 eps) | Reward:  -41.81 | KL: 0.0173 | LR: 9.27e-07 | Time: 12.0s
+Batch  378 ( 4950 eps) | Reward:  -35.48 | KL: 0.0197 | LR: 9.26e-07 | Time: 11.9s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  379 ( 4960 eps) | Reward:  -36.39 | KL: 0.0212 | LR: 9.26e-07 | Time: 11.9s
+Batch  380 ( 4970 eps) | Reward:  -35.61 | KL: 0.0220 | LR: 9.25e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  381 ( 4980 eps) | Reward:  -29.49 | KL: 0.0193 | LR: 9.25e-07 | Time: 11.9s
+Batch  382 ( 4990 eps) | Reward:  -36.95 | KL: 0.0127 | LR: 9.25e-07 | Time: 12.0s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch  383 ( 5000 eps) | Reward:  -38.71 | KL: 0.0180 | LR: 9.24e-07 | Time: 12.1s
+
+
+Training interrupted by user.
