@@ -19,6 +19,7 @@ Usage:
 import os
 import time
 import argparse
+import numpy as np
 
 # Setup headless rendering BEFORE importing mujoco
 from mujoco_rendering import setup_mujoco_rendering
@@ -273,6 +274,12 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 # Unnormalize action based on model type (SmolVLA uses hardcoded, Pi0 uses postprocessor)
                 # This converts: normalized -> physical -> MuJoCo radians
                 action_radians = unnormalize_action_for_vla(action, MODEL_TYPE, postprocessor)
+                
+                # Clip actions to joint limits (matching training environment)
+                # Without this, base policy can predict out-of-range values causing arm to flip
+                JOINT_LIMITS_LOW = np.array([-1.92, -1.745, -1.69, -1.658, -2.744, -0.175])
+                JOINT_LIMITS_HIGH = np.array([1.92, 1.745, 1.69, 1.658, 2.841, 1.745])
+                action_radians = np.clip(action_radians, JOINT_LIMITS_LOW, JOINT_LIMITS_HIGH)
                 
                 # Convert action to degrees dict for SO101
                 last_action_dict = convert_to_dictionary(action_radians)

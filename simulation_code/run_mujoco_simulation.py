@@ -300,6 +300,12 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                 # This converts: normalized -> physical -> MuJoCo radians
                 action_radians = unnormalize_action_for_vla(action, MODEL_TYPE, postprocessor)
                 
+                # Clip actions to joint limits (matching training environment)
+                # Without this, base policy can predict out-of-range values causing arm to flip
+                JOINT_LIMITS_LOW = np.array([-1.92, -1.745, -1.69, -1.658, -2.744, -0.175])
+                JOINT_LIMITS_HIGH = np.array([1.92, 1.745, 1.69, 1.658, 2.841, 1.745])
+                action_radians = np.clip(action_radians, JOINT_LIMITS_LOW, JOINT_LIMITS_HIGH)
+                
                 if DEBUG_THIS_ITERATION:
                     print(f"  Unnormalized (radians): {[f'{a:.4f}' for a in action_radians]}")
                     print(f"  Unnormalized (degrees): {[f'{np.degrees(a):.2f}' for a in action_radians]}")
