@@ -294,7 +294,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
             mujoco.mj_step(self.model, self.data)
         
         # Compute reward
-        reward, success = compute_reward(self.model, self.data)
+        reward, done, contacted, gripped, sustained, height_aligned, block_lifted = compute_reward(self.model, self.data)
+        success = done  # done indicates if block is lifted (episode success)
         
         # Update step count
         self._step_count += 1
