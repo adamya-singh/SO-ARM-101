@@ -43,12 +43,13 @@ from lerobot.motors import Motor, MotorCalibration, MotorNormMode
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 
 
-def check_calibration(robot_id: str) -> Path:
+def check_calibration(robot_id: str, robot_type: str) -> Path:
     """
     Check if calibration file exists for the robot.
 
     Args:
         robot_id: Robot identifier used during calibration
+        robot_type: Robot type folder under calibration/robots (e.g., so100_follower)
 
     Returns:
         Path to calibration file
@@ -58,7 +59,7 @@ def check_calibration(robot_id: str) -> Path:
     """
     cal_dir = (
         Path.home() / ".cache" / "huggingface" / "lerobot"
-        / "calibration" / "robots" / "so101_follower"
+        / "calibration" / "robots" / robot_type
     )
 
     # Try robot_id.json first, then fallback patterns
@@ -79,7 +80,7 @@ def check_calibration(robot_id: str) -> Path:
     print(f"\nLooked in: {cal_dir}")
     print(f"Expected file: {robot_id}.json")
     print("\nPlease calibrate your arm first:")
-    print(f"  lerobot-calibrate --robot.type=so101_follower --robot.id={robot_id}")
+    print(f"  lerobot-calibrate --robot.type={robot_type} --robot.id={robot_id}")
     print("=" * 60 + "\n")
     sys.exit(1)
 
@@ -133,6 +134,7 @@ class SingleArmRecorder:
         self.task_description = config["task_description"]
         self.output_dir = Path(config["output_dir"])
         self.robot_id = config["robot"]["id"]
+        self.robot_type = config["robot"].get("type", "so101_follower")
         self.robot_port = config["robot"]["port"]
         self.fps = config["recording"]["fps"]
         self.frame_duration = 1.0 / self.fps
@@ -232,7 +234,7 @@ class SingleArmRecorder:
     def connect(self):
         """Connect to the arm and camera, disable torque."""
         # Check calibration first
-        cal_path = check_calibration(self.robot_id)
+        cal_path = check_calibration(self.robot_id, self.robot_type)
         calibration = load_calibration(cal_path)
 
         # Create motor configuration

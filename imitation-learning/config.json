@@ -4,7 +4,8 @@
   "output_dir": "./datasets",
 
   "robot": {
-    "id": "so101_follower_1",
+    "id": "None",
+    "type": "so100_follower",
     "port": "/dev/tty.usbmodem5A680096011"
   },
 
