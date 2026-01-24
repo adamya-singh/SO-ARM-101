@@ -1,0 +1,86 @@
+{
+  "codebase_version": "3.0",
+  "robot_type": "so101",
+  "fps": 30,
+  "total_episodes": 3,
+  "total_frames": 1525,
+  "total_tasks": 1,
+  "total_videos": 3,
+  "total_chunks": 1,
+  "chunks_size": 3,
+  "data_path": "data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet",
+  "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/episode_{file_index:06d}.mp4",
+  "features": {
+    "timestamp": {
+      "dtype": "float64",
+      "shape": [
+        1
+      ]
+    },
+    "frame_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "episode_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "task_index": {
+      "dtype": "int64",
+      "shape": [
+        1
+      ]
+    },
+    "observation.images.wrist": {
+      "dtype": "video",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "names": [
+        "height",
+        "width",
+        "channels"
+      ],
+      "video_info": {
+        "video.fps": 30,
+        "video.codec": "libx264",
+        "video.pix_fmt": "yuv420p"
+      }
+    },
+    "observation.state": {
+      "dtype": "float32",
+      "shape": [
+        6
+      ],
+      "names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ]
+    },
+    "action": {
+      "dtype": "float32",
+      "shape": [
+        6
+      ],
+      "names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ]
+    }
+  },
+  "repo_id": "so101_pickplace_v1"
+}
