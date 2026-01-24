@@ -1,0 +1,28 @@
+{
+  "dataset_name": "so101_pickplace_v1",
+  "task_description": "pick up the red cube and place it in the box",
+  "output_dir": "./datasets",
+
+  "robot": {
+    "id": "my_so101_follower",
+    "port": "/dev/tty.usbmodem58760431541"
+  },
+
+  "camera": {
+    "name": "wrist",
+    "device": 0,
+    "capture_width": 1920,
+    "capture_height": 1080,
+    "target_width": 256,
+    "target_height": 256
+  },
+
+  "recording": {
+    "fps": 30
+  },
+
+  "hub": {
+    "push_to_hub": false,
+    "repo_id": null
+  }
+}
