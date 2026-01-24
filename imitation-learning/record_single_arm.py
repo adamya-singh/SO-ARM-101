@@ -169,6 +169,9 @@ class SingleArmRecorder:
         self._gripper_open_step = False
         self._gripper_close_step = False
         self._gripper_target: Optional[float] = None
+        self._wrist_roll_neg_step = False
+        self._wrist_roll_pos_step = False
+        self._wrist_roll_target: Optional[float] = None
 
         # Dataset writer (lazy import to avoid issues if not using LeRobot dataset API)
         self.dataset = None
@@ -285,6 +288,8 @@ class SingleArmRecorder:
 
         # Initialize gripper target to current position (normalized 0-100)
         self._gripper_target = float(self.bus.read("Present_Position", "gripper"))
+        # Initialize wrist roll target to current position (normalized -100 to 100)
+        self._wrist_roll_target = float(self.bus.read("Present_Position", "wrist_roll"))
 
     def start_preview(self):
         """Initialize Rerun preview window."""
@@ -599,6 +604,10 @@ class SingleArmRecorder:
                     self._gripper_open_step = True
                 elif hasattr(key, 'char') and key.char == '2':
                     self._gripper_close_step = True
+                elif hasattr(key, 'char') and key.char == '3':
+                    self._wrist_roll_neg_step = True
+                elif hasattr(key, 'char') and key.char == '4':
+                    self._wrist_roll_pos_step = True
             except AttributeError:
                 pass
 
@@ -634,6 +643,17 @@ class SingleArmRecorder:
                 return -1
         return 0
 
+    def _check_wrist_roll_step(self) -> int:
+        """Check and clear wrist roll step flags."""
+        with self._lock:
+            if self._wrist_roll_neg_step:
+                self._wrist_roll_neg_step = False
+                return -1
+            if self._wrist_roll_pos_step:
+                self._wrist_roll_pos_step = False
+                return 1
+        return 0
+
     def run(self):
         """Main recording loop."""
         print("\n" + "=" * 60)
@@ -649,6 +669,8 @@ class SingleArmRecorder:
         print("  R: Discard current episode")
         print("  1: Open gripper 25%")
         print("  2: Close gripper 25%")
+        print("  3: Wrist roll -10%")
+        print("  4: Wrist roll +10%")
         print("  ESC: Finalize and quit")
         print("=" * 60 + "\n")
 
@@ -693,6 +715,15 @@ class SingleArmRecorder:
                         self.bus.write("Goal_Position", "gripper", self._gripper_target)
                     except Exception as e:
                         print(f"\nGripper command error: {e}")
+
+                wrist_roll_step = self._check_wrist_roll_step()
+                if wrist_roll_step != 0 and self._wrist_roll_target is not None:
+                    step = 10.0 * wrist_roll_step
+                    self._wrist_roll_target = max(-100.0, min(100.0, self._wrist_roll_target + step))
+                    try:
+                        self.bus.write("Goal_Position", "wrist_roll", self._wrist_roll_target)
+                    except Exception as e:
+                        print(f"\nWrist roll command error: {e}")
 
                 # Read arm and camera
                 try:
