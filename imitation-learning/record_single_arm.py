@@ -40,7 +40,7 @@ from pynput import keyboard
 
 # LeRobot imports
 from lerobot.motors import Motor, MotorCalibration, MotorNormMode
-from lerobot.motors.feetech import FeetechMotorsBus
+from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 
 
 def check_calibration(robot_id: str) -> Path:
@@ -164,6 +164,9 @@ class SingleArmRecorder:
         self._r_pressed = False
         self._esc_pressed = False
         self._keyboard_listener: Optional[keyboard.Listener] = None
+        self._gripper_open_step = False
+        self._gripper_close_step = False
+        self._gripper_target: Optional[float] = None
 
         # Dataset writer (lazy import to avoid issues if not using LeRobot dataset API)
         self.dataset = None
@@ -251,9 +254,12 @@ class SingleArmRecorder:
         )
         self.bus.connect()
 
-        # Disable torque for free movement (including gripper - can be positioned by hand)
-        print("Disabling torque - arm and gripper can now be moved freely by hand")
+        # Disable torque for free movement, then enable torque only on gripper
+        print("Disabling torque - arm can now be moved freely by hand")
         self.bus.disable_torque()
+        self.bus.write("Operating_Mode", "gripper", OperatingMode.POSITION.value)
+        self.bus.enable_torque("gripper")
+        print("Gripper torque enabled for keyboard control")
 
         # Connect to camera
         print(f"Connecting to camera (device {self.camera_device})...")
@@ -274,6 +280,9 @@ class SingleArmRecorder:
         actual_w = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_h = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
         print(f"Camera connected: {actual_w}x{actual_h}")
+
+        # Initialize gripper target to current position (normalized 0-100)
+        self._gripper_target = float(self.bus.read("Present_Position", "gripper"))
 
     def start_preview(self):
         """Initialize Rerun preview window."""
@@ -584,6 +593,10 @@ class SingleArmRecorder:
                     self._esc_pressed = True
                 elif hasattr(key, 'char') and key.char == 'r':
                     self._r_pressed = True
+                elif hasattr(key, 'char') and key.char == '1':
+                    self._gripper_open_step = True
+                elif hasattr(key, 'char') and key.char == '2':
+                    self._gripper_close_step = True
             except AttributeError:
                 pass
 
@@ -608,6 +621,17 @@ class SingleArmRecorder:
         with self._lock:
             return self._esc_pressed
 
+    def _check_gripper_step(self) -> int:
+        """Check and clear gripper step flags."""
+        with self._lock:
+            if self._gripper_open_step:
+                self._gripper_open_step = False
+                return 1
+            if self._gripper_close_step:
+                self._gripper_close_step = False
+                return -1
+        return 0
+
     def run(self):
         """Main recording loop."""
         print("\n" + "=" * 60)
@@ -621,6 +645,8 @@ class SingleArmRecorder:
         print("\nControls:")
         print("  SPACE: Start/stop recording")
         print("  R: Discard current episode")
+        print("  1: Open gripper 25%")
+        print("  2: Close gripper 25%")
         print("  ESC: Finalize and quit")
         print("=" * 60 + "\n")
 
@@ -656,6 +682,15 @@ class SingleArmRecorder:
                         self.end_episode()
                     else:
                         self.start_episode()
+
+                gripper_step = self._check_gripper_step()
+                if gripper_step != 0 and self._gripper_target is not None:
+                    step = 25.0 * gripper_step
+                    self._gripper_target = max(0.0, min(100.0, self._gripper_target + step))
+                    try:
+                        self.bus.write("Goal_Position", "gripper", self._gripper_target)
+                    except Exception as e:
+                        print(f"\nGripper command error: {e}")
 
                 # Read arm and camera
                 try:
