@@ -17,6 +17,8 @@ Usage:
 Controls:
     SPACE: Start/stop recording an episode
     R: Discard current episode (if recording)
+    1: Open gripper
+    2: Close gripper
     ESC: Discard current episode, finalize dataset, quit
 
 Requirements:
@@ -163,7 +165,12 @@ class SingleArmRecorder:
         self._space_pressed = False
         self._r_pressed = False
         self._esc_pressed = False
+        self._1_pressed = False  # Open gripper
+        self._2_pressed = False  # Close gripper
         self._keyboard_listener: Optional[keyboard.Listener] = None
+
+        # Gripper control
+        self._gripper_position = 50.0  # Start at 50% (middle)
 
         # Dataset writer (lazy import to avoid issues if not using LeRobot dataset API)
         self.dataset = None
@@ -254,6 +261,10 @@ class SingleArmRecorder:
         # Disable torque for free movement
         print("Disabling torque - arm can now be moved freely by hand")
         self.bus.disable_torque()
+
+        # Enable torque only on gripper for keyboard control
+        print("Enabling gripper torque for keyboard control")
+        self.bus.enable_torque("gripper")
 
         # Connect to camera
         print(f"Connecting to camera (device {self.camera_device})...")
@@ -585,6 +596,10 @@ class SingleArmRecorder:
                     self._esc_pressed = True
                 elif hasattr(key, 'char') and key.char == 'r':
                     self._r_pressed = True
+                elif hasattr(key, 'char') and key.char == '1':
+                    self._1_pressed = True
+                elif hasattr(key, 'char') and key.char == '2':
+                    self._2_pressed = True
             except AttributeError:
                 pass
 
@@ -609,6 +624,22 @@ class SingleArmRecorder:
         with self._lock:
             return self._esc_pressed
 
+    def _check_open(self) -> bool:
+        """Check and clear '1' (open gripper) flag."""
+        with self._lock:
+            if self._1_pressed:
+                self._1_pressed = False
+                return True
+        return False
+
+    def _check_close(self) -> bool:
+        """Check and clear '2' (close gripper) flag."""
+        with self._lock:
+            if self._2_pressed:
+                self._2_pressed = False
+                return True
+        return False
+
     def run(self):
         """Main recording loop."""
         print("\n" + "=" * 60)
@@ -622,6 +653,8 @@ class SingleArmRecorder:
         print("\nControls:")
         print("  SPACE: Start/stop recording")
         print("  R: Discard current episode")
+        print("  1: Open gripper")
+        print("  2: Close gripper")
         print("  ESC: Finalize and quit")
         print("=" * 60 + "\n")
 
@@ -659,6 +692,15 @@ class SingleArmRecorder:
                         print("\nPress SPACE to start next episode, ESC to quit.")
                     else:
                         self.start_episode()
+
+                # Gripper control
+                if self._check_open():
+                    self._gripper_position = min(100.0, self._gripper_position + 10.0)
+                    self.bus.write("Goal_Position", "gripper", self._gripper_position)
+
+                if self._check_close():
+                    self._gripper_position = max(0.0, self._gripper_position - 10.0)
+                    self.bus.write("Goal_Position", "gripper", self._gripper_position)
 
                 # Read arm and camera
                 try:

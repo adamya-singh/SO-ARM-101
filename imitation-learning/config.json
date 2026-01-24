@@ -1,11 +1,11 @@
 {
   "dataset_name": "so101_pickplace_v1",
-  "task_description": "pick up the red cube and place it in the box",
+  "task_description": "pick up the cube and place it in the box",
   "output_dir": "./datasets",
 
   "robot": {
-    "id": "my_so101_follower",
-    "port": "/dev/tty.usbmodem58760431541"
+    "id": "so101_follower_1",
+    "port": "/dev/tty.usbmodem5A680096011"
   },
 
   "camera": {
