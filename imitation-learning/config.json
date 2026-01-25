@@ -23,7 +23,7 @@
   },
 
   "hub": {
-    "push_to_hub": false,
-    "repo_id": null
+    "push_to_hub": true,
+    "repo_id": "adamyathegreat/so101_pickplace_v1"
   }
 }

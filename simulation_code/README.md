@@ -42,7 +42,7 @@ This codebase supports two VLA models for policy inference and ReinFlow training
 | Model | Parameters | VRAM Required | Best For |
 |-------|------------|---------------|----------|
 | SmolVLA | 450M | ~4GB | Fast training, limited GPU, quick iteration |
-| Pi0 | 3.3B | ~24GB | Higher quality, A100/RTX 4090, production |
+| Pi0 | 3.3B | ~24GB (CUDA)<br>~3-4GB (MPS with 4-bit) | Higher quality, A100/RTX 4090, production<br>Apple Silicon inference with quantization |
 
 ### Choosing a Model
 
@@ -83,6 +83,7 @@ SO-ARM-101/                         # Repository root
     ├── vla_policy_interface.py     # Abstract interface for VLA models (SmolVLA/Pi0)
     ├── smolvla_adapter.py          # SmolVLA adapter for ReinFlow
     ├── pi0_adapter.py              # Pi0 adapter for ReinFlow (adds noise_mlp)
+    ├── pi0_quantization.py         # 4-bit quantization utilities for Pi0 on MPS
     │
     ├── # === SIMULATION SCRIPTS ===
     ├── example_run_mujoco_sim.py   # Basic MuJoCo viewer (no policy)
@@ -160,6 +161,14 @@ pip install -e ".[pi]" --no-cache-dir
 pip install mujoco pynput pygame pyarrow imageio
 ```
 
+**For Pi0 on Apple Silicon (MPS):**
+```bash
+# Optional: Enables 4-bit quantization to reduce memory usage (~3-4GB vs ~6.6GB)
+pip install optimum-quanto
+```
+
+> **Note**: When running Pi0 on MPS devices, 4-bit quantization is automatically enabled if `optimum-quanto` is installed. Without it, the model falls back to float16 precision.
+
 ### Verify Installation
 
 ```bash
@@ -206,9 +215,16 @@ python run_mujoco_simulation.py
 
 # Pi0 (requires [pi] extras)
 python run_mujoco_simulation.py --model-type pi0
+
+# Pi0 on Apple Silicon (MPS) - automatically uses 4-bit quantization
+# Reduces memory from ~6.6GB (float16) to ~3-4GB (INT4 weights)
+python run_mujoco_simulation.py --model-type pi0
+
+# Disable quantization if needed (uses more memory)
+python run_mujoco_simulation.py --model-type pi0 --no-quantize
 ```
 
-The script loads either `lerobot/smolvla_base` or `lerobot/pi0` (pretrained) and executes the policy in a loop.
+The script loads either `lerobot/smolvla_base` or `lerobot/pi0` (pretrained) and executes the policy in a loop. On MPS devices, Pi0 automatically applies 4-bit weight quantization when `optimum-quanto` is installed.
 
 ### ReinFlow Trained Policy Inference
 
@@ -639,7 +655,13 @@ python train_reinflow.py --model-type pi0 --parallel-envs 1 --no-render --headle
 
 ### Pi0: MPS Warning on Apple Silicon
 
-Pi0 shows a warning on Apple Silicon (MPS) because the model is optimized for CUDA. Training will work but may be slow or have compatibility issues. For best results, use an NVIDIA GPU with 24GB+ VRAM.
+**Inference**: Pi0 now supports 4-bit weight quantization on Apple Silicon (MPS) devices, reducing memory usage from ~6.6GB (float16) to ~3-4GB. Quantization is automatically enabled when running on MPS. Install `optimum-quanto` for best results:
+
+```bash
+pip install optimum-quanto
+```
+
+**Training**: Pi0 training on MPS is not recommended. The model is optimized for CUDA and training will be slow or have compatibility issues. For best results, use an NVIDIA GPU with 24GB+ VRAM.
 
 ---
 
