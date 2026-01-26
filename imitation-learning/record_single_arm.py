@@ -27,6 +27,7 @@ Requirements:
 
 import argparse
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -39,8 +40,17 @@ import rerun as rr
 from pynput import keyboard
 
 # LeRobot imports
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.dataset_tools import delete_episodes
+from lerobot.datasets.utils import (
+    DEFAULT_FEATURES,
+    build_dataset_frame,
+    combine_feature_dicts,
+    hw_to_dataset_features,
+)
 from lerobot.motors import Motor, MotorCalibration, MotorNormMode
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
+from lerobot.utils.constants import ACTION, OBS_STR
 
 
 def check_calibration(robot_id: str, robot_type: str) -> Path:
@@ -141,6 +151,7 @@ class SingleArmRecorder:
 
         # Camera config
         cam_cfg = config["camera"]
+        self.camera_name = cam_cfg.get("name", "wrist")
         self.camera_device = cam_cfg["device"]
         self.capture_size = (cam_cfg["capture_width"], cam_cfg["capture_height"])
         self.target_size = (cam_cfg["target_width"], cam_cfg["target_height"])
@@ -149,15 +160,20 @@ class SingleArmRecorder:
         self.push_to_hub = config["hub"]["push_to_hub"]
         self.hub_repo_id = config["hub"]["repo_id"]
 
+        # Dataset config (optional overrides)
+        dataset_cfg = config.get("dataset", {})
+        self.use_videos = dataset_cfg.get("use_videos", True)
+        self.vcodec = dataset_cfg.get("vcodec", "libsvtav1")
+        self.video_encoding_batch_size = dataset_cfg.get("video_encoding_batch_size", 1)
+        self.image_writer_processes = dataset_cfg.get("image_writer_processes", 0)
+        self.image_writer_threads = dataset_cfg.get("image_writer_threads", 0)
+
         # Hardware handles
         self.bus: Optional[FeetechMotorsBus] = None
         self.camera: Optional[cv2.VideoCapture] = None
 
         # Recording state
         self.recording = False
-        self.episode_frames: list = []
-        self.episode_start_time = 0.0
-        self.episodes_saved = 0
         self.running = False
 
         # Keyboard state
@@ -172,67 +188,103 @@ class SingleArmRecorder:
         self._wrist_roll_neg_step = False
         self._wrist_roll_pos_step = False
         self._wrist_roll_target: Optional[float] = None
+        self._d_pressed = False
 
-        # Dataset writer (lazy import to avoid issues if not using LeRobot dataset API)
-        self.dataset = None
+        # Dataset
+        self.dataset: Optional[LeRobotDataset] = None
         self._dataset_initialized = False
+        self.dataset_root: Optional[Path] = None
+        self.repo_id: Optional[str] = None
+
+        # Build dataset features to match native LeRobot format
+        joint_features = {name: float for name in self.JOINT_NAMES}
+        obs_hw_features = {
+            **joint_features,
+            self.camera_name: (self.target_size[1], self.target_size[0], 3),
+        }
+        obs_features = hw_to_dataset_features(obs_hw_features, prefix=OBS_STR, use_video=self.use_videos)
+        action_features = hw_to_dataset_features(joint_features, prefix=ACTION, use_video=self.use_videos)
+        self.dataset_features = combine_feature_dicts(action_features, obs_features)
 
     def _init_dataset(self):
         """Initialize or resume the dataset."""
-        dataset_path = self.output_dir / self.dataset_name
+        dataset_root = self.output_dir / self.dataset_name
+        repo_id = self.hub_repo_id or self.dataset_name
 
-        # Check if resuming existing dataset
-        if (dataset_path / "meta" / "info.json").exists():
-            print(f"Resuming existing dataset at {dataset_path}")
-            self._init_resume_dataset(dataset_path)
+        if dataset_root.exists() and not (dataset_root / "meta" / "info.json").exists():
+            raise RuntimeError(
+                f"Dataset folder exists but is not a valid LeRobot dataset: {dataset_root}"
+            )
+
+        if (dataset_root / "meta" / "info.json").exists():
+            print(f"Resuming existing dataset at {dataset_root}")
+            self.dataset = LeRobotDataset(
+                repo_id=repo_id,
+                root=dataset_root,
+                batch_encoding_size=self.video_encoding_batch_size,
+                vcodec=self.vcodec,
+            )
+            if self.image_writer_processes or self.image_writer_threads:
+                self.dataset.start_image_writer(
+                    num_processes=self.image_writer_processes,
+                    num_threads=self.image_writer_threads,
+                )
+            self._validate_resume_dataset()
         else:
-            print(f"Creating new dataset at {dataset_path}")
-            self._init_new_dataset(dataset_path)
+            print(f"Creating new dataset at {dataset_root}")
+            self.dataset = LeRobotDataset.create(
+                repo_id=repo_id,
+                fps=self.fps,
+                features=self.dataset_features,
+                root=dataset_root,
+                robot_type=self.robot_type,
+                use_videos=self.use_videos,
+                image_writer_processes=self.image_writer_processes,
+                image_writer_threads=self.image_writer_threads,
+                batch_encoding_size=self.video_encoding_batch_size,
+                vcodec=self.vcodec,
+            )
 
+        self.dataset_root = dataset_root
+        self.repo_id = repo_id
         self._dataset_initialized = True
 
-    def _init_new_dataset(self, dataset_path: Path):
-        """Initialize a new dataset using custom writer (LeRobot v3 format)."""
-        import pyarrow as pa
-        import pyarrow.parquet as pq
+    def _validate_resume_dataset(self) -> None:
+        """Check that an existing dataset matches current recording settings."""
+        if self.dataset is None:
+            return
+        expected_features = {**self.dataset_features, **DEFAULT_FEATURES}
+        if self._normalize_features(self.dataset.features) != self._normalize_features(
+            expected_features
+        ):
+            raise ValueError(
+                "Existing dataset features do not match current recording setup. "
+                "Please use a new dataset name or update the config."
+            )
+        if self.dataset.fps != self.fps:
+            raise ValueError(
+                f"Existing dataset fps ({self.dataset.fps}) != configured fps ({self.fps})."
+            )
+        if self.dataset.meta.robot_type and self.dataset.meta.robot_type != self.robot_type:
+            raise ValueError(
+                f"Existing dataset robot_type ({self.dataset.meta.robot_type}) != configured robot_type ({self.robot_type})."
+            )
 
-        # Create directory structure
-        dataset_path.mkdir(parents=True, exist_ok=True)
-        (dataset_path / "meta").mkdir(exist_ok=True)
-        (dataset_path / "meta" / "episodes" / "chunk-000").mkdir(parents=True, exist_ok=True)
-        (dataset_path / "data" / "chunk-000").mkdir(parents=True, exist_ok=True)
-        (dataset_path / "videos" / "observation.images.wrist" / "chunk-000").mkdir(parents=True, exist_ok=True)
-
-        # Write tasks.parquet
-        tasks_data = {"task_index": [0], "task": [self.task_description]}
-        pq.write_table(pa.table(tasks_data), dataset_path / "meta" / "tasks.parquet")
-
-        self.dataset_path = dataset_path
-        self.episodes_saved = 0
-
-    def _init_resume_dataset(self, dataset_path: Path):
-        """Resume an existing dataset."""
-        import pyarrow.parquet as pq
-
-        self.dataset_path = dataset_path
-
-        # Find next episode index
-        data_dir = dataset_path / "data" / "chunk-000"
-        existing = list(data_dir.glob("episode_*.parquet"))
-
-        if existing:
-            indices = []
-            for f in existing:
-                try:
-                    idx = int(f.stem.split("_")[1])
-                    indices.append(idx)
-                except (IndexError, ValueError):
-                    continue
-            self.episodes_saved = max(indices) + 1 if indices else 0
-        else:
-            self.episodes_saved = 0
-
-        print(f"Found {self.episodes_saved} existing episodes")
+    @staticmethod
+    def _normalize_features(features: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Normalize feature specs for comparison across serialization formats."""
+        normalized: Dict[str, Dict[str, Any]] = {}
+        for key, feature in features.items():
+            if not isinstance(feature, dict):
+                normalized[key] = feature
+                continue
+            norm = dict(feature)
+            norm.pop("info", None)
+            shape = norm.get("shape")
+            if isinstance(shape, list):
+                norm["shape"] = tuple(shape)
+            normalized[key] = norm
+        return normalized
 
     def connect(self):
         """Connect to the arm and camera, disable torque."""
@@ -339,253 +391,83 @@ class SingleArmRecorder:
 
     def start_episode(self):
         """Begin recording a new episode."""
-        self.episode_frames = []
-        self.episode_start_time = time.time()
+        if self.dataset is None:
+            raise RuntimeError("Dataset not initialized")
+        self.dataset.clear_episode_buffer(delete_images=True)
         self.recording = True
 
-    def add_frame(self, state: np.ndarray, image: np.ndarray, timestamp: float):
-        """Add a frame to the current episode."""
-        self.episode_frames.append({
-            "observation.state": state.copy(),
-            "observation.images.wrist": image.copy(),
-            "action": state.copy(),  # Action = state for single-arm
-            "timestamp": timestamp,
-        })
+    def _state_dict(self, state: np.ndarray) -> Dict[str, float]:
+        return {name: float(state[i]) for i, name in enumerate(self.JOINT_NAMES)}
+
+    def add_frame(self, state: np.ndarray, image: np.ndarray):
+        """Add a frame to the current episode using LeRobotDataset."""
+        if self.dataset is None:
+            raise RuntimeError("Dataset not initialized")
+
+        values = self._state_dict(state)
+        values[self.camera_name] = image
+
+        observation_frame = build_dataset_frame(self.dataset_features, values, prefix=OBS_STR)
+        action_frame = build_dataset_frame(self.dataset_features, values, prefix=ACTION)
+
+        frame = {
+            **observation_frame,
+            **action_frame,
+            "task": self.task_description,
+        }
+        self.dataset.add_frame(frame)
 
     def end_episode(self):
         """Save the current episode to disk."""
-        if not self.episode_frames:
+        if self.dataset is None:
+            return
+
+        num_frames = int(self.dataset.episode_buffer.get("size", 0))
+        if num_frames == 0:
             print("No frames to save")
             self.recording = False
             return
 
-        import imageio
-        import pyarrow as pa
-        import pyarrow.parquet as pq
-
-        num_frames = len(self.episode_frames)
-        episode_idx = self.episodes_saved
-
-        # Save video
-        video_path = (
-            self.dataset_path / "videos" / "observation.images.wrist"
-            / "chunk-000" / f"episode_{episode_idx:06d}.mp4"
-        )
-
-        writer = imageio.get_writer(
-            str(video_path),
-            fps=self.fps,
-            codec='libx264',
-            quality=8,
-            pixelformat='yuv420p',
-        )
-
-        for frame in self.episode_frames:
-            writer.append_data(frame["observation.images.wrist"])
-        writer.close()
-
-        # Save parquet data
-        schema = pa.schema([
-            ('frame_index', pa.int64()),
-            ('episode_index', pa.int64()),
-            ('timestamp', pa.float64()),
-            ('task_index', pa.int64()),
-            ('observation.state', pa.list_(pa.float32(), 6)),
-            ('action', pa.list_(pa.float32(), 6)),
-        ])
-
-        arrays = [
-            pa.array(list(range(num_frames)), type=pa.int64()),
-            pa.array([episode_idx] * num_frames, type=pa.int64()),
-            pa.array([f["timestamp"] for f in self.episode_frames], type=pa.float64()),
-            pa.array([0] * num_frames, type=pa.int64()),
-            pa.array([f["observation.state"].tolist() for f in self.episode_frames],
-                     type=pa.list_(pa.float32(), 6)),
-            pa.array([f["action"].tolist() for f in self.episode_frames],
-                     type=pa.list_(pa.float32(), 6)),
-        ]
-
-        table = pa.table(dict(zip(schema.names, arrays)), schema=schema)
-        parquet_path = (
-            self.dataset_path / "data" / "chunk-000"
-            / f"episode_{episode_idx:06d}.parquet"
-        )
-        pq.write_table(table, parquet_path)
-
-        self.episodes_saved += 1
+        episode_idx = self.dataset.num_episodes
+        self.dataset.save_episode()
         self.recording = False
-        self.episode_frames = []
 
-        print(f"\r✓  Saved episode {episode_idx + 1} ({num_frames} frames, {num_frames/self.fps:.1f}s)\033[K")
+        print(
+            f"\r✓  Saved episode {episode_idx + 1} ({num_frames} frames, {num_frames/self.fps:.1f}s)\033[K"
+        )
 
     def discard_episode(self):
         """Discard the current in-progress episode."""
         if self.recording:
-            print(f"\r✗  Discarded episode ({len(self.episode_frames)} frames)\033[K")
+            num_frames = 0
+            if self.dataset is not None:
+                num_frames = int(self.dataset.episode_buffer.get("size", 0))
+                self.dataset.clear_episode_buffer(delete_images=True)
+            print(f"\r✗  Discarded episode ({num_frames} frames)\033[K")
         self.recording = False
-        self.episode_frames = []
 
     def finalize(self):
-        """Compute stats and write final metadata."""
-        import pyarrow as pa
-        import pyarrow.parquet as pq
+        """Finalize dataset writers and optionally push to hub."""
+        if self.dataset is None:
+            return
 
-        if self.episodes_saved == 0:
+        if self.dataset.num_episodes == 0:
             print("No episodes recorded!")
             return
 
         print("\nFinalizing dataset...")
+        self.dataset.finalize()
 
-        # Read all episode data to compute stats
-        all_states = []
-        all_actions = []
-        episode_metadata = []
-        total_frames = 0
+        print("\nDataset finalized:")
+        print(f"  Episodes: {self.dataset.num_episodes}")
+        print(f"  Total frames: {self.dataset.meta.total_frames}")
+        if self.dataset_root is not None:
+            print(f"  Output: {self.dataset_root}")
 
-        data_dir = self.dataset_path / "data" / "chunk-000"
-        for ep_idx in range(self.episodes_saved):
-            parquet_path = data_dir / f"episode_{ep_idx:06d}.parquet"
-            if not parquet_path.exists():
-                continue
-
-            table = pq.read_table(parquet_path)
-            df = table.to_pandas()
-
-            num_frames = len(df)
-            length_s = num_frames / self.fps
-
-            episode_metadata.append({
-                'episode_index': ep_idx,
-                'num_frames': num_frames,
-                'length_s': length_s,
-                'task_index': 0,
-            })
-
-            for state in df['observation.state']:
-                all_states.append(np.array(state, dtype=np.float32))
-            for action in df['action']:
-                all_actions.append(np.array(action, dtype=np.float32))
-
-            total_frames += num_frames
-
-        # Compute statistics
-        states_arr = np.array(all_states)
-        actions_arr = np.array(all_actions)
-
-        stats = {
-            'observation.state': {
-                'mean': states_arr.mean(axis=0).tolist(),
-                'std': states_arr.std(axis=0).tolist(),
-                'min': states_arr.min(axis=0).tolist(),
-                'max': states_arr.max(axis=0).tolist(),
-            },
-            'action': {
-                'mean': actions_arr.mean(axis=0).tolist(),
-                'std': actions_arr.std(axis=0).tolist(),
-                'min': actions_arr.min(axis=0).tolist(),
-                'max': actions_arr.max(axis=0).tolist(),
-            },
-            # ImageNet normalization for camera
-            'observation.images.wrist': {
-                'mean': [[[0.485]], [[0.456]], [[0.406]]],
-                'std': [[[0.229]], [[0.224]], [[0.225]]],
-                'min': [[[0.0]], [[0.0]], [[0.0]]],
-                'max': [[[1.0]], [[1.0]], [[1.0]]],
-            },
-        }
-
-        with open(self.dataset_path / "meta" / "stats.json", 'w') as f:
-            json.dump(stats, f, indent=2)
-
-        # Write info.json
-        info = {
-            'codebase_version': '3.0',
-            'robot_type': 'so101',
-            'fps': self.fps,
-            'total_episodes': self.episodes_saved,
-            'total_frames': total_frames,
-            'total_tasks': 1,
-            'total_videos': self.episodes_saved,
-            'total_chunks': 1,
-            'chunks_size': self.episodes_saved,
-            'data_path': 'data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet',
-            'video_path': 'videos/{video_key}/chunk-{chunk_index:03d}/episode_{file_index:06d}.mp4',
-            'features': {
-                'timestamp': {'dtype': 'float64', 'shape': [1]},
-                'frame_index': {'dtype': 'int64', 'shape': [1]},
-                'episode_index': {'dtype': 'int64', 'shape': [1]},
-                'task_index': {'dtype': 'int64', 'shape': [1]},
-                'observation.images.wrist': {
-                    'dtype': 'video',
-                    'shape': [self.target_size[1], self.target_size[0], 3],
-                    'names': ['height', 'width', 'channels'],
-                    'video_info': {
-                        'video.fps': self.fps,
-                        'video.codec': 'libx264',
-                        'video.pix_fmt': 'yuv420p',
-                    },
-                },
-                'observation.state': {
-                    'dtype': 'float32',
-                    'shape': [6],
-                    'names': self.JOINT_NAMES,
-                },
-                'action': {
-                    'dtype': 'float32',
-                    'shape': [6],
-                    'names': self.JOINT_NAMES,
-                },
-            },
-            'repo_id': self.dataset_name,
-        }
-
-        with open(self.dataset_path / "meta" / "info.json", 'w') as f:
-            json.dump(info, f, indent=2)
-
-        # Write episodes.parquet
-        dataset_from = []
-        dataset_to = []
-        current_idx = 0
-        for ep in episode_metadata:
-            dataset_from.append(current_idx)
-            current_idx += ep['num_frames']
-            dataset_to.append(current_idx)
-
-        num_eps = len(episode_metadata)
-        episodes_data = {
-            'episode_index': [ep['episode_index'] for ep in episode_metadata],
-            'num_frames': [ep['num_frames'] for ep in episode_metadata],
-            'length_s': [ep['length_s'] for ep in episode_metadata],
-            'task_index': [ep['task_index'] for ep in episode_metadata],
-            'dataset_from_index': dataset_from,
-            'dataset_to_index': dataset_to,
-            'videos/observation.images.wrist/from_timestamp': [0.0] * num_eps,
-            'videos/observation.images.wrist/to_timestamp': [ep['length_s'] for ep in episode_metadata],
-            'videos/observation.images.wrist/chunk_index': [0] * num_eps,
-            'videos/observation.images.wrist/file_index': [ep['episode_index'] for ep in episode_metadata],
-        }
-
-        pq.write_table(
-            pa.table(episodes_data),
-            self.dataset_path / "meta" / "episodes" / "chunk-000" / "episodes.parquet"
-        )
-
-        print(f"\nDataset finalized:")
-        print(f"  Episodes: {self.episodes_saved}")
-        print(f"  Total frames: {total_frames}")
-        print(f"  Output: {self.dataset_path}")
-
-        # Push to hub if configured
-        if self.push_to_hub and self.hub_repo_id:
-            print(f"\nPushing to hub: {self.hub_repo_id}")
+        if self.push_to_hub and self.repo_id:
+            print(f"\nPushing to hub: {self.repo_id}")
             try:
-                from huggingface_hub import HfApi
-                api = HfApi()
-                api.upload_folder(
-                    folder_path=str(self.dataset_path),
-                    repo_id=self.hub_repo_id,
-                    repo_type="dataset",
-                )
+                self.dataset.push_to_hub()
                 print("Successfully pushed to hub!")
             except Exception as e:
                 print(f"Failed to push to hub: {e}")
@@ -608,6 +490,8 @@ class SingleArmRecorder:
                     self._wrist_roll_neg_step = True
                 elif hasattr(key, 'char') and key.char == '4':
                     self._wrist_roll_pos_step = True
+                elif hasattr(key, 'char') and key.char == 'd':
+                    self._d_pressed = True
             except AttributeError:
                 pass
 
@@ -654,6 +538,110 @@ class SingleArmRecorder:
                 return 1
         return 0
 
+    def _check_delete(self) -> bool:
+        """Check and clear delete flag."""
+        with self._lock:
+            if self._d_pressed:
+                self._d_pressed = False
+                return True
+        return False
+
+    def _parse_episode_ranges(self, text: str) -> list[int]:
+        """Parse ranges like '0-3,7,10-12' into sorted unique indices."""
+        if not text.strip():
+            return []
+        indices: set[int] = set()
+        parts = [p.strip() for p in text.split(",") if p.strip()]
+        for part in parts:
+            if "-" in part:
+                start_str, end_str = [s.strip() for s in part.split("-", 1)]
+                if not start_str or not end_str:
+                    raise ValueError(f"Invalid range: '{part}'")
+                start = int(start_str)
+                end = int(end_str)
+                if end < start:
+                    raise ValueError(f"Invalid range (end < start): '{part}'")
+                indices.update(range(start, end + 1))
+            else:
+                indices.add(int(part))
+        return sorted(indices)
+
+    def _delete_episodes_interactive(self) -> None:
+        """Prompt for episode ranges and delete in-place."""
+        if self.recording:
+            print("\nStop recording before deleting episodes.")
+            return
+        if self.dataset is None or self.dataset_root is None or self.repo_id is None:
+            print("\nDataset not initialized.")
+            return
+        total_eps = self.dataset.meta.total_episodes
+        if total_eps == 0:
+            print("\nNo episodes to delete.")
+            return
+
+        print(f"\nDelete episodes from 0 to {total_eps - 1}.")
+        ranges = input("Enter episode ranges (e.g., 0-3,7,10-12), or blank to cancel: ").strip()
+        if ranges and ranges[0] in ("d", "D"):
+            ranges = ranges[1:].strip()
+        if not ranges:
+            print("Delete canceled.")
+            return
+        try:
+            indices = self._parse_episode_ranges(ranges)
+        except ValueError as e:
+            print(f"Invalid range: {e}")
+            return
+
+        if not indices:
+            print("No indices provided.")
+            return
+        invalid = [i for i in indices if i < 0 or i >= total_eps]
+        if invalid:
+            print(f"Invalid episode indices: {invalid}")
+            return
+        if len(indices) >= total_eps:
+            print("Cannot delete all episodes.")
+            return
+
+        confirm = input(f"Delete episodes {indices}? (y/N): ").strip().lower()
+        if confirm != "y":
+            print("Delete canceled.")
+            return
+
+        print("\nFinalizing current dataset...")
+        self.dataset.finalize()
+
+        old_path = Path(str(self.dataset_root) + "_old")
+        if old_path.exists():
+            shutil.rmtree(old_path)
+        shutil.move(str(self.dataset_root), str(old_path))
+
+        print(f"Deleting episodes from {self.repo_id} (in-place)...")
+        src_dataset = LeRobotDataset(self.repo_id, root=old_path)
+        delete_episodes(
+            src_dataset,
+            episode_indices=indices,
+            output_dir=self.dataset_root,
+            repo_id=self.repo_id,
+        )
+
+        self.dataset = LeRobotDataset(
+            repo_id=self.repo_id,
+            root=self.dataset_root,
+            batch_encoding_size=self.video_encoding_batch_size,
+            vcodec=self.vcodec,
+        )
+        if self.image_writer_processes or self.image_writer_threads:
+            self.dataset.start_image_writer(
+                num_processes=self.image_writer_processes,
+                num_threads=self.image_writer_threads,
+            )
+
+        print(
+            f"Deleted episodes. New dataset episodes: {self.dataset.meta.total_episodes}. "
+            f"Old dataset moved to {old_path}."
+        )
+
     def run(self):
         """Main recording loop."""
         print("\n" + "=" * 60)
@@ -671,6 +659,7 @@ class SingleArmRecorder:
         print("  2: Close gripper 25%")
         print("  3: Wrist roll -10%")
         print("  4: Wrist roll +10%")
+        print("  D: Delete episodes (when paused)")
         print("  ESC: Finalize and quit")
         print("=" * 60 + "\n")
 
@@ -700,6 +689,9 @@ class SingleArmRecorder:
 
                 if self._check_r():
                     self.discard_episode()
+
+                if self._check_delete():
+                    self._delete_episodes_interactive()
 
                 if self._check_space():
                     if self.recording:
@@ -737,13 +729,15 @@ class SingleArmRecorder:
 
                 # Add frame if recording
                 if self.recording:
-                    timestamp = time.time() - self.episode_start_time
-                    self.add_frame(state, image, timestamp)
+                    self.add_frame(state, image)
 
                     # Update status line (overwrite in place)
-                    n_frames = len(self.episode_frames)
+                    n_frames = 0
+                    if self.dataset is not None:
+                        n_frames = int(self.dataset.episode_buffer.get("size", 0))
                     elapsed = n_frames / self.fps
-                    status = f"\r⏺  Episode {self.episodes_saved + 1} | {n_frames} frames | {elapsed:.1f}s"
+                    next_ep = self.dataset.num_episodes + 1 if self.dataset else 1
+                    status = f"\r⏺  Episode {next_ep} | {n_frames} frames | {elapsed:.1f}s"
                     print(f"{status}\033[K", end="", flush=True)
 
                 # Update Rerun preview
@@ -751,12 +745,12 @@ class SingleArmRecorder:
 
                 if self.recording:
                     rr.log("status", rr.TextDocument(
-                        f"RECORDING - Episode {self.episodes_saved + 1} - "
-                        f"{len(self.episode_frames)} frames"
+                        f"RECORDING - Episode {self.dataset.num_episodes + 1} - "
+                        f"{int(self.dataset.episode_buffer.get('size', 0))} frames"
                     ))
                 else:
                     rr.log("status", rr.TextDocument(
-                        f"PAUSED - {self.episodes_saved} episodes saved"
+                        f"PAUSED - {self.dataset.num_episodes if self.dataset else 0} episodes saved"
                     ))
 
                 # Maintain frame rate

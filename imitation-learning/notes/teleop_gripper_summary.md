@@ -33,3 +33,5 @@ From XLeRobot (SO100/SO101 keyboard control examples):
 ## Other notes
 - Generic `lerobot_teleoperate.py` exists but `teleop.type=keyboard` only returns pressed keys and does not map to SO-101 joint actions by default.
 
+THIS ISSUE HAS BEEN RESOLVED, it was a bad calibration file
+THIS DOC IS OUTDATED
