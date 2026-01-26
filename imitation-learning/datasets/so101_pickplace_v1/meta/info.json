@@ -1,15 +1,15 @@
 {
     "codebase_version": "v3.0",
     "robot_type": "so100_follower",
-    "total_episodes": 17,
-    "total_frames": 7467,
+    "total_episodes": 50,
+    "total_frames": 19207,
     "total_tasks": 1,
     "chunks_size": 1000,
     "data_files_size_in_mb": 100,
     "video_files_size_in_mb": 200,
     "fps": 30,
     "splits": {
-        "train": "0:17"
+        "train": "0:50"
     },
     "data_path": "data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet",
     "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/file-{file_index:03d}.mp4",
