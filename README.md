@@ -42,7 +42,7 @@ Evidence trail:
 - Sim dataset metadata: [`simulation_code/datasets/so101_pickplace/meta/info.json`](simulation_code/datasets/so101_pickplace/meta/info.json), [`simulation_code/datasets/so101_pickplace_fixed/meta/info.json`](simulation_code/datasets/so101_pickplace_fixed/meta/info.json)
 - Strongest later PPO summary: [`run-20260108_035325-6ilsbq76`](simulation_code/wandb/run-20260108_035325-6ilsbq76/files/wandb-summary.json)
 
-## Why This Project Is Technically Hard
+## Why This Project Is Technically Challenging
 
 - **Flow-matching VLAs are awkward RL targets.** SmolVLA generates actions through iterative denoising, which is naturally deterministic; policy-gradient methods need a probabilistic policy and stable log-probability computation.
 - **SmolVLA's chunked action space changes optimization behavior.** A 50-step action chunk with 6 DoF creates a 300-dimensional action output, which materially changes log-probability scale, KL behavior, and noise tuning compared with the ReinFlow paper settings.
