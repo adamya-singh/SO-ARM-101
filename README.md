@@ -8,11 +8,18 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 **Local demo assets**
 
-<video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="360"></video>
-
-<video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="360"></video>
-
-<video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="360"></video>
+<table>
+  <tr>
+    <td align="center"><strong>Sim top camera</strong></td>
+    <td align="center"><strong>Sim wrist camera</strong></td>
+    <td align="center"><strong>Physical wrist camera</strong></td>
+  </tr>
+  <tr>
+    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="320"></video></td>
+  </tr>
+</table>
 
 [TODO: add a curated hero GIF or split-screen export built from the local sim and physical clips above]
 
@@ -48,17 +55,18 @@ Evidence trail:
 
 **Local simulation media**
 
-Top camera:
-
-<video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="360"></video>
-
-Wrist camera:
-
-<video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="360"></video>
-
-Fixed-block top camera:
-
-<video src="simulation_code/datasets/so101_pickplace_fixed/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="360"></video>
+<table>
+  <tr>
+    <td align="center"><strong>Top camera</strong></td>
+    <td align="center"><strong>Wrist camera</strong></td>
+    <td align="center"><strong>Fixed-block top camera</strong></td>
+  </tr>
+  <tr>
+    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+    <td><video src="simulation_code/datasets/so101_pickplace_fixed/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+  </tr>
+</table>
 
 [TODO: add image - a curated 3-view simulation observation grid. There are checked-in assets for `camera1` and `camera2`, but no checked-in still or video asset for `camera3`]
 
@@ -152,7 +160,16 @@ Evidence trail:
 - Wrapper implementation: [`simulation_code/reinflow_smolvla.py`](simulation_code/reinflow_smolvla.py)
 - Example later stable-KL run: [`run-20260108_035117-6ilsbq76`](simulation_code/wandb/run-20260108_035117-6ilsbq76/files/wandb-summary.json)
 
-[TODO: add graph - KL divergence and clip fraction before vs after the dropout/eval-mode fix. Use W&B run ID `plbfqt25` for the catastrophic failure case (local snapshot `run-20260102_015143-plbfqt25`, commit `93a93367e3da15115dbcb3913be93163e37f8f88`) and W&B run ID `6ilsbq76` for the later sane-KL PPO regime (for example local snapshot `run-20260108_035117-6ilsbq76`, commit `ad23479e9556c9c8e695afe5b43699d00b7593cf`)]
+<table>
+  <tr>
+    <td align="center"><strong>KL explosion failure case</strong></td>
+  </tr>
+  <tr>
+    <td><img src="readme-assets/run-plbfqt25-kl-divergence.png" alt="W&B KL divergence for run plbfqt25 showing catastrophic KL explosion" width="760"></td>
+  </tr>
+</table>
+
+Failure-case graph source: W&B run ID `plbfqt25` (local snapshot `run-20260102_015143-plbfqt25`, commit `93a93367e3da15115dbcb3913be93163e37f8f88`).
 
 ### 2. Sigma Scaling for 300-Dimensional Chunked Actions
 
@@ -252,6 +269,21 @@ I want to be precise here: this project shows real learning progress and meaning
 
 Later PPO runs in this repo show a consistent move from "mostly alignment / approach behavior" toward actual contact, sustained contact, and small but nonzero grasp emergence.
 
+<table>
+  <tr>
+    <td align="center"><strong>`6ilsbq76`</strong></td>
+    <td align="center"><strong>`3pa9oaax`</strong></td>
+    <td align="center"><strong>`syi4c1rb`</strong></td>
+  </tr>
+  <tr>
+    <td><img src="readme-assets/run-6ilsbq76-reward-batch-avg.png" alt="W&B reward batch average for run 6ilsbq76" width="320"></td>
+    <td><img src="readme-assets/run-3pa9oaax-reward-batch-avg.png" alt="W&B reward batch average for run 3pa9oaax" width="320"></td>
+    <td><img src="readme-assets/run-syi4c1rb-reward-batch-avg.png" alt="W&B reward batch average for run syi4c1rb" width="320"></td>
+  </tr>
+</table>
+
+These three reward curves show the later-stage comparison I reference throughout the README: `6ilsbq76` as the strongest overall research run in this repo, `3pa9oaax` as a worse-behavior comparison after the `recompute_old_log_probs` change, and `syi4c1rb` as a conservative post-revert run.
+
 | Run summary | Episodes | Key supported metrics | Interpretation |
 | --- | ---: | --- | --- |
 | [`run-20260108_155532-3pa9oaax`](simulation_code/wandb/run-20260108_155532-3pa9oaax/files/wandb-summary.json) | 900 | `reward/batch_avg = -46.29`, `height_align_rate = 43.2%`, `grasp_rate = 0` | The policy had learned a fair amount of geometric alignment, but essentially no real manipulation behavior yet |
@@ -270,7 +302,7 @@ What I take from these results:
 - The results are strongest as a research story about behavior emergence and debugging of hard failure modes, not as a final benchmark claim.
 - I still need a more standardized evaluation protocol for lift success, grasp persistence, and policy reliability across seeds / positions.
 
-[TODO: add graph - selected `wandb` curves for reward, contact rate, grasp rate, KL divergence, and clip fraction. Recommended W&B run IDs: `6ilsbq76` (best overall story), `3pa9oaax` (healthier metrics but much worse behavior after `recompute_old_log_probs`), and `syi4c1rb` (post-revert conservative run)]
+[TODO: add graph - selected `wandb` curves for contact rate, grasp rate, KL divergence in the stable regime, and clip fraction. Reward curves are already embedded above. Recommended W&B run IDs: `6ilsbq76` (best overall story), `3pa9oaax` (healthier metrics but much worse behavior after `recompute_old_log_probs`), and `syi4c1rb` (post-revert conservative run)]
 
 ## Real-World Data and Deployment
 
@@ -290,19 +322,29 @@ Evidence trail:
 
 **Local physical-media assets**
 
-Physical wrist-camera clip A:
-
-<video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="360"></video>
-
-Physical wrist-camera clip B:
-
-<video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-001.mp4" controls muted playsinline width="360"></video>
+<table>
+  <tr>
+    <td align="center"><strong>Physical clip A</strong></td>
+    <td align="center"><strong>Physical clip B</strong></td>
+  </tr>
+  <tr>
+    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="360"></video></td>
+    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-001.mp4" controls muted playsinline width="360"></video></td>
+  </tr>
+</table>
 
 **Existing hardware image**
 
-![Wrist camera mount view](oak-d-lite-mount/snap-on-mount-from-thingiverse/Snap-on%20Camera%20Mount%20for%20Robot%20Gripper%20SO-ARM100%20_%20SO-ARM101%20-%20Free%20angle%20-%207033586/images/SO-ARM100_WristCamMount_View.jpg)
-
-![Wrist camera mount CAD / placement image](oak-d-lite-mount/snap-on-mount-from-thingiverse/Snap-on%20Camera%20Mount%20for%20Robot%20Gripper%20SO-ARM100%20_%20SO-ARM101%20-%20Free%20angle%20-%207033586/images/CameraMount.PNG)
+<table>
+  <tr>
+    <td align="center"><strong>Mount view</strong></td>
+    <td align="center"><strong>Mount / placement image</strong></td>
+  </tr>
+  <tr>
+    <td><img src="oak-d-lite-mount/snap-on-mount-from-thingiverse/Snap-on%20Camera%20Mount%20for%20Robot%20Gripper%20SO-ARM100%20_%20SO-ARM101%20-%20Free%20angle%20-%207033586/images/SO-ARM100_WristCamMount_View.jpg" alt="Wrist camera mount view" width="360"></td>
+    <td><img src="oak-d-lite-mount/snap-on-mount-from-thingiverse/Snap-on%20Camera%20Mount%20for%20Robot%20Gripper%20SO-ARM100%20_%20SO-ARM101%20-%20Free%20angle%20-%207033586/images/CameraMount.PNG" alt="Wrist camera mount CAD / placement image" width="360"></td>
+  </tr>
+</table>
 
 I do not have a full checked-in photo of the assembled physical setup, but I do have the local mount and camera-placement images above.
 
@@ -333,7 +375,7 @@ If I continued this project, the next experiments I would prioritize are:
 3. **Build a stronger evaluation protocol.** Track lift success, grasp persistence, recovery behavior, and robustness across randomized block positions and multiple seeds.
 4. **Run targeted ablations instead of broad tuning.** Compare reward components, trainable-parameter subsets, denoising-step counts, and rollout lengths with a fixed evaluation protocol.
 5. **Improve long-run PPO stability.** The best later run in this repo still had high clip fraction and KL drift; that needs to be treated as a first-class research problem.
-6. **Curate the visual evidence.** A founder-facing version of this repo should include selected rollout videos, wrist-camera clips, and `wandb` graphs that directly show the progression documented above.
+6. **Curate the visual evidence.** A public-facing version of this repo should include selected rollout videos, wrist-camera clips, and `wandb` graphs that directly show the progression documented above.
 
 ## Setup / Running the Code
 
