@@ -146,6 +146,7 @@ class SingleArmRecorder:
         self.robot_id = config["robot"]["id"]
         self.robot_type = config["robot"].get("type", "so101_follower")
         self.robot_port = config["robot"]["port"]
+        self.calibration_path = config["robot"].get("calibration_path")
         self.fps = config["recording"]["fps"]
         self.frame_duration = 1.0 / self.fps
 
@@ -289,7 +290,20 @@ class SingleArmRecorder:
     def connect(self):
         """Connect to the arm and camera, disable torque."""
         # Check calibration first
-        cal_path = check_calibration(self.robot_id, self.robot_type)
+        if self.calibration_path:
+            cal_path = Path(self.calibration_path).expanduser()
+            if not cal_path.is_file():
+                print("\n" + "=" * 60)
+                print("ERROR: Calibration file not found at configured path!")
+                print("=" * 60)
+                print(f"\nConfigured path: {cal_path}")
+                print("\nPlease update config.json or re-run calibration:")
+                print(f"  lerobot-calibrate --robot.type={self.robot_type} --robot.id={self.robot_id}")
+                print("=" * 60 + "\n")
+                sys.exit(1)
+            print(f"Using calibration file from config: {cal_path}")
+        else:
+            cal_path = check_calibration(self.robot_id, self.robot_type)
         calibration = load_calibration(cal_path)
 
         # Create motor configuration

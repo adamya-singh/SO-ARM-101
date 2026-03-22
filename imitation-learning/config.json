@@ -5,8 +5,9 @@
 
   "robot": {
     "id": "None",
-    "type": "so100_follower",
-    "port": "/dev/tty.usbmodem5A680096011"
+    "type": "so101_follower",
+    "port": "/dev/tty.usbmodem5A680096011",
+    "calibration_path": "/Users/adamyasingh/.cache/huggingface/lerobot/calibration/robots/so101_follower/None.json"
   },
 
   "camera": {

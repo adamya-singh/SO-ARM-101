@@ -63,6 +63,8 @@ def _load_defaults_from_config(args: argparse.Namespace) -> None:
         args.robot_port = robot_cfg.get("port")
     if args.robot_id is None:
         args.robot_id = robot_cfg.get("id")
+    if not hasattr(args, "calibration_path") or getattr(args, "calibration_path") is None:
+        args.calibration_path = robot_cfg.get("calibration_path")
 
     if args.camera_index is None:
         args.camera_index = cam_cfg.get("device")
@@ -254,12 +256,22 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    # Find calibration file with fallback patterns (matching record_single_arm.py)
-    found_robot_id = _find_calibration_file(args.robot_id)
-    if found_robot_id is not None:
-        args.robot_id = found_robot_id
+    calibration_dir = None
+    if getattr(args, "calibration_path", None):
+        cal_path = Path(args.calibration_path).expanduser()
+        if not cal_path.is_file():
+            raise FileNotFoundError(f"Calibration file not found: {cal_path}")
+        calibration_dir = cal_path.parent
+        if args.robot_id != cal_path.stem:
+            logging.info("Using calibration file from config: %s", cal_path)
+            args.robot_id = cal_path.stem
     else:
-        logging.warning("No calibration file found. Calibration will be prompted on connect.")
+        # Find calibration file with fallback patterns (matching record_single_arm.py)
+        found_robot_id = _find_calibration_file(args.robot_id)
+        if found_robot_id is not None:
+            args.robot_id = found_robot_id
+        else:
+            logging.warning("No calibration file found. Calibration will be prompted on connect.")
 
     device = _select_device(args.device)
     logging.info("Using device: %s", device)
@@ -277,6 +289,7 @@ def main() -> None:
         cameras={"wrist": cam_cfg},
         max_relative_target=args.max_relative_target,
         use_degrees=False,
+        calibration_dir=calibration_dir,
     )
     robot = SO101Follower(robot_cfg)
 
