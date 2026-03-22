@@ -15,13 +15,11 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
     <td align="center"><strong>Physical wrist camera</strong></td>
   </tr>
   <tr>
-    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
-    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
-    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="320"></video></td>
+    <td><img src="readme-assets/hero-sim-top.gif" alt="Animated SO-ARM-101 simulation top camera clip" width="320"></td>
+    <td><img src="readme-assets/hero-sim-wrist.gif" alt="Animated SO-ARM-101 simulation wrist camera clip" width="320"></td>
+    <td><img src="readme-assets/hero-physical-wrist.gif" alt="Animated physical SO-ARM-101 wrist camera clip" width="320"></td>
   </tr>
 </table>
-
-[TODO: add a curated hero GIF or split-screen export built from the local sim and physical clips above]
 
 ## Executive Summary
 
@@ -62,9 +60,9 @@ Evidence trail:
     <td align="center"><strong>Fixed-block top camera</strong></td>
   </tr>
   <tr>
-    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
-    <td><video src="simulation_code/datasets/so101_pickplace/videos/observation.images.camera2/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
-    <td><video src="simulation_code/datasets/so101_pickplace_fixed/videos/observation.images.camera1/chunk-000/episode_000000.mp4" controls muted playsinline width="320"></video></td>
+    <td><img src="readme-assets/hero-sim-top.gif" alt="Animated SO-ARM-101 simulation top camera clip" width="320"></td>
+    <td><img src="readme-assets/hero-sim-wrist.gif" alt="Animated SO-ARM-101 simulation wrist camera clip" width="320"></td>
+    <td><img src="readme-assets/fixed-block-sim-top.gif" alt="Animated fixed-block SO-ARM-101 simulation top camera clip" width="320"></td>
   </tr>
 </table>
 
@@ -328,8 +326,8 @@ Evidence trail:
     <td align="center"><strong>Physical clip B</strong></td>
   </tr>
   <tr>
-    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-000.mp4" controls muted playsinline width="360"></video></td>
-    <td><video src="imitation-learning/datasets/so101_pickplace_v1/videos/observation.images.wrist/chunk-000/file-001.mp4" controls muted playsinline width="360"></video></td>
+    <td><img src="readme-assets/hero-physical-wrist.gif" alt="Animated physical SO-ARM-101 wrist camera clip A" width="360"></td>
+    <td><img src="readme-assets/physical-wrist-clip-2.gif" alt="Animated physical SO-ARM-101 wrist camera clip B" width="360"></td>
   </tr>
 </table>
 
