@@ -236,6 +236,35 @@ Evidence trail:
 
 [TODO: add graph - reward components, contact rate, sustained-contact rate, and grasp rate over training. Best W&B source is run ID `6ilsbq76`; use the local snapshots `run-20260108_035117-6ilsbq76` and `run-20260108_035325-6ilsbq76` as the evidence trail]
 
+### 5. Parallel GAE / Trajectory-Identity Bug
+
+**Problem.** In parallel training, the trainer flattened chunk samples across environments and then built bootstrap targets with a global one-step shift. That let one environment's chunk bootstrap from another environment's next value.
+
+**Hypothesis / reasoning.** PPO/GAE was implicitly assuming the flattened batch was one valid trajectory. But in parallel rollout collection, each environment is its own trajectory, and chunk-level credit assignment must stay inside that environment.
+
+**Fix.** I refactored the parallel rollout path so data stays env-major through value inference and GAE. Values, next values, returns, and advantages are now computed per environment, with a valid mask for early termination and flattening only after per-env targets are complete.
+
+**Impact.** This restored the intended RL semantics for parallel chunked PPO. The critic and policy are no longer trained on cross-environment futures, and the trainer now carries explicit assertions that guard against this class of bug reappearing.
+
+Evidence trail:
+- Full investigation: [`notes/parallel-gae-trajectory-identity-fix.md`](notes/parallel-gae-trajectory-identity-fix.md)
+- Parallel trainer implementation: [`simulation_code/train_reinflow.py`](simulation_code/train_reinflow.py)
+
+### 6. ReinFlow Inference / Sampler Consistency Bug
+
+**Problem.** The training code optimized the ReinFlow wrapper's stochastic denoising sampler, but the old inference script evaluated plain base-model `select_action()` instead of the trained ReinFlow policy object.
+
+**Hypothesis / reasoning.** In RL, the policy is weights plus the sampling procedure. If inference does not use the same sampler PPO trained, then evaluation is not measuring the trained policy at all.
+
+**Fix.** I made `run_reinflow_inference.py` a strict ReinFlow evaluation path: it now requires a checkpoint, auto-detects model type from checkpoint metadata, loads the ReinFlow wrapper through the wrapper loaders, builds wrapper-correct observations, routes action selection through `rl_policy.select_action(...)`, and restores SmolVLA sigma bounds from checkpoint metadata when available.
+
+**Impact.** This makes ReinFlow evaluation behaviorally coherent. The inference script now measures the actual policy PPO trained instead of a nearby but different base-model sampling path.
+
+Evidence trail:
+- Full investigation: [`notes/reinflow-inference-sampler-fix.md`](notes/reinflow-inference-sampler-fix.md)
+- ReinFlow inference path: [`simulation_code/run_reinflow_inference.py`](simulation_code/run_reinflow_inference.py)
+- SmolVLA checkpoint save/load path: [`simulation_code/reinflow_smolvla.py`](simulation_code/reinflow_smolvla.py)
+
 ## Experimental Arc
 
 The repo records a progression from naive baselines to better-instrumented PPO training. The main pattern is that I kept revising the method when the evidence said my earlier interpretation was wrong.
@@ -250,6 +279,8 @@ The repo records a progression from naive baselines to better-instrumented PPO t
 | January 8, 2026 | Added height-alignment, grasp, sustained-contact, and lift bonuses | Made the reward structure reflect the real subskills needed for grasping |
 | January 8, 2026 | Tried more aggressive PPO settings, then reverted them when evidence showed collapse at ~4.5k episodes | Showed willingness to undo "promising" changes when the actual training behavior regressed |
 | January 8, 2026 | Reverted `recompute_old_log_probs` after a 900-episode test had healthier metrics but worse rewards and no grasps | Prioritized behavioral evidence over cosmetically better diagnostics |
+| April 4, 2026 | Fixed parallel GAE so value bootstrapping preserves trajectory identity across environments | Restored correct PPO/GAE targets for chunked parallel rollouts |
+| April 4, 2026 | Fixed ReinFlow inference so evaluation uses the actual trained sampler and restored sigma bounds | Aligned deployment/evaluation with the policy object PPO optimized |
 
 The most important research judgment in this project is that I did not treat a cleaner metric dashboard as success. I repeatedly changed direction when the model's actual behavior, long-run stability, or grounded reasoning contradicted the simpler story.
 
@@ -360,7 +391,7 @@ If you only look at a few parts of this repo, I would start here:
 
 - **Training stack:** [`simulation_code/train_reinflow.py`](simulation_code/train_reinflow.py), [`simulation_code/reinflow_smolvla.py`](simulation_code/reinflow_smolvla.py)
 - **Hyperparameter and experiment record:** [`hyperparameter_notes.md`](hyperparameter_notes.md)
-- **Three highest-signal debugging notes:** [`notes/kl-divergence-bug-fix.md`](notes/kl-divergence-bug-fix.md), [`notes/sigma-scaling-bug-fix.md`](notes/sigma-scaling-bug-fix.md), [`notes/smolvla-coordinate-fix.md`](notes/smolvla-coordinate-fix.md)
+- **Highest-signal debugging notes:** [`notes/kl-divergence-bug-fix.md`](notes/kl-divergence-bug-fix.md), [`notes/sigma-scaling-bug-fix.md`](notes/sigma-scaling-bug-fix.md), [`notes/smolvla-coordinate-fix.md`](notes/smolvla-coordinate-fix.md), [`notes/parallel-gae-trajectory-identity-fix.md`](notes/parallel-gae-trajectory-identity-fix.md), [`notes/reinflow-inference-sampler-fix.md`](notes/reinflow-inference-sampler-fix.md)
 - **Physical data collection:** [`imitation-learning/record_single_arm.py`](imitation-learning/record_single_arm.py), [`imitation-learning/datasets/so101_pickplace_v1/meta/info.json`](imitation-learning/datasets/so101_pickplace_v1/meta/info.json)
 - **Physical inference path:** [`imitation-learning/run_smolvla_physical_arm.py`](imitation-learning/run_smolvla_physical_arm.py)
 

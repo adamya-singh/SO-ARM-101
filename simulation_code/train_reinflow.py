@@ -40,6 +40,7 @@ import os
 import sys
 import time
 import argparse
+from dataclasses import dataclass
 
 # Setup headless rendering BEFORE importing mujoco
 from mujoco_rendering import setup_mujoco_rendering
@@ -259,6 +260,60 @@ def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
         # Decay from sigma_max to sigma_max * noise_decay_ratio
         new_sigma_max = config.sigma_max * (1.0 - decay_progress * (1.0 - config.noise_decay_ratio))
         return config.sigma_min, max(new_sigma_max, config.sigma_min)
+
+
+@dataclass
+class ParallelRolloutBatch:
+    """Env-major chunk rollouts before flattening for PPO."""
+    trajectories: list
+    observations: list
+    rewards: np.ndarray
+    dones: np.ndarray
+    valid: np.ndarray
+
+
+def _validate_parallel_rollout_masks(valid_mask: np.ndarray, done_mask: np.ndarray) -> None:
+    """Assert env-major rollout invariants used by parallel PPO."""
+    num_envs, max_chunks = valid_mask.shape
+    for env_idx in range(num_envs):
+        seen_invalid = False
+        seen_done = False
+        for chunk_idx in range(max_chunks):
+            is_valid = bool(valid_mask[env_idx, chunk_idx])
+            is_done = bool(done_mask[env_idx, chunk_idx])
+
+            if not is_valid:
+                seen_invalid = True
+                continue
+
+            if seen_invalid:
+                raise AssertionError(
+                    f"Env {env_idx} has a valid rollout slot after an invalid slot at chunk {chunk_idx}"
+                )
+            if seen_done:
+                raise AssertionError(
+                    f"Env {env_idx} has a valid rollout slot after a terminal chunk at chunk {chunk_idx}"
+                )
+            if is_done:
+                seen_done = True
+
+
+def _flatten_valid_observations(observation_grid: list, valid_mask: np.ndarray) -> dict:
+    """Flatten env-major observations into a batch using only valid chunk slots."""
+    flat_observations = []
+    num_envs, max_chunks = valid_mask.shape
+    for env_idx in range(num_envs):
+        for chunk_idx in range(max_chunks):
+            if valid_mask[env_idx, chunk_idx]:
+                flat_observations.append(observation_grid[env_idx][chunk_idx])
+
+    if not flat_observations:
+        return {}
+
+    return {
+        key: torch.cat([obs[key] for obs in flat_observations], dim=0)
+        for key in flat_observations[0].keys()
+    }
 
 
 def parse_args():
@@ -585,14 +640,21 @@ def train_parallel(config, args, device):
             episode_sustained = np.zeros(num_envs, dtype=int)
             episode_height_aligned = np.zeros(num_envs, dtype=int)
             
-            # Collect data for this batch (on-policy)
-            batch_trajectories = []  # List of trajectories across all envs and chunks
-            batch_observations = []  # List of observations
-            batch_chunk_rewards = []  # Rewards for each chunk
-            batch_dones = []  # Done flags for GAE
+            # Collect data for this batch (on-policy), preserving env/chunk identity.
+            rollout = ParallelRolloutBatch(
+                trajectories=[[None for _ in range(config.chunks_per_episode)] for _ in range(num_envs)],
+                observations=[[None for _ in range(config.chunks_per_episode)] for _ in range(num_envs)],
+                rewards=np.zeros((num_envs, config.chunks_per_episode), dtype=np.float32),
+                dones=np.zeros((num_envs, config.chunks_per_episode), dtype=bool),
+                valid=np.zeros((num_envs, config.chunks_per_episode), dtype=bool),
+            )
             
             # Execute multiple chunks per episode (getting fresh observations!)
             for chunk_idx in range(config.chunks_per_episode):
+                active_envs = ~vec_env.dones.copy()
+                if not active_envs.any():
+                    break
+
                 # Get FRESH observation for this chunk
                 obs_dict = vec_env.get_batched_observations(device)
                 observation = prepare_batched_observation(
@@ -620,19 +682,18 @@ def train_parallel(config, args, device):
                 episode_sustained += chunk_sustained
                 episode_height_aligned += chunk_height_aligned
                 
-                # Store data for on-policy update (one entry per environment)
+                # Store data for on-policy update, indexed by [env][chunk].
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
-                # Stack to (num_envs, K+1, chunk, action_dim)
-                # DETACH to prevent graph issues - we only need the values, gradients flow through compute_ppo_loss
                 traj_tensor = torch.stack(trajectory, dim=1).detach()  # (num_envs, K+1, chunk, action)
-                
+
                 for i in range(num_envs):
-                    batch_trajectories.append(traj_tensor[i])  # (K+1, chunk, action)
-                    # Store observation for env i
-                    obs_i = {k: v[i:i+1] for k, v in observation.items()}  # Keep batch dim
-                    batch_observations.append(obs_i)
-                    batch_chunk_rewards.append(chunk_rewards[i])
-                    batch_dones.append(float(dones[i]))
+                    if not active_envs[i]:
+                        continue
+                    rollout.trajectories[i][chunk_idx] = traj_tensor[i]
+                    rollout.observations[i][chunk_idx] = {k: v[i:i+1] for k, v in observation.items()}
+                    rollout.rewards[i, chunk_idx] = chunk_rewards[i]
+                    rollout.dones[i, chunk_idx] = bool(dones[i])
+                    rollout.valid[i, chunk_idx] = True
                 
                 # Early termination if all done
                 if dones.all():
@@ -643,46 +704,124 @@ def train_parallel(config, args, device):
             total_episodes += num_envs
             
             # ===== PPO UPDATE WITH MINI-BATCHING =====
-            if len(batch_trajectories) > 0:
-                # Stack all trajectories: (total_chunks, K+1, chunk, action)
-                all_trajectories = torch.stack(batch_trajectories, dim=0)
-                batch_size = all_trajectories.shape[0]
-                
-                
-                # Stack observations
-                all_observations = {}
-                for key in batch_observations[0].keys():
-                    all_observations[key] = torch.cat([obs[key] for obs in batch_observations], dim=0)
-                
-                # Rewards and dones tensors
-                all_rewards = torch.tensor(batch_chunk_rewards, device=device, dtype=torch.float32)
-                all_dones = torch.tensor(batch_dones, device=device, dtype=torch.float32)
-                
-                # Compute values for GAE
+            if rollout.valid.any():
+                _validate_parallel_rollout_masks(rollout.valid, rollout.dones)
+
+                # Batch value inference for all valid rollout observations.
+                value_observations = _flatten_valid_observations(rollout.observations, rollout.valid)
+                if not value_observations:
+                    raise AssertionError("Parallel rollout has valid slots but no flattened observations")
+
                 with torch.no_grad():
-                    all_values = rl_policy.get_value(all_observations)
-                    # For next values, use current values shifted (simplified for chunk-level)
-                    # In practice, for terminal states, next_value = 0
-                    all_next_values = torch.zeros_like(all_values)
-                    all_next_values[:-1] = all_values[1:]
-                    all_next_values = all_next_values * (1.0 - all_dones)  # Zero out terminal states
-                
-                # Compute GAE advantages and returns
-                advantages, returns = compute_gae(
-                    all_rewards, all_values, all_next_values, all_dones,
-                    gamma=config.gamma, gae_lambda=config.gae_lambda
+                    flat_values = rl_policy.get_value(value_observations)
+
+                    if (~vec_env.dones).any():
+                        final_obs_dict = vec_env.get_batched_observations(device)
+                        final_observation = prepare_batched_observation(
+                            final_obs_dict, config.instruction, device, rl_policy, num_envs
+                        )
+                        final_bootstrap_values = rl_policy.get_value(final_observation)
+                    else:
+                        final_bootstrap_values = torch.zeros(num_envs, device=device, dtype=torch.float32)
+
+                value_grid = torch.zeros((num_envs, config.chunks_per_episode), device=device, dtype=torch.float32)
+                next_value_grid = torch.zeros_like(value_grid)
+                advantage_grid = torch.zeros_like(value_grid)
+                return_grid = torch.zeros_like(value_grid)
+                source_grid = [["invalid" for _ in range(config.chunks_per_episode)] for _ in range(num_envs)]
+                rewards_grid = torch.from_numpy(rollout.rewards).to(device=device, dtype=torch.float32)
+                dones_grid = torch.from_numpy(rollout.dones.astype(np.float32)).to(device=device, dtype=torch.float32)
+
+                flat_index_map = []
+                flat_cursor = 0
+                for env_idx in range(num_envs):
+                    for chunk_idx in range(config.chunks_per_episode):
+                        if not rollout.valid[env_idx, chunk_idx]:
+                            continue
+                        value_grid[env_idx, chunk_idx] = flat_values[flat_cursor]
+                        flat_index_map.append((env_idx, chunk_idx))
+                        flat_cursor += 1
+
+                if flat_cursor != int(rollout.valid.sum()):
+                    raise AssertionError(
+                        f"Flattened sample count mismatch: got {flat_cursor}, expected {int(rollout.valid.sum())}"
+                    )
+
+                # Build next-values and run GAE per environment trajectory.
+                for env_idx in range(num_envs):
+                    valid_indices = np.flatnonzero(rollout.valid[env_idx])
+                    if len(valid_indices) == 0:
+                        continue
+
+                    for pos, chunk_idx in enumerate(valid_indices):
+                        chunk_idx = int(chunk_idx)
+                        if rollout.dones[env_idx, chunk_idx]:
+                            next_value_grid[env_idx, chunk_idx] = 0.0
+                            source_grid[env_idx][chunk_idx] = "terminal"
+                        elif pos + 1 < len(valid_indices):
+                            next_chunk_idx = int(valid_indices[pos + 1])
+                            next_value_grid[env_idx, chunk_idx] = value_grid[env_idx, next_chunk_idx]
+                            source_grid[env_idx][chunk_idx] = f"env:{env_idx}:chunk:{next_chunk_idx}"
+                        else:
+                            next_value_grid[env_idx, chunk_idx] = final_bootstrap_values[env_idx]
+                            source_grid[env_idx][chunk_idx] = "post_rollout"
+
+                    env_rewards = rewards_grid[env_idx, valid_indices]
+                    env_values = value_grid[env_idx, valid_indices]
+                    env_next_values = next_value_grid[env_idx, valid_indices]
+                    env_dones = dones_grid[env_idx, valid_indices]
+
+                    env_advantages, env_returns = compute_gae(
+                        env_rewards,
+                        env_values,
+                        env_next_values,
+                        env_dones,
+                        gamma=config.gamma,
+                        gae_lambda=config.gae_lambda,
+                    )
+                    advantage_grid[env_idx, valid_indices] = env_advantages
+                    return_grid[env_idx, valid_indices] = env_returns
+
+                # Validate bootstrap sources stay within the same env trajectory.
+                for env_idx, chunk_idx in flat_index_map:
+                    source = source_grid[env_idx][chunk_idx]
+                    if rollout.dones[env_idx, chunk_idx]:
+                        if source != "terminal":
+                            raise AssertionError(
+                                f"Env {env_idx} chunk {chunk_idx} should bootstrap from terminal zero, got {source}"
+                            )
+                    elif source not in ("post_rollout", f"env:{env_idx}:chunk:{chunk_idx + 1}"):
+                        raise AssertionError(
+                            f"Env {env_idx} chunk {chunk_idx} bootstrapped from invalid source {source}"
+                        )
+
+                # Flatten valid rollout tensors for PPO.
+                all_trajectories = torch.stack(
+                    [rollout.trajectories[env_idx][chunk_idx] for env_idx, chunk_idx in flat_index_map],
+                    dim=0,
                 )
-                
-                # Normalize advantages
+                all_observations = _flatten_valid_observations(rollout.observations, rollout.valid)
+                if not all_observations:
+                    raise AssertionError("Parallel rollout flattening produced no PPO observations")
+
+                all_rewards = torch.stack([rewards_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                all_dones = torch.stack([dones_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                all_values = torch.stack([value_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                all_next_values = torch.stack([next_value_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                advantages = torch.stack([advantage_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                returns = torch.stack([return_grid[env_idx, chunk_idx] for env_idx, chunk_idx in flat_index_map])
+                old_values = all_values.clone()
+                batch_size = all_trajectories.shape[0]
+
+                # Normalize advantages after per-env GAE is complete.
                 if batch_size > 1:
                     advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-                
-                # Compute old log probabilities (detached for PPO ratio)
+
+                # Compute old log probabilities (detached for PPO ratio).
                 with torch.no_grad():
                     old_log_probs = compute_trajectory_log_probs_onpolicy(
                         rl_policy, all_trajectories, all_observations
                     )
-                    old_values = all_values.clone()
                 
                 # PPO epochs with mini-batching
                 kl_early_stop = False

@@ -1105,6 +1105,9 @@ def save_reinflow_checkpoint(
         'train_full_expert': policy.train_full_expert,
         'train_noise_head': policy.train_noise_head,
         'train_critic': policy.train_critic,
+        'model_type': 'smolvla',
+        'sigma_min': policy.base.model.sigma_min,
+        'sigma_max': policy.base.model.sigma_max,
     }
     
     # Save wandb run ID for resuming
@@ -1158,6 +1161,21 @@ def load_reinflow_checkpoint(
     elif 'noise_out_proj' in checkpoint:
         # Legacy support for old checkpoints with linear noise layer
         print("  [ReinFlow] Warning: Old checkpoint with linear noise layer, skipping (architecture changed to MLP)")
+
+    # Restore ReinFlow sigma bounds when present. Older checkpoints fall back to
+    # whatever setup_reinflow_policy configured at construction time.
+    if 'sigma_min' in checkpoint:
+        policy.base.model.sigma_min = checkpoint.get('sigma_min', policy.base.model.sigma_min)
+        policy.base.model.sigma_max = checkpoint.get('sigma_max', policy.base.model.sigma_max)
+        print(
+            f"  [ReinFlow] Restored sigma bounds: "
+            f"[{policy.base.model.sigma_min}, {policy.base.model.sigma_max}]"
+        )
+    else:
+        print(
+            f"  [ReinFlow] Checkpoint missing sigma bounds, using setup defaults: "
+            f"[{policy.base.model.sigma_min}, {policy.base.model.sigma_max}]"
+        )
     
     # Load critic network (new for actor-critic)
     if 'critic' in checkpoint:
