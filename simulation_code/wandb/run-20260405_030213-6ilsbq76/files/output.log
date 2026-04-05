@@ -1,0 +1,35 @@
+
+============================================================
+Starting ReinFlow Training (PPO, Parallel)
+============================================================
+Instruction: 'pick up the block'
+Parallel environments: 10
+Chunks per episode: 3
+Denoising steps: 1
+Policy LR: 1e-06 -> 1e-07
+Critic LR: 0.0001 -> 1e-05
+LR warmup iterations: 10
+PPO epochs: 5
+Mini-batch size: 8
+Gradient accumulation: 15
+Effective batch size: 120
+Clip epsilon: 0.05
+GAE lambda: 0.95
+Target KL: 0.1
+Entropy coeff: 0.0
+Critic warmup iters: 30
+Training mode: PPO ON-POLICY
+============================================================
+
+
+[Critic Warmup] Skipping warmup (resuming from episode 1500)
+
+Batch    1 ( 1510 eps) | Reward:  -14.94 | KL: 0.0134 | LR: 1.90e-07 | Time: 27.6s
+Batch    2 ( 1520 eps) | Reward:  -16.69 | KL: 0.0270 | LR: 2.80e-07 | Time: 20.3s
+[ReinFlow] Checkpoint saved to reinflow_checkpoint.pt
+Batch    3 ( 1530 eps) | Reward:  -16.31 | KL: 0.0115 | LR: 3.70e-07 | Time: 20.3s
+
+
+Training interrupted by user.
+[SubprocVecEnv] Closing worker processes...
+[SubprocVecEnv] All workers closed

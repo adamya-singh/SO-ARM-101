@@ -1,0 +1,12 @@
+{"time":"2026-04-05T04:16:11.607274442-04:00","level":"INFO","msg":"stream: starting","core version":"0.24.0"}
+{"time":"2026-04-05T04:16:11.804560946-04:00","level":"INFO","msg":"stream: created new stream","id":"ghsurga2"}
+{"time":"2026-04-05T04:16:11.804724467-04:00","level":"INFO","msg":"handler: started","stream_id":"ghsurga2"}
+{"time":"2026-04-05T04:16:11.804993427-04:00","level":"INFO","msg":"stream: started","id":"ghsurga2"}
+{"time":"2026-04-05T04:16:11.805032097-04:00","level":"INFO","msg":"writer: started","stream_id":"ghsurga2"}
+{"time":"2026-04-05T04:16:11.805045027-04:00","level":"INFO","msg":"sender: started","stream_id":"ghsurga2"}
+{"time":"2026-04-05T07:40:58.141261844-04:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-05T07:40:58.610951327-04:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-05T07:40:58.621732238-04:00","level":"INFO","msg":"stream: closing","id":"ghsurga2"}
+{"time":"2026-04-05T07:40:58.621838698-04:00","level":"INFO","msg":"handler: closed","stream_id":"ghsurga2"}
+{"time":"2026-04-05T07:40:58.622044348-04:00","level":"INFO","msg":"sender: closed","stream_id":"ghsurga2"}
+{"time":"2026-04-05T07:40:58.622113798-04:00","level":"INFO","msg":"stream: closed","id":"ghsurga2"}
