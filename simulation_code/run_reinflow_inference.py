@@ -151,7 +151,7 @@ if MODEL_TYPE == "pi0":
     )
     start_episode, _ = load_reinflow_pi0_checkpoint(rl_policy, CHECKPOINT_PATH, str(device))
 else:
-    rl_policy = setup_reinflow_policy(
+    rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
         pretrained_path=PRETRAINED_PATH,
         device=str(device),
         train_action_head=True,
@@ -160,8 +160,6 @@ else:
         train_noise_head=True,
         train_critic=True,
     )
-    preprocessor = None
-    postprocessor = None
     start_episode, _ = load_reinflow_checkpoint(rl_policy, CHECKPOINT_PATH, str(device))
 
 rl_policy.eval()

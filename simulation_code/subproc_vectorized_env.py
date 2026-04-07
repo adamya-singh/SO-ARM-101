@@ -398,7 +398,7 @@ class SubprocMuJoCoEnv:
         batch_wrist = torch.from_numpy(np.stack(batch_wrist)).float().permute(0, 3, 1, 2) / 255.0
         batch_side = torch.from_numpy(np.stack(batch_side)).float().permute(0, 3, 1, 2) / 255.0
         
-        # State: normalize based on model type (SmolVLA uses hardcoded, Pi0 uses preprocessor)
+        # State: normalize based on model type after MuJoCo->physical frame conversion.
         batch_state_np = np.stack(batch_state)
         batch_state_normalized = np.stack([
             normalize_state_for_vla(s, self.model_type, self.preprocessor) for s in batch_state_np
@@ -543,4 +543,3 @@ class SubprocMuJoCoEnv:
         """Destructor to ensure cleanup."""
         if hasattr(self, 'processes') and self.processes:
             self.close()
-

@@ -78,7 +78,9 @@ class SO101PickPlaceEnv(gymnasium.Env):
             block_angle_range: (min, max) angle from center in degrees (default -60 to +60)
             smolvla_normalize: DEPRECATED - use vla_normalize instead. Kept for backward compat.
             vla_normalize: If True, normalize state outputs and unnormalize action inputs
-                          for VLA compatibility (radians <-> physical <-> normalized)
+                          for VLA compatibility. SmolVLA processor-backed checkpoints
+                          use calibrated radians directly; legacy fallback uses the
+                          older servo-frame conversion.
             model_type: "smolvla" or "pi0" - selects which VLA model normalization to use
             preprocessor: Optional PolicyProcessorPipeline for state normalization
             postprocessor: Optional PolicyProcessorPipeline for action denormalization
@@ -188,7 +190,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
 
         # Normalize state for VLA if flag is set
         if self._normalize:
-            # Use model-agnostic normalization (SmolVLA uses hardcoded, Pi0 uses preprocessor)
+            # Use model-aware normalization for the selected policy contract.
             state = normalize_state_for_vla(state, self.model_type, self.preprocessor).astype(np.float32)
         
         return {
@@ -277,7 +279,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         """
         # Unnormalize action from VLA if flag is set
         if self._normalize:
-            # Use model-agnostic denormalization (SmolVLA uses hardcoded, Pi0 uses postprocessor)
+            # Use model-aware denormalization while keeping robot frame conversion in the env utils.
             action = unnormalize_action_for_vla(action, self.model_type, self.postprocessor)
         
         # Clip action to valid range
@@ -348,4 +350,3 @@ class SO101PickPlaceEnv(gymnasium.Env):
 #       entry_point="so101_gym_env:SO101PickPlaceEnv",
 #       max_episode_steps=500,
 #   )
-

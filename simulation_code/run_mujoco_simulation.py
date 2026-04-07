@@ -18,6 +18,8 @@ from so101_mujoco_utils import *
 # Set this to "smolvla" or "pi0" to select the model
 MODEL_TYPE = "smolvla"  # Options: "smolvla", "pi0"
 PRETRAINED_PATH = "lerobot/smolvla_base"  # Change for Pi0: "lerobot/pi0"
+RESOLVED_PRETRAINED_PATH = PRETRAINED_PATH
+PRETRAINED_SOURCE_TYPE = "hf_repo"
 
 # Parse command line arguments for model type
 parser = argparse.ArgumentParser(description='Run MuJoCo simulation with VLA policy')
@@ -35,6 +37,11 @@ if args.pretrained:
     PRETRAINED_PATH = args.pretrained
 elif MODEL_TYPE == "pi0":
     PRETRAINED_PATH = "lerobot/pi0"
+
+if MODEL_TYPE == "smolvla":
+    RESOLVED_PRETRAINED_PATH, PRETRAINED_SOURCE_TYPE = resolve_policy_artifact_path(PRETRAINED_PATH)
+else:
+    RESOLVED_PRETRAINED_PATH = PRETRAINED_PATH
 
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
@@ -83,15 +90,22 @@ if MODEL_TYPE == "pi0":
     else:
         print("Pi0 policy loaded successfully!")
 else:
-    print(f"Loading SmolVLA policy from {PRETRAINED_PATH}...")
-    policy = SmolVLAPolicy.from_pretrained(PRETRAINED_PATH)
+    print(f"Loading SmolVLA policy from {RESOLVED_PRETRAINED_PATH}...")
+    print(f"  Original source: {PRETRAINED_PATH}")
+    print(f"  Resolved artifact: {RESOLVED_PRETRAINED_PATH}")
+    print(f"  Source type: {PRETRAINED_SOURCE_TYPE}")
+    policy = SmolVLAPolicy.from_pretrained(RESOLVED_PRETRAINED_PATH)
     policy.to(device)
     policy.eval()
     print("SmolVLA policy loaded successfully!")
 
 # Load processors for normalization/denormalization
 print("Loading processors...")
-preprocessor, postprocessor = load_vla_processors(MODEL_TYPE, PRETRAINED_PATH, policy_config=policy.config)
+preprocessor, postprocessor = load_vla_processors(
+    MODEL_TYPE,
+    RESOLVED_PRETRAINED_PATH,
+    policy_config=policy.config,
+)
 print("Processors loaded successfully!")
 
 # === SMOLVLA CONFIG INSPECTION ===
@@ -295,9 +309,9 @@ with mujoco.viewer.launch_passive(m, d) as viewer:
                     print(f"  Normalized range: min={action.min():.4f}, max={action.max():.4f}")
                     print(f"  Normalized per joint: {[f'{a:.4f}' for a in action]}")
                 
-                # Unnormalize action based on model type
-                # SmolVLA uses hardcoded stats (no postprocessor), Pi0 uses postprocessor
-                # This converts: normalized -> physical -> MuJoCo radians
+                # Unnormalize action based on model type.
+                # Finetuned SmolVLA processor-backed runs return calibrated radians
+                # directly; legacy fallback still goes through the servo frame.
                 action_radians = unnormalize_action_for_vla(action, MODEL_TYPE, postprocessor)
                 
                 # Clip actions to joint limits (matching training environment)

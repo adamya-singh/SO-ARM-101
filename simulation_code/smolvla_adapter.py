@@ -21,6 +21,7 @@ from torch import Tensor
 from vla_policy_interface import VLAPolicyInterface, ReinFlowCapableMixin
 from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy, make_att_2d_masks
 from lerobot.utils.constants import OBS_STATE
+from so101_mujoco_utils import resolve_policy_artifact_path
 
 
 class SmolVLAAdapter(VLAPolicyInterface, ReinFlowCapableMixin):
@@ -271,11 +272,12 @@ def create_smolvla_adapter(
         else:
             device = "cpu"
     
-    print(f"[SmolVLAAdapter] Loading SmolVLA from {pretrained_path}...")
+    resolved_pretrained_path, _ = resolve_policy_artifact_path(pretrained_path)
+    print(f"[SmolVLAAdapter] Loading SmolVLA from {resolved_pretrained_path}...")
     print(f"[SmolVLAAdapter] Using device: {device}")
     
     # Load base policy
-    base_policy = SmolVLAPolicy.from_pretrained(pretrained_path)
+    base_policy = SmolVLAPolicy.from_pretrained(resolved_pretrained_path)
     base_policy.to(device)
     base_policy.eval()
     
@@ -289,4 +291,3 @@ def create_smolvla_adapter(
     print(f"[SmolVLAAdapter] Created adapter with VLM hidden size: {adapter.vlm_hidden_size}")
     
     return adapter
-

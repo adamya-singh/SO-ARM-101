@@ -38,7 +38,13 @@ OBS_LANGUAGE_TOKENS = "observation.language.tokens"
 OBS_LANGUAGE_ATTENTION_MASK = "observation.language.attention_mask"
 OBS_STATE = "observation.state"
 
-from so101_mujoco_utils import normalize_state_for_smolvla
+from so101_mujoco_utils import (
+    build_smolvla_image_observation,
+    detect_smolvla_image_keys,
+    load_smolvla_processors,
+    normalize_state_for_smolvla,
+    resolve_policy_artifact_path,
+)
 
 # Import adapters (lazy import to avoid circular deps)
 from vla_policy_interface import VLAPolicyInterface
@@ -830,11 +836,9 @@ def setup_reinflow_policy(
     train_full_expert: bool = False,
     train_noise_head: bool = True,
     train_critic: bool = True,
-) -> 'ReinFlowSmolVLA':
+) -> Tuple['ReinFlowSmolVLA', Optional[Any], Optional[Any]]:
     """
     Load SmolVLA and wrap with ReinFlow for RL training.
-    
-    SmolVLA uses hardcoded normalization stats (no preprocessor/postprocessor needed).
     
     Args:
         pretrained_path: HuggingFace model path or local checkpoint
@@ -847,7 +851,7 @@ def setup_reinflow_policy(
         train_critic: Whether to train critic network (default True for actor-critic)
     
     Returns:
-        ReinFlowSmolVLA policy (SmolVLA uses hardcoded normalization, no processors needed)
+        Tuple of (ReinFlowSmolVLA policy, preprocessor, postprocessor)
     """
     # Auto-detect device
     if device is None:
@@ -858,11 +862,12 @@ def setup_reinflow_policy(
         else:
             device = "cpu"
     
-    print(f"[ReinFlow] Loading SmolVLA from {pretrained_path}...")
+    resolved_pretrained_path, source_type = resolve_policy_artifact_path(pretrained_path)
+    print(f"[ReinFlow] Loading SmolVLA from {resolved_pretrained_path}...")
     print(f"[ReinFlow] Using device: {device}")
     
     # Load base policy
-    base_policy = SmolVLAPolicy.from_pretrained(pretrained_path)
+    base_policy = SmolVLAPolicy.from_pretrained(resolved_pretrained_path)
     base_policy.to(device)
     base_policy.eval()
     
@@ -871,12 +876,19 @@ def setup_reinflow_policy(
         print("[ReinFlow] Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolVLM2-500M-Video-Instruct")
         base_policy.tokenizer = tokenizer
+
+    preprocessor, postprocessor = load_smolvla_processors(resolved_pretrained_path)
+    normalization_mode = "processor-backed" if preprocessor is not None and postprocessor is not None else "legacy-hardcoded"
+    state_action_frame = "calibrated-radians" if normalization_mode == "processor-backed" else "servo-frame"
+    image_keys = detect_smolvla_image_keys(base_policy)
     
     print("[ReinFlow] SmolVLA loaded successfully!")
     print(f"[ReinFlow] Setting up ReinFlow wrapper with {num_steps} denoising steps...")
     print(f"[ReinFlow] Using NOISE NETWORK (not scalar sigmas)")
     print(f"[ReinFlow] Actor-Critic mode: {train_critic}")
-    print(f"[ReinFlow] Using hardcoded normalization stats (no processors)")
+    print(f"[ReinFlow] Normalization mode: {normalization_mode}")
+    print(f"[ReinFlow] State/action frame: {state_action_frame}")
+    print(f"[ReinFlow] Image schema: {image_keys}")
     
     # Wrap with ReinFlow
     reinflow_policy = ReinFlowSmolVLA(
@@ -889,8 +901,17 @@ def setup_reinflow_policy(
         train_critic=train_critic,
         device=device,
     )
-    
-    return reinflow_policy
+
+    reinflow_policy.preprocessor = preprocessor
+    reinflow_policy.postprocessor = postprocessor
+    reinflow_policy.base_policy_source = pretrained_path
+    reinflow_policy.base_policy_source_resolved = resolved_pretrained_path
+    reinflow_policy.base_policy_source_type = source_type
+    reinflow_policy.normalization_mode = normalization_mode
+    reinflow_policy.state_action_frame = state_action_frame
+    reinflow_policy.expected_image_keys = image_keys
+
+    return reinflow_policy, preprocessor, postprocessor
 
 
 def prepare_observation_for_reinflow(
@@ -907,8 +928,6 @@ def prepare_observation_for_reinflow(
     
     This is a convenience function that handles image preprocessing and
     tokenization, matching the format expected by SmolVLA.
-    
-    Uses hardcoded normalization stats for SmolVLA (no preprocessor needed).
     
     Args:
         rgb_image_top: (H, W, C) numpy array from top camera [0, 255]
@@ -937,8 +956,10 @@ def prepare_observation_for_reinflow(
     image_side_tensor = image_side_tensor.permute(2, 0, 1)
     image_side_tensor = image_side_tensor.unsqueeze(0).to(device)
     
-    # Normalize robot state for SmolVLA using hardcoded stats
-    normalized_state = normalize_state_for_smolvla(robot_state)
+    # SmolVLA normalization mode is policy-dependent:
+    # processor-backed finetuned policies use calibrated radians directly,
+    # while legacy fallback uses the old servo-frame hardcoded stats.
+    normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=policy.preprocessor)
     state_tensor = torch.from_numpy(normalized_state).float().unsqueeze(0).to(device)
     
     # Tokenize instruction
@@ -956,10 +977,15 @@ def prepare_observation_for_reinflow(
         language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
     
+    image_observation = build_smolvla_image_observation(
+        policy.expected_image_keys,
+        image_top_tensor,
+        image_wrist_tensor,
+        image_side_tensor,
+    )
+
     observation = {
-        "observation.images.camera1": image_top_tensor,
-        "observation.images.camera2": image_wrist_tensor,
-        "observation.images.camera3": image_side_tensor,
+        **image_observation,
         OBS_STATE: state_tensor,
         OBS_LANGUAGE_TOKENS: language_tokens,
         OBS_LANGUAGE_ATTENTION_MASK: attention_mask,
@@ -1011,10 +1037,15 @@ def prepare_batched_observation(
         language_tokens = torch.zeros((num_envs, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((num_envs, 1), dtype=torch.bool, device=device)
     
+    image_observation = build_smolvla_image_observation(
+        policy.expected_image_keys,
+        obs_dict["observation.images.camera1"],
+        obs_dict["observation.images.camera2"],
+        obs_dict["observation.images.camera3"],
+    )
+
     observation = {
-        "observation.images.camera1": obs_dict["observation.images.camera1"],
-        "observation.images.camera2": obs_dict["observation.images.camera2"],
-        "observation.images.camera3": obs_dict["observation.images.camera3"],
+        **image_observation,
         OBS_STATE: obs_dict["observation.state"],
         OBS_LANGUAGE_TOKENS: language_tokens,
         OBS_LANGUAGE_ATTENTION_MASK: attention_mask,
@@ -1108,6 +1139,12 @@ def save_reinflow_checkpoint(
         'model_type': 'smolvla',
         'sigma_min': policy.base.model.sigma_min,
         'sigma_max': policy.base.model.sigma_max,
+        'base_policy_source': getattr(policy, 'base_policy_source', None),
+        'base_policy_source_resolved': getattr(policy, 'base_policy_source_resolved', None),
+        'base_policy_source_type': getattr(policy, 'base_policy_source_type', None),
+        'normalization_mode': getattr(policy, 'normalization_mode', 'legacy-hardcoded'),
+        'state_action_frame': getattr(policy, 'state_action_frame', 'servo-frame'),
+        'expected_image_keys': getattr(policy, 'expected_image_keys', None),
     }
     
     # Save wandb run ID for resuming
@@ -1176,6 +1213,26 @@ def load_reinflow_checkpoint(
             f"  [ReinFlow] Checkpoint missing sigma bounds, using setup defaults: "
             f"[{policy.base.model.sigma_min}, {policy.base.model.sigma_max}]"
         )
+
+    policy.base_policy_source = checkpoint.get('base_policy_source', getattr(policy, 'base_policy_source', None))
+    policy.base_policy_source_resolved = checkpoint.get(
+        'base_policy_source_resolved', getattr(policy, 'base_policy_source_resolved', None)
+    )
+    policy.base_policy_source_type = checkpoint.get(
+        'base_policy_source_type', getattr(policy, 'base_policy_source_type', None)
+    )
+    policy.normalization_mode = checkpoint.get('normalization_mode', getattr(policy, 'normalization_mode', 'unknown'))
+    policy.state_action_frame = checkpoint.get(
+        'state_action_frame',
+        getattr(policy, 'state_action_frame', 'calibrated-radians' if policy.normalization_mode == 'processor-backed' else 'servo-frame')
+    )
+    policy.expected_image_keys = checkpoint.get(
+        'expected_image_keys', getattr(policy, 'expected_image_keys', None)
+    )
+    print(
+        f"  [ReinFlow] Base policy source: {policy.base_policy_source} "
+        f"({policy.base_policy_source_type}, normalization={policy.normalization_mode}, frame={policy.state_action_frame})"
+    )
     
     # Load critic network (new for actor-critic)
     if 'critic' in checkpoint:

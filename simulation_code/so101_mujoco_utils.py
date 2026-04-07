@@ -2,6 +2,7 @@ import time
 import mujoco
 import numpy as np
 import torch
+from pathlib import Path
 from typing import Optional, Tuple, Any
 
 # ===== MuJoCo to Physical Robot Coordinate Offset (in DEGREES) =====
@@ -10,9 +11,9 @@ from typing import Optional, Tuple, Any
 # These offsets convert MuJoCo's calibrated coordinates (where calibration pose = 0°)
 # to SmolVLA's absolute servo coordinate frame (where servo raw center 2048 ≈ 180°).
 # 
-# SmolVLA was trained with absolute servo positions, NOT calibrated positions.
-# At calibration pose (MuJoCo 0°), the absolute servo positions are ~120° for shoulder_lift, etc.
-# These values are derived from the SmolVLA training data statistics (SMOLVLA_STATE_MEAN).
+# These constants are only for the legacy/base SmolVLA path that used an
+# absolute-servo frame with hardcoded z-score stats.
+# Finetuned SmolVLA processor-backed checkpoints instead use calibrated radians.
 MUJOCO_TO_PHYSICAL_OFFSET = np.array([
     0.0,      # shoulder_pan - near zero offset (training mean ≈ 1.6°)
     120.0,    # shoulder_lift - calibration pose ≈ 120° in absolute frame
@@ -34,6 +35,102 @@ SMOLVLA_ACTION_STD = np.array([26.392, 52.411, 49.854, 36.998, 59.360, 19.040])
 _cached_pi0_preprocessor = None
 _cached_pi0_postprocessor = None
 _cached_pi0_pretrained_path = None
+_cached_smolvla_preprocessor = None
+_cached_smolvla_postprocessor = None
+_cached_smolvla_pretrained_path = None
+
+
+def resolve_policy_artifact_path(pretrained_path: str) -> Tuple[str, str]:
+    """
+    Resolve a policy source into a concrete local artifact path when applicable.
+
+    Returns:
+        (resolved_path, source_type) where source_type is "hf_repo" or "local_checkpoint".
+    """
+    path = Path(pretrained_path).expanduser()
+    if not path.exists():
+        return pretrained_path, "hf_repo"
+
+    if not path.is_dir():
+        raise FileNotFoundError(
+            f"Local policy path is not a directory: {pretrained_path}\n"
+            f"Expected a Hugging Face repo id or a local LeRobot model/checkpoint directory."
+        )
+
+    pretrained_model_dir = path / "pretrained_model"
+    if pretrained_model_dir.is_dir():
+        return str(pretrained_model_dir), "local_checkpoint"
+    if (path / "config.json").exists():
+        return str(path), "local_checkpoint"
+
+    raise FileNotFoundError(
+        f"Local policy path exists but is not a valid LeRobot model artifact: {pretrained_path}\n"
+        f"Expected either:\n"
+        f"  - a model directory containing config.json, or\n"
+        f"  - a checkpoint directory containing pretrained_model/"
+    )
+
+
+def detect_smolvla_image_keys(policy) -> list[str]:
+    """Return the image keys expected by the loaded SmolVLA policy."""
+    image_features = getattr(policy.config, "image_features", None)
+    if image_features:
+        return list(image_features.keys())
+
+    input_features = getattr(policy.config, "input_features", {})
+    image_keys = [key for key in input_features if key.startswith("observation.images.")]
+    if image_keys:
+        return image_keys
+
+    raise ValueError("Could not determine SmolVLA image feature keys from policy config.")
+
+
+def build_smolvla_image_observation(
+    expected_image_keys: list[str],
+    image_top_tensor: torch.Tensor,
+    image_wrist_tensor: torch.Tensor,
+    image_side_tensor: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """Map MuJoCo camera tensors onto the image keys expected by the SmolVLA policy."""
+    alias_map = {
+        "observation.images.camera1": image_top_tensor,
+        "observation.images.top": image_top_tensor,
+        "observation.images.camera_up": image_top_tensor,
+        "observation.images.overhead": image_top_tensor,
+        "observation.images.camera2": image_wrist_tensor,
+        "observation.images.wrist": image_wrist_tensor,
+        "observation.images.camera3": image_side_tensor,
+        "observation.images.side": image_side_tensor,
+    }
+
+    observation = {}
+    missing_keys = []
+    for key in expected_image_keys:
+        if key in alias_map:
+            observation[key] = alias_map[key]
+        else:
+            missing_keys.append(key)
+
+    if missing_keys:
+        raise KeyError(
+            "Unsupported SmolVLA image feature keys for MuJoCo observation mapping: "
+            f"{missing_keys}. Supported keys: {sorted(alias_map.keys())}"
+        )
+
+    return observation
+
+
+def _extract_processed_state(processed: Any, fallback: np.ndarray) -> np.ndarray:
+    """Extract observation.state from a processor output, falling back if unavailable."""
+    if isinstance(processed, dict) and "observation" in processed:
+        state = processed["observation"].get("observation.state")
+        if isinstance(state, torch.Tensor):
+            return state.squeeze(0).detach().cpu().numpy()
+    if isinstance(processed, dict) and "observation.state" in processed:
+        state = processed["observation.state"]
+        if isinstance(state, torch.Tensor):
+            return state.squeeze(0).detach().cpu().numpy()
+    return fallback
 
 
 def load_pi0_processors(pretrained_path: str = "lerobot/pi0", policy_config=None) -> Tuple[Any, Any]:
@@ -122,6 +219,54 @@ def load_pi0_processors(pretrained_path: str = "lerobot/pi0", policy_config=None
     return preprocessor, postprocessor
 
 
+def load_smolvla_processors(pretrained_path: str = "lerobot/smolvla_base", policy_config=None) -> Tuple[Any, Any]:
+    """
+    Load preprocessor and postprocessor for SmolVLA model artifacts.
+
+    If processor configs are missing, return (None, None) and let callers use
+    the legacy hardcoded SmolVLA z-score stats.
+    """
+    del policy_config  # SmolVLA processor loading is artifact-driven.
+    global _cached_smolvla_preprocessor, _cached_smolvla_postprocessor, _cached_smolvla_pretrained_path
+
+    if _cached_smolvla_pretrained_path == pretrained_path and _cached_smolvla_preprocessor is not None:
+        return _cached_smolvla_preprocessor, _cached_smolvla_postprocessor
+
+    try:
+        from lerobot.processor import PolicyProcessorPipeline
+    except ImportError as e:
+        raise ImportError(
+            f"Could not import PolicyProcessorPipeline from LeRobot.\n"
+            f"Original error: {e}"
+        ) from e
+
+    print(f"[SmolVLA] Attempting to load processors from {pretrained_path}...")
+
+    preprocessor = None
+    postprocessor = None
+    try:
+        preprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="policy_preprocessor.json"
+        )
+        postprocessor = PolicyProcessorPipeline.from_pretrained(
+            pretrained_path, config_filename="policy_postprocessor.json"
+        )
+        print("[SmolVLA] Loaded processor-backed normalization from policy artifact")
+    except (FileNotFoundError, Exception) as e:
+        error_msg = str(e)
+        if "404" in error_msg or "Not Found" in error_msg or "Could not find" in error_msg:
+            print("[SmolVLA] Processor configs not found; using legacy hardcoded normalization fallback")
+        else:
+            print(f"[SmolVLA] Processor loading failed; using legacy hardcoded normalization fallback: {e}")
+        preprocessor = None
+        postprocessor = None
+
+    _cached_smolvla_preprocessor = preprocessor
+    _cached_smolvla_postprocessor = postprocessor
+    _cached_smolvla_pretrained_path = pretrained_path
+    return preprocessor, postprocessor
+
+
 def load_vla_processors(model_type: str, pretrained_path: str, policy_config=None) -> Tuple[Any, Any]:
     """
     Load processors for either SmolVLA or Pi0 model.
@@ -135,12 +280,11 @@ def load_vla_processors(model_type: str, pretrained_path: str, policy_config=Non
         policy_config: Optional policy config for creating default processors
         
     Returns:
-        (preprocessor, postprocessor) tuple - (None, None) for SmolVLA which uses hardcoded stats
+        (preprocessor, postprocessor) tuple. SmolVLA returns (None, None) only
+        when processor configs are unavailable and legacy hardcoded stats should be used.
     """
     if model_type == "smolvla":
-        # SmolVLA uses hardcoded normalization stats, no processor needed
-        print(f"[SmolVLA] Using hardcoded normalization stats (no processor)")
-        return None, None
+        return load_smolvla_processors(pretrained_path, policy_config)
     elif model_type == "pi0":
         return load_pi0_processors(pretrained_path, policy_config)
     else:
@@ -156,13 +300,13 @@ def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preproce
     Args:
         state_radians: numpy array of joint positions in radians (6,)
         model_type: "smolvla" or "pi0"
-        preprocessor: PolicyProcessorPipeline for Pi0 (ignored for SmolVLA)
+        preprocessor: PolicyProcessorPipeline for model-backed normalization
         
     Returns:
         normalized state as numpy array (6,)
     """
     if model_type == "smolvla":
-        return normalize_state_for_smolvla(state_radians)
+        return normalize_state_for_smolvla(state_radians, preprocessor=preprocessor)
     elif model_type == "pi0":
         return normalize_state_for_pi0(state_radians, preprocessor)
     else:
@@ -178,13 +322,13 @@ def unnormalize_action_for_vla(action_normalized: np.ndarray, model_type: str, p
     Args:
         action_normalized: numpy array of normalized actions
         model_type: "smolvla" or "pi0"
-        postprocessor: PolicyProcessorPipeline for Pi0 (ignored for SmolVLA)
+        postprocessor: PolicyProcessorPipeline for model-backed denormalization
         
     Returns:
         action in MuJoCo radians as numpy array
     """
     if model_type == "smolvla":
-        return unnormalize_action_from_smolvla(action_normalized)
+        return unnormalize_action_from_smolvla(action_normalized, postprocessor=postprocessor)
     elif model_type == "pi0":
         return unnormalize_action_for_pi0(action_normalized, postprocessor)
     else:
@@ -335,14 +479,14 @@ def hold_position(m, d, viewer, duration):
 
 # ===== SmolVLA Helper Functions =====
 
-def normalize_state_for_smolvla(state_radians: np.ndarray) -> np.ndarray:
+def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor=None) -> np.ndarray:
     """
-    Normalize robot state for SmolVLA input using hardcoded stats.
+    Normalize robot state for SmolVLA input.
     
     Pipeline:
-    1. MuJoCo radians -> degrees
-    2. Add physical offset (in degrees)
-    3. Z-score normalize with SMOLVLA_STATE_MEAN/STD
+    1. If processor-backed: feed calibrated MuJoCo radians directly to the processor.
+    2. Otherwise: convert MuJoCo calibrated frame -> legacy servo frame and apply
+       the hardcoded SmolVLA z-score stats.
     
     Args:
         state_radians: numpy array of joint positions in radians (6,)
@@ -350,13 +494,20 @@ def normalize_state_for_smolvla(state_radians: np.ndarray) -> np.ndarray:
     Returns:
         normalized state as numpy array (6,)
     """
-    # Step 1 & 2: Convert to physical robot frame in degrees
-    physical_degrees = mujoco_to_physical_degrees(state_radians)
-    
-    # Step 3: Z-score normalization
-    normalized = (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
-    
-    return normalized
+    if preprocessor is None:
+        physical_degrees = mujoco_to_physical_degrees(state_radians)
+        return (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+
+    try:
+        calibrated_state = state_radians.astype(np.float32, copy=False)
+        obs_dict = {"observation.state": torch.from_numpy(calibrated_state).float().unsqueeze(0)}
+        processed = preprocessor(obs_dict)
+        return _extract_processed_state(processed, calibrated_state)
+    except Exception as e:
+        import warnings
+        warnings.warn(f"SmolVLA preprocessor failed, using legacy hardcoded normalization: {e}")
+        physical_degrees = mujoco_to_physical_degrees(state_radians)
+        return (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
 
 
 def normalize_state_for_pi0(state_radians: np.ndarray, preprocessor) -> np.ndarray:
@@ -403,14 +554,14 @@ def normalize_state_for_pi0(state_radians: np.ndarray, preprocessor) -> np.ndarr
         return physical_state
 
 
-def unnormalize_action_from_smolvla(action_normalized: np.ndarray) -> np.ndarray:
+def unnormalize_action_from_smolvla(action_normalized: np.ndarray, postprocessor=None) -> np.ndarray:
     """
-    Unnormalize action output from SmolVLA using hardcoded stats.
+    Unnormalize action output from SmolVLA.
     
     Pipeline:
-    1. Z-score denormalize with SMOLVLA_ACTION_MEAN/STD
-    2. Subtract physical offset (in degrees)
-    3. Convert degrees -> radians for MuJoCo
+    1. If processor-backed: treat postprocessor output as calibrated MuJoCo radians.
+    2. Otherwise: use legacy hardcoded denormalization in the servo frame and
+       convert back to MuJoCo calibrated radians.
     
     Args:
         action_normalized: numpy array of normalized actions (6,) or (chunk_size, 6)
@@ -426,22 +577,31 @@ def unnormalize_action_from_smolvla(action_normalized: np.ndarray) -> np.ndarray
         # Process each action in the chunk
         results = []
         for action in action_normalized:
-            result = _unnormalize_single_action_smolvla(action)
+            result = _unnormalize_single_action_smolvla(action, postprocessor)
             results.append(result)
         return np.stack(results)
     else:
-        return _unnormalize_single_action_smolvla(action_normalized)
+        return _unnormalize_single_action_smolvla(action_normalized, postprocessor)
 
 
-def _unnormalize_single_action_smolvla(action_normalized: np.ndarray) -> np.ndarray:
-    """Helper to unnormalize a single SmolVLA action using hardcoded stats."""
-    # Step 1: Z-score denormalization
-    physical_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
-    
-    # Step 2 & 3: Convert physical degrees to MuJoCo radians
-    mujoco_action = physical_degrees_to_mujoco(physical_degrees)
-    
-    return mujoco_action
+def _unnormalize_single_action_smolvla(action_normalized: np.ndarray, postprocessor=None) -> np.ndarray:
+    """Helper to unnormalize a single SmolVLA action."""
+    if postprocessor is None:
+        physical_degrees = action_normalized * SMOLVLA_ACTION_STD + SMOLVLA_ACTION_MEAN
+        return physical_degrees_to_mujoco(physical_degrees)
+
+    try:
+        action_tensor = torch.from_numpy(action_normalized).float().unsqueeze(0)
+        processed = postprocessor(action_tensor)
+        calibrated_action = processed.squeeze(0).detach().cpu().numpy()
+    except Exception as e:
+        raise RuntimeError(
+            f"SmolVLA postprocessor failed to denormalize action.\n"
+            f"Input action: {action_normalized}\n"
+            f"Original error: {e}"
+        ) from e
+
+    return calibrated_action
 
 
 def unnormalize_action_for_pi0(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
@@ -514,8 +674,9 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
     """
     Prepare observation dict for VLA policy (SmolVLA or Pi0) with multiple cameras.
     
-    For SmolVLA: Uses hardcoded normalization (preprocessor can be None)
-    For Pi0: Uses preprocessor pipeline for normalization
+    For SmolVLA: Uses calibrated-radians processor normalization when available,
+    otherwise the legacy servo-frame hardcoded stats.
+    For Pi0: Uses processor pipeline for normalization.
     
     Args:
         rgb_image_top: numpy array of shape (H, W, C) from top camera with values in [0, 255]
@@ -543,8 +704,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
     
     # Step 2: Normalize state based on model type
     if model_type == "smolvla":
-        # SmolVLA uses hardcoded normalization (degrees-based)
-        normalized_state = normalize_state_for_smolvla(robot_state)
+        normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
         state_tensor = torch.from_numpy(normalized_state).float()
     elif model_type == "pi0" and preprocessor is not None:
         # Pi0 with preprocessor - use processor pipeline path
@@ -610,10 +770,23 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         language_tokens = torch.zeros((1, 1), dtype=torch.long, device=device)
         attention_mask = torch.ones((1, 1), dtype=torch.bool, device=device)
     
+    if model_type == "smolvla" and policy is not None:
+        expected_image_keys = detect_smolvla_image_keys(policy)
+        image_observation = build_smolvla_image_observation(
+            expected_image_keys,
+            image_top_tensor,
+            image_wrist_tensor,
+            image_side_tensor,
+        )
+    else:
+        image_observation = {
+            "observation.images.camera1": image_top_tensor,
+            "observation.images.camera2": image_wrist_tensor,
+            "observation.images.camera3": image_side_tensor,
+        }
+
     observation = {
-        "observation.images.camera1": image_top_tensor,
-        "observation.images.camera2": image_wrist_tensor,
-        "observation.images.camera3": image_side_tensor,
+        **image_observation,
         "observation.state": state_tensor,
         "observation.language.tokens": language_tokens,
         "observation.language.attention_mask": attention_mask,

@@ -203,6 +203,7 @@ class TrainingConfig:
     # Checkpointing
     checkpoint_path = "reinflow_checkpoint.pt"
     pretrained_path = "lerobot/smolvla_base"
+    finetuned_smolvla_path = "adamyathegreat/so101_pickplace_v1_smolvla"
     
     # Parallelization
     num_parallel_envs = 1
@@ -334,7 +335,9 @@ def parse_args():
     parser.add_argument('--critic-lr', type=float, default=None,
                         help='Critic learning rate')
     parser.add_argument('--pretrained', type=str, default=None,
-                        help='Path to pretrained VLA model (SmolVLA or Pi0)')
+                        help='Initial policy source for a fresh RL run (HF repo or local LeRobot model/checkpoint)')
+    parser.add_argument('--start-from-finetuned', action='store_true',
+                        help='Start a fresh SmolVLA RL run from the canonical finetuned SmolVLA policy')
     parser.add_argument('--parallel-envs', type=int, default=None,
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
     parser.add_argument('--subproc', action='store_true',
@@ -348,6 +351,39 @@ def parse_args():
     parser.add_argument('--no-gradient-checkpointing', action='store_true',
                         help='Disable gradient checkpointing for Pi0 (not recommended)')
     return parser.parse_args()
+
+
+def _get_trainable_scope_label(config) -> str:
+    """Return a human-readable summary of the ReinFlow trainable scope."""
+    if config.train_full_expert:
+        return "full-expert"
+    components = []
+    if config.train_action_head:
+        components.append("action-head")
+    if config.train_time_mlp:
+        components.append("time-mlp")
+    if config.train_noise_head:
+        components.append("noise-head")
+    if config.train_critic:
+        components.append("critic")
+    return ",".join(components) if components else "frozen"
+
+
+def _print_smolvla_startup_summary(config, rl_policy, start_mode: str, resume_path: str | None) -> None:
+    """Log SmolVLA startup semantics and normalization state."""
+    print(f"  [ReinFlow] Startup mode: {start_mode}")
+    if resume_path is not None:
+        print(f"  [ReinFlow] Resume checkpoint: {resume_path}")
+        print("  [ReinFlow] Ignoring fresh-start --pretrained/--start-from-finetuned weights for model restoration")
+    print(f"  [ReinFlow] Policy source: {getattr(rl_policy, 'base_policy_source', None)}")
+    print(
+        f"  [ReinFlow] Policy source type: "
+        f"{getattr(rl_policy, 'base_policy_source_type', 'unknown')}"
+    )
+    print(f"  [ReinFlow] Normalization mode: {getattr(rl_policy, 'normalization_mode', 'unknown')}")
+    print(f"  [ReinFlow] State/action frame: {getattr(rl_policy, 'state_action_frame', 'unknown')}")
+    print(f"  [ReinFlow] Image schema: {getattr(rl_policy, 'expected_image_keys', [])}")
+    print(f"  [ReinFlow] Trainable scope: {_get_trainable_scope_label(config)}")
 
 
 # ===== Parallel Training Loop (for A100) =====
@@ -372,9 +408,7 @@ def train_parallel(config, args, device):
     print(f"Setting up ReinFlow {config.model_type.upper()} (PPO, On-Policy)")
     print("="*60)
     
-    # Select appropriate setup function based on model type
-    # SmolVLA uses hardcoded normalization (no processors needed)
-    # Pi0 uses processor-based normalization
+    # Select appropriate setup function based on model type.
     preprocessor = None
     postprocessor = None
     
@@ -395,8 +429,7 @@ def train_parallel(config, args, device):
         # Pi0 sigma is set in adapter during creation
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     else:
-        # SmolVLA - no processors needed (uses hardcoded normalization)
-        rl_policy = setup_reinflow_policy(
+        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
             pretrained_path=config.pretrained_path,
             device=str(device),
             num_steps=config.num_denoising_steps,
@@ -410,9 +443,9 @@ def train_parallel(config, args, device):
         rl_policy.base.model.sigma_max = config.sigma_max
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     
-    # Choose environment implementation
-    # SmolVLA uses hardcoded normalization (no preprocessor needed)
-    # Pi0 uses processor-based normalization (pass preprocessor)
+    # Choose environment implementation.
+    # The env layer always owns MuJoCo<->physical frame conversion; model-specific
+    # processors only affect normalization/denormalization.
     if config.use_subproc_env:
         from subproc_vectorized_env import SubprocMuJoCoEnv
         print(f"\n[Parallel Mode - SUBPROC] Running {num_envs} environments in separate processes")
@@ -465,6 +498,14 @@ def train_parallel(config, args, device):
             start_episode, wandb_run_id = load_reinflow_pi0_checkpoint(rl_policy, checkpoint_to_load, str(device))
         else:
             start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+
+    if config.model_type == "smolvla":
+        _print_smolvla_startup_summary(
+            config,
+            rl_policy,
+            start_mode="resume-rl" if checkpoint_to_load and os.path.exists(checkpoint_to_load) else "fresh-rl",
+            resume_path=checkpoint_to_load if checkpoint_to_load and os.path.exists(checkpoint_to_load) else None,
+        )
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -492,6 +533,10 @@ def train_parallel(config, args, device):
                 "num_parallel_envs": config.num_parallel_envs,
                 "training_mode": "ppo-on-policy",
                 "gradient_checkpointing": config.pi0_gradient_checkpointing if config.model_type == "pi0" else False,
+                "base_policy_source": getattr(rl_policy, "base_policy_source", config.pretrained_path),
+                "base_policy_source_type": getattr(rl_policy, "base_policy_source_type", "unknown"),
+                "normalization_mode": getattr(rl_policy, "normalization_mode", "unknown"),
+                "state_action_frame": getattr(rl_policy, "state_action_frame", "unknown"),
             },
         )
         wandb_run_id = wandb.run.id
@@ -1125,9 +1170,7 @@ def train_sequential(config, args, device):
     print(f"Setting up ReinFlow {config.model_type.upper()} (PPO, On-Policy)")
     print("="*60)
     
-    # Select appropriate setup function based on model type
-    # SmolVLA uses hardcoded normalization (no processors needed)
-    # Pi0 uses processor-based normalization
+    # Select appropriate setup function based on model type.
     preprocessor = None
     postprocessor = None
     
@@ -1147,8 +1190,7 @@ def train_sequential(config, args, device):
         )
         print(f"  [ReinFlow] Sigma bounds: [{config.sigma_min}, {config.sigma_max}]")
     else:
-        # SmolVLA - no processors needed (uses hardcoded normalization)
-        rl_policy = setup_reinflow_policy(
+        rl_policy, preprocessor, postprocessor = setup_reinflow_policy(
             pretrained_path=config.pretrained_path,
             device=str(device),
             num_steps=config.num_denoising_steps,
@@ -1177,6 +1219,14 @@ def train_sequential(config, args, device):
             start_episode, wandb_run_id = load_reinflow_pi0_checkpoint(rl_policy, checkpoint_to_load, str(device))
         else:
             start_episode, wandb_run_id = load_reinflow_checkpoint(rl_policy, checkpoint_to_load, str(device))
+
+    if config.model_type == "smolvla":
+        _print_smolvla_startup_summary(
+            config,
+            rl_policy,
+            start_mode="resume-rl" if checkpoint_to_load and os.path.exists(checkpoint_to_load) else "fresh-rl",
+            resume_path=checkpoint_to_load if checkpoint_to_load and os.path.exists(checkpoint_to_load) else None,
+        )
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -1203,6 +1253,10 @@ def train_sequential(config, args, device):
                 "train_critic": config.train_critic,
                 "training_mode": "ppo-on-policy",
                 "gradient_checkpointing": config.pi0_gradient_checkpointing if config.model_type == "pi0" else False,
+                "base_policy_source": getattr(rl_policy, "base_policy_source", config.pretrained_path),
+                "base_policy_source_type": getattr(rl_policy, "base_policy_source_type", "unknown"),
+                "normalization_mode": getattr(rl_policy, "normalization_mode", "unknown"),
+                "state_action_frame": getattr(rl_policy, "state_action_frame", "unknown"),
             },
         )
         wandb_run_id = wandb.run.id
@@ -1320,7 +1374,7 @@ def train_sequential(config, args, device):
                     
                     action = action_chunk[0, action_idx]
                     action_np = action.detach().cpu().numpy()
-                    # SmolVLA uses hardcoded normalization (no postprocessor)
+                    # Model denormalization stays separate from the robot frame conversion.
                     action_radians = unnormalize_action_for_vla(action_np, config.model_type, postprocessor)
                     action_dict = convert_to_dictionary(action_radians)
                     
@@ -1801,6 +1855,13 @@ def train(config=None, args=None):
             config.policy_lr = args.policy_lr
         if args.critic_lr is not None:
             config.critic_lr = args.critic_lr
+        if (
+            hasattr(args, 'start_from_finetuned')
+            and args.start_from_finetuned
+            and args.pretrained is None
+            and config.model_type == "smolvla"
+        ):
+            config.pretrained_path = config.finetuned_smolvla_path
         if args.pretrained is not None:
             config.pretrained_path = args.pretrained
         if args.parallel_envs is not None:
@@ -1815,6 +1876,9 @@ def train(config=None, args=None):
             config.train_full_expert = False
         if hasattr(args, 'no_gradient_checkpointing') and args.no_gradient_checkpointing:
             config.pi0_gradient_checkpointing = False
+
+    if args is not None and getattr(args, 'resume', None) is not None:
+        print("[ReinFlow] --resume specified: ReinFlow RL checkpoint state will take precedence over fresh-start weights")
     
     # Apply Pi0-specific defaults if using Pi0 model
     if config.model_type == "pi0":
