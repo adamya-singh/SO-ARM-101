@@ -453,6 +453,7 @@ def train_parallel(config, args, device):
             num_envs=num_envs,
             model_path=config.model_path,
             starting_position=config.starting_position,
+            instruction=config.instruction,
             lift_threshold=config.lift_threshold,
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
@@ -462,7 +463,7 @@ def train_parallel(config, args, device):
             sustained_contact_threshold=config.sustained_contact_threshold,
             sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
-            preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
+            preprocessor=preprocessor,  # Processor-backed normalization when available
         )
     else:
         from vectorized_env import VectorizedMuJoCoEnv
@@ -471,6 +472,7 @@ def train_parallel(config, args, device):
             num_envs=num_envs,
             model_path=config.model_path,
             starting_position=config.starting_position,
+            instruction=config.instruction,
             lift_threshold=config.lift_threshold,
             contact_bonus=config.contact_bonus,
             height_alignment_bonus=config.height_alignment_bonus,
@@ -480,7 +482,7 @@ def train_parallel(config, args, device):
             sustained_contact_threshold=config.sustained_contact_threshold,
             sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
-            preprocessor=preprocessor,  # None for SmolVLA, actual preprocessor for Pi0
+            preprocessor=preprocessor,  # Processor-backed normalization when available
         )
     
     # Load checkpoint if resuming

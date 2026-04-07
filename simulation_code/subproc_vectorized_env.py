@@ -245,6 +245,7 @@ class SubprocMuJoCoEnv:
         num_envs: Number of parallel environments (one process each)
         model_path: Path to MuJoCo XML model file
         starting_position: Dict of joint positions in degrees
+        instruction: Task text used by processor-backed SmolVLA normalization
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
         contact_bonus: Bonus reward while gripper contacts block
@@ -263,6 +264,7 @@ class SubprocMuJoCoEnv:
         num_envs: int,
         model_path: str,
         starting_position: dict,
+        instruction: str,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
         contact_bonus: float = 0.1,
@@ -278,6 +280,7 @@ class SubprocMuJoCoEnv:
         self.num_envs = num_envs
         self.model_path = model_path
         self.starting_position = starting_position
+        self.instruction = instruction
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
         self.contact_bonus = contact_bonus
@@ -401,7 +404,13 @@ class SubprocMuJoCoEnv:
         # State: normalize based on model type after MuJoCo->physical frame conversion.
         batch_state_np = np.stack(batch_state)
         batch_state_normalized = np.stack([
-            normalize_state_for_vla(s, self.model_type, self.preprocessor) for s in batch_state_np
+            normalize_state_for_vla(
+                s,
+                self.model_type,
+                self.preprocessor,
+                instruction=self.instruction,
+            )
+            for s in batch_state_np
         ])
         batch_state = torch.from_numpy(batch_state_normalized).float()
         

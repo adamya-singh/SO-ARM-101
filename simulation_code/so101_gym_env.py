@@ -65,6 +65,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         model_type="smolvla",
         preprocessor=None,
         postprocessor=None,
+        task_instruction: str = "pick up the block",
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -84,6 +85,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             model_type: "smolvla" or "pi0" - selects which VLA model normalization to use
             preprocessor: Optional PolicyProcessorPipeline for state normalization
             postprocessor: Optional PolicyProcessorPipeline for action denormalization
+            task_instruction: Task text used by processor-backed SmolVLA normalization
         """
         super().__init__()
 
@@ -106,6 +108,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.model_type = model_type
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
+        self.task_instruction = task_instruction
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -191,7 +194,12 @@ class SO101PickPlaceEnv(gymnasium.Env):
         # Normalize state for VLA if flag is set
         if self._normalize:
             # Use model-aware normalization for the selected policy contract.
-            state = normalize_state_for_vla(state, self.model_type, self.preprocessor).astype(np.float32)
+            state = normalize_state_for_vla(
+                state,
+                self.model_type,
+                self.preprocessor,
+                instruction=self.task_instruction,
+            ).astype(np.float32)
         
         return {
             "observation.images.camera1": camera1_image,

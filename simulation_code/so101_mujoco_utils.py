@@ -1,4 +1,5 @@
 import time
+import warnings
 import mujoco
 import numpy as np
 import torch
@@ -291,7 +292,12 @@ def load_vla_processors(model_type: str, pretrained_path: str, policy_config=Non
         raise ValueError(f"Unknown model type: {model_type}. Must be 'smolvla' or 'pi0'.")
 
 
-def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preprocessor=None) -> np.ndarray:
+def normalize_state_for_vla(
+    state_radians: np.ndarray,
+    model_type: str,
+    preprocessor=None,
+    instruction: Optional[str] = None,
+) -> np.ndarray:
     """
     Model-agnostic state normalization.
     
@@ -301,12 +307,17 @@ def normalize_state_for_vla(state_radians: np.ndarray, model_type: str, preproce
         state_radians: numpy array of joint positions in radians (6,)
         model_type: "smolvla" or "pi0"
         preprocessor: PolicyProcessorPipeline for model-backed normalization
+        instruction: Task instruction required by processor-backed SmolVLA normalization
         
     Returns:
         normalized state as numpy array (6,)
     """
     if model_type == "smolvla":
-        return normalize_state_for_smolvla(state_radians, preprocessor=preprocessor)
+        return normalize_state_for_smolvla(
+            state_radians,
+            preprocessor=preprocessor,
+            instruction=instruction,
+        )
     elif model_type == "pi0":
         return normalize_state_for_pi0(state_radians, preprocessor)
     else:
@@ -479,7 +490,55 @@ def hold_position(m, d, viewer, duration):
 
 # ===== SmolVLA Helper Functions =====
 
-def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor=None) -> np.ndarray:
+def _legacy_normalize_state_for_smolvla(state_radians: np.ndarray) -> np.ndarray:
+    """Legacy SmolVLA normalization in the servo-frame fallback path."""
+    physical_degrees = mujoco_to_physical_degrees(state_radians)
+    return (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+
+
+def _process_action_with_postprocessor(action: np.ndarray | torch.Tensor, postprocessor, model_label: str) -> np.ndarray:
+    """Run a policy postprocessor through its action-specific API when available."""
+    if torch.is_tensor(action):
+        action_tensor = action.detach().to(dtype=torch.float32)
+    else:
+        action_tensor = torch.as_tensor(action, dtype=torch.float32)
+
+    if action_tensor.ndim == 1:
+        action_tensor = action_tensor.unsqueeze(0)
+    elif action_tensor.ndim != 2:
+        raise RuntimeError(
+            f"{model_label} postprocessor expected action rank 1 or 2, got shape {tuple(action_tensor.shape)}"
+        )
+
+    if hasattr(postprocessor, "process_action"):
+        processed = postprocessor.process_action(action_tensor)
+    else:
+        processed = postprocessor(action_tensor)
+
+    if torch.is_tensor(processed):
+        processed_np = processed.detach().cpu().numpy()
+    else:
+        processed_np = np.asarray(processed)
+
+    if processed_np.ndim == 2:
+        if processed_np.shape[0] != 1:
+            raise RuntimeError(
+                f"{model_label} postprocessor returned batched shape {processed_np.shape}, expected batch size 1"
+            )
+        processed_np = processed_np[0]
+    elif processed_np.ndim != 1:
+        raise RuntimeError(
+            f"{model_label} postprocessor returned invalid shape {processed_np.shape}, expected (action_dim,) or (1, action_dim)"
+        )
+
+    return processed_np.astype(np.float32, copy=False)
+
+
+def normalize_state_for_smolvla(
+    state_radians: np.ndarray,
+    preprocessor=None,
+    instruction: Optional[str] = None,
+) -> np.ndarray:
     """
     Normalize robot state for SmolVLA input.
     
@@ -495,19 +554,24 @@ def normalize_state_for_smolvla(state_radians: np.ndarray, preprocessor=None) ->
         normalized state as numpy array (6,)
     """
     if preprocessor is None:
-        physical_degrees = mujoco_to_physical_degrees(state_radians)
-        return (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+        return _legacy_normalize_state_for_smolvla(state_radians)
+
+    if not instruction:
+        raise ValueError(
+            "Processor-backed SmolVLA normalization requires a non-empty task instruction."
+        )
 
     try:
         calibrated_state = state_radians.astype(np.float32, copy=False)
-        obs_dict = {"observation.state": torch.from_numpy(calibrated_state).float().unsqueeze(0)}
+        obs_dict = {
+            "observation.state": torch.from_numpy(calibrated_state).float().unsqueeze(0),
+            "task": instruction,
+        }
         processed = preprocessor(obs_dict)
         return _extract_processed_state(processed, calibrated_state)
     except Exception as e:
-        import warnings
         warnings.warn(f"SmolVLA preprocessor failed, using legacy hardcoded normalization: {e}")
-        physical_degrees = mujoco_to_physical_degrees(state_radians)
-        return (physical_degrees - SMOLVLA_STATE_MEAN) / SMOLVLA_STATE_STD
+        return _legacy_normalize_state_for_smolvla(state_radians)
 
 
 def normalize_state_for_pi0(state_radians: np.ndarray, preprocessor) -> np.ndarray:
@@ -591,9 +655,11 @@ def _unnormalize_single_action_smolvla(action_normalized: np.ndarray, postproces
         return physical_degrees_to_mujoco(physical_degrees)
 
     try:
-        action_tensor = torch.from_numpy(action_normalized).float().unsqueeze(0)
-        processed = postprocessor(action_tensor)
-        calibrated_action = processed.squeeze(0).detach().cpu().numpy()
+        calibrated_action = _process_action_with_postprocessor(
+            action_normalized,
+            postprocessor,
+            model_label="SmolVLA",
+        )
     except Exception as e:
         raise RuntimeError(
             f"SmolVLA postprocessor failed to denormalize action.\n"
@@ -641,11 +707,12 @@ def unnormalize_action_for_pi0(action_normalized: np.ndarray, postprocessor) -> 
 def _unnormalize_single_action_pi0(action_normalized: np.ndarray, postprocessor) -> np.ndarray:
     """Helper to unnormalize a single Pi0 action using processor."""
     # Apply postprocessor denormalization
-    # Note: Pi0's postprocessor expects a raw tensor (PolicyAction), not a dict
     try:
-        action_tensor = torch.from_numpy(action_normalized).float().unsqueeze(0)
-        processed = postprocessor(action_tensor)  # Pass tensor directly
-        physical_action = processed.squeeze(0).numpy()
+        physical_action = _process_action_with_postprocessor(
+            action_normalized,
+            postprocessor,
+            model_label="Pi0",
+        )
     except Exception as e:
         raise RuntimeError(
             f"Pi0 postprocessor failed to denormalize action.\n"
@@ -686,7 +753,7 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
         instruction: string with task instruction
         device: torch device (cuda, mps, or cpu)
         policy: VLA policy object (used for tokenization)
-        preprocessor: PolicyProcessorPipeline for Pi0 preprocessing (None for SmolVLA)
+        preprocessor: PolicyProcessorPipeline for model-backed preprocessing
         model_type: "smolvla" or "pi0" - determines normalization approach
     
     Returns:
@@ -704,7 +771,11 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
     
     # Step 2: Normalize state based on model type
     if model_type == "smolvla":
-        normalized_state = normalize_state_for_smolvla(robot_state, preprocessor=preprocessor)
+        normalized_state = normalize_state_for_smolvla(
+            robot_state,
+            preprocessor=preprocessor,
+            instruction=instruction,
+        )
         state_tensor = torch.from_numpy(normalized_state).float()
     elif model_type == "pi0" and preprocessor is not None:
         # Pi0 with preprocessor - use processor pipeline path
