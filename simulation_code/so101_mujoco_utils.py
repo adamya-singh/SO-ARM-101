@@ -883,6 +883,10 @@ def prepare_observation(rgb_image_top, rgb_image_wrist, rgb_image_side, robot_st
 _prev_gripper_pos = None
 _prev_block_pos = None
 _initial_block_pos = None  # Track where block started (to avoid reward hacking)
+_hover_without_contact_steps = 0
+_prev_contacted = False
+_prev_gripped = False
+_prev_block_height = None
 
 
 def check_gripper_block_contact(m, d, block_name="red_block"):
@@ -983,8 +987,200 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
     return np.linalg.norm(total_force)
 
 
-# Global state for tracking consecutive contact (for sustained contact bonus)
+# Global state for pickup-phase reward tracking
 _consecutive_contact = 0
+
+
+def create_reward_state_tracker() -> dict[str, Any]:
+    """Create mutable reward-tracking state for non-global environment wrappers."""
+    return {
+        "prev_gripper_pos": None,
+        "prev_block_pos": None,
+        "initial_block_pos": None,
+        "consecutive_contact": 0,
+        "hover_without_contact_steps": 0,
+        "prev_contacted": False,
+        "prev_gripped": False,
+        "prev_block_height": None,
+    }
+
+
+def _sync_global_reward_state(state: dict[str, Any]) -> None:
+    """Mirror a local reward state tracker back into the module globals."""
+    global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
+    global _consecutive_contact, _hover_without_contact_steps
+    global _prev_contacted, _prev_gripped, _prev_block_height
+
+    _prev_gripper_pos = state["prev_gripper_pos"]
+    _prev_block_pos = state["prev_block_pos"]
+    _initial_block_pos = state["initial_block_pos"]
+    _consecutive_contact = state["consecutive_contact"]
+    _hover_without_contact_steps = state["hover_without_contact_steps"]
+    _prev_contacted = state["prev_contacted"]
+    _prev_gripped = state["prev_gripped"]
+    _prev_block_height = state["prev_block_height"]
+
+
+def compute_pickup_reward_from_state(
+    m,
+    d,
+    state: dict[str, Any],
+    block_name: str = "red_block",
+    lift_threshold: float = 0.08,
+    contact_bonus: float = 0.1,
+    height_alignment_bonus: float = 0.05,
+    grasp_bonus: float = 0.15,
+    lift_bonus: float = 0.2,
+    lift_bonus_threshold: float = 0.04,
+    sustained_contact_threshold: int = 5,
+    sustained_contact_bonus: float = 0.2,
+):
+    """
+    Compute a staged pickup reward using caller-owned mutable state.
+
+    Returns:
+        reward: scalar reward
+        done: success/termination flag for lifting
+        metrics: dict with boolean flags and dense shaping diagnostics
+    """
+    gripper_pos = d.site("gripperframe").xpos.copy()
+    block_pos = d.body(block_name).xpos.copy()
+
+    if state["initial_block_pos"] is None:
+        state["initial_block_pos"] = block_pos.copy()
+    initial_block_pos = state["initial_block_pos"]
+
+    prev_gripper_pos = state["prev_gripper_pos"]
+    prev_block_pos = state["prev_block_pos"]
+    prev_block_height = state["prev_block_height"]
+    prev_contacted = state["prev_contacted"]
+    prev_gripped = state["prev_gripped"]
+
+    distance = np.linalg.norm(gripper_pos - block_pos)
+    horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
+    height_above = gripper_pos[2] - block_pos[2]
+    block_height_gain = max(0.0, block_pos[2] - initial_block_pos[2])
+    block_displacement = np.linalg.norm(block_pos[:2] - initial_block_pos[:2])
+
+    prev_horizontal_dist = None
+    if prev_gripper_pos is not None and prev_block_pos is not None:
+        prev_horizontal_dist = np.linalg.norm(prev_gripper_pos[:2] - prev_block_pos[:2])
+    horizontal_progress = 0.0 if prev_horizontal_dist is None else prev_horizontal_dist - horizontal_dist
+
+    reward = -distance
+
+    contacted = check_gripper_block_contact(m, d, block_name)
+    gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
+
+    approach_closeness = np.clip(1.0 - horizontal_dist / 0.12, 0.0, 1.0)
+    vertical_alignment = np.clip(1.0 - abs(height_above - 0.028) / 0.04, 0.0, 1.0)
+    approach_reward = 0.0
+    if not contacted:
+        approach_reward = 0.04 * approach_closeness + 0.03 * approach_closeness * vertical_alignment
+        reward += approach_reward
+
+    moving_into_grasp = horizontal_progress > -0.001
+    height_aligned = horizontal_dist < 0.06 and 0.012 < height_above < 0.06 and moving_into_grasp and not contacted
+    alignment_reward = 0.0
+    if height_aligned:
+        alignment_reward = min(0.018, 0.018 * approach_closeness * vertical_alignment)
+        reward += alignment_reward
+
+    if height_aligned and not contacted:
+        if horizontal_progress < 0.001:
+            state["hover_without_contact_steps"] += 1
+        else:
+            state["hover_without_contact_steps"] = max(0, state["hover_without_contact_steps"] - 1)
+    else:
+        state["hover_without_contact_steps"] = 0
+
+    hover_stall = state["hover_without_contact_steps"] >= 4
+    hover_penalty = -0.02 if hover_stall else 0.0
+    reward += hover_penalty
+
+    sustained = False
+    contact_entry = False
+    contact_entry_bonus = 0.0
+    contact_persistence_reward = 0.0
+    if contacted:
+        state["consecutive_contact"] += 1
+        contact_entry = not prev_contacted
+        if contact_entry:
+            contact_entry_bonus = 0.18
+            if height_aligned or horizontal_dist < 0.07:
+                contact_entry_bonus += 0.02
+        contact_persistence_reward = 0.045
+        reward += contact_entry_bonus + contact_persistence_reward
+        sustained = state["consecutive_contact"] >= sustained_contact_threshold
+        if sustained:
+            reward += min(0.06, sustained_contact_bonus * 0.25)
+    else:
+        state["consecutive_contact"] = 0
+
+    grasp_persistent = False
+    grasp_persistence_reward = 0.0
+    bilateral_grasp_bonus = 0.0
+    if gripped:
+        bilateral_grasp_bonus = 0.30
+        grasp_persistent = prev_gripped
+        grasp_persistence_reward = 0.08 if grasp_persistent else 0.0
+        reward += bilateral_grasp_bonus + grasp_persistence_reward
+
+    lift_progress_reward = min(0.4, 5.0 * block_height_gain)
+    reward += lift_progress_reward
+
+    block_lifted = block_pos[2] > lift_bonus_threshold
+    if block_lifted:
+        reward += max(lift_bonus, 0.25)
+
+    slip_count = 0
+    slip_penalty = 0.0
+    if prev_gripped and not gripped and block_height_gain < 0.02:
+        slip_count = 1
+        slip_penalty = -0.10
+    elif prev_contacted and not contacted and state["consecutive_contact"] == 0:
+        slip_count = 1
+        slip_penalty = -0.05
+    reward += slip_penalty
+
+    block_displacement_penalty = 0.0
+    if block_height_gain < 0.015 and block_displacement > 0.02:
+        displacement_excess = min(block_displacement - 0.02, 0.08)
+        block_displacement_penalty = -0.08 * (displacement_excess / 0.08)
+        reward += block_displacement_penalty
+
+    done = block_pos[2] > lift_threshold
+
+    state["prev_gripper_pos"] = gripper_pos
+    state["prev_block_pos"] = block_pos
+    state["prev_contacted"] = contacted
+    state["prev_gripped"] = gripped
+    state["prev_block_height"] = block_pos[2]
+
+    metrics = {
+        "contacted": contacted,
+        "gripped": gripped,
+        "sustained": sustained,
+        "height_aligned": height_aligned,
+        "block_lifted": block_lifted,
+        "contact_entry": contact_entry,
+        "grasp_persistent": grasp_persistent,
+        "hover_stall": hover_stall,
+        "slip_count": slip_count,
+        "lift_progress": block_height_gain,
+        "block_displacement": block_displacement,
+        "approach_reward": approach_reward,
+        "alignment_reward": alignment_reward,
+        "contact_persistence_reward": contact_persistence_reward,
+        "grasp_persistence_reward": grasp_persistence_reward,
+        "lift_progress_reward": lift_progress_reward,
+        "hover_penalty": hover_penalty,
+        "slip_penalty": slip_penalty,
+        "block_displacement_penalty": block_displacement_penalty,
+        "grip_force": grip_force,
+        "prev_block_height": prev_block_height if prev_block_height is not None else block_pos[2],
+    }
+    return reward, done, metrics
 
 
 def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bonus=0.1, 
@@ -1013,63 +1209,61 @@ def compute_reward(m, d, block_name="red_block", lift_threshold=0.08, contact_bo
         height_aligned: bool - whether gripper is above block and close horizontally
         block_lifted: bool - whether block is elevated above lift_bonus_threshold
     """
-    global _consecutive_contact
-    
-    # Get gripper position (end effector)
-    gripper_pos = d.site("gripperframe").xpos.copy()
+    state = {
+        "prev_gripper_pos": _prev_gripper_pos,
+        "prev_block_pos": _prev_block_pos,
+        "initial_block_pos": _initial_block_pos,
+        "consecutive_contact": _consecutive_contact,
+        "hover_without_contact_steps": _hover_without_contact_steps,
+        "prev_contacted": _prev_contacted,
+        "prev_gripped": _prev_gripped,
+        "prev_block_height": _prev_block_height,
+    }
+    reward, done, metrics = compute_pickup_reward_from_state(
+        m,
+        d,
+        state,
+        block_name=block_name,
+        lift_threshold=lift_threshold,
+        contact_bonus=contact_bonus,
+        height_alignment_bonus=height_alignment_bonus,
+        grasp_bonus=grasp_bonus,
+        lift_bonus=lift_bonus,
+        lift_bonus_threshold=lift_bonus_threshold,
+        sustained_contact_threshold=sustained_contact_threshold,
+        sustained_contact_bonus=sustained_contact_bonus,
+    )
+    _sync_global_reward_state(state)
 
-    # Get block position (current, not initial)
-    block_pos = d.body(block_name).xpos.copy()
-
-    # Distance reward: closer = better (less negative)
-    distance = np.linalg.norm(gripper_pos - block_pos)
-    reward = -distance
-
-    # Height alignment bonus: reward gripper being above block when close horizontally
-    # Encourages top-down approach rather than sideways bumping
-    horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
-    height_above = gripper_pos[2] - block_pos[2]
-    height_aligned = horizontal_dist < 0.1 and height_above > 0.02
-    if height_aligned:
-        reward += height_alignment_bonus
-
-    # Contact bonus: positive signal while touching
-    contacted = check_gripper_block_contact(m, d, block_name)
-    sustained = False
-    if contacted:
-        reward += contact_bonus
-        # Track consecutive contact for sustained bonus
-        _consecutive_contact += 1
-        if _consecutive_contact >= sustained_contact_threshold:
-            reward += sustained_contact_bonus
-            sustained = True
-    else:
-        # Reset consecutive contact counter on contact loss
-        _consecutive_contact = 0
-
-    # Grasp bonus: reward when both sides of gripper squeeze block
-    gripped, _ = check_block_gripped_with_force(m, d, block_name)
-    if gripped:
-        reward += grasp_bonus
-
-    # Lift bonus: reward when block is elevated above threshold
-    block_lifted = block_pos[2] > lift_bonus_threshold
-    if block_lifted:
-        reward += lift_bonus
-
-    # Check if block is lifted high enough for episode termination
-    done = block_pos[2] > lift_threshold
-
-    return reward, done, contacted, gripped, sustained, height_aligned, block_lifted
+    return (
+        reward,
+        done,
+        metrics["contacted"],
+        metrics["gripped"],
+        metrics["sustained"],
+        metrics["height_aligned"],
+        metrics["block_lifted"],
+        metrics["contact_entry"],
+        metrics["grasp_persistent"],
+        metrics["lift_progress"],
+        metrics["hover_stall"],
+        metrics["slip_count"],
+        metrics["block_displacement"],
+    )
 
 
 def reset_reward_state():
     """Reset the reward state (call at episode start)."""
     global _prev_gripper_pos, _prev_block_pos, _initial_block_pos, _consecutive_contact
+    global _hover_without_contact_steps, _prev_contacted, _prev_gripped, _prev_block_height
     _prev_gripper_pos = None
     _prev_block_pos = None
     _initial_block_pos = None
     _consecutive_contact = 0
+    _hover_without_contact_steps = 0
+    _prev_contacted = False
+    _prev_gripped = False
+    _prev_block_height = None
 
 
 def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):

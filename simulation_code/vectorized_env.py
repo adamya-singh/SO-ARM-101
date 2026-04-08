@@ -24,9 +24,8 @@ from so101_mujoco_utils import (
     convert_to_list,
     convert_to_dictionary,
     normalize_state_for_vla,
-    check_gripper_block_contact,
-    check_block_gripped_with_force,
-    get_floor_contact_force,
+    create_reward_state_tracker,
+    compute_pickup_reward_from_state,
 )
 
 
@@ -96,9 +95,7 @@ class VectorizedMuJoCoEnv:
         self.renderers = [mujoco.Renderer(self.model, height=256, width=256) for _ in range(num_envs)]
         
         # Per-environment state tracking for rewards
-        self.prev_gripper_pos = [None] * num_envs
-        self.prev_block_pos = [None] * num_envs
-        self.initial_block_pos = [None] * num_envs
+        self.reward_states = [create_reward_state_tracker() for _ in range(num_envs)]
         
         # Episode status
         self.dones = np.zeros(num_envs, dtype=bool)
@@ -143,9 +140,7 @@ class VectorizedMuJoCoEnv:
         mujoco.mj_forward(self.model, d)
         
         # Reset reward tracking state
-        self.prev_gripper_pos[env_idx] = None
-        self.prev_block_pos[env_idx] = None
-        self.initial_block_pos[env_idx] = None
+        self.reward_states[env_idx] = create_reward_state_tracker()
         self.episode_steps[env_idx] = 0
         self.consecutive_contact[env_idx] = 0
     
@@ -251,7 +246,7 @@ class VectorizedMuJoCoEnv:
                 mujoco.mj_step(self.model, d)
             
             # Compute reward
-            reward, done, contacted, gripped, sustained, height_aligned, block_lifted = self._compute_reward(i)
+            reward, done, contacted, gripped, sustained, height_aligned, *_ = self._compute_reward(i)
             rewards[i] = reward
             contacts[i] = int(contacted)
             grasps[i] = int(gripped)
@@ -286,51 +281,36 @@ class VectorizedMuJoCoEnv:
             block_lifted: bool, whether block is elevated above lift_bonus_threshold
         """
         d = self.datas[env_idx]
-
-        # Get positions
-        gripper_pos = d.site("gripperframe").xpos.copy()
-        block_pos = d.body("red_block").xpos.copy()
-
-        # Distance reward: closer = better (less negative)
-        distance = np.linalg.norm(gripper_pos - block_pos)
-        reward = -distance
-
-        # Height alignment bonus: reward gripper being above block when close horizontally
-        # Encourages top-down approach rather than sideways bumping
-        horizontal_dist = np.linalg.norm(gripper_pos[:2] - block_pos[:2])
-        height_above = gripper_pos[2] - block_pos[2]
-        height_aligned = horizontal_dist < 0.1 and height_above > 0.02
-        if height_aligned:
-            reward += self.height_alignment_bonus
-
-        # Contact bonus: positive signal while touching
-        contacted = check_gripper_block_contact(self.model, d, "red_block")
-        sustained = False
-        if contacted:
-            reward += self.contact_bonus
-            # Track consecutive contact for sustained bonus
-            self.consecutive_contact[env_idx] += 1
-            if self.consecutive_contact[env_idx] >= self.sustained_contact_threshold:
-                reward += self.sustained_contact_bonus
-                sustained = True
-        else:
-            # Reset consecutive contact counter on contact loss
-            self.consecutive_contact[env_idx] = 0
-
-        # Grasp bonus: reward when both sides of gripper squeeze block
-        gripped, _ = check_block_gripped_with_force(self.model, d, "red_block")
-        if gripped:
-            reward += self.grasp_bonus
-
-        # Lift bonus: reward when block is elevated above threshold
-        block_lifted = block_pos[2] > self.lift_bonus_threshold
-        if block_lifted:
-            reward += self.lift_bonus
-
-        # Check if block is lifted high enough for episode termination
-        done = block_pos[2] > self.lift_threshold
-
-        return reward, done, contacted, gripped, sustained, height_aligned, block_lifted
+        reward, done, metrics = compute_pickup_reward_from_state(
+            self.model,
+            d,
+            self.reward_states[env_idx],
+            block_name="red_block",
+            lift_threshold=self.lift_threshold,
+            contact_bonus=self.contact_bonus,
+            height_alignment_bonus=self.height_alignment_bonus,
+            grasp_bonus=self.grasp_bonus,
+            lift_bonus=self.lift_bonus,
+            lift_bonus_threshold=self.lift_bonus_threshold,
+            sustained_contact_threshold=self.sustained_contact_threshold,
+            sustained_contact_bonus=self.sustained_contact_bonus,
+        )
+        self.consecutive_contact[env_idx] = self.reward_states[env_idx]["consecutive_contact"]
+        return (
+            reward,
+            done,
+            metrics["contacted"],
+            metrics["gripped"],
+            metrics["sustained"],
+            metrics["height_aligned"],
+            metrics["block_lifted"],
+            metrics["contact_entry"],
+            metrics["grasp_persistent"],
+            metrics["lift_progress"],
+            metrics["hover_stall"],
+            metrics["slip_count"],
+            metrics["block_displacement"],
+        )
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
         """
@@ -350,6 +330,12 @@ class VectorizedMuJoCoEnv:
             total_grasps: (N,) int array of grasp counts over chunk
             total_sustained: (N,) int array of sustained contact counts over chunk
             total_height_aligned: (N,) int array of height alignment counts over chunk
+            total_contact_entries: (N,) int array of contact-entry transition counts over chunk
+            total_grasp_persistent: (N,) int array of persistent-grasp counts over chunk
+            total_lift_progress: (N,) float array of cumulative lift progress over chunk
+            total_hover_stall: (N,) int array of hover-stall counts over chunk
+            total_slips: (N,) int array of slip events over chunk
+            total_block_displacement: (N,) float array of cumulative block displacement over chunk
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
@@ -357,6 +343,12 @@ class VectorizedMuJoCoEnv:
         total_grasps = np.zeros(num_envs, dtype=int)
         total_sustained = np.zeros(num_envs, dtype=int)
         total_height_aligned = np.zeros(num_envs, dtype=int)
+        total_contact_entries = np.zeros(num_envs, dtype=int)
+        total_grasp_persistent = np.zeros(num_envs, dtype=int)
+        total_lift_progress = np.zeros(num_envs, dtype=float)
+        total_hover_stall = np.zeros(num_envs, dtype=int)
+        total_slips = np.zeros(num_envs, dtype=int)
+        total_block_displacement = np.zeros(num_envs, dtype=float)
         
         for action_idx in range(chunk_size):
             # Get actions for this timestep across all environments
@@ -378,16 +370,35 @@ class VectorizedMuJoCoEnv:
                     mujoco.mj_step(self.model, d)
                 
                 # Compute reward for this step
-                reward, done, contacted, gripped, sustained, height_aligned, block_lifted = self._compute_reward(i)
+                reward, done, contacted, gripped, sustained, height_aligned, block_lifted, contact_entry, grasp_persistent, lift_progress, hover_stall, slip_count, block_displacement = self._compute_reward(i)
                 total_rewards[i] += reward
                 total_contacts[i] += int(contacted)
                 total_grasps[i] += int(gripped)
                 total_sustained[i] += int(sustained)
                 total_height_aligned[i] += int(height_aligned)
+                total_contact_entries[i] += int(contact_entry)
+                total_grasp_persistent[i] += int(grasp_persistent)
+                total_lift_progress[i] += float(lift_progress)
+                total_hover_stall[i] += int(hover_stall)
+                total_slips[i] += int(slip_count)
+                total_block_displacement[i] += float(block_displacement)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
         
-        return total_rewards, self.dones.copy(), total_contacts, total_grasps, total_sustained, total_height_aligned
+        return (
+            total_rewards,
+            self.dones.copy(),
+            total_contacts,
+            total_grasps,
+            total_sustained,
+            total_height_aligned,
+            total_contact_entries,
+            total_grasp_persistent,
+            total_lift_progress,
+            total_hover_stall,
+            total_slips,
+            total_block_displacement,
+        )
     
     def get_episode_steps(self) -> np.ndarray:
         """Get current step count for each environment."""

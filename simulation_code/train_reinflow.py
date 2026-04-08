@@ -793,7 +793,7 @@ def train_parallel(config, args, device):
                     for chunk in action_chunks_np
                 ])
                 
-                chunk_rewards, dones, _, _, _, _ = vec_env.step_all_chunk(
+                chunk_rewards, dones, *_ = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 warmup_rewards.extend(chunk_rewards.tolist())
@@ -838,6 +838,12 @@ def train_parallel(config, args, device):
             episode_grasps = np.zeros(num_envs, dtype=int)
             episode_sustained = np.zeros(num_envs, dtype=int)
             episode_height_aligned = np.zeros(num_envs, dtype=int)
+            episode_contact_entries = np.zeros(num_envs, dtype=int)
+            episode_grasp_persistent = np.zeros(num_envs, dtype=int)
+            episode_hover_stall = np.zeros(num_envs, dtype=int)
+            episode_slips = np.zeros(num_envs, dtype=int)
+            episode_lift_progress = np.zeros(num_envs, dtype=float)
+            episode_block_displacement = np.zeros(num_envs, dtype=float)
             
             # Collect data for this batch (on-policy), preserving env/chunk identity.
             rollout = ParallelRolloutBatch(
@@ -872,7 +878,20 @@ def train_parallel(config, args, device):
                 ])
                 
                 # Execute chunk and get rewards
-                chunk_rewards, dones, chunk_contacts, chunk_grasps, chunk_sustained, chunk_height_aligned = vec_env.step_all_chunk(
+                (
+                    chunk_rewards,
+                    dones,
+                    chunk_contacts,
+                    chunk_grasps,
+                    chunk_sustained,
+                    chunk_height_aligned,
+                    chunk_contact_entries,
+                    chunk_grasp_persistent,
+                    chunk_lift_progress,
+                    chunk_hover_stall,
+                    chunk_slips,
+                    chunk_block_displacement,
+                ) = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
                 episode_rewards += chunk_rewards
@@ -880,6 +899,12 @@ def train_parallel(config, args, device):
                 episode_grasps += chunk_grasps
                 episode_sustained += chunk_sustained
                 episode_height_aligned += chunk_height_aligned
+                episode_contact_entries += chunk_contact_entries
+                episode_grasp_persistent += chunk_grasp_persistent
+                episode_lift_progress += chunk_lift_progress
+                episode_hover_stall += chunk_hover_stall
+                episode_slips += chunk_slips
+                episode_block_displacement += chunk_block_displacement
                 
                 # Store data for on-policy update, indexed by [env][chunk].
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
@@ -1261,6 +1286,16 @@ def train_parallel(config, args, device):
                     "reward/height_align_count_avg": episode_height_aligned.mean(),
                     "reward/height_align_count_max": episode_height_aligned.max(),
                     "reward/height_align_rate": episode_height_aligned.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/contact_entry_count_avg": episode_contact_entries.mean(),
+                    "reward/contact_entry_rate": episode_contact_entries.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/grasp_persistence_count_avg": episode_grasp_persistent.mean(),
+                    "reward/grasp_persistence_rate": episode_grasp_persistent.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/lift_progress_mean": episode_lift_progress.mean() / max(1, config.chunks_per_episode * 50),
+                    "reward/hover_stall_count_avg": episode_hover_stall.mean(),
+                    "reward/hover_stall_rate": episode_hover_stall.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/slip_count_avg": episode_slips.mean(),
+                    "reward/slip_count_total": episode_slips.sum(),
+                    "reward/block_displacement_mean": episode_block_displacement.mean() / max(1, config.chunks_per_episode * 50),
                     
                     # Loss metrics
                     "loss/policy": avg_policy_loss,
@@ -1631,7 +1666,7 @@ def train_sequential(config, args, device):
                             viewer.sync()
                     
                     # Get reward
-                    reward, warmup_done = compute_reward(m, d, lift_threshold=config.lift_threshold)
+                    reward, warmup_done, *_ = compute_reward(m, d, lift_threshold=config.lift_threshold)
                     chunk_reward += reward
                 
                 warmup_rewards.append(chunk_reward)
@@ -1675,6 +1710,12 @@ def train_sequential(config, args, device):
             episode_grasps = 0
             episode_sustained = 0
             episode_height_aligned = 0
+            episode_contact_entries = 0
+            episode_grasp_persistent = 0
+            episode_hover_stall = 0
+            episode_slips = 0
+            episode_lift_progress = 0.0
+            episode_block_displacement = 0.0
             
             # Collect data for this episode (on-policy)
             episode_trajectories = []  # List of trajectories for each chunk
@@ -1723,12 +1764,14 @@ def train_sequential(config, args, device):
                             viewer.sync()
                     
                     # Get reward with component flags
-                    reward, done, contacted, gripped, sustained, height_aligned = compute_reward(
+                    reward, done, contacted, gripped, sustained, height_aligned, block_lifted, contact_entry, grasp_persistent, lift_progress, hover_stall, slip_count, block_displacement = compute_reward(
                         m, d, 
                         lift_threshold=config.lift_threshold,
                         contact_bonus=config.contact_bonus,
                         height_alignment_bonus=config.height_alignment_bonus,
                         grasp_bonus=config.grasp_bonus,
+                        lift_bonus=config.lift_bonus,
+                        lift_bonus_threshold=config.lift_bonus_threshold,
                         sustained_contact_threshold=config.sustained_contact_threshold,
                         sustained_contact_bonus=config.sustained_contact_bonus,
                     )
@@ -1739,6 +1782,12 @@ def train_sequential(config, args, device):
                     episode_grasps += int(gripped)
                     episode_sustained += int(sustained)
                     episode_height_aligned += int(height_aligned)
+                    episode_contact_entries += int(contact_entry)
+                    episode_grasp_persistent += int(grasp_persistent)
+                    episode_hover_stall += int(hover_stall)
+                    episode_slips += int(slip_count)
+                    episode_lift_progress += float(lift_progress)
+                    episode_block_displacement += float(block_displacement)
                     
                     if done:
                         print(f"  Episode {episode+1}: SUCCESS! Block lifted at chunk {chunk_idx+1}, action {action_idx+1}")
@@ -2035,6 +2084,15 @@ def train_sequential(config, args, device):
                         # Height alignment metrics (2)
                         "reward/height_align_count": episode_height_aligned,
                         "reward/height_align_rate": episode_height_aligned / total_steps,
+                        "reward/contact_entry_count": episode_contact_entries,
+                        "reward/contact_entry_rate": episode_contact_entries / total_steps,
+                        "reward/grasp_persistence_count": episode_grasp_persistent,
+                        "reward/grasp_persistence_rate": episode_grasp_persistent / total_steps,
+                        "reward/lift_progress_mean": episode_lift_progress / total_steps,
+                        "reward/hover_stall_count": episode_hover_stall,
+                        "reward/hover_stall_rate": episode_hover_stall / total_steps,
+                        "reward/slip_count": episode_slips,
+                        "reward/block_displacement_mean": episode_block_displacement / total_steps,
                         
                         # Loss metrics
                         "loss/policy": avg_policy_loss,
