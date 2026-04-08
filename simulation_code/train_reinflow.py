@@ -133,6 +133,11 @@ class TrainingConfig:
     # Environment
     model_path = 'model/scene.xml'
     instruction = "pick up the block"
+    block_pos = (0.0, 0.3, 0.0125)
+    curriculum_block_pos = (0.0, 0.24, 0.0125)
+    randomize_block_on_reset = False
+    block_dist_range = (0.1, 0.3)
+    block_angle_range = (-60, 60)
     
     # Robot starting pose (degrees)
     starting_position = {
@@ -152,6 +157,7 @@ class TrainingConfig:
     # gradients are ~6x stronger. RL reward growth is currently more stable with a smaller actor step.
     policy_lr = 0.0000003  # 3e-7 - reduce post-update KL while preserving PPO correctness fixes
     critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
+    actor_lr_end = 1e-7  # Keep late training less conservative than the old 3e-8 floor.
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
     # ReinFlow specific
@@ -189,21 +195,21 @@ class TrainingConfig:
     # Reward
     lift_threshold = 0.08
     distance_penalty_scale = 0.4
-    horizontal_progress_scale = 0.12
-    vertical_approach_scale = 0.05
-    approach_closeness_scale = 0.035
-    alignment_reward_cap = 0.035
-    near_contact_bonus = 0.03
-    contact_entry_bonus = 0.18
-    contact_persistence_reward = 0.045
+    horizontal_progress_scale = 0.08
+    vertical_approach_scale = 0.04
+    approach_closeness_scale = 0.015
+    alignment_reward_cap = 0.025
+    near_contact_bonus = 0.08
+    contact_entry_bonus = 0.30
+    contact_persistence_reward = 0.09
     hover_stall_threshold = 8
     hover_penalty = -0.01
-    bilateral_grasp_bonus = 0.30
-    grasp_persistence_reward = 0.08
+    bilateral_grasp_bonus = 0.50
+    grasp_persistence_reward = 0.15
     slip_penalty_contact = -0.03
     slip_penalty_grasp = -0.08
-    block_displacement_penalty_scale = 0.08
-    lift_bonus = 0.2  # Bonus when block is lifted above threshold
+    block_displacement_penalty_scale = 0.12
+    lift_bonus = 0.35  # Bonus when block is lifted above threshold
     lift_bonus_threshold = 0.04  # Height (meters) to trigger lift bonus (lower than terminal)
     sustained_contact_threshold = 5   # Frames of continuous contact before bonus triggers
     sustained_contact_bonus = 0.2     # Extra reward per step after threshold reached
@@ -305,6 +311,25 @@ def _get_reward_kwargs(config) -> dict:
         "sustained_contact_threshold": config.sustained_contact_threshold,
         "sustained_contact_bonus": config.sustained_contact_bonus,
     }
+
+
+def _get_actor_lr_end(config) -> float:
+    return min(config.actor_lr_end, config.policy_lr)
+
+
+def _sample_block_pos(config, rng: np.random.Generator) -> tuple[float, float, float]:
+    if not config.randomize_block_on_reset:
+        return tuple(config.block_pos)
+    distance = rng.uniform(*config.block_dist_range)
+    angle_deg = rng.uniform(*config.block_angle_range)
+    angle_rad = np.deg2rad(angle_deg)
+    block_x = distance * np.sin(angle_rad)
+    block_y = distance * np.cos(angle_rad)
+    return (float(block_x), float(block_y), float(config.block_pos[2]))
+
+
+def _resolve_parallel_reset_block_positions(config, num_envs: int, rng: np.random.Generator) -> list[tuple[float, float, float]]:
+    return [_sample_block_pos(config, rng) for _ in range(num_envs)]
 
 
 @dataclass
@@ -514,6 +539,10 @@ def parse_args():
                         help='Number of parallel environments (default: 1 for sequential, use 8-16 for A100)')
     parser.add_argument('--subproc', action='store_true',
                         help='Use subprocess-based parallel rendering')
+    parser.add_argument('--randomize-block-reset', action='store_true',
+                        help='Randomize the block position on each reset using the configured polar range')
+    parser.add_argument('--curriculum-fixed-block', action='store_true',
+                        help='Use an easier fixed curriculum block pose near the default front-facing reset')
     parser.add_argument('--no-wandb', action='store_true',
                         help='Disable Weights & Biases logging')
     parser.add_argument('--full-expert', action='store_true',
@@ -631,6 +660,10 @@ def train_parallel(config, args, device):
             instruction=config.instruction,
             model_type=config.model_type,
             preprocessor=preprocessor,  # Processor-backed normalization when available
+            block_pos=config.block_pos,
+            randomize_block=config.randomize_block_on_reset,
+            block_dist_range=config.block_dist_range,
+            block_angle_range=config.block_angle_range,
             **_get_reward_kwargs(config),
         )
     else:
@@ -643,6 +676,10 @@ def train_parallel(config, args, device):
             instruction=config.instruction,
             model_type=config.model_type,
             preprocessor=preprocessor,  # Processor-backed normalization when available
+            block_pos=config.block_pos,
+            randomize_block=config.randomize_block_on_reset,
+            block_dist_range=config.block_dist_range,
+            block_angle_range=config.block_angle_range,
             **_get_reward_kwargs(config),
         )
     
@@ -693,7 +730,12 @@ def train_parallel(config, args, device):
                 "critic_backprop_into_policy": config.critic_backprop_into_policy,
                 "trainable_scope": _get_trainable_scope_label(config),
                 "actor_lr_start": config.policy_lr,
-                "actor_lr_end": config.policy_lr * 0.1,
+                "actor_lr_end": _get_actor_lr_end(config),
+                "block_reset_mode": "randomized" if config.randomize_block_on_reset else "fixed",
+                "block_pos": list(config.block_pos),
+                "curriculum_block_pos": list(config.curriculum_block_pos),
+                "block_dist_range": list(config.block_dist_range),
+                "block_angle_range": list(config.block_angle_range),
                 "distance_penalty_scale": config.distance_penalty_scale,
                 "horizontal_progress_scale": config.horizontal_progress_scale,
                 "vertical_approach_scale": config.vertical_approach_scale,
@@ -736,6 +778,7 @@ def train_parallel(config, args, device):
     
     # Learning rate schedulers with warmup (paper Table 9b)
     total_batches = config.num_episodes // num_envs
+    actor_lr_end = _get_actor_lr_end(config)
     
     # Policy scheduler: linear warmup + cosine annealing
     policy_warmup = torch.optim.lr_scheduler.LinearLR(
@@ -747,7 +790,7 @@ def train_parallel(config, args, device):
     policy_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
         policy_optimizer,
         T_max=max(1, total_batches - config.lr_warmup_iterations),
-        eta_min=config.policy_lr * 0.1
+        eta_min=actor_lr_end
     )
     policy_scheduler = torch.optim.lr_scheduler.SequentialLR(
         policy_optimizer,
@@ -780,8 +823,12 @@ def train_parallel(config, args, device):
     print(f"Parallel environments: {num_envs}")
     print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
+    print(f"Policy LR: {config.policy_lr} -> {actor_lr_end}")
     print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"Block reset mode: {'randomized' if config.randomize_block_on_reset else 'fixed'}")
+    print(f"Base block pose: {config.block_pos}")
+    if not config.randomize_block_on_reset and tuple(config.block_pos) == tuple(config.curriculum_block_pos):
+        print("Curriculum mode: fixed easier block pose active")
     print(f"LR warmup iterations: {config.lr_warmup_iterations}")
     print(f"PPO epochs: {config.num_ppo_epochs}")
     print(f"Mini-batch size: {config.minibatch_size}")
@@ -801,6 +848,7 @@ def train_parallel(config, args, device):
     reward_ema20 = None
     recent_epoch1_early_stops = deque(maxlen=5)
     epoch1_warning_active = False
+    reset_rng = np.random.default_rng()
     
     # ===== CRITIC WARMUP (paper Appendix D.2) =====
     # Train critic for a few iterations before updating actor
@@ -809,7 +857,9 @@ def train_parallel(config, args, device):
     if config.critic_warmup_iters > 0 and start_episode == 0:
         print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
         for warmup_iter in range(config.critic_warmup_iters):
-            vec_env.reset_all()
+            vec_env.reset_all(
+                block_positions=_resolve_parallel_reset_block_positions(config, num_envs, reset_rng)
+            )
             
             # Collect one episode worth of data
             warmup_observations = []
@@ -870,7 +920,9 @@ def train_parallel(config, args, device):
             rl_policy.base.model.sigma_max = sigma_max
             
             # Reset all environments
-            vec_env.reset_all()
+            vec_env.reset_all(
+                block_positions=_resolve_parallel_reset_block_positions(config, num_envs, reset_rng)
+            )
             episode_rewards = np.zeros(num_envs)
             episode_contacts = np.zeros(num_envs, dtype=int)
             episode_grasps = np.zeros(num_envs, dtype=int)
@@ -1592,7 +1644,12 @@ def train_sequential(config, args, device):
                 "critic_backprop_into_policy": config.critic_backprop_into_policy,
                 "trainable_scope": _get_trainable_scope_label(config),
                 "actor_lr_start": config.policy_lr,
-                "actor_lr_end": config.policy_lr * 0.1,
+                "actor_lr_end": _get_actor_lr_end(config),
+                "block_reset_mode": "randomized" if config.randomize_block_on_reset else "fixed",
+                "block_pos": list(config.block_pos),
+                "curriculum_block_pos": list(config.curriculum_block_pos),
+                "block_dist_range": list(config.block_dist_range),
+                "block_angle_range": list(config.block_angle_range),
                 "distance_penalty_scale": config.distance_penalty_scale,
                 "horizontal_progress_scale": config.horizontal_progress_scale,
                 "vertical_approach_scale": config.vertical_approach_scale,
@@ -1628,6 +1685,7 @@ def train_sequential(config, args, device):
     reward_ema20 = None
     recent_epoch1_early_stops = deque(maxlen=5)
     epoch1_warning_active = False
+    reset_rng = np.random.default_rng()
     
     # Separate optimizers for actor and critic (allows different learning rates)
     policy_params = list(rl_policy.get_trainable_params())
@@ -1638,6 +1696,7 @@ def train_sequential(config, args, device):
     
     # Learning rate schedulers with warmup (paper Table 9b)
     total_batches = config.num_episodes
+    actor_lr_end = _get_actor_lr_end(config)
     
     # Policy scheduler: linear warmup + cosine annealing
     policy_warmup = torch.optim.lr_scheduler.LinearLR(
@@ -1649,7 +1708,7 @@ def train_sequential(config, args, device):
     policy_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
         policy_optimizer,
         T_max=max(1, total_batches - config.lr_warmup_iterations),
-        eta_min=config.policy_lr * 0.1
+        eta_min=actor_lr_end
     )
     policy_scheduler = torch.optim.lr_scheduler.SequentialLR(
         policy_optimizer,
@@ -1682,8 +1741,12 @@ def train_sequential(config, args, device):
     print(f"Episodes: {config.num_episodes}")
     print(f"Chunks per episode: {config.chunks_per_episode}")
     print(f"Denoising steps: {config.num_denoising_steps}")
-    print(f"Policy LR: {config.policy_lr} -> {config.policy_lr * 0.1}")
+    print(f"Policy LR: {config.policy_lr} -> {actor_lr_end}")
     print(f"Critic LR: {config.critic_lr} -> {config.critic_lr * 0.1}")
+    print(f"Block reset mode: {'randomized' if config.randomize_block_on_reset else 'fixed'}")
+    print(f"Base block pose: {config.block_pos}")
+    if not config.randomize_block_on_reset and tuple(config.block_pos) == tuple(config.curriculum_block_pos):
+        print("Curriculum mode: fixed easier block pose active")
     print(f"LR warmup iterations: {config.lr_warmup_iterations}")
     print(f"PPO epochs: {config.num_ppo_epochs}")
     print(f"Mini-batch size: {config.minibatch_size}")
@@ -1708,7 +1771,7 @@ def train_sequential(config, args, device):
     if config.critic_warmup_iters > 0 and start_episode == 0:
         print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
         for warmup_iter in range(config.critic_warmup_iters):
-            reset_env(m, d, config.starting_position)
+            reset_env(m, d, config.starting_position, block_pos=_sample_block_pos(config, reset_rng))
             reset_reward_state()
             
             # Collect one episode worth of data
@@ -1788,7 +1851,7 @@ def train_sequential(config, args, device):
             rl_policy.base.model.sigma_max = sigma_max
             
             # Reset environment
-            reset_env(m, d, config.starting_position)
+            reset_env(m, d, config.starting_position, block_pos=_sample_block_pos(config, reset_rng))
             reset_reward_state()
             
             episode_reward = 0.0
@@ -2375,6 +2438,11 @@ def train(config=None, args=None):
             config.num_parallel_envs = args.parallel_envs
         if args.subproc:
             config.use_subproc_env = True
+        if hasattr(args, 'randomize_block_reset') and args.randomize_block_reset:
+            config.randomize_block_on_reset = True
+        if hasattr(args, 'curriculum_fixed_block') and args.curriculum_fixed_block:
+            config.randomize_block_on_reset = False
+            config.block_pos = tuple(config.curriculum_block_pos)
         if args.no_wandb:
             config.wandb_enabled = False
         if args.full_expert:

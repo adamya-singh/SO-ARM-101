@@ -32,6 +32,9 @@ def _worker(
     model_path,
     starting_position,
     block_pos,
+    randomize_block,
+    block_dist_range,
+    block_angle_range,
     lift_threshold,
     distance_penalty_scale,
     horizontal_progress_scale,
@@ -106,8 +109,19 @@ def _worker(
     
     # Per-environment state tracking for rewards
     reward_state = create_reward_state_tracker()
-    
-    def reset_env():
+    reset_rng = np.random.default_rng(seed=worker_idx)
+
+    def sample_block_pos():
+        if not randomize_block:
+            return block_pos
+        distance = reset_rng.uniform(*block_dist_range)
+        angle_deg = reset_rng.uniform(*block_angle_range)
+        angle_rad = np.deg2rad(angle_deg)
+        block_x = distance * np.sin(angle_rad)
+        block_y = distance * np.cos(angle_rad)
+        return (block_x, block_y, block_pos[2])
+
+    def reset_env(reset_block_pos=None):
         """Reset the environment to starting state."""
         nonlocal reward_state
         
@@ -115,7 +129,9 @@ def _worker(
         set_initial_pose(data, starting_position)
         
         # Reset block position
-        data.qpos[6:9] = block_pos
+        if reset_block_pos is None:
+            reset_block_pos = sample_block_pos()
+        data.qpos[6:9] = reset_block_pos
         data.qpos[9:13] = [1, 0, 0, 0]  # Quaternion (upright)
         data.qvel[:] = 0
         
@@ -215,7 +231,7 @@ def _worker(
             cmd, payload = remote.recv()
             
             if cmd == 'reset':
-                reset_env()
+                reset_env(payload)
                 remote.send('ok')
             
             elif cmd == 'get_obs':
@@ -285,23 +301,26 @@ class SubprocMuJoCoEnv:
         starting_position: dict,
         instruction: str,
         block_pos: tuple = (0, 0.3, 0.0125),
+        randomize_block: bool = False,
+        block_dist_range: tuple = (0.1, 0.3),
+        block_angle_range: tuple = (-60, 60),
         lift_threshold: float = 0.08,
         distance_penalty_scale: float = 0.4,
-        horizontal_progress_scale: float = 0.12,
-        vertical_approach_scale: float = 0.05,
-        approach_closeness_scale: float = 0.035,
-        alignment_reward_cap: float = 0.035,
-        near_contact_bonus: float = 0.03,
-        contact_entry_bonus: float = 0.18,
-        contact_persistence_reward: float = 0.045,
+        horizontal_progress_scale: float = 0.08,
+        vertical_approach_scale: float = 0.04,
+        approach_closeness_scale: float = 0.015,
+        alignment_reward_cap: float = 0.025,
+        near_contact_bonus: float = 0.08,
+        contact_entry_bonus: float = 0.30,
+        contact_persistence_reward: float = 0.09,
         hover_stall_threshold: int = 8,
         hover_penalty: float = -0.01,
-        bilateral_grasp_bonus: float = 0.30,
-        grasp_persistence_reward: float = 0.08,
+        bilateral_grasp_bonus: float = 0.50,
+        grasp_persistence_reward: float = 0.15,
         slip_penalty_contact: float = -0.03,
         slip_penalty_grasp: float = -0.08,
-        block_displacement_penalty_scale: float = 0.08,
-        lift_bonus: float = 0.2,
+        block_displacement_penalty_scale: float = 0.12,
+        lift_bonus: float = 0.35,
         lift_bonus_threshold: float = 0.04,
         sustained_contact_threshold: int = 5,
         sustained_contact_bonus: float = 0.2,
@@ -313,6 +332,9 @@ class SubprocMuJoCoEnv:
         self.starting_position = starting_position
         self.instruction = instruction
         self.block_pos = block_pos
+        self.randomize_block = randomize_block
+        self.block_dist_range = block_dist_range
+        self.block_angle_range = block_angle_range
         self.lift_threshold = lift_threshold
         self.distance_penalty_scale = distance_penalty_scale
         self.horizontal_progress_scale = horizontal_progress_scale
@@ -363,6 +385,9 @@ class SubprocMuJoCoEnv:
                     model_path,
                     starting_position,
                     block_pos,
+                    randomize_block,
+                    block_dist_range,
+                    block_angle_range,
                     lift_threshold,
                     distance_penalty_scale,
                     horizontal_progress_scale,
@@ -395,11 +420,12 @@ class SubprocMuJoCoEnv:
         
         print(f"[SubprocVecEnv] Created {num_envs} parallel environments")
     
-    def reset_all(self):
+    def reset_all(self, block_positions: list[tuple[float, float, float]] | None = None):
         """Reset all environments to starting state."""
         # Send reset command to all workers
-        for conn in self.parent_conns:
-            conn.send(('reset', None))
+        for i, conn in enumerate(self.parent_conns):
+            payload = None if block_positions is None else block_positions[i]
+            conn.send(('reset', payload))
         
         # Wait for all resets to complete
         for conn in self.parent_conns:

@@ -20,10 +20,16 @@ python run_mujoco_simulation.py --model-type pi0
 # 4. Record teleoperation demonstrations
 python record_dataset.py --input keyboard --output_dir ./datasets/my_dataset --task "pick up the red block"
 
-# 5a. Train with ReinFlow RL (SmolVLA - default)
+# 5a. Train with ReinFlow RL (SmolVLA - default fixed block pose)
 python train_reinflow.py
 
-# 5b. Train with ReinFlow RL (Pi0 - 3.3B model, requires 24GB+ VRAM)
+# 5b. Train with ReinFlow RL (SmolVLA curriculum fixed pose)
+python train_reinflow.py --curriculum-fixed-block
+
+# 5c. Train with ReinFlow RL (SmolVLA randomized block resets)
+python train_reinflow.py --randomize-block-reset
+
+# 5d. Train with ReinFlow RL (Pi0 - 3.3B model, requires 24GB+ VRAM)
 python train_reinflow.py --model-type pi0
 
 # 6. Run inference with trained checkpoint (auto-detects model type)
@@ -454,7 +460,7 @@ action_space = Box(low=joint_limits_low, high=joint_limits_high, shape=(6,))
 
 ### Reward Function
 
-The current reward function in `so101_mujoco_utils.py` is a staged pickup reward, not the older distance/approach/height/success scheme. The latest April 2026 pass is a hybrid rebalancing that restores pre-contact progress signals after the first anti-hover redesign made approach/contact discovery too weak.
+The current reward function in `so101_mujoco_utils.py` is a staged pickup reward, not the older distance/approach/height/success scheme. The latest April 2026 pass rebalances reward mass toward contact, grasp, and lift while keeping enough pre-contact shaping for the policy to rediscover first touch.
 
 Current phases:
 
@@ -462,9 +468,9 @@ Current phases:
 |-------|------------|---------|
 | Pre-contact approach | `-distance_penalty_scale * distance`, `approach_reward` | Move the gripper toward the block with a usable pre-grasp pose. |
 | Progress shaping | `horizontal_progress_reward`, `vertical_approach_reward`, `approach_closeness_reward` | Reward real progress toward the block before contact. |
-| Gated alignment | `alignment_reward` | Reward top-down pre-grasp geometry in a widened corridor without restoring the old hover exploit. |
+| Gated alignment | `alignment_reward` | Reward top-down pre-grasp geometry in the tighter `0.006 < height_above < 0.06` corridor without restoring the old hover exploit. |
 | Near contact | `near_contact_bonus` | Dense bridge reward for the last pre-contact corridor before touch. |
-| Contact | `contact_entry_bonus`, `contact_persistence_reward` | Reward committing to touch and maintaining it. |
+| Contact | `contact_entry_bonus`, `contact_persistence_reward` | Reward committing to touch and maintaining it, with an extra aligned/close add-on when contact follows alignment-ready or previous-step near-contact state. |
 | Grasp | `bilateral_grasp_bonus`, `grasp_persistence_reward` | Reward squeezing the block with both sides of the gripper. |
 | Lift | `lift_progress_reward`, lift completion bonus | Reward real pickup progress using height above the block's initial pose. |
 | Failure penalties | `hover_penalty`, `slip_penalty_contact`, `slip_penalty_grasp`, `block_displacement_penalty` | Discourage real stall, losing sustained contact or grasp, and knocking the block away sideways. |
@@ -473,6 +479,7 @@ Important behavior:
 
 - Alignment is still **gated and capped** so the policy cannot collect most of its reward by hovering above the block.
 - The current pass adds explicit horizontal/vertical progress shaping and a dense near-contact bridge so the policy can rediscover first touch without reverting to the old local optimum.
+- `near_contact` now contributes to alignment-ready state, so `reward/contact_after_alignment_rate` can become nonzero when the policy transitions cleanly from near-contact into touch.
 - Lift reward is based on **height gain relative to the block's initial pose**, not just a binary success threshold.
 - Block displacement is only penalized when the block is being pushed away without meaningful lift.
 
@@ -494,6 +501,25 @@ Key reward diagnostics exposed to training:
   - `reward/slip_count_total` / `reward/slip_count_avg` in parallel runs
   - `reward/contact_loss_count*`
   - `reward/grasp_loss_count*`
+
+Current reset modes for the run ladder:
+
+- default: fixed block pose at `(0.0, 0.3, 0.0125)` for reward-only attribution
+- `--curriculum-fixed-block`: fixed easier curriculum pose at `(0.0, 0.24, 0.0125)` to test whether contact-to-grasp learning emerges with lower reset variance
+- `--randomize-block-reset`: randomized block pose using the configured distance and angle ranges for broader robustness tests
+
+Minimal run-ladder commands:
+
+```bash
+# Run 1: reward-only, default fixed pose
+python train_reinflow.py
+
+# Run 2: reduced-variance curriculum
+python train_reinflow.py --curriculum-fixed-block
+
+# Optional broader reset test
+python train_reinflow.py --randomize-block-reset
+```
 
 ---
 

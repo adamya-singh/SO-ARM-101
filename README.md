@@ -268,15 +268,34 @@ Evidence trail:
 - dense lift-progress reward above the block's initial height plus a completion bonus
 - penalties for hover stalls, slips, and knocking the block away without lifting it
 
-**Second April 2026 pass.** That first redesign fixed the hover-above-block local optimum, but later W&B runs showed that it also reduced alignment and approach shaping too much. The current reward is therefore a hybrid version that restores explicit pre-contact progress signals:
-- scaled distance penalty rather than raw `-distance`
-- horizontal-progress and vertical-approach rewards
-- static approach closeness
-- a widened gated alignment corridor
-- a dense near-contact bridge
-- slip penalties only for losing sustained contact or a real grasp
+**Second April 2026 pass.** That first redesign fixed the hover-above-block local optimum, but later W&B runs showed that it also reduced alignment and approach shaping too much. The current reward is therefore a hybrid version that restores explicit pre-contact progress signals while paying much more for the touch-to-grasp transition:
+- `horizontal_progress_scale = 0.08`
+- `vertical_approach_scale = 0.04`
+- `approach_closeness_scale = 0.015`
+- `alignment_reward_cap = 0.025`
+- `near_contact_bonus = 0.08`
+- `contact_entry_bonus = 0.30`
+- `contact_persistence_reward = 0.09`
+- `bilateral_grasp_bonus = 0.50`
+- `grasp_persistence_reward = 0.15`
+- `lift_bonus = 0.35`
+- `block_displacement_penalty_scale = 0.12`
+
+The behavioral logic also changed:
+- the grasp corridor is now `0.006 < height_above < 0.06`
+- `near_contact` contributes to `alignment_ready_steps`
+- `contact_after_alignment` can trigger from either accumulated alignment-ready state or previous-step near-contact
+- the aligned/close contact add-on is now `+0.08`
+- static closeness shaping only pays while the arm is still making approach progress, and it is cut in half inside the alignment/near-contact corridor
 
 **Impact.** The reward is now designed to turn "good geometry" into contact, grasp, and lift behavior without paying enough for passive hovering to become a local optimum again. The repo's current training guidance therefore uses behavior metrics like `reward/near_contact_rate`, `reward/contact_after_alignment_rate`, `reward/grasp_persistence_rate`, and `reward/lift_progress_mean` to judge whether the policy is actually learning pickup structure.
+
+**Current training defaults.** SmolVLA PPO now keeps the smaller actor schedule from the April stabilization pass, but the LR floor ends at `1e-7` instead of `3e-8`. Reset behavior is fixed-pose by default, `--curriculum-fixed-block` moves the block to an easier canonical curriculum pose, and `--randomize-block-reset` enables randomized block resets for broader robustness testing.
+
+**Next run ladder.**
+- Run 1 reward-only: keep the default fixed block pose and judge the run with `reward/contact_after_alignment_rate`, `reward/contact_entry_rate`, `reward/contact_rate`, `reward/grasp_rate`, `reward/grasp_persistence_rate`, `reward/sustained_contact_rate`, `reward/lift_progress_mean`, `reward/block_displacement_mean`, and `reward/ema20`.
+- Run 2 curriculum: use `--curriculum-fixed-block` with the same reward settings to test whether grasp and lift emerge once reset variance is reduced.
+- Run 3 fallback: if Runs 1-2 improve contact but not grasp, keep the better run and add a grasp-specific escalation rather than retuning PPO first.
 
 Evidence trail:
 - Reward formulation and changelog: [`hyperparameter_notes.md`](hyperparameter_notes.md)

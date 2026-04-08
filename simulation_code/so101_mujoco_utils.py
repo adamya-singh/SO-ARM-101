@@ -990,6 +990,7 @@ def get_floor_contact_force(m, d, floor_geom_name="floor"):
 # Global state for pickup-phase reward tracking
 _consecutive_contact = 0
 _alignment_ready_steps = 0
+_prev_near_contact = False
 
 
 def create_reward_state_tracker() -> dict[str, Any]:
@@ -1003,6 +1004,7 @@ def create_reward_state_tracker() -> dict[str, Any]:
         "hover_without_contact_steps": 0,
         "prev_contacted": False,
         "prev_gripped": False,
+        "prev_near_contact": False,
         "prev_block_height": None,
     }
 
@@ -1011,7 +1013,7 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     """Mirror a local reward state tracker back into the module globals."""
     global _prev_gripper_pos, _prev_block_pos, _initial_block_pos
     global _consecutive_contact, _alignment_ready_steps, _hover_without_contact_steps
-    global _prev_contacted, _prev_gripped, _prev_block_height
+    global _prev_contacted, _prev_gripped, _prev_near_contact, _prev_block_height
 
     _prev_gripper_pos = state["prev_gripper_pos"]
     _prev_block_pos = state["prev_block_pos"]
@@ -1021,6 +1023,7 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     _hover_without_contact_steps = state["hover_without_contact_steps"]
     _prev_contacted = state["prev_contacted"]
     _prev_gripped = state["prev_gripped"]
+    _prev_near_contact = state["prev_near_contact"]
     _prev_block_height = state["prev_block_height"]
 
 
@@ -1033,19 +1036,19 @@ def compute_pickup_reward_from_state(
     distance_penalty_scale: float = 0.4,
     horizontal_progress_scale: float = 0.12,
     vertical_approach_scale: float = 0.05,
-    approach_closeness_scale: float = 0.035,
-    alignment_reward_cap: float = 0.035,
-    near_contact_bonus: float = 0.03,
-    contact_entry_bonus: float = 0.18,
-    contact_persistence_reward: float = 0.045,
+    approach_closeness_scale: float = 0.015,
+    alignment_reward_cap: float = 0.025,
+    near_contact_bonus: float = 0.08,
+    contact_entry_bonus: float = 0.30,
+    contact_persistence_reward: float = 0.09,
     hover_stall_threshold: int = 8,
     hover_penalty: float = -0.01,
-    bilateral_grasp_bonus: float = 0.30,
-    grasp_persistence_reward: float = 0.08,
+    bilateral_grasp_bonus: float = 0.50,
+    grasp_persistence_reward: float = 0.15,
     slip_penalty_contact: float = -0.03,
     slip_penalty_grasp: float = -0.08,
-    block_displacement_penalty_scale: float = 0.08,
-    lift_bonus: float = 0.2,
+    block_displacement_penalty_scale: float = 0.12,
+    lift_bonus: float = 0.35,
     lift_bonus_threshold: float = 0.04,
     sustained_contact_threshold: int = 5,
     sustained_contact_bonus: float = 0.2,
@@ -1069,6 +1072,7 @@ def compute_pickup_reward_from_state(
     prev_block_pos = state["prev_block_pos"]
     prev_contacted = state["prev_contacted"]
     prev_gripped = state["prev_gripped"]
+    prev_near_contact = state["prev_near_contact"]
     prev_sustained = prev_contacted and state["consecutive_contact"] >= sustained_contact_threshold
 
     distance = np.linalg.norm(gripper_pos - block_pos)
@@ -1095,6 +1099,9 @@ def compute_pickup_reward_from_state(
 
     approach_closeness = np.clip(1.0 - horizontal_dist / 0.14, 0.0, 1.0)
     vertical_alignment = np.clip(1.0 - vertical_error / 0.05, 0.0, 1.0)
+    in_grasp_corridor = horizontal_dist < 0.08 and 0.006 < height_above < 0.06 and not contacted
+    moving_into_grasp = horizontal_progress > -0.001 or vertical_progress > -0.001
+    near_contact = not contacted and horizontal_dist < 0.045 and 0.006 < height_above < 0.04 and vertical_progress > -0.002
     horizontal_progress_reward = 0.0
     vertical_approach_reward = 0.0
     approach_closeness_reward = 0.0
@@ -1102,12 +1109,12 @@ def compute_pickup_reward_from_state(
     if not contacted:
         horizontal_progress_reward = horizontal_progress_scale * np.clip(max(horizontal_progress, 0.0) / 0.02, 0.0, 1.0)
         vertical_approach_reward = vertical_approach_scale * np.clip(max(vertical_progress, 0.0) / 0.02, 0.0, 1.0)
-        approach_closeness_reward = approach_closeness_scale * approach_closeness * (0.5 + 0.5 * vertical_alignment)
+        if moving_into_grasp:
+            closeness_scale = approach_closeness_scale * (0.5 if (in_grasp_corridor or near_contact) else 1.0)
+            approach_closeness_reward = closeness_scale * approach_closeness * (0.5 + 0.5 * vertical_alignment)
         approach_reward = horizontal_progress_reward + vertical_approach_reward + approach_closeness_reward
         reward += approach_reward
 
-    in_grasp_corridor = horizontal_dist < 0.08 and 0.01 < height_above < 0.08 and not contacted
-    moving_into_grasp = horizontal_progress > -0.001 or vertical_progress > -0.001
     corridor_score = np.clip(1.0 - horizontal_dist / 0.08, 0.0, 1.0) * np.clip(1.0 - abs(height_above - target_height) / 0.05, 0.0, 1.0)
     progress_score = np.clip(0.5 + 0.5 * np.clip(max(horizontal_progress, 0.0) / 0.01, 0.0, 1.0), 0.0, 1.0)
     height_aligned = in_grasp_corridor and moving_into_grasp
@@ -1116,14 +1123,13 @@ def compute_pickup_reward_from_state(
         alignment_reward = min(alignment_reward_cap, alignment_reward_cap * corridor_score * progress_score)
         reward += alignment_reward
 
-    near_contact = not contacted and horizontal_dist < 0.045 and 0.006 < height_above < 0.04 and vertical_progress > -0.002
     near_contact_reward = 0.0
     if near_contact:
         near_contact_score = np.clip(1.0 - horizontal_dist / 0.045, 0.0, 1.0) * np.clip(1.0 - abs(height_above - 0.018) / 0.03, 0.0, 1.0)
         near_contact_reward = near_contact_bonus * near_contact_score
         reward += near_contact_reward
 
-    if in_grasp_corridor and not contacted:
+    if (in_grasp_corridor or near_contact) and not contacted:
         state["alignment_ready_steps"] += 1
     elif contacted:
         state["alignment_ready_steps"] = 0
@@ -1154,12 +1160,12 @@ def compute_pickup_reward_from_state(
     applied_contact_persistence_reward = 0.0
     if contacted:
         contact_entry = not prev_contacted
-        contact_after_alignment = contact_entry and state["alignment_ready_steps"] > 0
+        contact_after_alignment = contact_entry and (state["alignment_ready_steps"] > 0 or prev_near_contact)
         state["consecutive_contact"] += 1
         if contact_entry:
             applied_contact_entry_bonus = contact_entry_bonus
             if contact_after_alignment or near_contact:
-                applied_contact_entry_bonus += 0.02
+                applied_contact_entry_bonus += 0.08
         applied_contact_persistence_reward = contact_persistence_reward
         reward += applied_contact_entry_bonus + applied_contact_persistence_reward
         sustained = state["consecutive_contact"] >= sustained_contact_threshold
@@ -1216,6 +1222,7 @@ def compute_pickup_reward_from_state(
     state["prev_block_pos"] = block_pos
     state["prev_contacted"] = contacted
     state["prev_gripped"] = gripped
+    state["prev_near_contact"] = near_contact
     state["prev_block_height"] = block_pos[2]
 
     metrics = {
@@ -1259,21 +1266,21 @@ def compute_reward(
     block_name="red_block",
     lift_threshold=0.08,
     distance_penalty_scale=0.4,
-    horizontal_progress_scale=0.12,
-    vertical_approach_scale=0.05,
-    approach_closeness_scale=0.035,
-    alignment_reward_cap=0.035,
-    near_contact_bonus=0.03,
-    contact_entry_bonus=0.18,
-    contact_persistence_reward=0.045,
+    horizontal_progress_scale=0.08,
+    vertical_approach_scale=0.04,
+    approach_closeness_scale=0.015,
+    alignment_reward_cap=0.025,
+    near_contact_bonus=0.08,
+    contact_entry_bonus=0.30,
+    contact_persistence_reward=0.09,
     hover_stall_threshold=8,
     hover_penalty=-0.01,
-    bilateral_grasp_bonus=0.30,
-    grasp_persistence_reward=0.08,
+    bilateral_grasp_bonus=0.50,
+    grasp_persistence_reward=0.15,
     slip_penalty_contact=-0.03,
     slip_penalty_grasp=-0.08,
-    block_displacement_penalty_scale=0.08,
-    lift_bonus=0.2,
+    block_displacement_penalty_scale=0.12,
+    lift_bonus=0.35,
     lift_bonus_threshold=0.04,
     sustained_contact_threshold=5,
     sustained_contact_bonus=0.2,
@@ -1290,6 +1297,7 @@ def compute_reward(
         "hover_without_contact_steps": _hover_without_contact_steps,
         "prev_contacted": _prev_contacted,
         "prev_gripped": _prev_gripped,
+        "prev_near_contact": _prev_near_contact,
         "prev_block_height": _prev_block_height,
     }
     reward, done, metrics = compute_pickup_reward_from_state(
@@ -1349,7 +1357,7 @@ def reset_reward_state():
     """Reset the reward state (call at episode start)."""
     global _prev_gripper_pos, _prev_block_pos, _initial_block_pos, _consecutive_contact
     global _alignment_ready_steps
-    global _hover_without_contact_steps, _prev_contacted, _prev_gripped, _prev_block_height
+    global _hover_without_contact_steps, _prev_contacted, _prev_gripped, _prev_near_contact, _prev_block_height
     _prev_gripper_pos = None
     _prev_block_pos = None
     _initial_block_pos = None
@@ -1358,6 +1366,7 @@ def reset_reward_state():
     _hover_without_contact_steps = 0
     _prev_contacted = False
     _prev_gripped = False
+    _prev_near_contact = False
     _prev_block_height = None
 
 

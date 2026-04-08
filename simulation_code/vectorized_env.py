@@ -73,23 +73,26 @@ class VectorizedMuJoCoEnv:
         starting_position: dict,
         instruction: str,
         block_pos: tuple = (0, 0.3, 0.0125),
+        randomize_block: bool = False,
+        block_dist_range: tuple = (0.1, 0.3),
+        block_angle_range: tuple = (-60, 60),
         lift_threshold: float = 0.08,
         distance_penalty_scale: float = 0.4,
-        horizontal_progress_scale: float = 0.12,
-        vertical_approach_scale: float = 0.05,
-        approach_closeness_scale: float = 0.035,
-        alignment_reward_cap: float = 0.035,
-        near_contact_bonus: float = 0.03,
-        contact_entry_bonus: float = 0.18,
-        contact_persistence_reward: float = 0.045,
+        horizontal_progress_scale: float = 0.08,
+        vertical_approach_scale: float = 0.04,
+        approach_closeness_scale: float = 0.015,
+        alignment_reward_cap: float = 0.025,
+        near_contact_bonus: float = 0.08,
+        contact_entry_bonus: float = 0.30,
+        contact_persistence_reward: float = 0.09,
         hover_stall_threshold: int = 8,
         hover_penalty: float = -0.01,
-        bilateral_grasp_bonus: float = 0.30,
-        grasp_persistence_reward: float = 0.08,
+        bilateral_grasp_bonus: float = 0.50,
+        grasp_persistence_reward: float = 0.15,
         slip_penalty_contact: float = -0.03,
         slip_penalty_grasp: float = -0.08,
-        block_displacement_penalty_scale: float = 0.08,
-        lift_bonus: float = 0.2,
+        block_displacement_penalty_scale: float = 0.12,
+        lift_bonus: float = 0.35,
         lift_bonus_threshold: float = 0.04,
         sustained_contact_threshold: int = 5,
         sustained_contact_bonus: float = 0.2,
@@ -100,6 +103,9 @@ class VectorizedMuJoCoEnv:
         self.starting_position = starting_position
         self.instruction = instruction
         self.block_pos = block_pos
+        self.randomize_block = randomize_block
+        self.block_dist_range = block_dist_range
+        self.block_angle_range = block_angle_range
         self.lift_threshold = lift_threshold
         self.distance_penalty_scale = distance_penalty_scale
         self.horizontal_progress_scale = horizontal_progress_scale
@@ -132,6 +138,7 @@ class VectorizedMuJoCoEnv:
         
         # Per-environment state tracking for rewards
         self.reward_states = [create_reward_state_tracker() for _ in range(num_envs)]
+        self.reset_rng = np.random.default_rng()
         
         # Episode status
         self.dones = np.zeros(num_envs, dtype=bool)
@@ -142,10 +149,21 @@ class VectorizedMuJoCoEnv:
         
         print(f"[VectorizedEnv] Created {num_envs} parallel environments (model_type={model_type})")
     
-    def reset_all(self):
+    def _sample_block_pos(self) -> tuple[float, float, float]:
+        if not self.randomize_block:
+            return tuple(self.block_pos)
+        distance = self.reset_rng.uniform(*self.block_dist_range)
+        angle_deg = self.reset_rng.uniform(*self.block_angle_range)
+        angle_rad = np.deg2rad(angle_deg)
+        block_x = distance * np.sin(angle_rad)
+        block_y = distance * np.cos(angle_rad)
+        return (block_x, block_y, self.block_pos[2])
+
+    def reset_all(self, block_positions: list[tuple[float, float, float]] | None = None):
         """Reset all environments to starting state."""
         for i in range(self.num_envs):
-            self._reset_env(i)
+            block_pos = None if block_positions is None else block_positions[i]
+            self._reset_env(i, block_pos=block_pos)
         self.dones[:] = False
         self.episode_steps[:] = 0
         self.consecutive_contact[:] = 0
@@ -156,8 +174,8 @@ class VectorizedMuJoCoEnv:
             if self.dones[i]:
                 self._reset_env(i)
         self.dones[:] = False
-    
-    def _reset_env(self, env_idx: int):
+
+    def _reset_env(self, env_idx: int, block_pos: tuple[float, float, float] | None = None):
         """Reset a single environment."""
         d = self.datas[env_idx]
         
@@ -168,7 +186,9 @@ class VectorizedMuJoCoEnv:
         set_initial_pose(d, self.starting_position)
         
         # Reset block position
-        d.qpos[6:9] = self.block_pos
+        if block_pos is None:
+            block_pos = self._sample_block_pos()
+        d.qpos[6:9] = block_pos
         d.qpos[9:13] = [1, 0, 0, 0]  # Quaternion (upright)
         d.qvel[:] = 0
         

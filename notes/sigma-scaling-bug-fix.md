@@ -339,7 +339,7 @@ Once the pre-update PPO invariant was fixed, W&B showed that the remaining failu
 That changed the prescription. The next stabilization pass in this repo now assumes:
 
 1. **Use a smaller default actor LR.**  
-   The default SmolVLA actor schedule is now `3e-7 -> 3e-8`, not `1e-6 -> 1e-7`.
+   The default SmolVLA actor schedule is now `3e-7 -> 1e-7`, not `1e-6 -> 1e-7`.
 
 2. **Default to a stable RL trainable scope.**  
    SmolVLA PPO now defaults to `trainable_scope = "rl_stable_heads"`, which trains:

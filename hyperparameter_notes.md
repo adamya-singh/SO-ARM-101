@@ -26,6 +26,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
 | `policy_lr` | `3e-7` | `4.5e-5` | Reduced again in April 2026 after PPO correctness was fixed but real post-update KL was still too high. The current default prioritizes reward growth through smaller actor steps over maximum update aggressiveness. |
+| `actor_lr_end` | `1e-7` | N/A | Actor cosine decay floor. Raised from `3e-8` so late training does not become too conservative while the policy is still trying to discover contact and grasp transitions. |
 | `critic_lr` | `1e-4` | N/A | Critic learning rate can be higher than policy LR since it doesn't directly affect action distribution stability. Value function converges faster with higher LR. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -134,38 +135,44 @@ These are not ordinary tuning knobs. They are runtime semantics added in April 2
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
 | `distance_penalty_scale` | `0.4` | N/A | The base distance term is now scaled down from raw `-distance` so progress rewards can dominate when the arm moves correctly. |
-| `horizontal_progress_scale` | `0.12` | N/A | Rewards actual horizontal improvement toward the block, not just static proximity. |
-| `vertical_approach_scale` | `0.05` | N/A | Rewards entering and improving within the grasp-height corridor before contact. |
-| `approach_closeness_scale` | `0.035` | N/A | Static support term for being near the block before contact. Smaller than the progress terms. |
-| `alignment_reward_cap` | `0.035` | N/A | Capped alignment reward inside the widened pre-grasp corridor. Higher than the first anti-hover pass to recover useful approach shaping, but still capped to prevent the old hover exploit. |
-| `near_contact_bonus` | `0.03` | N/A | Dense reward in the final pre-contact corridor. This is the bridge between “near the block” and actual first touch. |
-| `contact_entry_bonus` | `0.18` (+`0.02` when aligned/close) | N/A | One-time bonus when contact begins. Rewards crossing the touch transition rather than only sitting near the block. |
-| `contact_persistence_reward` | `0.045` per step | N/A | Small per-step contact reward. Encourages staying in contact without letting contact dominate the return. |
+| `horizontal_progress_scale` | `0.08` | N/A | Rewards actual horizontal improvement toward the block, but no longer dominates the contact and grasp transition rewards. |
+| `vertical_approach_scale` | `0.04` | N/A | Rewards entering and improving within the grasp-height corridor before contact. Lower than the prior hybrid pass so approach shaping does not crowd out touch incentives. |
+| `approach_closeness_scale` | `0.015` | N/A | Static support term for being near the block before contact. It now only pays while approach progress is still non-negative and is intentionally much smaller than the transition rewards. |
+| `alignment_reward_cap` | `0.025` | N/A | Capped alignment reward inside the current pre-grasp corridor. Still enough to guide geometry, but low enough that hovering cannot dominate return. |
+| `near_contact_bonus` | `0.08` | N/A | Dense reward in the final pre-contact corridor. This is now a much stronger bridge between “near the block” and first touch. |
+| `contact_entry_bonus` | `0.30` (+`0.08` when aligned/close) | N/A | One-time bonus when contact begins. Rewards crossing the touch transition rather than only sitting near the block, and now pays much more when contact follows alignment-ready or near-contact state. |
+| `contact_persistence_reward` | `0.09` per step | N/A | Per-step contact reward. Increased so the first stable touch sequence can compete with pre-contact shaping. |
 | `sustained_contact_threshold` | `5` | N/A | Number of consecutive contact steps before the sustained-contact state is considered active. |
 | `sustained_contact_bonus` | `0.2` configured, applied as `min(0.06, sustained_contact_bonus * 0.25)` | N/A | Sustained contact now exists as a capped continuation reward rather than the old large additive term. |
 | `hover_stall_threshold` | `8` | N/A | The hover penalty now waits longer before firing so the anti-hover logic does not starve legitimate pre-contact exploration. |
 | `hover_penalty` | `-0.01` after hover stall | N/A | Penalizes genuine stalling in the grasp corridor without contact. Reduced from the first anti-hover pass to avoid over-correction. |
-| `bilateral_grasp_bonus` | `0.30` | N/A | Stronger than the older grasp reward. Activates when both gripper sides are meaningfully squeezing the block. |
-| `grasp_persistence_reward` | `0.08` per step | N/A | Rewards keeping the grasp instead of only achieving the initial squeeze. |
+| `bilateral_grasp_bonus` | `0.50` | N/A | Strong reward when both gripper sides are meaningfully squeezing the block. Raised so grasp discovery can dominate pure approach optimization. |
+| `grasp_persistence_reward` | `0.15` per step | N/A | Rewards keeping the grasp instead of only achieving the initial squeeze. Increased to favor sustained manipulation over brief touches. |
 | `lift_progress_reward` | `min(0.4, 5.0 * block_height_gain)` | N/A | Dense lift reward based on block height above the initial pose. Replaced the old binary-only lift shaping. |
-| `lift_bonus` | `max(lift_bonus, 0.25)` once lifted above threshold | N/A | Completion bonus once the block is clearly lifted above `lift_bonus_threshold`. |
+| `lift_bonus` | `max(lift_bonus, 0.35)` once lifted above threshold | N/A | Completion bonus once the block is clearly lifted above `lift_bonus_threshold`. Raised so true pickup progress clearly beats near-contact-only behavior. |
 | `lift_bonus_threshold` | `0.04` | N/A | Height threshold for the lift completion bonus. Still below terminal success so partial lifts are rewarded before episode end. |
 | `lift_threshold` | `0.08` | N/A | Terminal success threshold for ending the episode. |
 | `slip_penalty_contact` | `-0.03` | N/A | Applied only after losing sustained contact, not after every exploratory touch. This keeps first-touch exploration cheap. |
 | `slip_penalty_grasp` | `-0.08` | N/A | Applied after losing a real grasp. Larger than contact-loss penalty because grasp regression is a more meaningful failure. |
-| `block_displacement_penalty_scale` | `0.08` | N/A | Penalizes knocking the block sideways without meaningful lift or hold. Disabled once the block is clearly being lifted or held. |
+| `block_displacement_penalty_scale` | `0.12` | N/A | Penalizes knocking the block sideways without meaningful lift or hold. Increased because recent runs were disturbing the block without converting that into grasp or lift. |
+
+**Current grasp corridor / bridge logic**:
+- Grasp corridor is `0.006 < height_above < 0.06` with `horizontal_dist < 0.08`.
+- `near_contact` contributes to `alignment_ready_steps` before first touch.
+- `reward/contact_after_alignment_rate` can now rise from either alignment-ready state or previous-step near-contact.
+- Static closeness shaping is reduced by `50%` inside the alignment / near-contact corridor.
 
 **Current reward structure**:
 ```text
 reward = -distance_penalty_scale * distance
-       + approach_reward
+       + approach_reward (horizontal progress + vertical approach + progress-gated closeness)
        + alignment_reward
        + near_contact_bonus
-       + contact_entry_bonus
+       + contact_entry_bonus (+0.08 after alignment-ready / previous near-contact)
        + contact_persistence_reward
        + sustained_contact_continuation
-        + bilateral_grasp_bonus
-        + grasp_persistence_reward
+       + bilateral_grasp_bonus
+       + grasp_persistence_reward
        + lift_progress_reward
        + lift_completion_bonus
        - hover_penalty
@@ -176,7 +183,8 @@ reward = -distance_penalty_scale * distance
 **Important semantic changes**:
 - The older additive reward should now be treated as historical context, not the current implementation.
 - The first April anti-hover redesign is also historical context. The current reward is a second-pass hybrid that restores approach/contact shaping without reverting to the old local optimum.
-- Alignment is still gated and capped so hovering cannot dominate the return, but the corridor is now wider and the reward is paired with explicit progress terms.
+- Alignment is still gated and capped so hovering cannot dominate the return, but the current corridor is tighter around actual pre-touch geometry and near-contact can now build alignment-ready state.
+- Static closeness shaping is now progress-gated and down-weighted by `50%` inside the alignment / near-contact corridor, so passive hovering earns much less than continuing into touch.
 - Lift reward now uses **height gain above the initial block pose**, not only a binary threshold.
 - Contact and grasp use both **transition** rewards and **persistence** rewards.
 - The reward is now designed to push the behavior sequence `approach -> align -> near-contact -> touch -> hold -> squeeze -> lift`.
@@ -202,8 +210,19 @@ reward = -distance_penalty_scale * distance
 **How to interpret the current metrics**:
 - Low `reward/approach_reward_mean`, `reward/horizontal_progress_mean`, or `reward/vertical_approach_mean` means the policy is not meaningfully reaching the block.
 - High `reward/near_contact_rate` but low `reward/contact_entry_rate` means the last-touch bridge is still failing.
+- High `reward/near_contact_rate` with `reward/contact_after_alignment_rate = 0` means the bridge logic still is not paying for the geometry the policy is actually visiting.
 - Contact without persistence or grasp means the policy can touch but cannot yet hold or squeeze.
 - Improved scalar reward without movement in these manipulation metrics should not be treated as real pickup progress.
+
+### Reset / Curriculum Controls
+
+| Parameter | Current Value | Rationale |
+|-----------|---------------|-----------|
+| `block_pos` | `(0.0, 0.3, 0.0125)` | Default fixed block pose for current reward-only runs. Keeps attribution cleaner while evaluating reward changes. |
+| `curriculum_block_pos` | `(0.0, 0.24, 0.0125)` | Easier canonical curriculum pose for reduced-variance contact/grasp testing. Activated with `--curriculum-fixed-block`. |
+| `randomize_block_on_reset` | `False` | Fixed-pose is the default now. Use `--randomize-block-reset` only when deliberately testing broader reset robustness. |
+| `block_dist_range` | `(0.1, 0.3)` | Radial range for randomized block resets when robustness testing is enabled. |
+| `block_angle_range` | `(-60, 60)` | Angular range in degrees for randomized block resets. |
 
 **Source**: `so101_mujoco_utils.py` (compute_reward), `train_reinflow.py` (TrainingConfig)
 
@@ -471,6 +490,7 @@ These parameters are **scale-invariant** and can use paper values directly:
 ```python
 # Tier 1: Critical
 policy_lr = 3e-7
+actor_lr_end = 1e-7
 critic_lr = 1e-4
 clip_epsilon = 0.05
 target_kl = 0.1
@@ -497,13 +517,25 @@ chunk_size = 50  # fixed
 action_dim = 6   # fixed
 
 # Tier 4: Environment
+block_pos = (0.0, 0.3, 0.0125)
+curriculum_block_pos = (0.0, 0.24, 0.0125)
+randomize_block_on_reset = False
+block_dist_range = (0.1, 0.3)
+block_angle_range = (-60, 60)
 lift_threshold = 0.08
-contact_bonus = 0.1
+horizontal_progress_scale = 0.08
+vertical_approach_scale = 0.04
+approach_closeness_scale = 0.015
+alignment_reward_cap = 0.025
+near_contact_bonus = 0.08
+contact_entry_bonus = 0.30
+contact_persistence_reward = 0.09
 sustained_contact_threshold = 5
 sustained_contact_bonus = 0.2
-height_alignment_bonus = 0.05
-grasp_bonus = 0.15
-lift_bonus = 0.2
+bilateral_grasp_bonus = 0.50
+grasp_persistence_reward = 0.15
+lift_bonus = 0.35
+block_displacement_penalty_scale = 0.12
 lift_bonus_threshold = 0.04
 steps_per_action = 10
 image_size = 256
@@ -517,6 +549,7 @@ image_size = 256
 
 | Date | Changes |
 |------|---------|
+| 2026-04-08 | Rebalanced the current pickup reward toward touch, grasp, and lift: `horizontal_progress_scale = 0.08`, `vertical_approach_scale = 0.04`, `approach_closeness_scale = 0.015`, `alignment_reward_cap = 0.025`, `near_contact_bonus = 0.08`, `contact_entry_bonus = 0.30`, `contact_persistence_reward = 0.09`, `bilateral_grasp_bonus = 0.50`, `grasp_persistence_reward = 0.15`, `lift_bonus = 0.35`, `block_displacement_penalty_scale = 0.12`. Also raised `actor_lr_end` to `1e-7`, added reset controls (`block_pos`, `curriculum_block_pos`, `randomize_block_on_reset`, `block_dist_range`, `block_angle_range`), and changed the bridge logic so near-contact contributes to `alignment_ready_steps` and can unlock `contact_after_alignment`. |
 | 2026-01-08 | REVERTED policy_lr (3e-6→1e-6) and clip_epsilon (0.15→0.05). Analysis showed pre-515b18d run had stable KL (0.01-0.03) for 740 eps with zero early stops. Post-commit runs collapsed at ~4.5k eps. The 83% clip fraction was PPO correctly constraining updates. |
 | 2026-01-08 | REVERTED `recompute_old_log_probs` - the fix prevented cumulative learning across PPO epochs. 900-ep test showed worse rewards (-46 vs -8) and no grasps despite "healthier" KL metrics. Original staleness was a symptom of learning, not the root cause. |
 | 2026-01-08 | Added `lift_bonus = 0.2` and `lift_bonus_threshold = 0.04` reward shaping; rewards when block is elevated above 4cm. Provides dense reward for lifting before episode terminates at 8cm. Reward progression: align → contact → grasp → lift |

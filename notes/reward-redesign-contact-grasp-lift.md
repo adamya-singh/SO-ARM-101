@@ -109,6 +109,30 @@ It keeps the anti-hover structure, but adds back stronger pre-contact signals:
 6. **Same downstream manipulation phases**
    Contact-entry, contact persistence, bilateral grasp, grasp persistence, dense lift progress, lift completion, and block-displacement penalties remain part of the reward.
 
+## April 8, 2026 follow-up: bridge and transition reweighting
+
+The live W&B run `comfy-salad-87` showed that the hybrid reward had fixed some problems but still had not crossed the main behavioral threshold:
+
+- scalar reward improved
+- pre-contact metrics improved
+- `reward/contact_after_alignment_rate` stayed at zero
+- grasp and sustained-contact remained effectively zero
+- `reward/block_displacement_mean` worsened instead of turning into lift progress
+
+That run made the failure mode clearer: the policy was learning approach and near-contact geometry, but the reward was still paying too much for pre-contact competence relative to the risky transition into touch, squeeze, and lift.
+
+The next rebalance therefore changed both coefficients and bridge semantics:
+
+- grasp corridor changed from `0.01 < height_above < 0.08` to `0.006 < height_above < 0.06`
+- `near_contact` now contributes to `alignment_ready_steps`
+- `contact_after_alignment` can trigger from previous-step near-contact as well as prior alignment-ready state
+- the aligned/close contact add-on increased from `+0.02` to `+0.08`
+- static closeness shaping only pays while the arm is still making approach progress
+- static closeness shaping is halved inside the final alignment / near-contact corridor
+- contact, grasp, and lift bonuses were all increased relative to the previous hybrid pass
+
+The goal of this pass is narrower than the first redesign: stop rewarding “almost there” behavior so heavily that PPO never needs to discover the touch-to-grasp transition.
+
 ## Metrics to watch
 
 For current runs, reward improvement should be interpreted together with:
@@ -142,6 +166,7 @@ Interpretation:
 
 - low approach/progress metrics means the policy is not reaching the block
 - high `reward/near_contact_rate` but low contact metrics means the last-touch bridge is failing
+- high `reward/near_contact_rate` with `reward/contact_after_alignment_rate = 0` is now an explicit bridge-failure signal
 - contact without persistence or grasp means the policy can touch but not hold/squeeze
 - improved reward without these manipulation metrics moving is not real task progress
 
