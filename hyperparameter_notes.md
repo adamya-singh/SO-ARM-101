@@ -25,7 +25,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `policy_lr` | `1e-6` | `4.5e-5` | Reverted to 1e-6 for stability. 3e-6 + clip_epsilon=0.15 caused KL explosion at ~4.5k episodes. Conservative value showed stable KL (0.01-0.03) for 740+ episodes. |
+| `policy_lr` | `3e-7` | `4.5e-5` | Reduced again in April 2026 after PPO correctness was fixed but real post-update KL was still too high. The current default prioritizes reward growth through smaller actor steps over maximum update aggressiveness. |
 | `critic_lr` | `1e-4` | N/A | Critic learning rate can be higher than policy LR since it doesn't directly affect action distribution stability. Value function converges faster with higher LR. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
@@ -110,10 +110,15 @@ These are not ordinary tuning knobs. They are runtime semantics added in April 2
 | `debug/pre_update_logprob_abs_mean` | Mean absolute drift in log-prob before any update | Helps diagnose subtle nondeterminism or batch-composition dependence. |
 | `debug/pre_update_logprob_abs_max` | Max absolute drift in log-prob before any update | Highlights worst-case sample instability. |
 | `training/post_update_kl` | KL after an actual optimizer step | This is the KL that now drives PPO early-stop. |
+| `training/post_update_ratio_max` | Worst PPO ratio on the minibatch after the optimizer step | Useful for detecting true actor overshoot after a real update. |
+| `training/post_update_clip_fraction` | Clip fraction recomputed after the optimizer step | Preferred over the pre-step PPO loss metric when judging update aggressiveness. |
+| `updates/actor_delta_l2` | Estimated actor parameter update magnitude per optimizer step | Tracks actual actor movement instead of only gradient size. |
+| `updates/actor_delta_max_abs` | Maximum absolute actor parameter update on a step | Highlights rare but dangerous large parameter jumps. |
 
 **Important**:
 - The trainer now treats **pre-update** old/new log-prob agreement as an invariant.
 - PPO early-stop should be interpreted using `training/post_update_kl`, not the pre-update diagnostics.
+- For reward-focused debugging, use `training/post_update_kl`, `training/post_update_ratio_max`, `training/post_update_clip_fraction`, and `reward/ema20` together.
 
 ### Reward and Discount
 
@@ -191,7 +196,8 @@ Parameters that define the model architecture or are inherited from pretrained m
 |-----------|---------------|-----------|
 | `train_action_head` | `True` | Train the action_out_proj (velocity head). Essential for adapting pretrained policy to new task. |
 | `train_time_mlp` | `True` | Train the time embedding MLP. Helps adapt flow matching to new action distributions. |
-| `train_full_expert` | `True` | Train entire Action Expert (~100M params). More expressive but requires more compute. Set False to only train output heads. |
+| `train_full_expert` | `False` | Full-expert RL remains available, but it is no longer the default because the current objective is stable reward growth rather than maximum update capacity. |
+| `trainable_scope` | `rl_stable_heads` | Default SmolVLA RL scope. Trains `action_in_proj`, `action_out_proj`, `action_time_mlp_in`, `action_time_mlp_out`, and `noise_mlp`, while leaving `state_proj` frozen. |
 | `train_noise_head` | `True` | Train noise_mlp (σ_θ' network). Always True for ReinFlow since this is the core innovation enabling RL fine-tuning. |
 | `train_critic` | `True` | Train critic network for actor-critic. Required for PPO-style training with value function baseline. |
 | `critic_backprop_into_policy` | `False` | Critic still reads policy-derived features, but by default those features are detached before the critic head so value learning does not push the actor through shared conditioning paths. |
@@ -441,7 +447,7 @@ These parameters are **scale-invariant** and can use paper values directly:
 
 ```python
 # Tier 1: Critical
-policy_lr = 1e-6
+policy_lr = 3e-7
 critic_lr = 1e-4
 clip_epsilon = 0.05
 target_kl = 0.1
@@ -449,7 +455,7 @@ sigma_min = 0.25
 sigma_max = 0.50
 num_episodes = 20000
 num_parallel_envs = 1
-num_ppo_epochs = 5
+num_ppo_epochs = 2
 
 # Tier 2: Important
 minibatch_size = 8
@@ -461,7 +467,8 @@ gamma = 0.999
 grad_clip_norm = 0.25
 
 # Tier 3: Architecture
-train_full_expert = True
+train_full_expert = False
+trainable_scope = "rl_stable_heads"
 model_type = "smolvla"
 chunk_size = 50  # fixed
 action_dim = 6   # fixed
@@ -507,4 +514,3 @@ image_size = 256
 3. [SmolVLA HuggingFace](https://huggingface.co/lerobot/smolvla_base) - Model architecture
 4. `train_reinflow.py` (TrainingConfig class) - Detailed hyperparameter comments
 5. `notes/kl-divergence-bug-fix.md` - Dropout/eval mode debugging notes
-

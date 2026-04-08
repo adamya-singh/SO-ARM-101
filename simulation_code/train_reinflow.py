@@ -39,8 +39,10 @@ Usage:
 import os
 import sys
 import time
+import math
 import argparse
 from dataclasses import dataclass
+from collections import deque
 
 # Setup headless rendering BEFORE importing mujoco
 from mujoco_rendering import setup_mujoco_rendering
@@ -113,7 +115,7 @@ class TrainingConfig:
     3. GRADIENT MAGNITUDE:
        - Gradients accumulate over 300 output dimensions vs 48
        - Effective gradient signal is ~6x stronger
-       - Paper's policy_lr=4.5e-5 → our policy_lr=5e-7 (scaled down ~100x for stability)
+       - Paper's policy_lr=4.5e-5 → our policy_lr=3e-7 (scaled down aggressively for stable reward growth)
     
     4. PARAMETERS THAT NEED ADJUSTMENT FOR HIGH DIMS:
        - clip_epsilon: While ratio-based, high-dim actions cause more ratio drift. Use 0.15-0.2.
@@ -147,8 +149,8 @@ class TrainingConfig:
     max_steps_per_episode = 150
     gamma = 0.999  # Discount factor (paper uses 0.99 for state tasks)
     # SCALED FOR CHUNK SIZE 50: Paper uses 4.5e-5 for chunks of 4-8. With 6x more dims,
-    # gradients are ~6x stronger. Reverted to 1e-6 for stability (3e-6 caused KL explosion at 4.5k eps).
-    policy_lr = 0.000001  # 1e-6 - conservative value that showed stable KL for 740+ episodes
+    # gradients are ~6x stronger. RL reward growth is currently more stable with a smaller actor step.
+    policy_lr = 0.0000003  # 3e-7 - reduce post-update KL while preserving PPO correctness fixes
     critic_lr = 0.0001   # Critic learning rate (can be higher, doesn't scale with action dims)
     grad_clip_norm = 0.25  # Gradient clipping for stability
     
@@ -176,7 +178,8 @@ class TrainingConfig:
     # What to train
     train_action_head = True   # Train action_out_proj (velocity head)
     train_time_mlp = True      # Train time MLP
-    train_full_expert = True   # Train entire Action Expert (~100M params)
+    train_full_expert = False  # Full-expert RL remains available, but is no longer the default
+    trainable_scope = "rl_stable_heads"  # Stable RL subset: action_in/out, time MLP in/out, noise_mlp
     train_noise_head = True    # Train noise_mlp (σ_θ' network) - always True for ReinFlow
     train_critic = True        # Train critic network for actor-critic
     
@@ -332,17 +335,107 @@ def _compute_policy_log_probs(policy, trajectories, observations, return_sigmas:
     )
 
 
-def _compute_logprob_shift_metrics(reference_log_probs: torch.Tensor, current_log_probs: torch.Tensor) -> dict:
+def _default_logprob_shift_metrics() -> dict:
+    return {
+        "logprob_abs_mean": 0.0,
+        "logprob_abs_max": 0.0,
+        "kl_div": 0.0,
+        "ratio_mean": 1.0,
+        "ratio_std": 0.0,
+        "ratio_min": 1.0,
+        "ratio_max": 1.0,
+        "clip_fraction": 0.0,
+    }
+
+
+def _compute_logprob_shift_metrics(
+    reference_log_probs: torch.Tensor,
+    current_log_probs: torch.Tensor,
+    clip_epsilon: float = 0.0,
+) -> dict:
     """Summarize how much two log-prob evaluations differ."""
     logprob_diff = current_log_probs - reference_log_probs
     log_ratio = torch.clamp(logprob_diff, -20.0, 20.0)
     ratio = torch.exp(log_ratio)
-    return {
+    metrics = {
         "logprob_abs_mean": logprob_diff.abs().mean().item(),
         "logprob_abs_max": logprob_diff.abs().max().item(),
         "kl_div": ((ratio - 1.0) - log_ratio).mean().item(),
         "ratio_mean": ratio.mean().item(),
+        "ratio_std": ratio.std().item() if ratio.numel() > 1 else 0.0,
+        "ratio_min": ratio.min().item(),
+        "ratio_max": ratio.max().item(),
+        "clip_fraction": ((ratio - 1.0).abs() > clip_epsilon).float().mean().item() if clip_epsilon > 0 else 0.0,
     }
+    return metrics
+
+
+def _aggregate_logprob_shift_metrics(metric_history: list[dict]) -> dict:
+    if not metric_history:
+        return _default_logprob_shift_metrics()
+    return {
+        "logprob_abs_mean": float(np.mean([m["logprob_abs_mean"] for m in metric_history])),
+        "logprob_abs_max": float(np.max([m["logprob_abs_max"] for m in metric_history])),
+        "kl_div": float(np.mean([m["kl_div"] for m in metric_history])),
+        "ratio_mean": float(np.mean([m["ratio_mean"] for m in metric_history])),
+        "ratio_std": float(np.mean([m["ratio_std"] for m in metric_history])),
+        "ratio_min": float(np.min([m["ratio_min"] for m in metric_history])),
+        "ratio_max": float(np.max([m["ratio_max"] for m in metric_history])),
+        "clip_fraction": float(np.mean([m["clip_fraction"] for m in metric_history])),
+    }
+
+
+def _compute_actor_delta_metrics(optimizer: torch.optim.Optimizer) -> dict:
+    """Estimate the actor parameter update magnitude from Adam's internal step tensors."""
+    total_sq = 0.0
+    max_abs = 0.0
+    has_state = False
+
+    for group in optimizer.param_groups:
+        lr = group["lr"]
+        beta1, beta2 = group["betas"]
+        eps = group["eps"]
+        weight_decay = group.get("weight_decay", 0.0)
+        amsgrad = group.get("amsgrad", False)
+
+        for param in group["params"]:
+            state = optimizer.state.get(param, {})
+            if "exp_avg" not in state or "exp_avg_sq" not in state or "step" not in state:
+                continue
+
+            step_value = state["step"].item() if isinstance(state["step"], torch.Tensor) else state["step"]
+            if step_value <= 0:
+                continue
+
+            bias_correction1 = 1.0 - beta1 ** step_value
+            bias_correction2 = 1.0 - beta2 ** step_value
+            if bias_correction1 == 0.0 or bias_correction2 == 0.0:
+                continue
+
+            exp_avg = state["exp_avg"]
+            exp_avg_sq = state["max_exp_avg_sq"] if amsgrad and "max_exp_avg_sq" in state else state["exp_avg_sq"]
+            denom = exp_avg_sq.sqrt() / math.sqrt(bias_correction2)
+            denom = denom.add(eps)
+
+            step_tensor = exp_avg / denom
+            if weight_decay != 0.0:
+                step_tensor = step_tensor + weight_decay * param.detach()
+            step_tensor = step_tensor * (lr / bias_correction1)
+
+            total_sq += step_tensor.pow(2).sum().item()
+            max_abs = max(max_abs, step_tensor.abs().max().item())
+            has_state = True
+
+    if not has_state:
+        return {"delta_l2": 0.0, "delta_max_abs": 0.0}
+    return {"delta_l2": math.sqrt(total_sq), "delta_max_abs": max_abs}
+
+
+def _update_ema(previous: float | None, value: float, window: int = 20) -> float:
+    alpha = 2.0 / (window + 1.0)
+    if previous is None:
+        return value
+    return alpha * value + (1.0 - alpha) * previous
 
 
 def _validate_pre_update_logprob_invariant(metrics: dict) -> None:
@@ -397,6 +490,8 @@ def parse_args():
 
 def _get_trainable_scope_label(config) -> str:
     """Return a human-readable summary of the ReinFlow trainable scope."""
+    if getattr(config, "model_type", "smolvla") == "smolvla" and getattr(config, "trainable_scope", None) == "rl_stable_heads":
+        return "rl-stable-heads"
     if config.train_full_expert:
         return "full-expert"
     components = []
@@ -478,6 +573,7 @@ def train_parallel(config, args, device):
             train_action_head=config.train_action_head,
             train_time_mlp=config.train_time_mlp,
             train_full_expert=config.train_full_expert,
+            trainable_scope=config.trainable_scope,
             train_noise_head=config.train_noise_head,
             train_critic=config.train_critic,
         )
@@ -572,6 +668,9 @@ def train_parallel(config, args, device):
                 "target_kl": config.target_kl,
                 "logprob_eval_microbatch_size": config.logprob_eval_microbatch_size,
                 "critic_backprop_into_policy": config.critic_backprop_into_policy,
+                "trainable_scope": _get_trainable_scope_label(config),
+                "actor_lr_start": config.policy_lr,
+                "actor_lr_end": config.policy_lr * 0.1,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -661,6 +760,9 @@ def train_parallel(config, args, device):
         print("  [ReinFlow] Warning: SmolVLA on a 14.6 GB GPU is typically stable at <= 5 parallel envs.")
     
     total_episodes = start_episode  # Initialize with checkpoint episode count when resuming
+    reward_ema20 = None
+    recent_epoch1_early_stops = deque(maxlen=5)
+    epoch1_warning_active = False
     
     # ===== CRITIC WARMUP (paper Appendix D.2) =====
     # Train critic for a few iterations before updating actor
@@ -918,20 +1020,25 @@ def train_parallel(config, args, device):
                 with torch.no_grad():
                     old_log_probs = _compute_policy_log_probs(rl_policy, all_trajectories, all_observations)
                     recomputed_log_probs = _compute_policy_log_probs(rl_policy, all_trajectories, all_observations)
-                pre_update_metrics = _compute_logprob_shift_metrics(old_log_probs, recomputed_log_probs)
+                pre_update_metrics = _compute_logprob_shift_metrics(
+                    old_log_probs, recomputed_log_probs, clip_epsilon=config.clip_epsilon
+                )
                 _validate_pre_update_logprob_invariant(pre_update_metrics)
                 
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
                 epoch_critic_losses = []
-                epoch_post_update_kls = []
+                post_update_metric_history = []
                 
                 # Gradient norm tracking for diagnostics
                 last_policy_grad_norm = 0.0
                 last_critic_grad_norm = 0.0
                 policy_grad_clipped = False
                 critic_grad_clipped = False
+                actor_delta_l2_history = []
+                actor_delta_max_abs_history = []
+                epoch1_early_stop = False
                 
                 for epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
@@ -993,22 +1100,31 @@ def train_parallel(config, args, device):
                             last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                             policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                             policy_optimizer.step()
+                            actor_delta_metrics = _compute_actor_delta_metrics(policy_optimizer)
+                            actor_delta_l2_history.append(actor_delta_metrics["delta_l2"])
+                            actor_delta_max_abs_history.append(actor_delta_metrics["delta_max_abs"])
                             
                             policy_optimizer.zero_grad()
                             critic_optimizer.zero_grad()
 
                             with torch.no_grad():
                                 updated_log_probs = _compute_policy_log_probs(
-                                    rl_policy, all_trajectories, all_observations
+                                    rl_policy, mb_trajectories, mb_observations
                                 )
-                            post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
-                            epoch_post_update_kls.append(post_update_metrics['kl_div'])
+                            post_update_metrics = _compute_logprob_shift_metrics(
+                                mb_old_log_probs,
+                                updated_log_probs,
+                                clip_epsilon=config.clip_epsilon,
+                            )
+                            post_update_metric_history.append(post_update_metrics)
 
                             if post_update_metrics['kl_div'] > config.target_kl * 1.5:
                                 print(
                                     f"  [KL Early Stop] Epoch {epoch+1}, "
                                     f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
                                 )
+                                if epoch == 0:
+                                    epoch1_early_stop = True
                                 kl_early_stop = True
                                 break
                     
@@ -1020,19 +1136,28 @@ def train_parallel(config, args, device):
                         last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                         policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
+                        actor_delta_metrics = _compute_actor_delta_metrics(policy_optimizer)
+                        actor_delta_l2_history.append(actor_delta_metrics["delta_l2"])
+                        actor_delta_max_abs_history.append(actor_delta_metrics["delta_max_abs"])
 
                         with torch.no_grad():
                             updated_log_probs = _compute_policy_log_probs(
-                                rl_policy, all_trajectories, all_observations
+                                rl_policy, mb_trajectories, mb_observations
                             )
-                        post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
-                        epoch_post_update_kls.append(post_update_metrics['kl_div'])
+                        post_update_metrics = _compute_logprob_shift_metrics(
+                            mb_old_log_probs,
+                            updated_log_probs,
+                            clip_epsilon=config.clip_epsilon,
+                        )
+                        post_update_metric_history.append(post_update_metrics)
 
                         if post_update_metrics['kl_div'] > config.target_kl * 1.5:
                             print(
                                 f"  [KL Early Stop] Epoch {epoch+1}, "
                                 f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
                             )
+                            if epoch == 0:
+                                epoch1_early_stop = True
                             kl_early_stop = True
                 
                 # Step LR schedulers
@@ -1042,13 +1167,17 @@ def train_parallel(config, args, device):
                 # Aggregate loss info
                 avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
                 avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
-                avg_kl_div = np.mean(epoch_post_update_kls) if epoch_post_update_kls else 0.0
+                post_update_summary = _aggregate_logprob_shift_metrics(post_update_metric_history)
+                avg_kl_div = post_update_summary["kl_div"]
+                avg_actor_delta_l2 = float(np.mean(actor_delta_l2_history)) if actor_delta_l2_history else 0.0
+                max_actor_delta_abs = float(np.max(actor_delta_max_abs_history)) if actor_delta_max_abs_history else 0.0
                 
             else:
                 loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0, 'clip_fraction': 0,
                              'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
                              'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0}
-                pre_update_metrics = {'logprob_abs_mean': 0.0, 'logprob_abs_max': 0.0, 'kl_div': 0.0, 'ratio_mean': 1.0}
+                pre_update_metrics = _default_logprob_shift_metrics()
+                post_update_summary = _default_logprob_shift_metrics()
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
@@ -1056,6 +1185,9 @@ def train_parallel(config, args, device):
                 last_critic_grad_norm = 0.0
                 policy_grad_clipped = False
                 critic_grad_clipped = False
+                avg_actor_delta_l2 = 0.0
+                max_actor_delta_abs = 0.0
+                epoch1_early_stop = False
                 # Set defaults for metrics computed from tensors
                 all_rewards = torch.tensor([0.0], device=device)
                 all_values = torch.tensor([0.0], device=device)
@@ -1067,10 +1199,19 @@ def train_parallel(config, args, device):
             
             # Logging
             avg_reward = np.mean(episode_rewards)
+            reward_ema20 = _update_ema(reward_ema20, avg_reward, window=20)
+            recent_epoch1_early_stops.append(1 if epoch1_early_stop else 0)
+            should_warn_epoch1 = len(recent_epoch1_early_stops) == 5 and sum(recent_epoch1_early_stops) > 3
+            if should_warn_epoch1 and not epoch1_warning_active:
+                print("  [Training Warning] More than 3 of the last 5 batches early-stopped in epoch 1. Actor updates are still too aggressive for reward growth.")
+            epoch1_warning_active = should_warn_epoch1
             current_lr = policy_scheduler.get_last_lr()[0]
             print(f"Batch {episode_batch+1:4d} ({total_episodes:5d} eps) | "
                   f"Reward: {avg_reward:7.2f} | "
+                  f"EMA20: {reward_ema20:7.2f} | "
                   f"KL: {avg_kl_div:.4f} | "
+                  f"RatioMax: {post_update_summary['ratio_max']:.3f} | "
+                  f"ClipFrac: {post_update_summary['clip_fraction']:.2f} | "
                   f"LR: {current_lr:.2e} | "
                   f"Time: {batch_time:.1f}s")
             
@@ -1098,6 +1239,7 @@ def train_parallel(config, args, device):
                     
                     # Reward metrics (5)
                     "reward/batch_avg": avg_reward,
+                    "reward/ema20": reward_ema20,
                     "reward/batch_min": np.min(episode_rewards),
                     "reward/batch_max": np.max(episode_rewards),
                     "reward/std": all_rewards.std().item(),
@@ -1164,18 +1306,28 @@ def train_parallel(config, args, device):
                     
                     # Gradient metrics (4)
                     "gradients/policy_norm": last_policy_grad_norm,
+                    "gradients/actor_norm": last_policy_grad_norm,
                     "gradients/critic_norm": last_critic_grad_norm,
                     "gradients/policy_clipped": float(policy_grad_clipped),
+                    "gradients/actor_clipped": float(policy_grad_clipped),
                     "gradients/critic_clipped": float(critic_grad_clipped),
+                    "updates/actor_delta_l2": avg_actor_delta_l2,
+                    "updates/actor_delta_max_abs": max_actor_delta_abs,
                     
                     # Training dynamics
                     "training/kl_divergence": avg_kl_div,
                     "training/post_update_kl": avg_kl_div,
-                    "training/clip_fraction": loss_info.get('clip_fraction', 0),
+                    "training/post_update_ratio_mean": post_update_summary.get('ratio_mean', 1.0),
+                    "training/post_update_ratio_max": post_update_summary.get('ratio_max', 1.0),
+                    "training/post_update_clip_fraction": post_update_summary.get('clip_fraction', 0.0),
+                    "training/post_update_logprob_abs_mean": post_update_summary.get('logprob_abs_mean', 0.0),
+                    "training/clip_fraction": post_update_summary.get('clip_fraction', 0.0),
                     "training/learning_rate": current_lr,
                     "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                     "training/sigma_min": sigma_min,
                     "training/sigma_max": sigma_max,
+                    "training/epoch1_early_stop": float(epoch1_early_stop),
+                    "training/recent_epoch1_early_stop_count": float(sum(recent_epoch1_early_stops)),
                 }
                 wandb.log(log_dict)
             
@@ -1261,6 +1413,7 @@ def train_sequential(config, args, device):
             train_action_head=config.train_action_head,
             train_time_mlp=config.train_time_mlp,
             train_full_expert=config.train_full_expert,
+            trainable_scope=config.trainable_scope,
             train_noise_head=config.train_noise_head,
             train_critic=config.train_critic,
             sigma_min=config.sigma_min,
@@ -1328,6 +1481,9 @@ def train_sequential(config, args, device):
                 "target_kl": config.target_kl,
                 "logprob_eval_microbatch_size": config.logprob_eval_microbatch_size,
                 "critic_backprop_into_policy": config.critic_backprop_into_policy,
+                "trainable_scope": _get_trainable_scope_label(config),
+                "actor_lr_start": config.policy_lr,
+                "actor_lr_end": config.policy_lr * 0.1,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -1344,6 +1500,10 @@ def train_sequential(config, args, device):
             },
         )
         wandb_run_id = wandb.run.id
+    
+    reward_ema20 = None
+    recent_epoch1_early_stops = deque(maxlen=5)
+    epoch1_warning_active = False
     
     # Separate optimizers for actor and critic (allows different learning rates)
     policy_params = list(rl_policy.get_trainable_params())
@@ -1637,20 +1797,25 @@ def train_sequential(config, args, device):
                     old_log_probs = _compute_policy_log_probs(rl_policy, batch_trajectories, batch_observations)
                     recomputed_log_probs = _compute_policy_log_probs(rl_policy, batch_trajectories, batch_observations)
                     old_values = batch_values.clone()
-                pre_update_metrics = _compute_logprob_shift_metrics(old_log_probs, recomputed_log_probs)
+                pre_update_metrics = _compute_logprob_shift_metrics(
+                    old_log_probs, recomputed_log_probs, clip_epsilon=config.clip_epsilon
+                )
                 _validate_pre_update_logprob_invariant(pre_update_metrics)
                 
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
                 epoch_critic_losses = []
-                epoch_post_update_kls = []
+                post_update_metric_history = []
                 
                 # Gradient norm tracking for diagnostics
                 last_policy_grad_norm = 0.0
                 last_critic_grad_norm = 0.0
                 policy_grad_clipped = False
                 critic_grad_clipped = False
+                actor_delta_l2_history = []
+                actor_delta_max_abs_history = []
+                epoch1_early_stop = False
                 
                 for ppo_epoch in range(config.num_ppo_epochs):
                     if kl_early_stop:
@@ -1711,22 +1876,31 @@ def train_sequential(config, args, device):
                             last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                             policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                             policy_optimizer.step()
+                            actor_delta_metrics = _compute_actor_delta_metrics(policy_optimizer)
+                            actor_delta_l2_history.append(actor_delta_metrics["delta_l2"])
+                            actor_delta_max_abs_history.append(actor_delta_metrics["delta_max_abs"])
                             
                             policy_optimizer.zero_grad()
                             critic_optimizer.zero_grad()
 
                             with torch.no_grad():
                                 updated_log_probs = _compute_policy_log_probs(
-                                    rl_policy, batch_trajectories, batch_observations
+                                    rl_policy, mb_trajectories, mb_observations
                                 )
-                            post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
-                            epoch_post_update_kls.append(post_update_metrics['kl_div'])
+                            post_update_metrics = _compute_logprob_shift_metrics(
+                                mb_old_log_probs,
+                                updated_log_probs,
+                                clip_epsilon=config.clip_epsilon,
+                            )
+                            post_update_metric_history.append(post_update_metrics)
 
                             if post_update_metrics['kl_div'] > config.target_kl * 1.5:
                                 print(
                                     f"  [KL Early Stop] Epoch {ppo_epoch+1}, "
                                     f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
                                 )
+                                if ppo_epoch == 0:
+                                    epoch1_early_stop = True
                                 kl_early_stop = True
                                 break
                     
@@ -1738,19 +1912,28 @@ def train_sequential(config, args, device):
                         last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                         policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
+                        actor_delta_metrics = _compute_actor_delta_metrics(policy_optimizer)
+                        actor_delta_l2_history.append(actor_delta_metrics["delta_l2"])
+                        actor_delta_max_abs_history.append(actor_delta_metrics["delta_max_abs"])
 
                         with torch.no_grad():
                             updated_log_probs = _compute_policy_log_probs(
-                                rl_policy, batch_trajectories, batch_observations
+                                rl_policy, mb_trajectories, mb_observations
                             )
-                        post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
-                        epoch_post_update_kls.append(post_update_metrics['kl_div'])
+                        post_update_metrics = _compute_logprob_shift_metrics(
+                            mb_old_log_probs,
+                            updated_log_probs,
+                            clip_epsilon=config.clip_epsilon,
+                        )
+                        post_update_metric_history.append(post_update_metrics)
 
                         if post_update_metrics['kl_div'] > config.target_kl * 1.5:
                             print(
                                 f"  [KL Early Stop] Epoch {ppo_epoch+1}, "
                                 f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
                             )
+                            if ppo_epoch == 0:
+                                epoch1_early_stop = True
                             kl_early_stop = True
                 
                 # Step LR schedulers
@@ -1760,13 +1943,17 @@ def train_sequential(config, args, device):
                 # Aggregate loss info
                 avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
                 avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
-                avg_kl_div = np.mean(epoch_post_update_kls) if epoch_post_update_kls else 0.0
+                post_update_summary = _aggregate_logprob_shift_metrics(post_update_metric_history)
+                avg_kl_div = post_update_summary["kl_div"]
+                avg_actor_delta_l2 = float(np.mean(actor_delta_l2_history)) if actor_delta_l2_history else 0.0
+                max_actor_delta_abs = float(np.max(actor_delta_max_abs_history)) if actor_delta_max_abs_history else 0.0
                 
             else:
                 loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0,
                              'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
                              'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0, 'clip_fraction': 0}
-                pre_update_metrics = {'logprob_abs_mean': 0.0, 'logprob_abs_max': 0.0, 'kl_div': 0.0, 'ratio_mean': 1.0}
+                pre_update_metrics = _default_logprob_shift_metrics()
+                post_update_summary = _default_logprob_shift_metrics()
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
@@ -1774,6 +1961,9 @@ def train_sequential(config, args, device):
                 last_critic_grad_norm = 0.0
                 policy_grad_clipped = False
                 critic_grad_clipped = False
+                avg_actor_delta_l2 = 0.0
+                max_actor_delta_abs = 0.0
+                epoch1_early_stop = False
                 # Set defaults for metrics computed from tensors
                 batch_rewards = torch.tensor([0.0], device=device)
                 batch_values = torch.tensor([0.0], device=device)
@@ -1786,11 +1976,20 @@ def train_sequential(config, args, device):
             # Logging
             if (episode + 1) % config.log_interval == 0:
                 avg_reward = np.mean(episode_rewards_history[-min(100, len(episode_rewards_history)):])
+                reward_ema20 = _update_ema(reward_ema20, episode_reward, window=20)
+                recent_epoch1_early_stops.append(1 if epoch1_early_stop else 0)
+                should_warn_epoch1 = len(recent_epoch1_early_stops) == 5 and sum(recent_epoch1_early_stops) > 3
+                if should_warn_epoch1 and not epoch1_warning_active:
+                    print("  [Training Warning] More than 3 of the last 5 batches early-stopped in epoch 1. Actor updates are still too aggressive for reward growth.")
+                epoch1_warning_active = should_warn_epoch1
                 current_lr = policy_scheduler.get_last_lr()[0]
                 print(f"Episode {episode+1:5d} | "
                       f"Reward: {episode_reward:7.2f} | "
+                      f"EMA20: {reward_ema20:7.2f} | "
                       f"Avg: {avg_reward:7.2f} | "
                       f"KL: {avg_kl_div:.4f} | "
+                      f"RatioMax: {post_update_summary['ratio_max']:.3f} | "
+                      f"ClipFrac: {post_update_summary['clip_fraction']:.2f} | "
                       f"LR: {current_lr:.2e} | "
                       f"Time: {episode_time:.1f}s")
                 
@@ -1819,6 +2018,7 @@ def train_sequential(config, args, device):
                         
                         # Reward metrics (4)
                         "reward/episode": episode_reward,
+                        "reward/ema20": reward_ema20,
                         "reward/avg": avg_reward,
                         "reward/std": batch_rewards.std().item(),
                         "reward/positive_fraction": (batch_rewards > 0).float().mean().item(),
@@ -1880,18 +2080,28 @@ def train_sequential(config, args, device):
                         
                         # Gradient metrics (4)
                         "gradients/policy_norm": last_policy_grad_norm,
+                        "gradients/actor_norm": last_policy_grad_norm,
                         "gradients/critic_norm": last_critic_grad_norm,
                         "gradients/policy_clipped": float(policy_grad_clipped),
+                        "gradients/actor_clipped": float(policy_grad_clipped),
                         "gradients/critic_clipped": float(critic_grad_clipped),
+                        "updates/actor_delta_l2": avg_actor_delta_l2,
+                        "updates/actor_delta_max_abs": max_actor_delta_abs,
                         
                         # Training dynamics
                         "training/kl_divergence": avg_kl_div,
                         "training/post_update_kl": avg_kl_div,
-                        "training/clip_fraction": loss_info.get('clip_fraction', 0),
+                        "training/post_update_ratio_mean": post_update_summary.get('ratio_mean', 1.0),
+                        "training/post_update_ratio_max": post_update_summary.get('ratio_max', 1.0),
+                        "training/post_update_clip_fraction": post_update_summary.get('clip_fraction', 0.0),
+                        "training/post_update_logprob_abs_mean": post_update_summary.get('logprob_abs_mean', 0.0),
+                        "training/clip_fraction": post_update_summary.get('clip_fraction', 0.0),
                         "training/learning_rate": current_lr,
                         "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
                         "training/sigma_min": sigma_min,
                         "training/sigma_max": sigma_max,
+                        "training/epoch1_early_stop": float(epoch1_early_stop),
+                        "training/recent_epoch1_early_stop_count": float(sum(recent_epoch1_early_stops)),
                     })
             
             # Save checkpoint periodically
@@ -1984,8 +2194,10 @@ def train(config=None, args=None):
             config.wandb_enabled = False
         if args.full_expert:
             config.train_full_expert = True
+            config.trainable_scope = "full-expert"
         if args.no_full_expert:
             config.train_full_expert = False
+            config.trainable_scope = "rl_stable_heads"
         if hasattr(args, 'no_gradient_checkpointing') and args.no_gradient_checkpointing:
             config.pi0_gradient_checkpointing = False
 

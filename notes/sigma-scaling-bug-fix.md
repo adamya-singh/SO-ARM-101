@@ -328,6 +328,44 @@ So the correct takeaway is not "just scale sigma." The full stabilization recipe
 4. evaluate KL for early-stop only after an actual parameter update
 5. keep critic gradients out of shared actor conditioning by default
 
+## April 2026 Follow-up: Reward Growth Needed Smaller Actor Updates
+
+Once the pre-update PPO invariant was fixed, W&B showed that the remaining failure mode was no longer a correctness bug:
+
+- `debug/pre_update_kl = 0`
+- `debug/pre_update_ratio_mean = 1`
+- but `training/post_update_kl` still remained too large after a real optimizer step
+
+That changed the prescription. The next stabilization pass in this repo now assumes:
+
+1. **Use a smaller default actor LR.**  
+   The default SmolVLA actor schedule is now `3e-7 -> 1e-7`, not `1e-6 -> 1e-7`.
+
+2. **Default to a stable RL trainable scope.**  
+   SmolVLA PPO now defaults to `trainable_scope = "rl_stable_heads"`, which trains:
+   - `action_in_proj`
+   - `action_out_proj`
+   - `action_time_mlp_in`
+   - `action_time_mlp_out`
+   - `noise_mlp`
+
+   while keeping `state_proj` frozen. Full-expert RL is still available, but it is no longer the default for reward-first runs on the 14.6 GB setup.
+
+3. **Judge policy aggressiveness using post-step metrics, not only gradient norms.**  
+   The trainer now logs:
+   - `training/post_update_ratio_mean`
+   - `training/post_update_ratio_max`
+   - `training/post_update_clip_fraction`
+   - `training/post_update_logprob_abs_mean`
+   - `updates/actor_delta_l2`
+   - `updates/actor_delta_max_abs`
+   - `reward/ema20`
+
+4. **Treat repeated epoch-1 early-stop as a training failure signal.**  
+   If more than 3 of the last 5 batches early-stop in epoch 1, the trainer now prints a warning that actor updates are still too aggressive for reward growth.
+
+The practical lesson is that after the sigma and PPO correctness fixes, the remaining work is ordinary optimization control: make the actor move less, instrument the real post-step drift, and optimize for shaped reward improvement instead of maximum trainable scope.
+
 A per-dimension log probability of +3.58 should have been an immediate red flag. Proper logging caught what would have been a silent failure.
 
 ### 5. Mathematical Analysis > Hyperparameter Tuning

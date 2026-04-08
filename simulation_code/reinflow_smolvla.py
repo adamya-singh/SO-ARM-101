@@ -148,6 +148,7 @@ class ReinFlowSmolVLA(nn.Module):
         train_action_head: bool = True,
         train_time_mlp: bool = False,
         train_full_expert: bool = False,
+        trainable_scope: str = "legacy_selective",
         train_noise_head: bool = True,  # New: always train noise head for ReinFlow
         train_critic: bool = True,  # New: train critic for actor-critic
         device: str = 'cpu'
@@ -158,7 +159,8 @@ class ReinFlowSmolVLA(nn.Module):
         self.device = device
         self.train_action_head = train_action_head
         self.train_time_mlp = train_time_mlp
-        self.train_full_expert = train_full_expert
+        self.trainable_scope = self._resolve_trainable_scope(train_full_expert, trainable_scope)
+        self.train_full_expert = self.trainable_scope == "full-expert"
         self.train_noise_head = train_noise_head
         self.train_critic = train_critic
         self.logprob_eval_microbatch_size = 1
@@ -177,7 +179,7 @@ class ReinFlowSmolVLA(nn.Module):
         for p in self.base.parameters():
             p.requires_grad = False
         
-        if train_full_expert:
+        if self.train_full_expert:
             # Unfreeze ALL Action Expert components (~100M params total)
             print("  [ReinFlow] Training FULL Action Expert")
             
@@ -214,6 +216,21 @@ class ReinFlowSmolVLA(nn.Module):
                 p.requires_grad = True
             print(f"  [ReinFlow] Unfroze state_proj: "
                   f"{sum(p.numel() for p in self.base.model.state_proj.parameters()):,} params")
+        elif self.trainable_scope == "rl_stable_heads":
+            print("  [ReinFlow] Training stable RL actor subset")
+            stable_modules = [
+                ("action_in_proj", self.base.model.action_in_proj),
+                ("action_out_proj", self.base.model.action_out_proj),
+                ("action_time_mlp_in", self.base.model.action_time_mlp_in),
+                ("action_time_mlp_out", self.base.model.action_time_mlp_out),
+            ]
+            for name, module in stable_modules:
+                for p in module.parameters():
+                    p.requires_grad = True
+                print(
+                    f"  [ReinFlow] Unfroze {name}: "
+                    f"{sum(p.numel() for p in module.parameters()):,} params"
+                )
         
         else:
             # Original selective unfreezing (lightweight training)
@@ -239,6 +256,14 @@ class ReinFlowSmolVLA(nn.Module):
         # Count total trainable params
         total_trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
         print(f"  [ReinFlow] Total trainable parameters: {total_trainable:,}")
+
+    @staticmethod
+    def _resolve_trainable_scope(train_full_expert: bool, trainable_scope: str) -> str:
+        if train_full_expert:
+            return "full-expert"
+        if trainable_scope in {"full-expert", "rl_stable_heads", "legacy_selective"}:
+            return trainable_scope
+        return "legacy_selective"
     
     def get_trainable_params(self) -> List[torch.nn.Parameter]:
         """
@@ -258,6 +283,11 @@ class ReinFlowSmolVLA(nn.Module):
             params.extend(self.base.model.action_time_mlp_in.parameters())
             params.extend(self.base.model.action_time_mlp_out.parameters())
             params.extend(self.base.model.state_proj.parameters())
+        elif self.trainable_scope == "rl_stable_heads":
+            params.extend(self.base.model.action_in_proj.parameters())
+            params.extend(self.base.model.action_out_proj.parameters())
+            params.extend(self.base.model.action_time_mlp_in.parameters())
+            params.extend(self.base.model.action_time_mlp_out.parameters())
         else:
             # Selective unfreezing
             if self.train_action_head:
@@ -889,6 +919,7 @@ def setup_reinflow_policy(
     train_action_head: bool = True,
     train_time_mlp: bool = False,
     train_full_expert: bool = False,
+    trainable_scope: str = "legacy_selective",
     train_noise_head: bool = True,
     train_critic: bool = True,
 ) -> Tuple['ReinFlowSmolVLA', Optional[Any], Optional[Any]]:
@@ -952,6 +983,7 @@ def setup_reinflow_policy(
         train_action_head=train_action_head,
         train_time_mlp=train_time_mlp,
         train_full_expert=train_full_expert,
+        trainable_scope=trainable_scope,
         train_noise_head=train_noise_head,
         train_critic=train_critic,
         device=device,
@@ -1189,6 +1221,7 @@ def save_reinflow_checkpoint(
         'train_action_head': policy.train_action_head,
         'train_time_mlp': policy.train_time_mlp,
         'train_full_expert': policy.train_full_expert,
+        'trainable_scope': getattr(policy, 'trainable_scope', 'full-expert' if policy.train_full_expert else 'legacy_selective'),
         'train_noise_head': policy.train_noise_head,
         'train_critic': policy.train_critic,
         'model_type': 'smolvla',
@@ -1211,22 +1244,16 @@ def save_reinflow_checkpoint(
     
     # Save critic network (new for actor-critic)
     checkpoint['critic'] = policy.critic.state_dict()
+    checkpoint['action_in_proj'] = policy.base.model.action_in_proj.state_dict()
+    checkpoint['action_out_proj'] = policy.base.model.action_out_proj.state_dict()
+    checkpoint['action_time_mlp_in'] = policy.base.model.action_time_mlp_in.state_dict()
+    checkpoint['action_time_mlp_out'] = policy.base.model.action_time_mlp_out.state_dict()
+    checkpoint['state_proj'] = policy.base.model.state_proj.state_dict()
     
     if policy.train_full_expert:
         # Save ALL Action Expert component weights
         if hasattr(policy.base.model.vlm_with_expert, 'expert'):
             checkpoint['expert'] = policy.base.model.vlm_with_expert.expert.state_dict()
-        checkpoint['action_in_proj'] = policy.base.model.action_in_proj.state_dict()
-        checkpoint['action_out_proj'] = policy.base.model.action_out_proj.state_dict()
-        checkpoint['action_time_mlp_in'] = policy.base.model.action_time_mlp_in.state_dict()
-        checkpoint['action_time_mlp_out'] = policy.base.model.action_time_mlp_out.state_dict()
-        checkpoint['state_proj'] = policy.base.model.state_proj.state_dict()
-    else:
-        # Save selective weights (original behavior)
-        if policy.train_action_head:
-            checkpoint['action_out_proj'] = policy.base.model.action_out_proj.state_dict()
-        if policy.train_time_mlp:
-            checkpoint['action_time_mlp_out'] = policy.base.model.action_time_mlp_out.state_dict()
     
     torch.save(checkpoint, save_path)
     print(f"[ReinFlow] Checkpoint saved to {save_path}")
@@ -1276,6 +1303,10 @@ def load_reinflow_checkpoint(
     policy.base_policy_source_type = checkpoint.get(
         'base_policy_source_type', getattr(policy, 'base_policy_source_type', None)
     )
+    policy.trainable_scope = checkpoint.get(
+        'trainable_scope',
+        getattr(policy, 'trainable_scope', 'full-expert' if policy.train_full_expert else 'legacy_selective')
+    )
     policy.normalization_mode = checkpoint.get('normalization_mode', getattr(policy, 'normalization_mode', 'unknown'))
     policy.state_action_frame = checkpoint.get(
         'state_action_frame',
@@ -1294,29 +1325,21 @@ def load_reinflow_checkpoint(
         policy.critic.load_state_dict(checkpoint['critic'])
         print("  [ReinFlow] Loaded critic weights")
     
-    if policy.train_full_expert:
-        # Load ALL Action Expert component weights
-        if hasattr(policy.base.model.vlm_with_expert, 'expert') and 'expert' in checkpoint:
-            policy.base.model.vlm_with_expert.expert.load_state_dict(checkpoint['expert'])
-            print("  [ReinFlow] Loaded expert transformer weights")
-        if 'action_in_proj' in checkpoint:
-            policy.base.model.action_in_proj.load_state_dict(checkpoint['action_in_proj'])
-        if 'action_out_proj' in checkpoint:
-            policy.base.model.action_out_proj.load_state_dict(checkpoint['action_out_proj'])
-        if 'action_time_mlp_in' in checkpoint:
-            policy.base.model.action_time_mlp_in.load_state_dict(checkpoint['action_time_mlp_in'])
-        if 'action_time_mlp_out' in checkpoint:
-            policy.base.model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
-        if 'state_proj' in checkpoint:
-            policy.base.model.state_proj.load_state_dict(checkpoint['state_proj'])
-        print("  [ReinFlow] Loaded full Action Expert weights")
-    else:
-        # Load selective weights (original behavior)
-        if policy.train_action_head and 'action_out_proj' in checkpoint:
-            policy.base.model.action_out_proj.load_state_dict(checkpoint['action_out_proj'])
-        
-        if policy.train_time_mlp and 'action_time_mlp_out' in checkpoint:
-            policy.base.model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
+    if hasattr(policy.base.model.vlm_with_expert, 'expert') and 'expert' in checkpoint:
+        policy.base.model.vlm_with_expert.expert.load_state_dict(checkpoint['expert'])
+        print("  [ReinFlow] Loaded expert transformer weights")
+    if 'action_in_proj' in checkpoint:
+        policy.base.model.action_in_proj.load_state_dict(checkpoint['action_in_proj'])
+    if 'action_out_proj' in checkpoint:
+        policy.base.model.action_out_proj.load_state_dict(checkpoint['action_out_proj'])
+    if 'action_time_mlp_in' in checkpoint:
+        policy.base.model.action_time_mlp_in.load_state_dict(checkpoint['action_time_mlp_in'])
+    if 'action_time_mlp_out' in checkpoint:
+        policy.base.model.action_time_mlp_out.load_state_dict(checkpoint['action_time_mlp_out'])
+    if 'state_proj' in checkpoint:
+        policy.base.model.state_proj.load_state_dict(checkpoint['state_proj'])
+    if any(key in checkpoint for key in ('action_in_proj', 'action_out_proj', 'action_time_mlp_in', 'action_time_mlp_out', 'state_proj')):
+        print(f"  [ReinFlow] Loaded trainable scope weights ({policy.trainable_scope})")
     
     start_episode = checkpoint.get('episode', 0) + 1
     wandb_run_id = checkpoint.get('wandb_run_id', None)
