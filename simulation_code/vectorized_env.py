@@ -43,9 +43,21 @@ class VectorizedMuJoCoEnv:
         instruction: Task text used by processor-backed SmolVLA normalization
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
-        contact_bonus: Bonus reward while gripper contacts block
-        height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
-        grasp_bonus: Bonus reward when both sides of gripper squeeze block
+        distance_penalty_scale: Base scale for distance penalty
+        horizontal_progress_scale: Reward scale for horizontal progress toward the block
+        vertical_approach_scale: Reward scale for entering the grasp-height corridor
+        approach_closeness_scale: Static pre-contact closeness shaping
+        alignment_reward_cap: Max gated alignment reward before contact
+        near_contact_bonus: Dense bridge reward for final pre-contact approach
+        contact_entry_bonus: One-time reward when contact begins
+        contact_persistence_reward: Per-step reward while contact is maintained
+        hover_stall_threshold: Steps in the grasp corridor before stall penalty applies
+        hover_penalty: Penalty for stalling in the corridor without contact
+        bilateral_grasp_bonus: Reward for bilateral grasp activation
+        grasp_persistence_reward: Per-step reward while grasp persists
+        slip_penalty_contact: Penalty for losing sustained contact
+        slip_penalty_grasp: Penalty for losing a grasp
+        block_displacement_penalty_scale: Penalty scale for pushing the block away without lift
         lift_bonus: Bonus reward when block is lifted above threshold
         lift_bonus_threshold: Height (meters) to trigger lift bonus
         sustained_contact_threshold: Frames of continuous contact before bonus triggers
@@ -62,9 +74,21 @@ class VectorizedMuJoCoEnv:
         instruction: str,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
-        contact_bonus: float = 0.1,
-        height_alignment_bonus: float = 0.05,
-        grasp_bonus: float = 0.15,
+        distance_penalty_scale: float = 0.4,
+        horizontal_progress_scale: float = 0.12,
+        vertical_approach_scale: float = 0.05,
+        approach_closeness_scale: float = 0.035,
+        alignment_reward_cap: float = 0.035,
+        near_contact_bonus: float = 0.03,
+        contact_entry_bonus: float = 0.18,
+        contact_persistence_reward: float = 0.045,
+        hover_stall_threshold: int = 8,
+        hover_penalty: float = -0.01,
+        bilateral_grasp_bonus: float = 0.30,
+        grasp_persistence_reward: float = 0.08,
+        slip_penalty_contact: float = -0.03,
+        slip_penalty_grasp: float = -0.08,
+        block_displacement_penalty_scale: float = 0.08,
         lift_bonus: float = 0.2,
         lift_bonus_threshold: float = 0.04,
         sustained_contact_threshold: int = 5,
@@ -77,9 +101,21 @@ class VectorizedMuJoCoEnv:
         self.instruction = instruction
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
-        self.contact_bonus = contact_bonus
-        self.height_alignment_bonus = height_alignment_bonus
-        self.grasp_bonus = grasp_bonus
+        self.distance_penalty_scale = distance_penalty_scale
+        self.horizontal_progress_scale = horizontal_progress_scale
+        self.vertical_approach_scale = vertical_approach_scale
+        self.approach_closeness_scale = approach_closeness_scale
+        self.alignment_reward_cap = alignment_reward_cap
+        self.near_contact_bonus = near_contact_bonus
+        self.contact_entry_bonus = contact_entry_bonus
+        self.contact_persistence_reward = contact_persistence_reward
+        self.hover_stall_threshold = hover_stall_threshold
+        self.hover_penalty = hover_penalty
+        self.bilateral_grasp_bonus = bilateral_grasp_bonus
+        self.grasp_persistence_reward = grasp_persistence_reward
+        self.slip_penalty_contact = slip_penalty_contact
+        self.slip_penalty_grasp = slip_penalty_grasp
+        self.block_displacement_penalty_scale = block_displacement_penalty_scale
         self.lift_bonus = lift_bonus
         self.lift_bonus_threshold = lift_bonus_threshold
         self.sustained_contact_threshold = sustained_contact_threshold
@@ -259,17 +295,7 @@ class VectorizedMuJoCoEnv:
     
     def _compute_reward(self, env_idx: int) -> tuple:
         """
-        Reward with distance penalty + contact bonus + sustained contact + height alignment + grasp + lift.
-        
-        Components:
-        - Distance: -distance (range: -0.5 to 0.0)
-        - Contact bonus: +contact_bonus when gripper touches block
-        - Sustained contact: +sustained_contact_bonus after threshold consecutive frames
-        - Height alignment: +height_alignment_bonus when gripper is above block and close horizontally
-        - Grasp bonus: +grasp_bonus when both sides of gripper squeeze block
-        - Lift bonus: +lift_bonus when block is elevated above lift_bonus_threshold
-        
-        Total range per step: ~-0.5 to +0.70
+        Compute the staged pickup reward for one environment.
         
         Returns:
             reward: float, the computed reward
@@ -287,9 +313,21 @@ class VectorizedMuJoCoEnv:
             self.reward_states[env_idx],
             block_name="red_block",
             lift_threshold=self.lift_threshold,
-            contact_bonus=self.contact_bonus,
-            height_alignment_bonus=self.height_alignment_bonus,
-            grasp_bonus=self.grasp_bonus,
+            distance_penalty_scale=self.distance_penalty_scale,
+            horizontal_progress_scale=self.horizontal_progress_scale,
+            vertical_approach_scale=self.vertical_approach_scale,
+            approach_closeness_scale=self.approach_closeness_scale,
+            alignment_reward_cap=self.alignment_reward_cap,
+            near_contact_bonus=self.near_contact_bonus,
+            contact_entry_bonus=self.contact_entry_bonus,
+            contact_persistence_reward=self.contact_persistence_reward,
+            hover_stall_threshold=self.hover_stall_threshold,
+            hover_penalty=self.hover_penalty,
+            bilateral_grasp_bonus=self.bilateral_grasp_bonus,
+            grasp_persistence_reward=self.grasp_persistence_reward,
+            slip_penalty_contact=self.slip_penalty_contact,
+            slip_penalty_grasp=self.slip_penalty_grasp,
+            block_displacement_penalty_scale=self.block_displacement_penalty_scale,
             lift_bonus=self.lift_bonus,
             lift_bonus_threshold=self.lift_bonus_threshold,
             sustained_contact_threshold=self.sustained_contact_threshold,
@@ -310,6 +348,14 @@ class VectorizedMuJoCoEnv:
             metrics["hover_stall"],
             metrics["slip_count"],
             metrics["block_displacement"],
+            metrics["approach_reward"],
+            metrics["alignment_reward"],
+            metrics["near_contact"],
+            metrics["contact_after_alignment"],
+            metrics["horizontal_progress"],
+            metrics["vertical_approach"],
+            metrics["contact_loss_count"],
+            metrics["grasp_loss_count"],
         )
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
@@ -349,6 +395,14 @@ class VectorizedMuJoCoEnv:
         total_hover_stall = np.zeros(num_envs, dtype=int)
         total_slips = np.zeros(num_envs, dtype=int)
         total_block_displacement = np.zeros(num_envs, dtype=float)
+        total_approach_reward = np.zeros(num_envs, dtype=float)
+        total_alignment_reward = np.zeros(num_envs, dtype=float)
+        total_near_contact = np.zeros(num_envs, dtype=int)
+        total_contact_after_alignment = np.zeros(num_envs, dtype=int)
+        total_horizontal_progress = np.zeros(num_envs, dtype=float)
+        total_vertical_approach = np.zeros(num_envs, dtype=float)
+        total_contact_losses = np.zeros(num_envs, dtype=int)
+        total_grasp_losses = np.zeros(num_envs, dtype=int)
         
         for action_idx in range(chunk_size):
             # Get actions for this timestep across all environments
@@ -370,7 +424,29 @@ class VectorizedMuJoCoEnv:
                     mujoco.mj_step(self.model, d)
                 
                 # Compute reward for this step
-                reward, done, contacted, gripped, sustained, height_aligned, block_lifted, contact_entry, grasp_persistent, lift_progress, hover_stall, slip_count, block_displacement = self._compute_reward(i)
+                (
+                    reward,
+                    done,
+                    contacted,
+                    gripped,
+                    sustained,
+                    height_aligned,
+                    block_lifted,
+                    contact_entry,
+                    grasp_persistent,
+                    lift_progress,
+                    hover_stall,
+                    slip_count,
+                    block_displacement,
+                    approach_reward,
+                    alignment_reward,
+                    near_contact,
+                    contact_after_alignment,
+                    horizontal_progress,
+                    vertical_approach,
+                    contact_loss_count,
+                    grasp_loss_count,
+                ) = self._compute_reward(i)
                 total_rewards[i] += reward
                 total_contacts[i] += int(contacted)
                 total_grasps[i] += int(gripped)
@@ -382,6 +458,14 @@ class VectorizedMuJoCoEnv:
                 total_hover_stall[i] += int(hover_stall)
                 total_slips[i] += int(slip_count)
                 total_block_displacement[i] += float(block_displacement)
+                total_approach_reward[i] += float(approach_reward)
+                total_alignment_reward[i] += float(alignment_reward)
+                total_near_contact[i] += int(near_contact)
+                total_contact_after_alignment[i] += int(contact_after_alignment)
+                total_horizontal_progress[i] += float(horizontal_progress)
+                total_vertical_approach[i] += float(vertical_approach)
+                total_contact_losses[i] += int(contact_loss_count)
+                total_grasp_losses[i] += int(grasp_loss_count)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
         
@@ -398,6 +482,14 @@ class VectorizedMuJoCoEnv:
             total_hover_stall,
             total_slips,
             total_block_displacement,
+            total_approach_reward,
+            total_alignment_reward,
+            total_near_contact,
+            total_contact_after_alignment,
+            total_horizontal_progress,
+            total_vertical_approach,
+            total_contact_losses,
+            total_grasp_losses,
         )
     
     def get_episode_steps(self) -> np.ndarray:

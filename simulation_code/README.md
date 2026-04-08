@@ -454,27 +454,36 @@ action_space = Box(low=joint_limits_low, high=joint_limits_high, shape=(6,))
 
 ### Reward Function
 
-The current reward function in `so101_mujoco_utils.py` is a staged pickup reward, not the older distance/approach/height/success scheme.
+The current reward function in `so101_mujoco_utils.py` is a staged pickup reward, not the older distance/approach/height/success scheme. The latest April 2026 pass is a hybrid rebalancing that restores pre-contact progress signals after the first anti-hover redesign made approach/contact discovery too weak.
 
 Current phases:
 
 | Phase | Main terms | Purpose |
 |-------|------------|---------|
-| Pre-contact approach | `-distance`, `approach_reward` | Move the gripper toward the block with a usable pre-grasp pose. |
-| Gated alignment | `alignment_reward` | Reward top-down pre-grasp geometry only while the gripper is still moving into the grasp. |
+| Pre-contact approach | `-distance_penalty_scale * distance`, `approach_reward` | Move the gripper toward the block with a usable pre-grasp pose. |
+| Progress shaping | `horizontal_progress_reward`, `vertical_approach_reward`, `approach_closeness_reward` | Reward real progress toward the block before contact. |
+| Gated alignment | `alignment_reward` | Reward top-down pre-grasp geometry in a widened corridor without restoring the old hover exploit. |
+| Near contact | `near_contact_bonus` | Dense bridge reward for the last pre-contact corridor before touch. |
 | Contact | `contact_entry_bonus`, `contact_persistence_reward` | Reward committing to touch and maintaining it. |
 | Grasp | `bilateral_grasp_bonus`, `grasp_persistence_reward` | Reward squeezing the block with both sides of the gripper. |
 | Lift | `lift_progress_reward`, lift completion bonus | Reward real pickup progress using height above the block's initial pose. |
-| Failure penalties | `hover_penalty`, `slip_penalty`, `block_displacement_penalty` | Discourage hovering, losing contact/grasp, and knocking the block away sideways. |
+| Failure penalties | `hover_penalty`, `slip_penalty_contact`, `slip_penalty_grasp`, `block_displacement_penalty` | Discourage real stall, losing sustained contact or grasp, and knocking the block away sideways. |
 
 Important behavior:
 
-- Alignment is now **gated and capped** so the policy cannot collect most of its reward by hovering above the block.
+- Alignment is still **gated and capped** so the policy cannot collect most of its reward by hovering above the block.
+- The current pass adds explicit horizontal/vertical progress shaping and a dense near-contact bridge so the policy can rediscover first touch without reverting to the old local optimum.
 - Lift reward is based on **height gain relative to the block's initial pose**, not just a binary success threshold.
 - Block displacement is only penalized when the block is being pushed away without meaningful lift.
 
 Key reward diagnostics exposed to training:
 
+- `reward/approach_reward_mean`
+- `reward/alignment_reward_mean`
+- `reward/near_contact_rate`
+- `reward/contact_after_alignment_rate`
+- `reward/horizontal_progress_mean`
+- `reward/vertical_approach_mean`
 - `reward/contact_entry_rate`
 - `reward/grasp_persistence_rate`
 - `reward/lift_progress_mean`
@@ -483,6 +492,8 @@ Key reward diagnostics exposed to training:
 - slip metrics:
   - `reward/slip_count` in sequential runs
   - `reward/slip_count_total` / `reward/slip_count_avg` in parallel runs
+  - `reward/contact_loss_count*`
+  - `reward/grasp_loss_count*`
 
 ---
 

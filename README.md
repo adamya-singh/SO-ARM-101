@@ -110,11 +110,16 @@ Primary code:
 ### Reward instrumentation and logging
 
 I added reward components and diagnostics that expose the actual pickup subskills being learned, not just a single scalar return. The current reward is staged around:
-- approach and pre-grasp alignment
+- a scaled distance penalty rather than raw `-distance`
+- horizontal and vertical approach progress before contact
+- a static approach-closeness term plus a widened gated alignment reward
+- a dense near-contact bridge for the last few millimeters before first touch
 - contact entry and contact persistence
 - bilateral grasp and grasp persistence
-- lift progress above the block's initial height
-- penalties for hover stalls, slips, and uncontrolled block displacement
+- lift progress above the block's initial height plus a completion bonus
+- penalties for real hover stalls, losing sustained contact or grasp, and uncontrolled block displacement
+
+This second April 2026 reward pass was specifically intended to recover approach/contact learning after the first anti-hover redesign over-corrected and made the pre-contact shaping too weak.
 
 The project now logs behavior metrics that reflect those phases:
 - `reward/contact_entry_rate`
@@ -122,6 +127,13 @@ The project now logs behavior metrics that reflect those phases:
 - `reward/lift_progress_mean`
 - `reward/hover_stall_rate`
 - `reward/block_displacement_mean`
+- `reward/approach_reward_mean`
+- `reward/alignment_reward_mean`
+- `reward/near_contact_rate`
+- `reward/contact_after_alignment_rate`
+- `reward/horizontal_progress_mean`
+- `reward/vertical_approach_mean`
+- contact/grasp loss metrics, logged as `reward/contact_loss_count*` and `reward/grasp_loss_count*`
 - slip metrics, logged as `reward/slip_count` in sequential runs and `reward/slip_count_total` / `reward/slip_count_avg` in parallel runs
 - PPO diagnostics such as `debug/pre_update_kl`, `training/post_update_kl`, `training/post_update_ratio_max`, `training/post_update_clip_fraction`, and `reward/ema20`
 
@@ -248,7 +260,7 @@ Evidence trail:
 - contact reward on January 7, 2026
 - height-alignment, grasp, sustained-contact, and lift bonuses on January 8, 2026
 
-**April 2026 redesign.** After PPO stability was fixed, W&B showed that the policy was reliably aligning above the block but still almost never making contact or grasping. I rewrote the reward into a phase-aware pickup objective:
+**April 2026 redesign.** After PPO stability was fixed, W&B showed that the policy was reliably aligning above the block but still almost never making contact or grasping. I first rewrote the reward into a phase-aware pickup objective:
 - dense pre-contact approach shaping
 - gated alignment reward that only pays while moving into a likely grasp state
 - one-time contact-entry bonus plus contact persistence reward
@@ -256,7 +268,15 @@ Evidence trail:
 - dense lift-progress reward above the block's initial height plus a completion bonus
 - penalties for hover stalls, slips, and knocking the block away without lifting it
 
-**Impact.** The reward is now designed to turn "good geometry" into contact, grasp, and lift behavior instead of letting alignment dominate the return by itself. The repo's current training guidance therefore uses behavior metrics like `reward/contact_entry_rate`, `reward/grasp_persistence_rate`, and `reward/lift_progress_mean` to judge whether the policy is actually learning pickup structure.
+**Second April 2026 pass.** That first redesign fixed the hover-above-block local optimum, but later W&B runs showed that it also reduced alignment and approach shaping too much. The current reward is therefore a hybrid version that restores explicit pre-contact progress signals:
+- scaled distance penalty rather than raw `-distance`
+- horizontal-progress and vertical-approach rewards
+- static approach closeness
+- a widened gated alignment corridor
+- a dense near-contact bridge
+- slip penalties only for losing sustained contact or a real grasp
+
+**Impact.** The reward is now designed to turn "good geometry" into contact, grasp, and lift behavior without paying enough for passive hovering to become a local optimum again. The repo's current training guidance therefore uses behavior metrics like `reward/near_contact_rate`, `reward/contact_after_alignment_rate`, `reward/grasp_persistence_rate`, and `reward/lift_progress_mean` to judge whether the policy is actually learning pickup structure.
 
 Evidence trail:
 - Reward formulation and changelog: [`hyperparameter_notes.md`](hyperparameter_notes.md)

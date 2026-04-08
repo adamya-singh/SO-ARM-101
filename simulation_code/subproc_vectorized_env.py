@@ -33,9 +33,21 @@ def _worker(
     starting_position,
     block_pos,
     lift_threshold,
-    contact_bonus,
-    height_alignment_bonus,
-    grasp_bonus,
+    distance_penalty_scale,
+    horizontal_progress_scale,
+    vertical_approach_scale,
+    approach_closeness_scale,
+    alignment_reward_cap,
+    near_contact_bonus,
+    contact_entry_bonus,
+    contact_persistence_reward,
+    hover_stall_threshold,
+    hover_penalty,
+    bilateral_grasp_bonus,
+    grasp_persistence_reward,
+    slip_penalty_contact,
+    slip_penalty_grasp,
+    block_displacement_penalty_scale,
     lift_bonus,
     lift_bonus_threshold,
     sustained_contact_threshold,
@@ -153,9 +165,21 @@ def _worker(
             reward_state,
             block_name="red_block",
             lift_threshold=lift_threshold,
-            contact_bonus=contact_bonus,
-            height_alignment_bonus=height_alignment_bonus,
-            grasp_bonus=grasp_bonus,
+            distance_penalty_scale=distance_penalty_scale,
+            horizontal_progress_scale=horizontal_progress_scale,
+            vertical_approach_scale=vertical_approach_scale,
+            approach_closeness_scale=approach_closeness_scale,
+            alignment_reward_cap=alignment_reward_cap,
+            near_contact_bonus=near_contact_bonus,
+            contact_entry_bonus=contact_entry_bonus,
+            contact_persistence_reward=contact_persistence_reward,
+            hover_stall_threshold=hover_stall_threshold,
+            hover_penalty=hover_penalty,
+            bilateral_grasp_bonus=bilateral_grasp_bonus,
+            grasp_persistence_reward=grasp_persistence_reward,
+            slip_penalty_contact=slip_penalty_contact,
+            slip_penalty_grasp=slip_penalty_grasp,
+            block_displacement_penalty_scale=block_displacement_penalty_scale,
             lift_bonus=lift_bonus,
             lift_bonus_threshold=lift_bonus_threshold,
             sustained_contact_threshold=sustained_contact_threshold,
@@ -175,6 +199,14 @@ def _worker(
             metrics["hover_stall"],
             metrics["slip_count"],
             metrics["block_displacement"],
+            metrics["approach_reward"],
+            metrics["alignment_reward"],
+            metrics["near_contact"],
+            metrics["contact_after_alignment"],
+            metrics["horizontal_progress"],
+            metrics["vertical_approach"],
+            metrics["contact_loss_count"],
+            metrics["grasp_loss_count"],
         )
     
     # Main worker loop
@@ -223,9 +255,21 @@ class SubprocMuJoCoEnv:
         instruction: Task text used by processor-backed SmolVLA normalization
         block_pos: Initial (x, y, z) position of the block
         lift_threshold: Height threshold for successful lift
-        contact_bonus: Bonus reward while gripper contacts block
-        height_alignment_bonus: Bonus reward when gripper is above block (top-down approach)
-        grasp_bonus: Bonus reward when both sides of gripper squeeze block
+        distance_penalty_scale: Base distance penalty scale
+        horizontal_progress_scale: Reward scale for horizontal approach progress
+        vertical_approach_scale: Reward scale for vertical approach progress
+        approach_closeness_scale: Static pre-contact closeness shaping
+        alignment_reward_cap: Max alignment reward before contact
+        near_contact_bonus: Dense reward in the final pre-contact corridor
+        contact_entry_bonus: One-time bonus when contact begins
+        contact_persistence_reward: Per-step reward while contact persists
+        hover_stall_threshold: Steps before hover-stall penalty applies
+        hover_penalty: Penalty for stalling in the corridor without touching
+        bilateral_grasp_bonus: Reward for bilateral grasp activation
+        grasp_persistence_reward: Per-step reward while grasp persists
+        slip_penalty_contact: Penalty for losing sustained contact
+        slip_penalty_grasp: Penalty for losing a grasp
+        block_displacement_penalty_scale: Penalty scale for sideways block motion without lift
         lift_bonus: Bonus reward when block is lifted above threshold
         lift_bonus_threshold: Height (meters) to trigger lift bonus
         sustained_contact_threshold: Frames of continuous contact before bonus triggers
@@ -242,9 +286,21 @@ class SubprocMuJoCoEnv:
         instruction: str,
         block_pos: tuple = (0, 0.3, 0.0125),
         lift_threshold: float = 0.08,
-        contact_bonus: float = 0.1,
-        height_alignment_bonus: float = 0.05,
-        grasp_bonus: float = 0.15,
+        distance_penalty_scale: float = 0.4,
+        horizontal_progress_scale: float = 0.12,
+        vertical_approach_scale: float = 0.05,
+        approach_closeness_scale: float = 0.035,
+        alignment_reward_cap: float = 0.035,
+        near_contact_bonus: float = 0.03,
+        contact_entry_bonus: float = 0.18,
+        contact_persistence_reward: float = 0.045,
+        hover_stall_threshold: int = 8,
+        hover_penalty: float = -0.01,
+        bilateral_grasp_bonus: float = 0.30,
+        grasp_persistence_reward: float = 0.08,
+        slip_penalty_contact: float = -0.03,
+        slip_penalty_grasp: float = -0.08,
+        block_displacement_penalty_scale: float = 0.08,
         lift_bonus: float = 0.2,
         lift_bonus_threshold: float = 0.04,
         sustained_contact_threshold: int = 5,
@@ -258,9 +314,21 @@ class SubprocMuJoCoEnv:
         self.instruction = instruction
         self.block_pos = block_pos
         self.lift_threshold = lift_threshold
-        self.contact_bonus = contact_bonus
-        self.height_alignment_bonus = height_alignment_bonus
-        self.grasp_bonus = grasp_bonus
+        self.distance_penalty_scale = distance_penalty_scale
+        self.horizontal_progress_scale = horizontal_progress_scale
+        self.vertical_approach_scale = vertical_approach_scale
+        self.approach_closeness_scale = approach_closeness_scale
+        self.alignment_reward_cap = alignment_reward_cap
+        self.near_contact_bonus = near_contact_bonus
+        self.contact_entry_bonus = contact_entry_bonus
+        self.contact_persistence_reward = contact_persistence_reward
+        self.hover_stall_threshold = hover_stall_threshold
+        self.hover_penalty = hover_penalty
+        self.bilateral_grasp_bonus = bilateral_grasp_bonus
+        self.grasp_persistence_reward = grasp_persistence_reward
+        self.slip_penalty_contact = slip_penalty_contact
+        self.slip_penalty_grasp = slip_penalty_grasp
+        self.block_displacement_penalty_scale = block_displacement_penalty_scale
         self.lift_bonus = lift_bonus
         self.lift_bonus_threshold = lift_bonus_threshold
         self.sustained_contact_threshold = sustained_contact_threshold
@@ -296,9 +364,21 @@ class SubprocMuJoCoEnv:
                     starting_position,
                     block_pos,
                     lift_threshold,
-                    contact_bonus,
-                    height_alignment_bonus,
-                    grasp_bonus,
+                    distance_penalty_scale,
+                    horizontal_progress_scale,
+                    vertical_approach_scale,
+                    approach_closeness_scale,
+                    alignment_reward_cap,
+                    near_contact_bonus,
+                    contact_entry_bonus,
+                    contact_persistence_reward,
+                    hover_stall_threshold,
+                    hover_penalty,
+                    bilateral_grasp_bonus,
+                    grasp_persistence_reward,
+                    slip_penalty_contact,
+                    slip_penalty_grasp,
+                    block_displacement_penalty_scale,
                     lift_bonus,
                     lift_bonus_threshold,
                     sustained_contact_threshold,
@@ -425,6 +505,14 @@ class SubprocMuJoCoEnv:
         hover_stall = np.zeros(self.num_envs, dtype=int)
         slips = np.zeros(self.num_envs, dtype=int)
         block_displacement = np.zeros(self.num_envs, dtype=float)
+        approach_reward = np.zeros(self.num_envs, dtype=float)
+        alignment_reward = np.zeros(self.num_envs, dtype=float)
+        near_contact = np.zeros(self.num_envs, dtype=int)
+        contact_after_alignment = np.zeros(self.num_envs, dtype=int)
+        horizontal_progress = np.zeros(self.num_envs, dtype=float)
+        vertical_approach = np.zeros(self.num_envs, dtype=float)
+        contact_loss_count = np.zeros(self.num_envs, dtype=int)
+        grasp_loss_count = np.zeros(self.num_envs, dtype=int)
         
         # Send step commands to all workers (skip done environments)
         active_indices = []
@@ -436,7 +524,7 @@ class SubprocMuJoCoEnv:
         # Collect results from active workers
         for i in active_indices:
             result = self.parent_conns[i].recv()
-            if isinstance(result, tuple) and len(result) == 13:
+            if isinstance(result, tuple) and len(result) == 21:
                 (
                     reward,
                     done,
@@ -451,6 +539,14 @@ class SubprocMuJoCoEnv:
                     step_hover_stall,
                     step_slip_count,
                     step_block_displacement,
+                    step_approach_reward,
+                    step_alignment_reward,
+                    step_near_contact,
+                    step_contact_after_alignment,
+                    step_horizontal_progress,
+                    step_vertical_approach,
+                    step_contact_loss_count,
+                    step_grasp_loss_count,
                 ) = result
                 rewards[i] = reward
                 contacts[i] = int(contacted)
@@ -463,6 +559,14 @@ class SubprocMuJoCoEnv:
                 hover_stall[i] = int(step_hover_stall)
                 slips[i] = int(step_slip_count)
                 block_displacement[i] = float(step_block_displacement)
+                approach_reward[i] = float(step_approach_reward)
+                alignment_reward[i] = float(step_alignment_reward)
+                near_contact[i] = int(step_near_contact)
+                contact_after_alignment[i] = int(step_contact_after_alignment)
+                horizontal_progress[i] = float(step_horizontal_progress)
+                vertical_approach[i] = float(step_vertical_approach)
+                contact_loss_count[i] = int(step_contact_loss_count)
+                grasp_loss_count[i] = int(step_grasp_loss_count)
                 self.dones[i] = done
                 self.episode_steps[i] += 1
             elif isinstance(result, tuple) and len(result) == 2:
@@ -482,6 +586,14 @@ class SubprocMuJoCoEnv:
             hover_stall,
             slips,
             block_displacement,
+            approach_reward,
+            alignment_reward,
+            near_contact,
+            contact_after_alignment,
+            horizontal_progress,
+            vertical_approach,
+            contact_loss_count,
+            grasp_loss_count,
         )
     
     def step_all_chunk(self, action_chunks: np.ndarray, steps_per_action: int = 10) -> tuple:
@@ -508,6 +620,14 @@ class SubprocMuJoCoEnv:
             total_hover_stall: (N,) int array of hover-stall counts over chunk
             total_slips: (N,) int array of slip events over chunk
             total_block_displacement: (N,) float array of cumulative block displacement over chunk
+            total_approach_reward: (N,) float array of cumulative approach shaping over chunk
+            total_alignment_reward: (N,) float array of cumulative alignment reward over chunk
+            total_near_contact: (N,) int array of near-contact counts over chunk
+            total_contact_after_alignment: (N,) int array of aligned contact-entry counts over chunk
+            total_horizontal_progress: (N,) float array of cumulative horizontal progress over chunk
+            total_vertical_approach: (N,) float array of cumulative vertical approach progress over chunk
+            total_contact_losses: (N,) int array of sustained-contact loss events
+            total_grasp_losses: (N,) int array of grasp loss events
         """
         num_envs, chunk_size, _ = action_chunks.shape
         total_rewards = np.zeros(num_envs)
@@ -521,6 +641,14 @@ class SubprocMuJoCoEnv:
         total_hover_stall = np.zeros(num_envs, dtype=int)
         total_slips = np.zeros(num_envs, dtype=int)
         total_block_displacement = np.zeros(num_envs, dtype=float)
+        total_approach_reward = np.zeros(num_envs, dtype=float)
+        total_alignment_reward = np.zeros(num_envs, dtype=float)
+        total_near_contact = np.zeros(num_envs, dtype=int)
+        total_contact_after_alignment = np.zeros(num_envs, dtype=int)
+        total_horizontal_progress = np.zeros(num_envs, dtype=float)
+        total_vertical_approach = np.zeros(num_envs, dtype=float)
+        total_contact_losses = np.zeros(num_envs, dtype=int)
+        total_grasp_losses = np.zeros(num_envs, dtype=int)
         
         # Execute each action in the chunk sequentially across all envs
         for action_idx in range(chunk_size):
@@ -542,6 +670,14 @@ class SubprocMuJoCoEnv:
                 step_hover_stall,
                 step_slips,
                 step_block_displacement,
+                step_approach_reward,
+                step_alignment_reward,
+                step_near_contact,
+                step_contact_after_alignment,
+                step_horizontal_progress,
+                step_vertical_approach,
+                step_contact_losses,
+                step_grasp_losses,
             ) = step_results
             
             # Accumulate rewards and contacts
@@ -556,6 +692,14 @@ class SubprocMuJoCoEnv:
             total_hover_stall += step_hover_stall
             total_slips += step_slips
             total_block_displacement += step_block_displacement
+            total_approach_reward += step_approach_reward
+            total_alignment_reward += step_alignment_reward
+            total_near_contact += step_near_contact
+            total_contact_after_alignment += step_contact_after_alignment
+            total_horizontal_progress += step_horizontal_progress
+            total_vertical_approach += step_vertical_approach
+            total_contact_losses += step_contact_losses
+            total_grasp_losses += step_grasp_losses
             
             # If all environments are done, stop early
             if self.dones.all():
@@ -574,6 +718,14 @@ class SubprocMuJoCoEnv:
             total_hover_stall,
             total_slips,
             total_block_displacement,
+            total_approach_reward,
+            total_alignment_reward,
+            total_near_contact,
+            total_contact_after_alignment,
+            total_horizontal_progress,
+            total_vertical_approach,
+            total_contact_losses,
+            total_grasp_losses,
         )
     
     def get_episode_steps(self) -> np.ndarray:

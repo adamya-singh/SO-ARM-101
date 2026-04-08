@@ -188,9 +188,21 @@ class TrainingConfig:
     
     # Reward
     lift_threshold = 0.08
-    contact_bonus = 0.1   # Bonus reward while gripper contacts block
-    height_alignment_bonus = 0.05  # Bonus when gripper is above block (top-down approach)
-    grasp_bonus = 0.15  # Bonus when both sides of gripper squeeze block
+    distance_penalty_scale = 0.4
+    horizontal_progress_scale = 0.12
+    vertical_approach_scale = 0.05
+    approach_closeness_scale = 0.035
+    alignment_reward_cap = 0.035
+    near_contact_bonus = 0.03
+    contact_entry_bonus = 0.18
+    contact_persistence_reward = 0.045
+    hover_stall_threshold = 8
+    hover_penalty = -0.01
+    bilateral_grasp_bonus = 0.30
+    grasp_persistence_reward = 0.08
+    slip_penalty_contact = -0.03
+    slip_penalty_grasp = -0.08
+    block_displacement_penalty_scale = 0.08
     lift_bonus = 0.2  # Bonus when block is lifted above threshold
     lift_bonus_threshold = 0.04  # Height (meters) to trigger lift bonus (lower than terminal)
     sustained_contact_threshold = 5   # Frames of continuous contact before bonus triggers
@@ -268,6 +280,31 @@ def get_noise_bounds(episode: int, total_episodes: int, config) -> tuple:
         # Decay from sigma_max to sigma_max * noise_decay_ratio
         new_sigma_max = config.sigma_max * (1.0 - decay_progress * (1.0 - config.noise_decay_ratio))
         return config.sigma_min, max(new_sigma_max, config.sigma_min)
+
+
+def _get_reward_kwargs(config) -> dict:
+    return {
+        "lift_threshold": config.lift_threshold,
+        "distance_penalty_scale": config.distance_penalty_scale,
+        "horizontal_progress_scale": config.horizontal_progress_scale,
+        "vertical_approach_scale": config.vertical_approach_scale,
+        "approach_closeness_scale": config.approach_closeness_scale,
+        "alignment_reward_cap": config.alignment_reward_cap,
+        "near_contact_bonus": config.near_contact_bonus,
+        "contact_entry_bonus": config.contact_entry_bonus,
+        "contact_persistence_reward": config.contact_persistence_reward,
+        "hover_stall_threshold": config.hover_stall_threshold,
+        "hover_penalty": config.hover_penalty,
+        "bilateral_grasp_bonus": config.bilateral_grasp_bonus,
+        "grasp_persistence_reward": config.grasp_persistence_reward,
+        "slip_penalty_contact": config.slip_penalty_contact,
+        "slip_penalty_grasp": config.slip_penalty_grasp,
+        "block_displacement_penalty_scale": config.block_displacement_penalty_scale,
+        "lift_bonus": config.lift_bonus,
+        "lift_bonus_threshold": config.lift_bonus_threshold,
+        "sustained_contact_threshold": config.sustained_contact_threshold,
+        "sustained_contact_bonus": config.sustained_contact_bonus,
+    }
 
 
 @dataclass
@@ -592,16 +629,9 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             instruction=config.instruction,
-            lift_threshold=config.lift_threshold,
-            contact_bonus=config.contact_bonus,
-            height_alignment_bonus=config.height_alignment_bonus,
-            grasp_bonus=config.grasp_bonus,
-            lift_bonus=config.lift_bonus,
-            lift_bonus_threshold=config.lift_bonus_threshold,
-            sustained_contact_threshold=config.sustained_contact_threshold,
-            sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # Processor-backed normalization when available
+            **_get_reward_kwargs(config),
         )
     else:
         from vectorized_env import VectorizedMuJoCoEnv
@@ -611,16 +641,9 @@ def train_parallel(config, args, device):
             model_path=config.model_path,
             starting_position=config.starting_position,
             instruction=config.instruction,
-            lift_threshold=config.lift_threshold,
-            contact_bonus=config.contact_bonus,
-            height_alignment_bonus=config.height_alignment_bonus,
-            grasp_bonus=config.grasp_bonus,
-            lift_bonus=config.lift_bonus,
-            lift_bonus_threshold=config.lift_bonus_threshold,
-            sustained_contact_threshold=config.sustained_contact_threshold,
-            sustained_contact_bonus=config.sustained_contact_bonus,
             model_type=config.model_type,
             preprocessor=preprocessor,  # Processor-backed normalization when available
+            **_get_reward_kwargs(config),
         )
     
     # Load checkpoint if resuming
@@ -671,6 +694,21 @@ def train_parallel(config, args, device):
                 "trainable_scope": _get_trainable_scope_label(config),
                 "actor_lr_start": config.policy_lr,
                 "actor_lr_end": config.policy_lr * 0.1,
+                "distance_penalty_scale": config.distance_penalty_scale,
+                "horizontal_progress_scale": config.horizontal_progress_scale,
+                "vertical_approach_scale": config.vertical_approach_scale,
+                "approach_closeness_scale": config.approach_closeness_scale,
+                "alignment_reward_cap": config.alignment_reward_cap,
+                "near_contact_bonus": config.near_contact_bonus,
+                "contact_entry_bonus": config.contact_entry_bonus,
+                "contact_persistence_reward": config.contact_persistence_reward,
+                "hover_stall_threshold": config.hover_stall_threshold,
+                "hover_penalty": config.hover_penalty,
+                "bilateral_grasp_bonus": config.bilateral_grasp_bonus,
+                "grasp_persistence_reward": config.grasp_persistence_reward,
+                "slip_penalty_contact": config.slip_penalty_contact,
+                "slip_penalty_grasp": config.slip_penalty_grasp,
+                "block_displacement_penalty_scale": config.block_displacement_penalty_scale,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -844,6 +882,14 @@ def train_parallel(config, args, device):
             episode_slips = np.zeros(num_envs, dtype=int)
             episode_lift_progress = np.zeros(num_envs, dtype=float)
             episode_block_displacement = np.zeros(num_envs, dtype=float)
+            episode_approach_reward = np.zeros(num_envs, dtype=float)
+            episode_alignment_reward = np.zeros(num_envs, dtype=float)
+            episode_near_contact = np.zeros(num_envs, dtype=int)
+            episode_contact_after_alignment = np.zeros(num_envs, dtype=int)
+            episode_horizontal_progress = np.zeros(num_envs, dtype=float)
+            episode_vertical_approach = np.zeros(num_envs, dtype=float)
+            episode_contact_losses = np.zeros(num_envs, dtype=int)
+            episode_grasp_losses = np.zeros(num_envs, dtype=int)
             
             # Collect data for this batch (on-policy), preserving env/chunk identity.
             rollout = ParallelRolloutBatch(
@@ -891,6 +937,14 @@ def train_parallel(config, args, device):
                     chunk_hover_stall,
                     chunk_slips,
                     chunk_block_displacement,
+                    chunk_approach_reward,
+                    chunk_alignment_reward,
+                    chunk_near_contact,
+                    chunk_contact_after_alignment,
+                    chunk_horizontal_progress,
+                    chunk_vertical_approach,
+                    chunk_contact_losses,
+                    chunk_grasp_losses,
                 ) = vec_env.step_all_chunk(
                     action_chunks_radians, config.steps_per_action
                 )
@@ -905,6 +959,14 @@ def train_parallel(config, args, device):
                 episode_hover_stall += chunk_hover_stall
                 episode_slips += chunk_slips
                 episode_block_displacement += chunk_block_displacement
+                episode_approach_reward += chunk_approach_reward
+                episode_alignment_reward += chunk_alignment_reward
+                episode_near_contact += chunk_near_contact
+                episode_contact_after_alignment += chunk_contact_after_alignment
+                episode_horizontal_progress += chunk_horizontal_progress
+                episode_vertical_approach += chunk_vertical_approach
+                episode_contact_losses += chunk_contact_losses
+                episode_grasp_losses += chunk_grasp_losses
                 
                 # Store data for on-policy update, indexed by [env][chunk].
                 # trajectory is list of K+1 tensors, each (num_envs, chunk, action_dim)
@@ -1290,11 +1352,23 @@ def train_parallel(config, args, device):
                     "reward/contact_entry_rate": episode_contact_entries.sum() / (num_envs * config.chunks_per_episode * 50),
                     "reward/grasp_persistence_count_avg": episode_grasp_persistent.mean(),
                     "reward/grasp_persistence_rate": episode_grasp_persistent.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/approach_reward_mean": episode_approach_reward.mean() / max(1, config.chunks_per_episode * 50),
+                    "reward/alignment_reward_mean": episode_alignment_reward.mean() / max(1, config.chunks_per_episode * 50),
+                    "reward/near_contact_count_avg": episode_near_contact.mean(),
+                    "reward/near_contact_rate": episode_near_contact.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/contact_after_alignment_count_avg": episode_contact_after_alignment.mean(),
+                    "reward/contact_after_alignment_rate": episode_contact_after_alignment.sum() / (num_envs * config.chunks_per_episode * 50),
+                    "reward/horizontal_progress_mean": episode_horizontal_progress.mean() / max(1, config.chunks_per_episode * 50),
+                    "reward/vertical_approach_mean": episode_vertical_approach.mean() / max(1, config.chunks_per_episode * 50),
                     "reward/lift_progress_mean": episode_lift_progress.mean() / max(1, config.chunks_per_episode * 50),
                     "reward/hover_stall_count_avg": episode_hover_stall.mean(),
                     "reward/hover_stall_rate": episode_hover_stall.sum() / (num_envs * config.chunks_per_episode * 50),
                     "reward/slip_count_avg": episode_slips.mean(),
                     "reward/slip_count_total": episode_slips.sum(),
+                    "reward/contact_loss_count_avg": episode_contact_losses.mean(),
+                    "reward/contact_loss_count_total": episode_contact_losses.sum(),
+                    "reward/grasp_loss_count_avg": episode_grasp_losses.mean(),
+                    "reward/grasp_loss_count_total": episode_grasp_losses.sum(),
                     "reward/block_displacement_mean": episode_block_displacement.mean() / max(1, config.chunks_per_episode * 50),
                     
                     # Loss metrics
@@ -1519,6 +1593,21 @@ def train_sequential(config, args, device):
                 "trainable_scope": _get_trainable_scope_label(config),
                 "actor_lr_start": config.policy_lr,
                 "actor_lr_end": config.policy_lr * 0.1,
+                "distance_penalty_scale": config.distance_penalty_scale,
+                "horizontal_progress_scale": config.horizontal_progress_scale,
+                "vertical_approach_scale": config.vertical_approach_scale,
+                "approach_closeness_scale": config.approach_closeness_scale,
+                "alignment_reward_cap": config.alignment_reward_cap,
+                "near_contact_bonus": config.near_contact_bonus,
+                "contact_entry_bonus": config.contact_entry_bonus,
+                "contact_persistence_reward": config.contact_persistence_reward,
+                "hover_stall_threshold": config.hover_stall_threshold,
+                "hover_penalty": config.hover_penalty,
+                "bilateral_grasp_bonus": config.bilateral_grasp_bonus,
+                "grasp_persistence_reward": config.grasp_persistence_reward,
+                "slip_penalty_contact": config.slip_penalty_contact,
+                "slip_penalty_grasp": config.slip_penalty_grasp,
+                "block_displacement_penalty_scale": config.block_displacement_penalty_scale,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -1666,7 +1755,7 @@ def train_sequential(config, args, device):
                             viewer.sync()
                     
                     # Get reward
-                    reward, warmup_done, *_ = compute_reward(m, d, lift_threshold=config.lift_threshold)
+                    reward, warmup_done, *_ = compute_reward(m, d, **_get_reward_kwargs(config))
                     chunk_reward += reward
                 
                 warmup_rewards.append(chunk_reward)
@@ -1716,6 +1805,14 @@ def train_sequential(config, args, device):
             episode_slips = 0
             episode_lift_progress = 0.0
             episode_block_displacement = 0.0
+            episode_approach_reward = 0.0
+            episode_alignment_reward = 0.0
+            episode_near_contact = 0
+            episode_contact_after_alignment = 0
+            episode_horizontal_progress = 0.0
+            episode_vertical_approach = 0.0
+            episode_contact_losses = 0
+            episode_grasp_losses = 0
             
             # Collect data for this episode (on-policy)
             episode_trajectories = []  # List of trajectories for each chunk
@@ -1764,17 +1861,29 @@ def train_sequential(config, args, device):
                             viewer.sync()
                     
                     # Get reward with component flags
-                    reward, done, contacted, gripped, sustained, height_aligned, block_lifted, contact_entry, grasp_persistent, lift_progress, hover_stall, slip_count, block_displacement = compute_reward(
-                        m, d, 
-                        lift_threshold=config.lift_threshold,
-                        contact_bonus=config.contact_bonus,
-                        height_alignment_bonus=config.height_alignment_bonus,
-                        grasp_bonus=config.grasp_bonus,
-                        lift_bonus=config.lift_bonus,
-                        lift_bonus_threshold=config.lift_bonus_threshold,
-                        sustained_contact_threshold=config.sustained_contact_threshold,
-                        sustained_contact_bonus=config.sustained_contact_bonus,
-                    )
+                    (
+                        reward,
+                        done,
+                        contacted,
+                        gripped,
+                        sustained,
+                        height_aligned,
+                        block_lifted,
+                        contact_entry,
+                        grasp_persistent,
+                        lift_progress,
+                        hover_stall,
+                        slip_count,
+                        block_displacement,
+                        approach_reward,
+                        alignment_reward,
+                        near_contact,
+                        contact_after_alignment,
+                        horizontal_progress,
+                        vertical_approach,
+                        contact_loss_count,
+                        grasp_loss_count,
+                    ) = compute_reward(m, d, **_get_reward_kwargs(config))
                     chunk_reward += reward
                     
                     # Track reward components
@@ -1788,6 +1897,14 @@ def train_sequential(config, args, device):
                     episode_slips += int(slip_count)
                     episode_lift_progress += float(lift_progress)
                     episode_block_displacement += float(block_displacement)
+                    episode_approach_reward += float(approach_reward)
+                    episode_alignment_reward += float(alignment_reward)
+                    episode_near_contact += int(near_contact)
+                    episode_contact_after_alignment += int(contact_after_alignment)
+                    episode_horizontal_progress += float(horizontal_progress)
+                    episode_vertical_approach += float(vertical_approach)
+                    episode_contact_losses += int(contact_loss_count)
+                    episode_grasp_losses += int(grasp_loss_count)
                     
                     if done:
                         print(f"  Episode {episode+1}: SUCCESS! Block lifted at chunk {chunk_idx+1}, action {action_idx+1}")
@@ -2088,10 +2205,20 @@ def train_sequential(config, args, device):
                         "reward/contact_entry_rate": episode_contact_entries / total_steps,
                         "reward/grasp_persistence_count": episode_grasp_persistent,
                         "reward/grasp_persistence_rate": episode_grasp_persistent / total_steps,
+                        "reward/approach_reward_mean": episode_approach_reward / total_steps,
+                        "reward/alignment_reward_mean": episode_alignment_reward / total_steps,
+                        "reward/near_contact_count": episode_near_contact,
+                        "reward/near_contact_rate": episode_near_contact / total_steps,
+                        "reward/contact_after_alignment_count": episode_contact_after_alignment,
+                        "reward/contact_after_alignment_rate": episode_contact_after_alignment / total_steps,
+                        "reward/horizontal_progress_mean": episode_horizontal_progress / total_steps,
+                        "reward/vertical_approach_mean": episode_vertical_approach / total_steps,
                         "reward/lift_progress_mean": episode_lift_progress / total_steps,
                         "reward/hover_stall_count": episode_hover_stall,
                         "reward/hover_stall_rate": episode_hover_stall / total_steps,
                         "reward/slip_count": episode_slips,
+                        "reward/contact_loss_count": episode_contact_losses,
+                        "reward/grasp_loss_count": episode_grasp_losses,
                         "reward/block_displacement_mean": episode_block_displacement / total_steps,
                         
                         # Loss metrics
