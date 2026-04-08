@@ -161,6 +161,8 @@ class ReinFlowSmolVLA(nn.Module):
         self.train_full_expert = train_full_expert
         self.train_noise_head = train_noise_head
         self.train_critic = train_critic
+        self.logprob_eval_microbatch_size = 1
+        self.critic_backprop_into_policy = False
         
         # Create critic network for actor-critic training
         # Input size is VLM hidden size (text_config.hidden_size)
@@ -420,6 +422,8 @@ class ReinFlowSmolVLA(nn.Module):
             value: (batch_size,) tensor of value estimates
         """
         features = self.extract_observation_features(observation)
+        if not self.critic_backprop_into_policy:
+            features = features.detach()
         return self.critic(features)
     
     def get_critic_params(self) -> List[torch.nn.Parameter]:
@@ -515,6 +519,101 @@ def compute_trajectory_log_probs(
     return total_log_probs
 
 
+def _slice_observation_batch(observations: Dict[str, Tensor], start: int, end: int) -> Dict[str, Tensor]:
+    """Slice a batched observation dictionary along the batch dimension."""
+    return {key: value[start:end] for key, value in observations.items()}
+
+
+def _compute_trajectory_log_probs_onpolicy_impl(
+    policy: ReinFlowSmolVLA,
+    trajectory_tensor: Tensor,
+    observations: Dict[str, Tensor],
+    return_sigmas: bool = False,
+):
+    """Single-batch log-prob evaluation used by the public microbatch wrapper."""
+    batch_size = trajectory_tensor.shape[0]
+    num_steps = trajectory_tensor.shape[1] - 1  # K steps
+    device = trajectory_tensor.device
+
+    # Get original action dim for slicing (trajectory is in padded space)
+    original_action_dim = policy.base.config.action_feature.shape[0]
+
+    # Prepare observation features (embed prefix and cache KV)
+    images, img_masks = policy.base.prepare_images(observations)
+    state = policy.base.prepare_state(observations)
+    lang_tokens = observations[OBS_LANGUAGE_TOKENS]
+    lang_masks = observations[OBS_LANGUAGE_ATTENTION_MASK]
+
+    # Embed prefix
+    prefix_embs, prefix_pad_masks, prefix_att_masks = policy.base.model.embed_prefix(
+        images, img_masks, lang_tokens, lang_masks, state=state
+    )
+    prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
+    prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
+
+    # Cache KV
+    _, past_key_values = policy.base.model.vlm_with_expert.forward(
+        attention_mask=prefix_att_2d_masks,
+        position_ids=prefix_position_ids,
+        past_key_values=None,
+        inputs_embeds=[prefix_embs, None],
+        use_cache=policy.base.model.config.use_cache,
+        fill_kv_cache=True,
+    )
+
+    dt = -1.0 / num_steps
+    total_log_probs = torch.zeros(batch_size, device=device)
+    collected_sigmas = []  # For entropy regularization
+
+    for k in range(num_steps):
+        t_k = 1.0 + k * dt
+        t_k_tensor = torch.tensor(t_k, device=device).expand(batch_size)
+
+        # Get trajectory states at step k and k+1
+        a_k = trajectory_tensor[:, k]  # (batch, chunk, action_dim)
+        a_k_next = trajectory_tensor[:, k + 1]  # (batch, chunk, action_dim)
+
+        # KEY DIFFERENCE: Get BOTH velocity AND sigma from current policy
+        # This enables gradient flow through the noise network!
+        v_k, sigma_k = policy.base.model.denoise_step(
+            prefix_pad_masks, past_key_values, a_k, t_k_tensor, return_sigma=True
+        )
+
+        # Collect sigma for entropy computation (sliced to original dims)
+        if return_sigmas:
+            collected_sigmas.append(sigma_k[:, :, :original_action_dim])
+
+        # Slice to original action dims for log prob computation
+        # (trajectory is in padded space for denoise_step, but we only compute
+        # log prob on real action dimensions)
+        a_k_slice = a_k[:, :, :original_action_dim]
+        a_k_next_slice = a_k_next[:, :, :original_action_dim]
+        v_k_slice = v_k[:, :, :original_action_dim]
+        sigma_k_slice = sigma_k[:, :, :original_action_dim]
+
+        # Mean of transition: μ_k = a^k + v_θ(t_k, a^k, o) * Δt
+        mu_k = a_k_slice + dt * v_k_slice
+
+        # Log probability: log N(a^{k+1} | μ_k, σ_k²)
+        # = -0.5 * [||a^{k+1} - μ_k||² / σ_k² + d * log(2π) + 2 * log(σ_k)]
+        diff = a_k_next_slice - mu_k
+        chunk_size = a_k.shape[-2]
+        d = original_action_dim * chunk_size  # real action_dim * chunk_size
+
+        # Compute log prob with gradients through sigma
+        log_prob_k = -0.5 * (
+            (diff ** 2 / (sigma_k_slice ** 2 + 1e-8)).sum(dim=(-1, -2)) +
+            d * math.log(2 * math.pi) +
+            2 * torch.log(sigma_k_slice + 1e-8).sum(dim=(-1, -2))
+        )
+
+        total_log_probs = total_log_probs + log_prob_k
+
+    if return_sigmas:
+        return total_log_probs, collected_sigmas
+    return total_log_probs
+
+
 def compute_trajectory_log_probs_onpolicy(
     policy: ReinFlowSmolVLA,
     trajectories: List[Tensor],
@@ -550,87 +649,43 @@ def compute_trajectory_log_probs_onpolicy(
         trajectory_tensor = torch.stack(trajectories, dim=1)  # (batch, K+1, chunk, action_dim)
     else:
         trajectory_tensor = trajectories
-    
+
     batch_size = trajectory_tensor.shape[0]
-    num_steps = trajectory_tensor.shape[1] - 1  # K steps
-    device = trajectory_tensor.device
-    
-    # Get original action dim for slicing (trajectory is in padded space)
-    original_action_dim = policy.base.config.action_feature.shape[0]
-    
-    # Prepare observation features (embed prefix and cache KV)
-    images, img_masks = policy.base.prepare_images(observations)
-    state = policy.base.prepare_state(observations)
-    lang_tokens = observations[OBS_LANGUAGE_TOKENS]
-    lang_masks = observations[OBS_LANGUAGE_ATTENTION_MASK]
-    
-    # Embed prefix
-    prefix_embs, prefix_pad_masks, prefix_att_masks = policy.base.model.embed_prefix(
-        images, img_masks, lang_tokens, lang_masks, state=state
-    )
-    prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
-    prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
-    
-    # Cache KV
-    _, past_key_values = policy.base.model.vlm_with_expert.forward(
-        attention_mask=prefix_att_2d_masks,
-        position_ids=prefix_position_ids,
-        past_key_values=None,
-        inputs_embeds=[prefix_embs, None],
-        use_cache=policy.base.model.config.use_cache,
-        fill_kv_cache=True,
-    )
-    
-    dt = -1.0 / num_steps
-    total_log_probs = torch.zeros(batch_size, device=device)
-    collected_sigmas = []  # For entropy regularization
-    
-    for k in range(num_steps):
-        t_k = 1.0 + k * dt
-        t_k_tensor = torch.tensor(t_k, device=device).expand(batch_size)
-        
-        # Get trajectory states at step k and k+1
-        a_k = trajectory_tensor[:, k]  # (batch, chunk, action_dim)
-        a_k_next = trajectory_tensor[:, k + 1]  # (batch, chunk, action_dim)
-        
-        # KEY DIFFERENCE: Get BOTH velocity AND sigma from current policy
-        # This enables gradient flow through the noise network!
-        v_k, sigma_k = policy.base.model.denoise_step(
-            prefix_pad_masks, past_key_values, a_k, t_k_tensor, return_sigma=True
+    microbatch_size = getattr(policy, "logprob_eval_microbatch_size", batch_size)
+    if microbatch_size is None or microbatch_size <= 0:
+        microbatch_size = batch_size
+
+    if microbatch_size >= batch_size:
+        return _compute_trajectory_log_probs_onpolicy_impl(
+            policy, trajectory_tensor, observations, return_sigmas=return_sigmas
         )
-        
-        # Collect sigma for entropy computation (sliced to original dims)
+
+    log_prob_chunks = []
+    sigma_chunks = None
+
+    for start in range(0, batch_size, microbatch_size):
+        end = min(start + microbatch_size, batch_size)
+        chunk_observations = _slice_observation_batch(observations, start, end)
+        chunk_result = _compute_trajectory_log_probs_onpolicy_impl(
+            policy,
+            trajectory_tensor[start:end],
+            chunk_observations,
+            return_sigmas=return_sigmas,
+        )
         if return_sigmas:
-            collected_sigmas.append(sigma_k[:, :, :original_action_dim])
-        
-        # Slice to original action dims for log prob computation
-        # (trajectory is in padded space for denoise_step, but we only compute
-        # log prob on real action dimensions)
-        a_k_slice = a_k[:, :, :original_action_dim]
-        a_k_next_slice = a_k_next[:, :, :original_action_dim]
-        v_k_slice = v_k[:, :, :original_action_dim]
-        sigma_k_slice = sigma_k[:, :, :original_action_dim]
-        
-        # Mean of transition: μ_k = a^k + v_θ(t_k, a^k, o) * Δt
-        mu_k = a_k_slice + dt * v_k_slice
-        
-        # Log probability: log N(a^{k+1} | μ_k, σ_k²)
-        # = -0.5 * [||a^{k+1} - μ_k||² / σ_k² + d * log(2π) + 2 * log(σ_k)]
-        diff = a_k_next_slice - mu_k
-        chunk_size = a_k.shape[-2]
-        d = original_action_dim * chunk_size  # real action_dim * chunk_size
-        
-        # Compute log prob with gradients through sigma
-        log_prob_k = -0.5 * (
-            (diff ** 2 / (sigma_k_slice ** 2 + 1e-8)).sum(dim=(-1, -2)) +
-            d * math.log(2 * math.pi) +
-            2 * torch.log(sigma_k_slice + 1e-8).sum(dim=(-1, -2))
-        )
-        
-        total_log_probs = total_log_probs + log_prob_k
-    
+            chunk_log_probs, chunk_sigmas = chunk_result
+            log_prob_chunks.append(chunk_log_probs)
+            if sigma_chunks is None:
+                sigma_chunks = [[] for _ in range(len(chunk_sigmas))]
+            for idx, sigma_tensor in enumerate(chunk_sigmas):
+                sigma_chunks[idx].append(sigma_tensor)
+        else:
+            log_prob_chunks.append(chunk_result)
+
+    total_log_probs = torch.cat(log_prob_chunks, dim=0)
     if return_sigmas:
-        return total_log_probs, collected_sigmas
+        combined_sigmas = [torch.cat(parts, dim=0) for parts in sigma_chunks] if sigma_chunks is not None else []
+        return total_log_probs, combined_sigmas
     return total_log_probs
 
 
@@ -1326,6 +1381,8 @@ class ReinFlowPi0(nn.Module):
         self.train_noise_head = train_noise_head
         self.train_critic = train_critic
         self.model_type = "pi0"  # For checkpoint identification
+        self.logprob_eval_microbatch_size = 1
+        self.critic_backprop_into_policy = False
         
         # Create critic with Pi0's larger hidden size (2048)
         vlm_hidden_size = adapter.vlm_hidden_size
@@ -1473,6 +1530,8 @@ class ReinFlowPi0(nn.Module):
     def get_value(self, observation: dict) -> Tensor:
         """Get value estimate V(s) for the given observation."""
         features = self.extract_observation_features(observation)
+        if not self.critic_backprop_into_policy:
+            features = features.detach()
         return self.critic(features)
     
     def get_critic_params(self) -> List[torch.nn.Parameter]:

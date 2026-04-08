@@ -258,6 +258,76 @@ The positive log probabilities were immediately visible in the logs:
 "logprob/per_dimension": 3.58
 ```
 
+---
+
+## April 2026 Addendum: Sigma Scaling Was Necessary, But Not Sufficient
+
+After moving from the original unstable `--parallel-envs 10` setup to a 14.6 GB single-GPU run with `--parallel-envs 5`, the trainer stopped OOMing and critic warmup completed. However, PPO still showed large KL spikes on the first minibatch of epoch 1, with repeated early-stop triggers such as:
+
+```text
+[KL Early Stop] Epoch 1, KL=0.8824 > 0.1500
+```
+
+At that point the sigma fix above was still correct, but it was no longer the full explanation.
+
+### New diagnosis
+
+The remaining instability came from two implementation issues:
+
+1. **PPO old/new log-prob evaluation needed to be self-consistent before any optimizer step.**  
+   If the weights have not changed yet, recomputing the same trajectory log-probabilities should give effectively the same answer. Large batch-1 KL therefore indicates a correctness problem, not an ordinary hyperparameter issue.
+
+2. **The critic was able to backpropagate into shared policy conditioning features.**  
+   In full-expert mode, the critic consumed pooled policy features derived from the same observation embedding path used by the actor. That let the critic loss indirectly perturb trainable policy conditioning components such as `state_proj`, which amplified PPO drift.
+
+### Follow-up fixes implemented in April 2026
+
+The trainer was updated with the following changes:
+
+- **Deterministic log-prob evaluation path**
+  - `compute_trajectory_log_probs_onpolicy(...)` now evaluates trajectories through a fixed microbatch wrapper.
+  - Default `logprob_eval_microbatch_size = 1`.
+  - This makes behavior-policy and update-policy likelihood evaluation use the same deterministic path and removes batch-composition dependence.
+
+- **Pre-update PPO invariant**
+  - After caching `old_log_probs`, the trainer immediately recomputes log-probs with the same weights.
+  - New diagnostics are logged:
+    - `debug/pre_update_kl`
+    - `debug/pre_update_ratio_mean`
+    - `debug/pre_update_logprob_abs_mean`
+    - `debug/pre_update_logprob_abs_max`
+  - If pre-update KL is nonzero beyond tolerance, the batch now fails loudly instead of continuing silently.
+
+- **Post-update KL semantics**
+  - PPO early-stop is no longer driven by the first pre-step minibatch KL estimate.
+  - Early-stop is now based on **post-update KL**, logged as `training/post_update_kl`.
+
+- **Critic gradient isolation**
+  - By default, the critic detaches observation features before the critic head:
+    - `critic_backprop_into_policy = False`
+  - This prevents critic loss from reshaping shared actor conditioning features.
+
+- **Warmup and runtime cleanup**
+  - Critic warmup actor sampling is wrapped in `torch.no_grad()` to avoid unnecessary policy activation memory.
+  - Default `num_ppo_epochs` was reduced from `5` to `2`.
+  - For this hardware class, SmolVLA is operationally treated as a `--parallel-envs 5` workload unless further memory work is done.
+
+### Updated lesson
+
+The current understanding is:
+
+- **Sigma scaling fixes the action-space-size mismatch.**
+- **PPO self-consistency fixes the remaining “KL blows up before the first real update” failure mode.**
+- **Critic feature detachment prevents value learning from destabilizing the actor through shared conditioning paths.**
+
+So the correct takeaway is not "just scale sigma." The full stabilization recipe for this repo is:
+
+1. scale sigma for SmolVLA's 300-dimensional chunked action space
+2. force deterministic old/new log-prob evaluation
+3. enforce a pre-update PPO invariant
+4. evaluate KL for early-stop only after an actual parameter update
+5. keep critic gradients out of shared actor conditioning by default
+
 A per-dimension log probability of +3.58 should have been an immediate red flag. Proper logging caught what would have been a silent failure.
 
 ### 5. Mathematical Analysis > Hyperparameter Tuning
@@ -388,4 +458,3 @@ D_paper / σ_paper² = D_smolvla / σ_smolvla²
 Paper's range [0.05, 0.14] → SmolVLA's range [0.16, 0.46]
 
 We chose [0.25, 0.50] for additional safety margin.
-

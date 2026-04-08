@@ -2,7 +2,7 @@
 
 This document catalogs all training, model, environment, and normalization parameters for ReinFlow-based VLA fine-tuning, organized by tunability and impact.
 
-**Last Updated**: January 6, 2026  
+**Last Updated**: April 7, 2026  
 **Reference**: [ReinFlow Paper](https://reinflow.github.io/) | [SmolVLA](https://huggingface.co/lerobot/smolvla_base)
 
 ---
@@ -53,7 +53,7 @@ These parameters have the highest impact on training dynamics and are adjusted m
 | Parameter | Current Value | Default | Rationale |
 |-----------|---------------|---------|-----------|
 | `num_episodes` | `20000` | `20000` | Total training episodes. More episodes = better convergence but longer training time. Adjust based on task complexity and available compute. |
-| `num_parallel_envs` | `1` | `1` | Number of parallel MuJoCo environments. Set to 8-16 on A100 GPUs for faster data collection. Sequential mode (1) is often faster on M1/CPU due to parallelization overhead. |
+| `num_parallel_envs` | `1` | `1` | Number of parallel MuJoCo environments. On a 14.6 GB GPU, SmolVLA is currently treated as a `<= 5` env workload. Larger values may still fit on larger GPUs, but `5` is the practical ceiling for the current single-GPU research setup. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
 
@@ -67,11 +67,12 @@ Parameters you may adjust for specific experiments or hardware constraints.
 
 | Parameter | Current Value | Paper Value | Rationale |
 |-----------|---------------|-------------|-----------|
-| `num_ppo_epochs` | `5` | `10` | Reduced from 10 to prevent ratio drift. Each epoch makes old_log_probs more stale, increasing clipping. |
+| `num_ppo_epochs` | `2` | `10` | Reduced again after the April 2026 PPO correctness fix. In this setup, useful updates usually happen in epoch 1; extra epochs mostly increase stale-log-prob drift and trigger post-update KL early-stop. |
 | `minibatch_size` | `8` | Varies | Mini-batch size for PPO updates. Smaller = more gradient updates per batch but noisier gradients. Adjust based on GPU memory. |
 | `gae_lambda` | `0.95` | `0.95` | GAE (Generalized Advantage Estimation) lambda parameter. Controls bias-variance tradeoff. 0.95-0.99 is standard. Higher = less bias, more variance. |
 | `gradient_accumulation_steps` | `15` | `15` | Paper uses 15 for visual tasks. Accumulates gradients over multiple mini-batches before optimizer step. Effective batch size = minibatch_size × gradient_accumulation_steps. |
 | `value_clip_epsilon` | `0.2` | N/A | Clip range for value function updates. Set to 0 to disable clipping. Prevents large value function updates that can destabilize training. |
+| `logprob_eval_microbatch_size` | `1` | N/A | Forces deterministic trajectory log-prob evaluation independent of batch composition. This is a correctness guard, not a throughput optimization. The value `1` is intentionally conservative. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
 
@@ -94,8 +95,25 @@ Parameters you may adjust for specific experiments or hardware constraints.
 | `grad_clip_norm` | `0.25` | N/A | Maximum gradient norm for clipping. Prevents exploding gradients. Lower values = more conservative updates but may slow learning. |
 | `lr_warmup_iterations` | `10` | `10-25` | Number of iterations for linear LR warmup. Paper uses 10 for PickPlaceCan, 25 for NutAssemblySquare. Warmup prevents early training instability. |
 | `critic_warmup_iters` | `30` | `2-5` | Number of critic-only updates before joint training (paper Appendix D.2). Ensures value estimates are reasonable before policy gradients are computed. |
+| `critic_backprop_into_policy` | `False` | N/A | Detaches critic input features from the shared actor conditioning path. This prevents critic loss from indirectly moving trainable policy conditioning components such as `state_proj`. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
+
+### PPO Correctness / Diagnostic Invariants
+
+These are not ordinary tuning knobs. They are runtime semantics added in April 2026 after discovering that KL could spike before any real optimizer step.
+
+| Metric / Behavior | Current Meaning | Why it exists |
+|-------------------|-----------------|---------------|
+| `debug/pre_update_kl` | KL between cached `old_log_probs` and an immediate recomputation with identical weights | Must be ~0 before the first optimizer step. If not, log-prob evaluation is inconsistent. |
+| `debug/pre_update_ratio_mean` | Mean PPO ratio from the same no-update recomputation | Must be ~1 before the first optimizer step. |
+| `debug/pre_update_logprob_abs_mean` | Mean absolute drift in log-prob before any update | Helps diagnose subtle nondeterminism or batch-composition dependence. |
+| `debug/pre_update_logprob_abs_max` | Max absolute drift in log-prob before any update | Highlights worst-case sample instability. |
+| `training/post_update_kl` | KL after an actual optimizer step | This is the KL that now drives PPO early-stop. |
+
+**Important**:
+- The trainer now treats **pre-update** old/new log-prob agreement as an invariant.
+- PPO early-stop should be interpreted using `training/post_update_kl`, not the pre-update diagnostics.
 
 ### Reward and Discount
 
@@ -176,6 +194,7 @@ Parameters that define the model architecture or are inherited from pretrained m
 | `train_full_expert` | `True` | Train entire Action Expert (~100M params). More expressive but requires more compute. Set False to only train output heads. |
 | `train_noise_head` | `True` | Train noise_mlp (σ_θ' network). Always True for ReinFlow since this is the core innovation enabling RL fine-tuning. |
 | `train_critic` | `True` | Train critic network for actor-critic. Required for PPO-style training with value function baseline. |
+| `critic_backprop_into_policy` | `False` | Critic still reads policy-derived features, but by default those features are detached before the critic head so value learning does not push the actor through shared conditioning paths. |
 
 **Source**: `train_reinflow.py` (TrainingConfig)
 
@@ -187,8 +206,17 @@ Parameters that define the model architecture or are inherited from pretrained m
 | `hidden_size` | `512` | Size of hidden layers in critic MLP. Smaller than input for parameter efficiency. |
 | `architecture` | `Linear(960→512) → ReLU → Linear(512→256) → ReLU → Linear(256→1)` | Simple MLP with two hidden layers. Outputs scalar value estimate. |
 | `total_params` | `~620K` | Lightweight compared to 450M policy. Fast to train and doesn't bottleneck. |
+| `feature_detach` | `Enabled by default` | Critic consumes pooled observation features, but these are detached before the critic MLP unless explicitly overridden. |
 
 **Source**: `reinflow_smolvla.py` (ReinFlowCritic class)
+
+### Warmup / Memory Notes
+
+- Critic warmup actor sampling now runs under `torch.no_grad()`.
+- This change was made after an April 2026 OOM on a 14.6 GB GPU with `--parallel-envs 10`.
+- The practical runtime guidance for this repo is:
+  - SmolVLA + ReinFlow + headless EGL + subprocess vectorization: start from `--parallel-envs 5`
+  - only exceed that on hardware with clearly larger memory headroom
 
 ### Noise Network Architecture (σ_θ')
 
@@ -479,5 +507,4 @@ image_size = 256
 3. [SmolVLA HuggingFace](https://huggingface.co/lerobot/smolvla_base) - Model architecture
 4. `train_reinflow.py` (TrainingConfig class) - Detailed hyperparameter comments
 5. `notes/kl-divergence-bug-fix.md` - Dropout/eval mode debugging notes
-
 

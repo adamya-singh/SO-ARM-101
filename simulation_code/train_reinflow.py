@@ -206,7 +206,7 @@ class TrainingConfig:
     finetuned_smolvla_path = "adamyathegreat/so101_pickplace_v1_smolvla"
     
     # Parallelization
-    num_parallel_envs = 1
+    num_parallel_envs = 1  # SmolVLA on a 14.6 GB GPU is most reliable at <= 5 envs.
     use_subproc_env = False
     
     # Weights & Biases
@@ -215,7 +215,7 @@ class TrainingConfig:
     
     # PPO Hyperparameters (paper Table 7b - visual manipulation)
     # Note: Some values scaled for SmolVLA's chunk_size=50 (see docstring above)
-    num_ppo_epochs = 5           # Reduced from 10 to prevent ratio drift over epochs
+    num_ppo_epochs = 2           # Keep PPO updates shallow; this setup usually destabilizes by epoch 1.
     minibatch_size = 8           # Mini-batch size for PPO updates
     clip_epsilon = 0.05          # Reverted to 0.05 for stability (0.15 caused KL explosion at 4.5k eps)
     value_clip_epsilon = 0.2     # Clip range for value function (0 to disable)
@@ -229,6 +229,10 @@ class TrainingConfig:
     
     # Learning rate warmup (paper Table 9b)
     lr_warmup_iterations = 10  # Paper uses 10 for PickPlaceCan, 25 for NutAssemblySquare
+
+    # PPO correctness / stability guards
+    logprob_eval_microbatch_size = 1
+    critic_backprop_into_policy = False
     
     # Pi0-specific settings (used when model_type="pi0")
     pi0_gradient_checkpointing = True  # Required for 3.3B model to fit in 24GB
@@ -315,6 +319,44 @@ def _flatten_valid_observations(observation_grid: list, valid_mask: np.ndarray) 
         key: torch.cat([obs[key] for obs in flat_observations], dim=0)
         for key in flat_observations[0].keys()
     }
+
+
+def _compute_policy_log_probs(policy, trajectories, observations, return_sigmas: bool = False):
+    """Dispatch log-prob evaluation through the policy-specific deterministic path."""
+    if isinstance(policy, ReinFlowPi0):
+        return compute_trajectory_log_probs_onpolicy_pi0(
+            policy, trajectories, observations, return_sigmas=return_sigmas
+        )
+    return compute_trajectory_log_probs_onpolicy(
+        policy, trajectories, observations, return_sigmas=return_sigmas
+    )
+
+
+def _compute_logprob_shift_metrics(reference_log_probs: torch.Tensor, current_log_probs: torch.Tensor) -> dict:
+    """Summarize how much two log-prob evaluations differ."""
+    logprob_diff = current_log_probs - reference_log_probs
+    log_ratio = torch.clamp(logprob_diff, -20.0, 20.0)
+    ratio = torch.exp(log_ratio)
+    return {
+        "logprob_abs_mean": logprob_diff.abs().mean().item(),
+        "logprob_abs_max": logprob_diff.abs().max().item(),
+        "kl_div": ((ratio - 1.0) - log_ratio).mean().item(),
+        "ratio_mean": ratio.mean().item(),
+    }
+
+
+def _validate_pre_update_logprob_invariant(metrics: dict) -> None:
+    """Fail loudly if PPO old/new log-prob evaluation is inconsistent before any update."""
+    kl_tol = 1e-6
+    ratio_mean_tol = 1e-4
+    if metrics["kl_div"] > kl_tol or abs(metrics["ratio_mean"] - 1.0) > ratio_mean_tol:
+        raise RuntimeError(
+            "Pre-update PPO log-prob invariant failed: "
+            f"kl={metrics['kl_div']:.8f}, ratio_mean={metrics['ratio_mean']:.8f}, "
+            f"logprob_abs_mean={metrics['logprob_abs_mean']:.8f}, "
+            f"logprob_abs_max={metrics['logprob_abs_max']:.8f}. "
+            "Old and recomputed log probabilities must match before the first optimizer step."
+        )
 
 
 def parse_args():
@@ -508,6 +550,9 @@ def train_parallel(config, args, device):
             start_mode="resume-rl" if checkpoint_to_load and os.path.exists(checkpoint_to_load) else "fresh-rl",
             resume_path=checkpoint_to_load if checkpoint_to_load and os.path.exists(checkpoint_to_load) else None,
         )
+
+    rl_policy.logprob_eval_microbatch_size = config.logprob_eval_microbatch_size
+    rl_policy.critic_backprop_into_policy = config.critic_backprop_into_policy
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -525,6 +570,8 @@ def train_parallel(config, args, device):
                 "num_ppo_epochs": config.num_ppo_epochs,
                 "minibatch_size": config.minibatch_size,
                 "target_kl": config.target_kl,
+                "logprob_eval_microbatch_size": config.logprob_eval_microbatch_size,
+                "critic_backprop_into_policy": config.critic_backprop_into_policy,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -610,6 +657,8 @@ def train_parallel(config, args, device):
     print(f"Critic warmup iters: {config.critic_warmup_iters}")
     print(f"Training mode: PPO ON-POLICY")
     print(f"{'='*60}\n")
+    if config.model_type == "smolvla" and num_envs > 5:
+        print("  [ReinFlow] Warning: SmolVLA on a 14.6 GB GPU is typically stable at <= 5 parallel envs.")
     
     total_episodes = start_episode  # Initialize with checkpoint episode count when resuming
     
@@ -633,7 +682,8 @@ def train_parallel(config, args, device):
                 )
                 warmup_observations.append(observation)
                 
-                action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
+                with torch.no_grad():
+                    action_chunks, _, _ = rl_policy.forward_batched_with_trajectory(observation)
                 action_chunks_np = action_chunks.detach().cpu().numpy()
                 # Unnormalize actions based on model type
                 action_chunks_radians = np.stack([
@@ -866,15 +916,16 @@ def train_parallel(config, args, device):
 
                 # Compute old log probabilities (detached for PPO ratio).
                 with torch.no_grad():
-                    old_log_probs = compute_trajectory_log_probs_onpolicy(
-                        rl_policy, all_trajectories, all_observations
-                    )
+                    old_log_probs = _compute_policy_log_probs(rl_policy, all_trajectories, all_observations)
+                    recomputed_log_probs = _compute_policy_log_probs(rl_policy, all_trajectories, all_observations)
+                pre_update_metrics = _compute_logprob_shift_metrics(old_log_probs, recomputed_log_probs)
+                _validate_pre_update_logprob_invariant(pre_update_metrics)
                 
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
                 epoch_critic_losses = []
-                epoch_kl_divs = []
+                epoch_post_update_kls = []
                 
                 # Gradient norm tracking for diagnostics
                 last_policy_grad_norm = 0.0
@@ -921,9 +972,6 @@ def train_parallel(config, args, device):
                             entropy_coeff=config.entropy_coeff,
                         )
                         
-                        # Record KL before checking for early stop
-                        epoch_kl_divs.append(loss_info['kl_div'])
-                        
                         # Combine losses and do single backward pass to avoid graph issues
                         # (policy_loss and critic_loss share computation graph through observations)
                         total_loss = policy_loss + critic_loss
@@ -948,12 +996,21 @@ def train_parallel(config, args, device):
                             
                             policy_optimizer.zero_grad()
                             critic_optimizer.zero_grad()
-                        
-                        # Check KL AFTER backward - early stop for remaining mini-batches/epochs
-                        if loss_info['kl_div'] > config.target_kl * 1.5:
-                            print(f"  [KL Early Stop] Epoch {epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
-                            kl_early_stop = True
-                            break
+
+                            with torch.no_grad():
+                                updated_log_probs = _compute_policy_log_probs(
+                                    rl_policy, all_trajectories, all_observations
+                                )
+                            post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
+                            epoch_post_update_kls.append(post_update_metrics['kl_div'])
+
+                            if post_update_metrics['kl_div'] > config.target_kl * 1.5:
+                                print(
+                                    f"  [KL Early Stop] Epoch {epoch+1}, "
+                                    f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
+                                )
+                                kl_early_stop = True
+                                break
                     
                     # Handle remaining gradients if batch doesn't divide evenly
                     if accumulation_counter % config.gradient_accumulation_steps != 0:
@@ -963,6 +1020,20 @@ def train_parallel(config, args, device):
                         last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                         policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
+
+                        with torch.no_grad():
+                            updated_log_probs = _compute_policy_log_probs(
+                                rl_policy, all_trajectories, all_observations
+                            )
+                        post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
+                        epoch_post_update_kls.append(post_update_metrics['kl_div'])
+
+                        if post_update_metrics['kl_div'] > config.target_kl * 1.5:
+                            print(
+                                f"  [KL Early Stop] Epoch {epoch+1}, "
+                                f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
+                            )
+                            kl_early_stop = True
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -971,12 +1042,13 @@ def train_parallel(config, args, device):
                 # Aggregate loss info
                 avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
                 avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
-                avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
+                avg_kl_div = np.mean(epoch_post_update_kls) if epoch_post_update_kls else 0.0
                 
             else:
                 loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0, 'clip_fraction': 0,
                              'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
                              'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0}
+                pre_update_metrics = {'logprob_abs_mean': 0.0, 'logprob_abs_max': 0.0, 'kl_div': 0.0, 'ratio_mean': 1.0}
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
@@ -1079,6 +1151,10 @@ def train_parallel(config, args, device):
                     "logprob/old_mean": loss_info.get('old_log_prob_mean', 0),
                     "logprob/per_dimension": log_prob_per_dim,
                     "logprob/drift": log_prob_drift,
+                    "debug/pre_update_kl": pre_update_metrics.get('kl_div', 0.0),
+                    "debug/pre_update_ratio_mean": pre_update_metrics.get('ratio_mean', 1.0),
+                    "debug/pre_update_logprob_abs_mean": pre_update_metrics.get('logprob_abs_mean', 0.0),
+                    "debug/pre_update_logprob_abs_max": pre_update_metrics.get('logprob_abs_max', 0.0),
                     
                     # Action metrics (4)
                     "actions/mean": action_chunks.mean().item(),
@@ -1094,6 +1170,7 @@ def train_parallel(config, args, device):
                     
                     # Training dynamics
                     "training/kl_divergence": avg_kl_div,
+                    "training/post_update_kl": avg_kl_div,
                     "training/clip_fraction": loss_info.get('clip_fraction', 0),
                     "training/learning_rate": current_lr,
                     "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
@@ -1229,6 +1306,9 @@ def train_sequential(config, args, device):
             start_mode="resume-rl" if checkpoint_to_load and os.path.exists(checkpoint_to_load) else "fresh-rl",
             resume_path=checkpoint_to_load if checkpoint_to_load and os.path.exists(checkpoint_to_load) else None,
         )
+
+    rl_policy.logprob_eval_microbatch_size = config.logprob_eval_microbatch_size
+    rl_policy.critic_backprop_into_policy = config.critic_backprop_into_policy
     
     # Initialize wandb with PPO config
     if config.wandb_enabled:
@@ -1246,6 +1326,8 @@ def train_sequential(config, args, device):
                 "num_ppo_epochs": config.num_ppo_epochs,
                 "minibatch_size": config.minibatch_size,
                 "target_kl": config.target_kl,
+                "logprob_eval_microbatch_size": config.logprob_eval_microbatch_size,
+                "critic_backprop_into_policy": config.critic_backprop_into_policy,
                 "num_denoising_steps": config.num_denoising_steps,
                 "chunks_per_episode": config.chunks_per_episode,
                 "train_action_head": config.train_action_head,
@@ -1364,7 +1446,8 @@ def train_sequential(config, args, device):
                     config.instruction, device, rl_policy
                 )
                 
-                action_chunk, _, _ = rl_policy.forward_with_trajectory(warmup_observation)
+                with torch.no_grad():
+                    action_chunk, _, _ = rl_policy.forward_with_trajectory(warmup_observation)
                 
                 # Execute chunk and collect rewards
                 chunk_reward = 0.0
@@ -1551,16 +1634,17 @@ def train_sequential(config, args, device):
                 
                 # Compute old log probabilities (detached for PPO ratio)
                 with torch.no_grad():
-                    old_log_probs = compute_trajectory_log_probs_onpolicy(
-                        rl_policy, batch_trajectories, batch_observations
-                    )
+                    old_log_probs = _compute_policy_log_probs(rl_policy, batch_trajectories, batch_observations)
+                    recomputed_log_probs = _compute_policy_log_probs(rl_policy, batch_trajectories, batch_observations)
                     old_values = batch_values.clone()
+                pre_update_metrics = _compute_logprob_shift_metrics(old_log_probs, recomputed_log_probs)
+                _validate_pre_update_logprob_invariant(pre_update_metrics)
                 
                 # PPO epochs with mini-batching
                 kl_early_stop = False
                 epoch_policy_losses = []
                 epoch_critic_losses = []
-                epoch_kl_divs = []
+                epoch_post_update_kls = []
                 
                 # Gradient norm tracking for diagnostics
                 last_policy_grad_norm = 0.0
@@ -1606,9 +1690,6 @@ def train_sequential(config, args, device):
                             entropy_coeff=config.entropy_coeff,
                         )
                         
-                        # Record KL before checking for early stop
-                        epoch_kl_divs.append(loss_info['kl_div'])
-                        
                         # Combine losses and do single backward pass to avoid graph issues
                         # (policy_loss and critic_loss share computation graph through observations)
                         total_loss = policy_loss + critic_loss
@@ -1633,12 +1714,21 @@ def train_sequential(config, args, device):
                             
                             policy_optimizer.zero_grad()
                             critic_optimizer.zero_grad()
-                        
-                        # Check KL AFTER backward - early stop for remaining mini-batches/epochs
-                        if loss_info['kl_div'] > config.target_kl * 1.5:
-                            print(f"  [KL Early Stop] Epoch {ppo_epoch+1}, KL={loss_info['kl_div']:.4f} > {config.target_kl * 1.5:.4f}")
-                            kl_early_stop = True
-                            break
+
+                            with torch.no_grad():
+                                updated_log_probs = _compute_policy_log_probs(
+                                    rl_policy, batch_trajectories, batch_observations
+                                )
+                            post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
+                            epoch_post_update_kls.append(post_update_metrics['kl_div'])
+
+                            if post_update_metrics['kl_div'] > config.target_kl * 1.5:
+                                print(
+                                    f"  [KL Early Stop] Epoch {ppo_epoch+1}, "
+                                    f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
+                                )
+                                kl_early_stop = True
+                                break
                     
                     # Handle remaining gradients if batch doesn't divide evenly
                     if accumulation_counter % config.gradient_accumulation_steps != 0:
@@ -1648,6 +1738,20 @@ def train_sequential(config, args, device):
                         last_policy_grad_norm = torch.nn.utils.clip_grad_norm_(policy_params, max_norm=config.grad_clip_norm).item()
                         policy_grad_clipped = last_policy_grad_norm > config.grad_clip_norm
                         policy_optimizer.step()
+
+                        with torch.no_grad():
+                            updated_log_probs = _compute_policy_log_probs(
+                                rl_policy, batch_trajectories, batch_observations
+                            )
+                        post_update_metrics = _compute_logprob_shift_metrics(old_log_probs, updated_log_probs)
+                        epoch_post_update_kls.append(post_update_metrics['kl_div'])
+
+                        if post_update_metrics['kl_div'] > config.target_kl * 1.5:
+                            print(
+                                f"  [KL Early Stop] Epoch {ppo_epoch+1}, "
+                                f"post-update KL={post_update_metrics['kl_div']:.4f} > {config.target_kl * 1.5:.4f}"
+                            )
+                            kl_early_stop = True
                 
                 # Step LR schedulers
                 policy_scheduler.step()
@@ -1656,12 +1760,13 @@ def train_sequential(config, args, device):
                 # Aggregate loss info
                 avg_policy_loss = np.mean(epoch_policy_losses) if epoch_policy_losses else 0.0
                 avg_critic_loss = np.mean(epoch_critic_losses) if epoch_critic_losses else 0.0
-                avg_kl_div = np.mean(epoch_kl_divs) if epoch_kl_divs else 0.0
+                avg_kl_div = np.mean(epoch_post_update_kls) if epoch_post_update_kls else 0.0
                 
             else:
                 loss_info = {'advantage_mean': 0, 'value_mean': 0, 'log_prob_mean': 0, 'kl_div': 0,
                              'ratio_mean': 0, 'ratio_std': 0, 'ratio_min': 0, 'ratio_max': 0,
                              'advantage_std': 0, 'old_log_prob_mean': 0, 'return_mean': 0, 'clip_fraction': 0}
+                pre_update_metrics = {'logprob_abs_mean': 0.0, 'logprob_abs_max': 0.0, 'kl_div': 0.0, 'ratio_mean': 1.0}
                 avg_policy_loss = 0.0
                 avg_critic_loss = 0.0
                 avg_kl_div = 0.0
@@ -1762,6 +1867,10 @@ def train_sequential(config, args, device):
                         "logprob/old_mean": loss_info.get('old_log_prob_mean', 0),
                         "logprob/per_dimension": log_prob_per_dim,
                         "logprob/drift": log_prob_drift,
+                        "debug/pre_update_kl": pre_update_metrics.get('kl_div', 0.0),
+                        "debug/pre_update_ratio_mean": pre_update_metrics.get('ratio_mean', 1.0),
+                        "debug/pre_update_logprob_abs_mean": pre_update_metrics.get('logprob_abs_mean', 0.0),
+                        "debug/pre_update_logprob_abs_max": pre_update_metrics.get('logprob_abs_max', 0.0),
                         
                         # Action metrics (4)
                         "actions/mean": action_chunk.mean().item(),
@@ -1777,6 +1886,7 @@ def train_sequential(config, args, device):
                         
                         # Training dynamics
                         "training/kl_divergence": avg_kl_div,
+                        "training/post_update_kl": avg_kl_div,
                         "training/clip_fraction": loss_info.get('clip_fraction', 0),
                         "training/learning_rate": current_lr,
                         "training/effective_batch_size": config.minibatch_size * config.gradient_accumulation_steps,
