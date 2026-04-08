@@ -37,6 +37,18 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 **Status:** this repo documents meaningful progress toward approach, contact, sustained contact, and occasional grasp behavior, but it does **not** claim solved pick-and-place performance.
 
+## Current RL Status
+
+The current training stack is materially more stable than the January 2026 PPO regime documented elsewhere in this repo.
+
+- PPO old/new log-prob evaluation is now forced through a deterministic microbatched path, with pre-update self-consistency checks before the first optimizer step.
+- PPO early-stop is interpreted using `training/post_update_kl`, not the old pre-step KL approximation.
+- SmolVLA RL now defaults to the stable actor subset `rl_stable_heads`, which trains `action_in_proj`, `action_out_proj`, `action_time_mlp_in`, `action_time_mlp_out`, and `noise_mlp`, while leaving `state_proj` frozen.
+- Critic warmup actor sampling runs under `torch.no_grad()`, and critic features are detached by default so value learning does not move shared actor conditioning.
+- On the current 14.6 GB single-GPU setup, `--parallel-envs 5` is the practical headless SmolVLA ceiling.
+
+The current bottleneck is no longer catastrophic PPO instability. It is reward topology and behavior discovery: the agent can now train stably enough to expose whether the reward is pushing toward actual pickup behavior.
+
 Evidence trail:
 - Physical dataset metadata: [`imitation-learning/datasets/so101_pickplace_v1/meta/info.json`](imitation-learning/datasets/so101_pickplace_v1/meta/info.json)
 - Sim dataset metadata: [`simulation_code/datasets/so101_pickplace/meta/info.json`](simulation_code/datasets/so101_pickplace/meta/info.json), [`simulation_code/datasets/so101_pickplace_fixed/meta/info.json`](simulation_code/datasets/so101_pickplace_fixed/meta/info.json)
@@ -97,13 +109,21 @@ Primary code:
 
 ### Reward instrumentation and logging
 
-I added reward components and diagnostics that expose the actual behavior being learned, not just a single scalar return. The project logs:
-- distance-driven shaped reward
-- height alignment
-- contact rate
-- sustained contact rate
-- grasp rate
-- PPO diagnostics such as KL divergence, clip fraction, ratio drift, and gradient norms
+I added reward components and diagnostics that expose the actual pickup subskills being learned, not just a single scalar return. The current reward is staged around:
+- approach and pre-grasp alignment
+- contact entry and contact persistence
+- bilateral grasp and grasp persistence
+- lift progress above the block's initial height
+- penalties for hover stalls, slips, and uncontrolled block displacement
+
+The project now logs behavior metrics that reflect those phases:
+- `reward/contact_entry_rate`
+- `reward/grasp_persistence_rate`
+- `reward/lift_progress_mean`
+- `reward/hover_stall_rate`
+- `reward/block_displacement_mean`
+- slip metrics, logged as `reward/slip_count` in sequential runs and `reward/slip_count_total` / `reward/slip_count_avg` in parallel runs
+- PPO diagnostics such as `debug/pre_update_kl`, `training/post_update_kl`, `training/post_update_ratio_max`, `training/post_update_clip_fraction`, and `reward/ema20`
 
 Primary reference:
 - [`hyperparameter_notes.md`](hyperparameter_notes.md)
@@ -217,21 +237,30 @@ Evidence trail:
 
 **Problem.** A sparse "lift the block" objective was not enough to produce useful learning signals for a chunked-action manipulation policy.
 
-**Hypothesis / reasoning.** The task needed a staged reward curriculum encoded directly into the objective: approach the block, align above it, make contact, maintain contact, grasp, then lift.
+**Hypothesis / reasoning.** The task needed a staged reward curriculum encoded directly into the objective: approach the block, align above it, make contact, maintain contact, grasp, then lift. Later analysis also showed that naive alignment shaping could create a stable "hover above the block" local optimum.
 
 **What I checked.**
 - failure modes in long runs that improved motion without improving task structure
 - whether KL/ratio metrics that looked healthier actually corresponded to better behavior
 - contact, sustained-contact, and grasp metrics after reward changes
 
-**Fix.** I incrementally added:
+**Initial fix.** I incrementally added:
 - contact reward on January 7, 2026
 - height-alignment, grasp, sustained-contact, and lift bonuses on January 8, 2026
 
-**Impact.** Later PPO summaries show measurable emergence of contact and small but nonzero grasp behavior. In the strongest later PPO summary in this repo, contact rate reached `12.8%`, sustained-contact rate `6.9%`, and grasp rate `2.6%`, even though the overall task remained unsolved.
+**April 2026 redesign.** After PPO stability was fixed, W&B showed that the policy was reliably aligning above the block but still almost never making contact or grasping. I rewrote the reward into a phase-aware pickup objective:
+- dense pre-contact approach shaping
+- gated alignment reward that only pays while moving into a likely grasp state
+- one-time contact-entry bonus plus contact persistence reward
+- stronger bilateral grasp bonus plus grasp persistence reward
+- dense lift-progress reward above the block's initial height plus a completion bonus
+- penalties for hover stalls, slips, and knocking the block away without lifting it
+
+**Impact.** The reward is now designed to turn "good geometry" into contact, grasp, and lift behavior instead of letting alignment dominate the return by itself. The repo's current training guidance therefore uses behavior metrics like `reward/contact_entry_rate`, `reward/grasp_persistence_rate`, and `reward/lift_progress_mean` to judge whether the policy is actually learning pickup structure.
 
 Evidence trail:
 - Reward formulation and changelog: [`hyperparameter_notes.md`](hyperparameter_notes.md)
+- Reward redesign rationale: [`notes/reward-redesign-contact-grasp-lift.md`](notes/reward-redesign-contact-grasp-lift.md)
 - Strongest later PPO summary: [`run-20260108_035325-6ilsbq76`](simulation_code/wandb/run-20260108_035325-6ilsbq76/files/wandb-summary.json)
 
 [TODO: add graph - reward components, contact rate, sustained-contact rate, and grasp rate over training. Best W&B source is run ID `6ilsbq76`; use the local snapshots `run-20260108_035117-6ilsbq76` and `run-20260108_035325-6ilsbq76` as the evidence trail]
@@ -281,6 +310,8 @@ The repo records a progression from naive baselines to better-instrumented PPO t
 | January 8, 2026 | Reverted `recompute_old_log_probs` after a 900-episode test had healthier metrics but worse rewards and no grasps | Prioritized behavioral evidence over cosmetically better diagnostics |
 | April 4, 2026 | Fixed parallel GAE so value bootstrapping preserves trajectory identity across environments | Restored correct PPO/GAE targets for chunked parallel rollouts |
 | April 4, 2026 | Fixed ReinFlow inference so evaluation uses the actual trained sampler and restored sigma bounds | Aligned deployment/evaluation with the policy object PPO optimized |
+| April 7, 2026 | Added deterministic old/new log-prob evaluation, pre-update PPO invariants, post-update KL control, and critic feature detachment | Converted the remaining KL spikes from a correctness bug into an ordinary optimization problem |
+| April 7, 2026 | Switched SmolVLA PPO defaults to `rl_stable_heads`, reduced actor LR, and redesigned the reward around contact, grasp persistence, and lift progress | Moved the trainer toward reward growth and away from the previous hover-alignment local optimum |
 
 The most important research judgment in this project is that I did not treat a cleaner metric dashboard as success. I repeatedly changed direction when the model's actual behavior, long-run stability, or grounded reasoning contradicted the simpler story.
 

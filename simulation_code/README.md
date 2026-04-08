@@ -454,18 +454,35 @@ action_space = Box(low=joint_limits_low, high=joint_limits_high, shape=(6,))
 
 ### Reward Function
 
-The reward function in `so101_mujoco_utils.py` includes:
+The current reward function in `so101_mujoco_utils.py` is a staged pickup reward, not the older distance/approach/height/success scheme.
 
-| Component | Weight | Description |
-|-----------|--------|-------------|
-| Distance penalty | -2.0 | Linear penalty for gripper-to-initial-block distance |
-| Approach bonus | +5.0 | Reward for moving toward block |
-| Height bonus | +20.0 | Reward for lifting block |
-| Proximity bonus | +0.5 | Bonus when within 5cm of block |
-| Success bonus | +50.0 | Large reward when block lifted above threshold |
-| Displacement penalty | -5.0 × exp | Exponential penalty for knocking block >5cm away |
+Current phases:
 
-> **Note**: Distance is measured to the *initial* block position, not current. This prevents the robot from learning to avoid the block (to not knock it away).
+| Phase | Main terms | Purpose |
+|-------|------------|---------|
+| Pre-contact approach | `-distance`, `approach_reward` | Move the gripper toward the block with a usable pre-grasp pose. |
+| Gated alignment | `alignment_reward` | Reward top-down pre-grasp geometry only while the gripper is still moving into the grasp. |
+| Contact | `contact_entry_bonus`, `contact_persistence_reward` | Reward committing to touch and maintaining it. |
+| Grasp | `bilateral_grasp_bonus`, `grasp_persistence_reward` | Reward squeezing the block with both sides of the gripper. |
+| Lift | `lift_progress_reward`, lift completion bonus | Reward real pickup progress using height above the block's initial pose. |
+| Failure penalties | `hover_penalty`, `slip_penalty`, `block_displacement_penalty` | Discourage hovering, losing contact/grasp, and knocking the block away sideways. |
+
+Important behavior:
+
+- Alignment is now **gated and capped** so the policy cannot collect most of its reward by hovering above the block.
+- Lift reward is based on **height gain relative to the block's initial pose**, not just a binary success threshold.
+- Block displacement is only penalized when the block is being pushed away without meaningful lift.
+
+Key reward diagnostics exposed to training:
+
+- `reward/contact_entry_rate`
+- `reward/grasp_persistence_rate`
+- `reward/lift_progress_mean`
+- `reward/hover_stall_rate`
+- `reward/block_displacement_mean`
+- slip metrics:
+  - `reward/slip_count` in sequential runs
+  - `reward/slip_count_total` / `reward/slip_count_avg` in parallel runs
 
 ---
 
@@ -546,8 +563,8 @@ For headless environments (Colab, SSH sessions, cloud VMs), MuJoCo needs a softw
 # SmolVLA - Sequential mode (best for most cases)
 python train_reinflow.py --no-render --headless
 
-# SmolVLA - Parallel mode with 10 environments (for A100 GPU)
-python train_reinflow.py --parallel-envs 10 --no-render --headless
+# SmolVLA - Parallel mode on a 14.6 GB GPU (practical current ceiling)
+python train_reinflow.py --parallel-envs 5 --no-render --headless
 
 # Pi0 - Parallel mode (reduced envs for memory)
 python train_reinflow.py --model-type pi0 --parallel-envs 2 --no-render --headless
