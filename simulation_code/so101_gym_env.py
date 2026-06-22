@@ -303,8 +303,9 @@ class SO101PickPlaceEnv(gymnasium.Env):
         for _ in range(5):
             mujoco.mj_step(self.model, self.data)
         
-        # Compute reward
-        reward, done, contacted, gripped, sustained, height_aligned, block_lifted, *_ = compute_reward(self.model, self.data)
+        # Compute reward and preserve staged pickup metrics for diagnostics/logging.
+        reward_result = compute_reward(self.model, self.data)
+        reward, done, contacted, gripped, sustained, height_aligned, block_lifted, *extra_metrics = reward_result
         success = done  # done indicates if block is lifted (episode success)
         
         # Update step count
@@ -317,6 +318,30 @@ class SO101PickPlaceEnv(gymnasium.Env):
         observation = self._get_obs()
         info = self._get_info()
         info["success"] = success
+        info.update(
+            {
+                "contacted": bool(contacted),
+                "gripped": bool(gripped),
+                "sustained": bool(sustained),
+                "height_aligned": bool(height_aligned),
+                "block_lifted": bool(block_lifted),
+            }
+        )
+        metric_names = [
+            "contact_entry",
+            "grasp_persistent",
+            "lift_progress",
+            "hover_stall",
+            "slip_count",
+            "block_displacement",
+            "approach_reward",
+            "alignment_reward",
+            "near_contact",
+            "contact_after_alignment",
+            "horizontal_progress",
+            "vertical_approach",
+        ]
+        info.update({name: value for name, value in zip(metric_names, extra_metrics)})
         
         return observation, reward, terminated, truncated, info
     
