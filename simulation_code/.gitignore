@@ -25,6 +25,13 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
+# Training outputs
+outputs/
+act_sim_ppo_checkpoint.pt
+.lerobot_datasets/
+logs/
+wandb/
+
 # OS
 .DS_Store
 Thumbs.db
