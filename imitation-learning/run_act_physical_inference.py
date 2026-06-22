@@ -35,12 +35,13 @@ DEFAULT_CHECKPOINT = (
     / "simulation_code"
     / "outputs"
     / "train"
-    / "act_so101_physical"
+    / "act_so101_corrected_30_b32_20260621_160923"
     / "checkpoints"
-    / "last"
+    / "026020"
     / "pretrained_model"
 )
 DEFAULT_CALIBRATION_ROOT = Path.home() / ".cache" / "huggingface" / "lerobot" / "calibration" / "robots"
+DEFAULT_CALIBRATION_ROBOT_DIRS = ("so_follower", "so101_follower")
 DEFAULT_DATASET_PATH = SCRIPT_DIR / "datasets" / "so101_pickplace_v1"
 
 JOINT_NAMES = [
@@ -78,10 +79,10 @@ def parse_args() -> argparse.Namespace:
         help="Physical dataset used for start-pose diagnostics.",
     )
     parser.add_argument("--device", default="cuda", help="Torch device for ACT inference.")
-    parser.add_argument("--control-hz", type=float, default=10.0, help="Control loop frequency.")
+    parser.add_argument("--control-hz", type=float, default=30.0, help="Control loop frequency.")
     parser.add_argument("--max-steps", type=int, default=0, help="Max loop steps; 0 means run until Ctrl-C.")
-    parser.add_argument("--max-relative-target", type=float, default=5.0, help="LeRobot relative target safety cap.")
-    parser.add_argument("--smooth-alpha", type=float, default=0.2, help="Blend factor toward target command.")
+    parser.add_argument("--max-relative-target", type=float, default=20.0, help="LeRobot relative target safety cap.")
+    parser.add_argument("--smooth-alpha", type=float, default=1.0, help="Blend factor toward target command.")
     parser.add_argument("--action-scale", type=float, default=1.0, help="Scale delta from current motor pose to target.")
     parser.add_argument("--enable-motion", action="store_true", help="Actually send predicted commands to the arm.")
     parser.add_argument("--dry-run", action="store_true", help="Predict actions but do not move. This is the default.")
@@ -261,13 +262,18 @@ def resolve_calibration(args: argparse.Namespace) -> tuple[str, Path]:
             raise FileNotFoundError(f"Calibration file not found: {cal_path}")
         return cal_path.stem, cal_path.parent
 
-    cal_dir = args.calibration_root.expanduser() / "so101_follower"
+    cal_root = args.calibration_root.expanduser()
     robot_id = args.robot_id if args.robot_id is not None else "None"
-    candidates = [
-        cal_dir / f"{robot_id}.json",
-        cal_dir / "so101_follower_1.json",
-        cal_dir / "None.json",
-    ]
+    candidates = []
+    for robot_dir in DEFAULT_CALIBRATION_ROBOT_DIRS:
+        cal_dir = cal_root / robot_dir
+        candidates.extend(
+            [
+                cal_dir / f"{robot_id}.json",
+                cal_dir / "so101_follower_1.json",
+                cal_dir / "None.json",
+            ]
+        )
     candidates = list(dict.fromkeys(candidates))
     for cal_path in candidates:
         if cal_path.is_file():
@@ -484,7 +490,7 @@ def print_start_pose_diagnostic(dataset_path: Path, current_state: np.ndarray) -
         print("  warning: current pose is far from the recorded demo start distribution.")
 
 
-def open_action_log(path: Path | None) -> tuple[Any | None, csv.DictWriter | None]:
+def open_action_log(path: Path | None, metadata: dict[str, Any]) -> tuple[Any | None, csv.DictWriter | None]:
     if path is None:
         return None, None
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -496,6 +502,12 @@ def open_action_log(path: Path | None) -> tuple[Any | None, csv.DictWriter | Non
         *[f"action_rad_{name}" for name in JOINT_NAMES],
         *[f"command_{name}" for name in JOINT_NAMES],
         "motion_enabled",
+        "checkpoint",
+        "chunk_size",
+        "n_action_steps",
+        "control_hz",
+        "smooth_alpha",
+        "max_relative_target",
     ]
     writer = csv.DictWriter(handle, fieldnames=fieldnames)
     writer.writeheader()
@@ -509,6 +521,7 @@ def log_step(
     action_rad: np.ndarray,
     command: dict[str, float],
     motion_enabled: bool,
+    metadata: dict[str, Any],
 ) -> None:
     if writer is None:
         return
@@ -516,6 +529,7 @@ def log_step(
     row.update({f"state_{name}": float(state[i]) for i, name in enumerate(JOINT_NAMES)})
     row.update({f"action_rad_{name}": float(action_rad[i]) for i, name in enumerate(JOINT_NAMES)})
     row.update({f"command_{name}": float(command[f"{name}.pos"]) for name in JOINT_NAMES})
+    row.update(metadata)
     writer.writerow(row)
 
 
@@ -583,12 +597,26 @@ def run_loop(args: argparse.Namespace, checkpoint: Path, device: torch.device) -
 
     logging.info("Loading ACT checkpoint: %s", checkpoint)
     policy, preprocessor, postprocessor = load_policy_and_processors(checkpoint, device)
+    run_metadata = {
+        "checkpoint": str(checkpoint),
+        "chunk_size": getattr(policy.config, "chunk_size", ""),
+        "n_action_steps": getattr(policy.config, "n_action_steps", ""),
+        "control_hz": args.control_hz,
+        "smooth_alpha": args.smooth_alpha,
+        "max_relative_target": args.max_relative_target,
+    }
+    print(
+        "ACT config: "
+        f"chunk_size={run_metadata['chunk_size']} "
+        f"n_action_steps={run_metadata['n_action_steps']} "
+        "with checkpoint pre/postprocessors"
+    )
     robot = make_robot(args, robot_id, calibration_dir)
     control_dt = 1.0 / args.control_hz
     frames: list[np.ndarray] = []
     if args.log_actions is None:
         args.log_actions = SCRIPT_DIR / "outputs" / f"act_physical_actions_{time.strftime('%Y%m%d_%H%M%S')}.csv"
-    log_handle, log_writer = open_action_log(args.log_actions)
+    log_handle, log_writer = open_action_log(args.log_actions, run_metadata)
     print(f"Logging physical ACT actions to: {args.log_actions}")
     gripper_predictions: list[float] = []
 
@@ -618,7 +646,7 @@ def run_loop(args: argparse.Namespace, checkpoint: Path, device: torch.device) -
             else:
                 sent = command
 
-            log_step(log_writer, step, state, action_rad, sent, motion_enabled)
+            log_step(log_writer, step, state, action_rad, sent, motion_enabled, run_metadata)
             if args.save_video is not None:
                 frames.append(observation_video_frame(observation))
 

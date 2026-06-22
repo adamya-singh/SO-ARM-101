@@ -17,12 +17,21 @@ from typing import Any
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_CHECKPOINT = SCRIPT_DIR / "outputs" / "train" / "act_so101_physical" / "checkpoints" / "last" / "pretrained_model"
+DEFAULT_CHECKPOINT = (
+    SCRIPT_DIR
+    / "outputs"
+    / "train"
+    / "act_so101_corrected_30_b32_20260621_160923"
+    / "checkpoints"
+    / "026020"
+    / "pretrained_model"
+)
 
 np = None
 torch = None
 imageio = None
 ACTPolicy = None
+make_pre_post_processors = None
 SO101PickPlaceEnv = None
 
 
@@ -87,7 +96,7 @@ def validate_checkpoint(checkpoint: Path) -> None:
 
 def load_dependencies(headless: bool) -> None:
     """Import heavy dependencies after CLI parsing and before MuJoCo env creation."""
-    global np, torch, imageio, ACTPolicy, SO101PickPlaceEnv
+    global np, torch, imageio, ACTPolicy, make_pre_post_processors, SO101PickPlaceEnv
 
     if headless:
         os.environ.setdefault("MUJOCO_GL", "egl")
@@ -108,6 +117,7 @@ def load_dependencies(headless: bool) -> None:
 
     try:
         from lerobot.policies.act.modeling_act import ACTPolicy as _ACTPolicy
+        from lerobot.policies.factory import make_pre_post_processors as _make_pre_post_processors
     except ImportError as exc:
         raise RuntimeError(
             "Could not import LeRobot ACTPolicy. Activate the environment with the local LeRobot install."
@@ -122,6 +132,7 @@ def load_dependencies(headless: bool) -> None:
     torch = _torch
     imageio = _imageio
     ACTPolicy = _ACTPolicy
+    make_pre_post_processors = _make_pre_post_processors
     SO101PickPlaceEnv = _SO101PickPlaceEnv
 
 
@@ -133,14 +144,21 @@ def resolve_device(device_name: str) -> "torch.device":
     return device
 
 
-def load_policy(checkpoint: Path, device: "torch.device") -> Any:
+def load_policy_and_processors(checkpoint: Path, device: "torch.device") -> tuple[Any, Any, Any]:
     policy = ACTPolicy.from_pretrained(checkpoint)
+    policy.config.device = device.type
     policy.to(device)
     policy.eval()
-    return policy
+    policy.reset()
+    preprocessor, postprocessor = make_pre_post_processors(
+        policy.config,
+        pretrained_path=str(checkpoint),
+        preprocessor_overrides={"device_processor": {"device": device.type}},
+    )
+    return policy, preprocessor, postprocessor
 
 
-def adapt_sim_observation(obs: dict[str, Any], device: "torch.device") -> dict[str, "torch.Tensor"]:
+def adapt_sim_observation(obs: dict[str, Any]) -> dict[str, "torch.Tensor"]:
     if "observation.images.camera2" not in obs:
         raise KeyError("Simulation observation is missing observation.images.camera2 for the wrist camera.")
     if "observation.state" not in obs:
@@ -158,8 +176,8 @@ def adapt_sim_observation(obs: dict[str, Any], device: "torch.device") -> dict[s
         raise ValueError(f"Expected 6D joint state, got shape {tuple(state_tensor.shape)}")
 
     return {
-        "observation.images.wrist": wrist_tensor.permute(2, 0, 1).unsqueeze(0).to(device),
-        "observation.state": state_tensor.unsqueeze(0).to(device),
+        "observation.images.wrist": wrist_tensor.permute(2, 0, 1).contiguous(),
+        "observation.state": state_tensor,
     }
 
 
@@ -184,10 +202,11 @@ def reset_options(args: argparse.Namespace) -> dict[str, Any] | None:
     return None
 
 
-def select_action(policy: Any, obs: dict[str, Any], device: "torch.device", env: Any) -> Any:
-    policy_obs = adapt_sim_observation(obs, device)
+def select_action(policy: Any, preprocessor: Any, postprocessor: Any, obs: dict[str, Any], env: Any) -> Any:
+    policy_obs = preprocessor(adapt_sim_observation(obs))
     with torch.no_grad():
         action = policy.select_action(policy_obs)
+        action = postprocessor(action)
     action_np = action.squeeze(0).detach().cpu().numpy().astype(np.float32)
     return np.clip(action_np, env.joint_limits_low, env.joint_limits_high)
 
@@ -224,7 +243,8 @@ def as_float(info: dict[str, Any], key: str, default: float = float("nan")) -> f
 def run_episode(
     env: Any,
     policy: Any,
-    device: "torch.device",
+    preprocessor: Any,
+    postprocessor: Any,
     args: argparse.Namespace,
     episode_idx: int,
 ) -> dict[str, Any]:
@@ -247,7 +267,7 @@ def run_episode(
         frames.append(video_frame(obs, args.video_cameras))
 
     while steps < args.max_steps_per_episode:
-        action = select_action(policy, obs, device, env)
+        action = select_action(policy, preprocessor, postprocessor, obs, env)
         if args.verbose:
             print(f"episode={episode_idx + 1} step={steps} action={np.round(action, 4).tolist()}")
 
@@ -326,13 +346,19 @@ def main() -> int:
 
     print(f"Loading ACT checkpoint: {checkpoint}")
     print(f"Device: {device}")
-    policy = load_policy(checkpoint, device)
+    policy, preprocessor, postprocessor = load_policy_and_processors(checkpoint, device)
+    print(
+        "ACT config: "
+        f"chunk_size={getattr(policy.config, 'chunk_size', None)} "
+        f"n_action_steps={getattr(policy.config, 'n_action_steps', None)} "
+        "with checkpoint pre/postprocessors"
+    )
     env = make_env(args)
 
     metrics: list[dict[str, Any]] = []
     try:
         for episode_idx in range(args.episodes):
-            episode_metrics = run_episode(env, policy, device, args, episode_idx)
+            episode_metrics = run_episode(env, policy, preprocessor, postprocessor, args, episode_idx)
             metrics.append(episode_metrics)
             print(
                 f"episode {episode_idx + 1:03d}: "

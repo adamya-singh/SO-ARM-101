@@ -101,11 +101,14 @@ automatically invalid, but it must be audited before trusting a checkpoint.
 `diagnose_act_setup.py` reports same-frame equality, future chunk deltas,
 gripper range, checkpoint config, and offline policy replay error.
 
-`train_act_in_sim.py` expects the offline checkpoint at:
+Offline training run history is recorded in
+`notes/train-act-on-data-history.md`.
+
+`train_act_in_sim.py` still defaults to the original offline checkpoint at:
 
 `outputs/train/act_so101_physical/checkpoints/last/pretrained_model`
 
-Pass `--init-checkpoint` to use a different ACT artifact. This script now
+Pass `--init-checkpoint` to use a corrected ACT artifact. This script now
 requires `--experimental-act-ppo` before it will launch, because the previous
 long ACT PPO run completed mechanically but produced 0% success. Use
 `train_sim_baseline.py` first to verify the MuJoCo reward and action units.
@@ -175,6 +178,10 @@ The inference path uses the same observation adapter as the sim PPO plan:
 MuJoCo `observation.images.camera2` is treated as the physical dataset's
 `observation.images.wrist`, and only that wrist image plus
 `observation.state` are passed to ACT.
+`run_act_sim_inference.py` loads the same checkpoint pre/postprocessors used by
+physical inference. By default it now uses the corrected `30/30` checkpoint at:
+
+`outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model`
 
 ## Physical ACT Inference
 
@@ -206,7 +213,8 @@ python3 run_act_physical_inference.py \
 checkpoint and predicts actions, but it only calls `robot.send_action` when
 `--enable-motion` is passed and the runtime Enter confirmation is accepted.
 Every physical run logs a CSV by default under `imitation-learning/outputs`
-unless `--log-actions` is provided.
+unless `--log-actions` is provided. The CSV includes the checkpoint path,
+`chunk_size`, `n_action_steps`, control Hz, smoothing, and relative target cap.
 
 The physical script uses the same state/action convention as
 `record_single_arm.py`: the first five motors map normalized motor units to
@@ -214,6 +222,8 @@ radians with `motor / 100 * pi`, and the gripper maps with
 `motor / 100 * 1.7`. It loads ACT pre/postprocessors from the checkpoint, so
 the runtime path is physical observation -> checkpoint preprocessor ->
 `ACTPolicy.select_action()` -> checkpoint postprocessor -> motor command.
+By default it now uses the corrected `30/30` checkpoint, runs at 30 Hz, uses
+`smooth_alpha=1.0`, and sets `max_relative_target=20`.
 Before motion starts, the script prints a start-pose diagnostic comparing the
 current 6D state to the recorded demo start-pose distribution. If the current
 pose is far outside the demo distribution, treat the checkpoint behavior as
