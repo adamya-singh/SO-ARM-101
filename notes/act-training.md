@@ -183,6 +183,47 @@ physical inference. By default it now uses the corrected `30/30` checkpoint at:
 
 `outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model`
 
+For before/after ACT PPO behavior comparisons, use these two commands.
+`run_act_sim_inference.py` loads LeRobot `pretrained_model` directories, while
+`run_act_ppo_sim_inference.py` loads `.pt` checkpoints produced by
+`train_act_in_sim.py`.
+
+Before in-sim PPO:
+
+```bash
+python3 run_act_sim_inference.py \
+  --checkpoint outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+After in-sim PPO:
+
+```bash
+python3 run_act_ppo_sim_inference.py \
+  --resume act_sim_ppo_checkpoint.pt \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+Latest live comparison from the 2026-06-23 ACT PPO run:
+
+- Base policy: corrected ACT checkpoint from `train_act_on_data.py`.
+- Post-PPO policy: `act_sim_ppo_checkpoint.pt`, trained from that base policy.
+- Observed behavior change: the post-PPO policy is more confident about moving
+  toward the block and appears to angle the gripper more deliberately.
+- Current failure mode: the post-PPO policy crashes into the block and stays
+  there instead of transitioning from contact/grasp into lift.
+- Interpretation: the in-sim PPO reward improved approach/contact behavior, but
+  did not solve the staged manipulation objective. Treat this checkpoint as a
+  diagnostic artifact, not a deployment policy.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:
