@@ -340,6 +340,18 @@ class SO101PickPlaceEnv(gymnasium.Env):
             "contact_after_alignment",
             "horizontal_progress",
             "vertical_approach",
+            "contact_loss_count",
+            "grasp_loss_count",
+            "near_contact_reward",
+            "contact_persistence_reward",
+            "contact_stall_penalty",
+            "grasp_reward",
+            "grasp_persistence_reward",
+            "lift_progress_reward",
+            "lift_bonus_reward",
+            "success_lift_bonus",
+            "block_displacement_penalty",
+            "grip_force",
         ]
         info.update({name: value for name, value in zip(metric_names, extra_metrics)})
         

@@ -224,6 +224,18 @@ Latest live comparison from the 2026-06-23 ACT PPO run:
   did not solve the staged manipulation objective. Treat this checkpoint as a
   diagnostic artifact, not a deployment policy.
 
+Contact-stall reward rebalance:
+
+- The next ACT-in-sim pass reduces repeated contact reward so crashing into the
+  block and staying there is no longer a high-return local optimum.
+- One-time contact remains useful, but sustained contact only pays when it is
+  paired with grip or lift progress.
+- Grasp, grasp persistence, lift progress, and lift success now carry more of
+  the reward mass.
+- `train_act_in_sim.py` logs reward components under
+  `rollout/reward_components/*` so future runs can show whether return is coming
+  from contact camping or from grasp/lift progress.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:

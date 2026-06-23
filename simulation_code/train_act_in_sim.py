@@ -451,6 +451,29 @@ def step_action(env: SO101PickPlaceEnv, action: np.ndarray, repeats: int) -> tup
     return last_obs, total_reward, terminated, truncated, last_info
 
 
+REWARD_COMPONENT_KEYS = [
+    "near_contact_reward",
+    "contact_persistence_reward",
+    "contact_stall_penalty",
+    "grasp_reward",
+    "grasp_persistence_reward",
+    "lift_progress_reward",
+    "lift_bonus_reward",
+    "success_lift_bonus",
+    "block_displacement_penalty",
+    "grip_force",
+]
+
+
+def empty_reward_components() -> dict[str, float]:
+    return {key: 0.0 for key in REWARD_COMPONENT_KEYS}
+
+
+def add_reward_components(accumulator: dict[str, float], info: dict[str, Any]) -> None:
+    for key in REWARD_COMPONENT_KEYS:
+        accumulator[key] += float(info.get(key, 0.0))
+
+
 def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> None:
     global np
     parent_remote.close()
@@ -504,6 +527,7 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                     "grasp_steps": 0,
                     "lift_steps": 0,
                     "episodes_completed": 0,
+                    "reward_components": empty_reward_components(),
                 }
                 for action in action_chunk:
                     for _ in range(int(steps_per_action)):
@@ -514,6 +538,7 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                         metrics["contact_steps"] += int(bool(info.get("contacted", False)))
                         metrics["grasp_steps"] += int(bool(info.get("gripped", False)))
                         metrics["lift_steps"] += int(bool(info.get("block_lifted", False)))
+                        add_reward_components(metrics["reward_components"], info)
                         done = bool(terminated or truncated)
                         if done:
                             metrics["episodes_completed"] += 1
@@ -589,10 +614,13 @@ class ACTSubprocVecEnv:
             "grasp_steps": 0,
             "lift_steps": 0,
             "episodes_completed": 0,
+            "reward_components": empty_reward_components(),
         }
         for payload in payloads:
-            for key in metrics:
+            for key in ("steps", "success", "contact_steps", "grasp_steps", "lift_steps", "episodes_completed"):
                 metrics[key] += payload["metrics"][key]
+            for key in REWARD_COMPONENT_KEYS:
+                metrics["reward_components"][key] += payload["metrics"]["reward_components"][key]
         return {
             "rewards": np.asarray([payload["reward"] for payload in payloads], dtype=np.float32),
             "dones": np.asarray([payload["done"] for payload in payloads], dtype=np.float32),
@@ -685,6 +713,7 @@ def collect_rollout(
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
         "env_step_sec": 0.0,
+        "reward_components": empty_reward_components(),
     }
 
     chunks_per_env = max(1, int(args.rollout_chunks_per_env))
@@ -706,6 +735,7 @@ def collect_rollout(
             obs, reward, terminated, truncated, info = step_action(env, clipped_action, args.steps_per_action)
             chunk_reward += reward
             metrics["steps"] += 1
+            add_reward_components(metrics["reward_components"], info)
             if terminated or truncated:
                 chunk_done = True
                 break
@@ -765,6 +795,7 @@ def collect_parallel_rollout(
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
         "env_step_sec": 0.0,
+        "reward_components": empty_reward_components(),
     }
 
     for _ in range(max(1, int(args.rollout_chunks_per_env))):
@@ -798,6 +829,8 @@ def collect_parallel_rollout(
         metrics["lift_steps"] += int(step_metrics["lift_steps"])
         metrics["steps"] += int(step_metrics["steps"])
         metrics["episodes_completed"] += int(step_metrics["episodes_completed"])
+        for key in REWARD_COMPONENT_KEYS:
+            metrics["reward_components"][key] += float(step_metrics["reward_components"][key])
 
     num_envs = max(1, env.num_envs)
     metrics["episode_return"] /= float(num_envs)
@@ -1032,6 +1065,12 @@ def run_train_iteration(
         **{f"train/{key}": float(value) for key, value in ppo_metrics.items()},
         **gpu_snapshot(device),
     }
+    metrics.update(
+        {
+            f"rollout/reward_components/{key}": float(value)
+            for key, value in rollout_metrics["reward_components"].items()
+        }
+    )
     return metrics, rollout
 
 
