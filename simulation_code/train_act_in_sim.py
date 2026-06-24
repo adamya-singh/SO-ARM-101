@@ -452,6 +452,9 @@ def step_action(env: SO101PickPlaceEnv, action: np.ndarray, repeats: int) -> tup
 
 
 REWARD_COMPONENT_KEYS = [
+    "distance_penalty",
+    "far_from_block_penalty",
+    "moving_away_penalty",
     "near_contact_reward",
     "contact_persistence_reward",
     "contact_stall_penalty",

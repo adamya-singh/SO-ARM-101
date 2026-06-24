@@ -1033,12 +1033,18 @@ def compute_pickup_reward_from_state(
     state: dict[str, Any],
     block_name: str = "red_block",
     lift_threshold: float = 0.08,
-    distance_penalty_scale: float = 0.4,
+    distance_penalty_scale: float = 1.2,
     horizontal_progress_scale: float = 0.12,
     vertical_approach_scale: float = 0.05,
     approach_closeness_scale: float = 0.015,
     alignment_reward_cap: float = 0.025,
     near_contact_bonus: float = 0.08,
+    far_horizontal_threshold: float = 0.12,
+    very_far_horizontal_threshold: float = 0.16,
+    far_horizontal_penalty: float = -0.05,
+    very_far_horizontal_penalty: float = -0.10,
+    moving_away_threshold: float = -0.002,
+    moving_away_penalty: float = -0.03,
     contact_entry_bonus: float = 0.20,
     contact_persistence_reward: float = 0.015,
     hover_stall_threshold: int = 8,
@@ -1095,10 +1101,24 @@ def compute_pickup_reward_from_state(
     vertical_error = abs(height_above - target_height)
     vertical_progress = 0.0 if prev_vertical_error is None else prev_vertical_error - vertical_error
 
-    reward = -distance_penalty_scale * distance
+    distance_penalty = -distance_penalty_scale * distance
+    reward = distance_penalty
 
     contacted = check_gripper_block_contact(m, d, block_name)
     gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
+
+    far_from_block_penalty = 0.0
+    if not contacted:
+        if horizontal_dist > very_far_horizontal_threshold:
+            far_from_block_penalty = very_far_horizontal_penalty
+        elif horizontal_dist > far_horizontal_threshold:
+            far_from_block_penalty = far_horizontal_penalty
+        reward += far_from_block_penalty
+
+    applied_moving_away_penalty = 0.0
+    if not contacted and horizontal_progress < moving_away_threshold:
+        applied_moving_away_penalty = moving_away_penalty
+        reward += applied_moving_away_penalty
 
     approach_closeness = np.clip(1.0 - horizontal_dist / 0.14, 0.0, 1.0)
     vertical_alignment = np.clip(1.0 - vertical_error / 0.05, 0.0, 1.0)
@@ -1127,7 +1147,8 @@ def compute_pickup_reward_from_state(
         reward += alignment_reward
 
     near_contact_reward = 0.0
-    if near_contact:
+    contact_progressing = horizontal_progress > 0.0 or vertical_progress > 0.0
+    if near_contact and contact_progressing:
         near_contact_score = np.clip(1.0 - horizontal_dist / 0.045, 0.0, 1.0) * np.clip(1.0 - abs(height_above - 0.018) / 0.03, 0.0, 1.0)
         near_contact_reward = near_contact_bonus * near_contact_score
         reward += near_contact_reward
@@ -1261,6 +1282,9 @@ def compute_pickup_reward_from_state(
         "grasp_loss_count": grasp_loss_count,
         "lift_progress": block_height_gain,
         "block_displacement": block_displacement,
+        "distance_penalty": distance_penalty,
+        "far_from_block_penalty": far_from_block_penalty,
+        "moving_away_penalty": applied_moving_away_penalty,
         "approach_reward": approach_reward,
         "alignment_reward": alignment_reward,
         "near_contact_reward": near_contact_reward,
@@ -1290,12 +1314,18 @@ def compute_reward(
     d,
     block_name="red_block",
     lift_threshold=0.08,
-    distance_penalty_scale=0.4,
+    distance_penalty_scale=1.2,
     horizontal_progress_scale=0.08,
     vertical_approach_scale=0.04,
     approach_closeness_scale=0.015,
     alignment_reward_cap=0.025,
     near_contact_bonus=0.08,
+    far_horizontal_threshold=0.12,
+    very_far_horizontal_threshold=0.16,
+    far_horizontal_penalty=-0.05,
+    very_far_horizontal_penalty=-0.10,
+    moving_away_threshold=-0.002,
+    moving_away_penalty=-0.03,
     contact_entry_bonus=0.20,
     contact_persistence_reward=0.015,
     hover_stall_threshold=8,
@@ -1340,6 +1370,12 @@ def compute_reward(
         approach_closeness_scale=approach_closeness_scale,
         alignment_reward_cap=alignment_reward_cap,
         near_contact_bonus=near_contact_bonus,
+        far_horizontal_threshold=far_horizontal_threshold,
+        very_far_horizontal_threshold=very_far_horizontal_threshold,
+        far_horizontal_penalty=far_horizontal_penalty,
+        very_far_horizontal_penalty=very_far_horizontal_penalty,
+        moving_away_threshold=moving_away_threshold,
+        moving_away_penalty=moving_away_penalty,
         contact_entry_bonus=contact_entry_bonus,
         contact_persistence_reward=contact_persistence_reward,
         hover_stall_threshold=hover_stall_threshold,
@@ -1381,6 +1417,9 @@ def compute_reward(
         metrics["vertical_approach"],
         metrics["contact_loss_count"],
         metrics["grasp_loss_count"],
+        metrics["distance_penalty"],
+        metrics["far_from_block_penalty"],
+        metrics["moving_away_penalty"],
         metrics["near_contact_reward"],
         metrics["contact_persistence_reward"],
         metrics["contact_stall_penalty"],

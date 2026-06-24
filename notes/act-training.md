@@ -236,6 +236,52 @@ Contact-stall reward rebalance:
   `rollout/reward_components/*` so future runs can show whether return is coming
   from contact camping or from grasp/lift progress.
 
+Result from the `act_sim_ppo_contact_stall_v2` ablation:
+
+- W&B run: [`1db3iq53`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/1db3iq53).
+- Checkpoint:
+  `outputs/train/act_sim_ppo_contact_stall_v2/act_sim_ppo_checkpoint.pt`.
+- Numeric result: return improved from about `-4.7` early to about `-0.3` late,
+  with final `contact_steps=0`, `grasp_steps=0`, `lift_steps=0`, and
+  `success=0`.
+- Live sim result: policy was poor; it retracted the arm into a sitting posture
+  and stayed there, with occasional slight gripper spinning.
+- Interpretation: the contact-stall exploit was removed, but the new reward
+  created a different avoidance/local optimum. Reward alone is not enough in
+  this form; the next attempt should add behavioral constraints, curriculum, or
+  action/pose regularization so “do nothing/retract” cannot score as the best
+  low-risk strategy.
+
+Follow-up workspace-engagement v3 change:
+
+- Increase distance pressure and add explicit far-from-block and moving-away
+  penalties so retracting into a sitting posture is no longer the best
+  low-risk behavior.
+- Gate near-contact reward on active horizontal or vertical progress so the
+  policy cannot earn that term by freezing near the block.
+- Keep the contact-stall v2 grasp/lift/contact reward balance unchanged; the
+  next ablation should first prove the policy stays engaged with the block
+  workspace before increasing grasp or lift bonuses again.
+
+Result from the `act_sim_ppo_workspace_engagement_v3` ablation:
+
+- W&B run: [`g1jtc81c`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/g1jtc81c).
+- Checkpoint:
+  `outputs/train/act_sim_ppo_workspace_engagement_v3/act_sim_ppo_checkpoint.pt`.
+- Numeric result: completed `300` PPO updates / `180000` env steps with final
+  `success=0`, `lift_steps=0`, `grasp_steps=0`, and `contact_steps=190`.
+  Avoidance penalties mostly disappeared late in training, and the best rollout
+  reached `grasp_steps=68` around update `220`, but no lift emerged.
+- Live sim result: better than the contact-stall v2 run. The arm now moves
+  immediately toward the block and hovers a little away from it, but it does not
+  try to close into a grasp.
+- Interpretation: workspace engagement improved and the retraction/sitting
+  local optimum was reduced, but the learned policy is now stuck at an
+  approach/hover pre-grasp local optimum. The next change should target the
+  transition from hover/near-contact into active grasp, likely through
+  curriculum/reset shaping or a staged grasp-attempt incentive rather than
+  simply running this reward longer.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:
