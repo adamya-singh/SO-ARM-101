@@ -282,6 +282,82 @@ Result from the `act_sim_ppo_workspace_engagement_v3` ablation:
   curriculum/reset shaping or a staged grasp-attempt incentive rather than
   simply running this reward longer.
 
+Follow-up grasp-transition v4 change:
+
+- Add narrow randomized block resets with `--randomize-block-reset`,
+  `--block-dist-range 0.22 0.26`, and `--block-angle-range -10 10`. This starts
+  randomization near the fixed curriculum pose instead of jumping to the full
+  environment default range.
+- Add reward shaping for the hover-to-grasp transition: when the gripper is in a
+  pre-grasp corridor or near-contact pose, reward active gripper closing and
+  penalize repeated hovering without contact or closing.
+- Keep the v3 workspace-engagement and contact-stall terms unchanged. The next
+  ablation should test whether the policy begins closing into contact/grasp
+  instead of stopping just short of the block.
+
+Canonical v4 training command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python train_act_in_sim.py \
+  --experimental-act-ppo \
+  --init-checkpoint /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model \
+  --parallel-envs 12 \
+  --rollout-chunks-per-env 2 \
+  --minibatch-size 64 \
+  --ppo-epochs 1 \
+  --chunk-size 30 \
+  --max-steps-per-episode 100 \
+  --steps-per-action 1 \
+  --episodes 300 \
+  --checkpoint-path /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_grasp_transition_v4/act_sim_ppo_checkpoint.pt \
+  --randomize-block-reset \
+  --block-dist-range 0.22 0.26 \
+  --block-angle-range -10 10 \
+  --headless \
+  --no-render
+```
+
+Canonical v4 live inference command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+/home/win10ubuntu/miniforge3/envs/lerobot/bin/python run_act_ppo_sim_inference.py \
+  --resume outputs/train/act_sim_ppo_grasp_transition_v4/act_sim_ppo_checkpoint.pt \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --randomize-block-reset \
+  --block-dist-range 0.22 0.26 \
+  --block-angle-range -10 10
+```
+
+Result from the `act_sim_ppo_grasp_transition_v4` ablation:
+
+- W&B runs:
+  [`0ufccyej`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/0ufccyej)
+  for the initial segment through update `219`, then
+  [`kqky26x8`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/kqky26x8)
+  for the resumed segment through update `299`.
+- Checkpoint:
+  `outputs/train/act_sim_ppo_grasp_transition_v4/act_sim_ppo_checkpoint.pt`.
+- Numeric result: completed `300` PPO updates / `180000` env steps with final
+  `success=0`, `contact_steps=0`, `grasp_steps=0`, and `lift_steps=0`. The
+  policy learned to collect gripper-closing reward (`19.9` final, max `34.8`),
+  but this did not produce contact, grasp, or lift.
+- Live sim result: degraded. The policy found the earlier retraction/sitting
+  local minimum again; the arm fully retracts to its sitting position and stays
+  there.
+- Interpretation: the v4 grasp-transition shaping was not sufficiently tied to
+  physical contact. It rewarded closing behavior that could be exploited without
+  actually entering the block. The next attempt should not increase
+  gripper-closing reward alone; it should either return to fixed-block training
+  while solving hover-to-contact, or only pay closing when it immediately
+  produces contact / reduces final pre-contact distance.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:

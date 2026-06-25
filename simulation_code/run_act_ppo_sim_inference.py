@@ -58,6 +58,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render", action="store_true", help="Open the MuJoCo viewer for live visual inspection.")
     parser.add_argument("--headless", action="store_true", help="Force EGL headless MuJoCo rendering before imports.")
     parser.add_argument("--randomize-block-reset", action="store_true", help="Randomize the block pose at episode reset.")
+    parser.add_argument("--block-dist-range", type=float, nargs=2, default=(0.22, 0.26), metavar=("MIN", "MAX"), help="Randomized block distance range used with --randomize-block-reset.")
+    parser.add_argument("--block-angle-range", type=float, nargs=2, default=(-10.0, 10.0), metavar=("MIN", "MAX"), help="Randomized block angle range in degrees used with --randomize-block-reset.")
     parser.add_argument(
         "--curriculum-fixed-block",
         action=argparse.BooleanOptionalAction,
@@ -97,6 +99,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--step-delay must be >= 0")
     if args.randomize_block_reset and args.block_pos is not None:
         raise ValueError("--randomize-block-reset and --block-pos are mutually exclusive")
+    if args.block_dist_range[0] > args.block_dist_range[1]:
+        raise ValueError("--block-dist-range MIN must be <= MAX")
+    if args.block_angle_range[0] > args.block_angle_range[1]:
+        raise ValueError("--block-angle-range MIN must be <= MAX")
 
 
 def resolve_device(device_name: str) -> torch.device:

@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Any
 
 
@@ -309,6 +309,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--parallel-envs", type=int, default=8)
     parser.add_argument("--rollout-chunks-per-env", type=int, default=4)
     parser.add_argument("--randomize-block-reset", action="store_true")
+    parser.add_argument("--block-dist-range", type=float, nargs=2, default=(0.22, 0.26), metavar=("MIN", "MAX"))
+    parser.add_argument("--block-angle-range", type=float, nargs=2, default=(-10.0, 10.0), metavar=("MIN", "MAX"))
     parser.add_argument(
         "--curriculum-fixed-block",
         action=argparse.BooleanOptionalAction,
@@ -321,7 +323,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--checkpoint-path", type=Path, default=SCRIPT_DIR / "act_sim_ppo_checkpoint.pt")
     parser.add_argument("--eval-episodes", type=int, default=0)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.block_dist_range[0] > args.block_dist_range[1]:
+        raise ValueError("--block-dist-range MIN must be <= MAX")
+    if args.block_angle_range[0] > args.block_angle_range[1]:
+        raise ValueError("--block-angle-range MIN must be <= MAX")
+    return args
 
 
 def load_act_policy(checkpoint: Path, device: torch.device) -> nn.Module:
@@ -455,6 +462,8 @@ REWARD_COMPONENT_KEYS = [
     "distance_penalty",
     "far_from_block_penalty",
     "moving_away_penalty",
+    "gripper_closing_reward",
+    "pregrasp_hover_penalty",
     "near_contact_reward",
     "contact_persistence_reward",
     "contact_stall_penalty",
@@ -491,6 +500,8 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
             render_mode=None,
             max_episode_steps=worker_config["max_steps_per_episode"],
             randomize_block=worker_config["randomize_block_reset"],
+            block_dist_range=worker_config["block_dist_range"],
+            block_angle_range=worker_config["block_angle_range"],
             task_instruction="pick up the block",
         )
         block_pos = worker_config["block_pos"]
@@ -577,6 +588,8 @@ class ACTSubprocVecEnv:
             "headless": bool(args.headless),
             "max_steps_per_episode": int(args.max_steps_per_episode),
             "randomize_block_reset": bool(args.randomize_block_reset),
+            "block_dist_range": tuple(float(v) for v in args.block_dist_range),
+            "block_angle_range": tuple(float(v) for v in args.block_angle_range),
             "block_pos": tuple(float(v) for v in block_pos),
         }
         self.parent_conns = []
@@ -949,6 +962,7 @@ def load_checkpoint(
     critic_optimizer: torch.optim.Optimizer,
     device: torch.device,
 ) -> int:
+    torch.serialization.add_safe_globals([PosixPath])
     checkpoint = torch.load(path, map_location=device)
     policy.act_policy.load_state_dict(checkpoint["act_policy"], strict=False)
     policy.log_std.data.copy_(checkpoint["log_std"].to(device))
@@ -1006,6 +1020,8 @@ def make_sequential_env(args: argparse.Namespace, block_pos: tuple[float, float,
         render_mode=None if args.no_render else "human",
         max_episode_steps=args.max_steps_per_episode,
         randomize_block=args.randomize_block_reset,
+        block_dist_range=tuple(float(v) for v in args.block_dist_range),
+        block_angle_range=tuple(float(v) for v in args.block_angle_range),
         task_instruction="pick up the block",
     )
     if not args.randomize_block_reset:
