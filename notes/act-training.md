@@ -358,6 +358,78 @@ Result from the `act_sim_ppo_grasp_transition_v4` ablation:
   while solving hover-to-contact, or only pay closing when it immediately
   produces contact / reduces final pre-contact distance.
 
+Follow-up contact-commitment v5 change:
+
+- Return to fixed-block training for one ablation. Randomized resets remain
+  available, but v5 should first recover fixed-pose contact before adding reset
+  variance again.
+- Remove standalone gripper-closing reward. Gripper closing now only sets a
+  short memory window, and reward is paid when first contact occurs soon after
+  closing.
+- Increase pre-grasp hover pressure and add a disengaged-stall penalty to make
+  sitting/retraction less attractive without changing grasp/lift bonuses.
+
+Canonical v5 training command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python train_act_in_sim.py \
+  --experimental-act-ppo \
+  --init-checkpoint /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model \
+  --parallel-envs 12 \
+  --rollout-chunks-per-env 2 \
+  --minibatch-size 64 \
+  --ppo-epochs 1 \
+  --chunk-size 30 \
+  --max-steps-per-episode 100 \
+  --steps-per-action 1 \
+  --episodes 300 \
+  --checkpoint-path /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_contact_commit_v5/act_sim_ppo_checkpoint.pt \
+  --headless \
+  --no-render
+```
+
+Canonical v5 live inference command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+/home/win10ubuntu/miniforge3/envs/lerobot/bin/python run_act_ppo_sim_inference.py \
+  --resume outputs/train/act_sim_ppo_contact_commit_v5/act_sim_ppo_checkpoint.pt \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+Result from the `act_sim_ppo_contact_commit_v5` ablation:
+
+- W&B run: [`skfhaguf`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/skfhaguf).
+- Checkpoint:
+  `outputs/train/act_sim_ppo_contact_commit_v5/act_sim_ppo_checkpoint.pt`.
+- Numeric result: completed `300` PPO updates / `180000` env steps with final
+  `success=0`, `grasp_steps=0`, `lift_steps=0`, and `contact_steps=21`.
+  Direct `gripper_closing_reward` stayed at `0`, as intended, but
+  `closing_contact_bonus=0` and final `block_displacement_penalty=-28.76`
+  indicate contact was not becoming useful grasp/lift behavior.
+- Live sim result: degraded into a new local minimum. The arm scrunches up with
+  the forearm sticking straight up and the gripper facing outward at roughly a
+  90-degree angle, then stays there.
+
+![ACT sim PPO contact-commit v5 local minimum](./images/act-sim-ppo-contact-commit-v5-local-minimum.png)
+
+Image file: [act-sim-ppo-contact-commit-v5-local-minimum.png](./images/act-sim-ppo-contact-commit-v5-local-minimum.png)
+
+- Interpretation: removing standalone gripper-closing reward prevented the v4
+  close-in-air exploit, but the fixed-block contact-commitment reward still did
+  not create a reliable hover-to-contact transition. The high displacement
+  penalty suggests the policy may be finding awkward contact or posture states
+  that move the block without grasping. The next attempt should likely add
+  stronger posture/workspace constraints or collect/imitate targeted
+  hover-to-contact demonstrations rather than continuing reward-only tweaks.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:
