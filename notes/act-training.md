@@ -628,9 +628,26 @@ Paused-result note for the `act_sim_ppo_timed_gripper_v7` overnight run:
   block. It barely touches the block and does not make a real grasp attempt.
 - Interpretation: the anti-retreat / stay-engaged shaping is helping posture
   stability, but the gripper timing reward is too weak or too easy to ignore.
-  The next change should likely make early closure action-level costly or clamp
-  pre-corridor gripper actions during training, rather than relying only on
-  small scalar reward shaping.
+  A follow-up pre-grasp action guard was tried and rejected; do not revive that
+  branch without a separate design review.
+
+Rejected v8 pre-grasp guard result:
+
+- The `act_sim_ppo_pregrasp_guard_v8_overnight` checkpoint was manually stopped
+  after a checkpoint was written around `2026-06-26 01:04`, with the log near
+  update `256`.
+- Live MuJoCo inference showed severe policy degradation: the arm waves around
+  in the air instead of making a meaningful approach, contact, or grasp attempt.
+- Do not continue from `act_sim_ppo_pregrasp_guard_v8_overnight`, and do not
+  treat it as an improvement over v6 or v7.
+
+Next ACT sim PPO baseline:
+
+- Restart future experiments from the v5 episode-90 snapshot, not from v6, v7,
+  or v8:
+  `outputs/train/act_sim_ppo_contact_commit_v5_ep150/act_sim_ppo_checkpoint_snapshot_20260625_130447.pt`.
+- The v5 episode-90 snapshot preserved the best observed approach and visible
+  grip-attempt behavior before later continuations overfit into local minima.
 
 ## Physical ACT Inference
 
