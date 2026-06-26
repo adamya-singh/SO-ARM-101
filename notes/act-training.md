@@ -430,6 +430,208 @@ Image file: [act-sim-ppo-contact-commit-v5-local-minimum.png](./images/act-sim-p
   stronger posture/workspace constraints or collect/imitate targeted
   hover-to-contact demonstrations rather than continuing reward-only tweaks.
 
+Episode-90 snapshot from the 150-episode v5 retry:
+
+- W&B run: [`7aw545ha`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/7aw545ha).
+- Snapshot checkpoint:
+  `outputs/train/act_sim_ppo_contact_commit_v5_ep150/act_sim_ppo_checkpoint_snapshot_20260625_130447.pt`.
+- Snapshot metadata: `episode=90`, `total_env_steps=54720`.
+- Live sim result: promising but unstable. From the standard fixed start, the
+  policy makes a good approach and appears to try gripping the block. It does
+  not lift yet. A few seconds after the grip attempt, it scrunches up, turns far
+  left, and stays away from the block. When started from positions other than
+  the single training start pose, it also tends to scrunch into that far-left
+  posture.
+- Interpretation: this snapshot is more useful than the final v5 policy for
+  diagnosing the next change. It suggests the reward can produce approach and
+  early grip attempts before the policy escapes into a posture local minimum.
+  The next run should preserve the approach/contact signal but constrain the
+  post-grip posture or add recovery pressure so failed grip attempts return to
+  the block instead of folding left.
+
+Good approach / early grip attempt:
+
+![ACT sim PPO v5 episode 90 good approach](./images/act-sim-ppo-contact-commit-v5-ep90-approach.png)
+
+Image file: [act-sim-ppo-contact-commit-v5-ep90-approach.png](./images/act-sim-ppo-contact-commit-v5-ep90-approach.png)
+
+Scrunched left posture a few seconds later:
+
+![ACT sim PPO v5 episode 90 scrunch-left local minimum](./images/act-sim-ppo-contact-commit-v5-ep90-scrunch-left.png)
+
+Image file: [act-sim-ppo-contact-commit-v5-ep90-scrunch-left.png](./images/act-sim-ppo-contact-commit-v5-ep90-scrunch-left.png)
+
+Follow-up preserve-grip v6 change:
+
+- Continue PPO from the promising v5 episode-90 snapshot instead of restarting
+  from the supervised ACT base. The supervised base checkpoint is still passed
+  as `--init-checkpoint` because the training script constructs the ACT wrapper
+  first, then loads PPO weights from `--resume`.
+- Add a post-attempt commitment window. Contact, near-contact plus gripper
+  closing, or positive lift-progress reward now starts a short window where the
+  policy is rewarded for staying in the grasp corridor / near-contact zone and
+  for moving back toward the block after a failed grip attempt.
+- Add anti-escape shaping for the far-left scrunched posture. When the gripper
+  is far from the block, not contacted/gripped/lifting, and moving away or
+  staying disengaged, the reward applies an escape penalty. The penalty is
+  stronger during the post-attempt commitment window.
+- Keep fixed-block training, keep v5 grasp/lift amounts unchanged, and keep
+  standalone `gripper_closing_reward=0.0`.
+- Add `--snapshot-every` to save numbered checkpoint snapshots during resumed
+  runs, since the best behavioral checkpoint may occur before the final update.
+
+Canonical v6 training command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python train_act_in_sim.py \
+  --experimental-act-ppo \
+  --init-checkpoint /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model \
+  --resume /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_contact_commit_v5_ep150/act_sim_ppo_checkpoint_snapshot_20260625_130447.pt \
+  --parallel-envs 12 \
+  --rollout-chunks-per-env 2 \
+  --minibatch-size 64 \
+  --ppo-epochs 1 \
+  --chunk-size 30 \
+  --max-steps-per-episode 100 \
+  --steps-per-action 1 \
+  --episodes 165 \
+  --checkpoint-path /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_preserve_grip_v6/act_sim_ppo_checkpoint.pt \
+  --snapshot-every 25 \
+  --headless \
+  --no-render
+```
+
+Canonical v6 live inference command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+/home/win10ubuntu/miniforge3/envs/lerobot/bin/python run_act_ppo_sim_inference.py \
+  --resume outputs/train/act_sim_ppo_preserve_grip_v6/act_sim_ppo_checkpoint.pt \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+For v6, compare numbered snapshots as well as the final checkpoint. With
+`--snapshot-every 25` and resume from episode `90`, expected important
+snapshots include `act_sim_ppo_checkpoint_ep0115.pt` and
+`act_sim_ppo_checkpoint_ep0140.pt`.
+
+Result from the `act_sim_ppo_preserve_grip_v6` ablation:
+
+- W&B run: [`ulu2z9qq`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/ulu2z9qq).
+- Checkpoints:
+  `outputs/train/act_sim_ppo_preserve_grip_v6/act_sim_ppo_checkpoint.pt`,
+  plus snapshots `act_sim_ppo_checkpoint_ep0115.pt` and
+  `act_sim_ppo_checkpoint_ep0140.pt`.
+- Numeric result: resumed from v5 episode `90` and completed through episode
+  `164`, with final checkpoint metadata `total_env_steps=99120` and
+  `total_chunks=3960`. The final W&B summary still shows `success=0`, but
+  contact behavior remained active with final `rollout/contact_steps=188`.
+- Live sim result: promising. The policy still looks like the useful v5
+  episode-90 checkpoint: it approaches the block and attempts a grasp. The v6
+  shaping appears to slow the post-attempt retreat left, which is the desired
+  direction.
+- New failure mode: the policy closes the gripper immediately at episode start
+  and keeps it closed. This prevents a real grasp because the gripper reaches
+  the block already closed instead of closing around it.
+- Interpretation: preserving the promising grip-attempt behavior worked better
+  than restarting from the supervised base. The next reward change should
+  explicitly keep the gripper open until the pre-grasp corridor / near-contact
+  zone, then reward timed closure. Do not add broad grasp/lift bonuses yet; the
+  immediate-closure behavior needs to be removed first.
+
+Follow-up timed-gripper v7 change:
+
+- Continue PPO from the v6 final checkpoint, which is the latest policy that
+  preserves useful approach and grip-attempt behavior.
+- Keep fixed-block training. Randomized block resets remain deferred until
+  fixed-block timed closure is stable.
+- Add timed gripper shaping:
+  - penalize several consecutive pre-corridor steps with a too-closed gripper
+  - reward keeping the gripper open enough during approach
+  - reward gripper closing only inside the pre-grasp corridor / near-contact
+    zone
+  - allow the existing contact-after-closing bonus to trigger from this timed
+    close window
+- Keep v6 post-attempt commitment and anti-escape shaping intact.
+- Use `--snapshot-every 100` for the overnight run to preserve checkpoint
+  choices without filling disk too quickly.
+
+Canonical v7 overnight training command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python train_act_in_sim.py \
+  --experimental-act-ppo \
+  --init-checkpoint /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model \
+  --resume /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_preserve_grip_v6/act_sim_ppo_checkpoint.pt \
+  --parallel-envs 12 \
+  --rollout-chunks-per-env 2 \
+  --minibatch-size 64 \
+  --ppo-epochs 1 \
+  --chunk-size 30 \
+  --max-steps-per-episode 100 \
+  --steps-per-action 1 \
+  --episodes 1200 \
+  --checkpoint-path /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/outputs/train/act_sim_ppo_timed_gripper_v7/act_sim_ppo_checkpoint.pt \
+  --snapshot-every 100 \
+  --headless \
+  --no-render
+```
+
+Canonical v7 live inference command:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+/home/win10ubuntu/miniforge3/envs/lerobot/bin/python run_act_ppo_sim_inference.py \
+  --resume outputs/train/act_sim_ppo_timed_gripper_v7/act_sim_ppo_checkpoint.pt \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+Acceptance notes for v7:
+
+- Bad: gripper still closes immediately at episode start and stays closed.
+- Bad: policy avoids closure entirely and only hovers.
+- Better: gripper remains open enough during approach, then closes near the
+  block.
+- Good: W&B shows nonzero `approach_open_gripper_reward`, nonzero
+  `timed_close_reward`, reduced `early_close_penalty`, and stable or rising
+  `contact_steps` / `grasp_steps`.
+
+Paused-result note for the `act_sim_ppo_timed_gripper_v7` overnight run:
+
+- W&B run: [`ipxywbv8`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/ipxywbv8).
+- Paused checkpoint:
+  `outputs/train/act_sim_ppo_timed_gripper_v7/act_sim_ppo_checkpoint.pt`.
+- Checkpoint metadata at pause: `episode=673`, `total_env_steps=404640`,
+  `total_chunks=16176`.
+- Saved snapshots available before pause: `act_sim_ppo_checkpoint_ep0264.pt`,
+  `ep0364.pt`, `ep0464.pt`, `ep0564.pt`, and `ep0664.pt`.
+- Live sim result: the timed-gripper v7 reward did not fix immediate closure.
+  The policy still closes the gripper at episode start, approaches the block,
+  stops just before it with the gripper pointed downward, and stays there.
+- Improvement: the policy no longer scrunches up and retreats to the left/corner
+  as quickly as prior failures.
+- New dominant failure mode: it appears to avoid meaningful interaction with the
+  block. It barely touches the block and does not make a real grasp attempt.
+- Interpretation: the anti-retreat / stay-engaged shaping is helping posture
+  stability, but the gripper timing reward is too weak or too easy to ignore.
+  The next change should likely make early closure action-level costly or clamp
+  pre-corridor gripper actions during training, rather than relying only on
+  small scalar reward shaping.
+
 ## Physical ACT Inference
 
 Physical inference uses the real SO-101 follower arm and the wrist camera:
