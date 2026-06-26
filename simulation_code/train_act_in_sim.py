@@ -322,12 +322,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--checkpoint-path", type=Path, default=SCRIPT_DIR / "act_sim_ppo_checkpoint.pt")
+    parser.add_argument(
+        "--snapshot-every",
+        type=int,
+        default=0,
+        help="Save numbered checkpoint snapshots every N completed training iterations after start/resume.",
+    )
     parser.add_argument("--eval-episodes", type=int, default=0)
     args = parser.parse_args()
     if args.block_dist_range[0] > args.block_dist_range[1]:
         raise ValueError("--block-dist-range MIN must be <= MAX")
     if args.block_angle_range[0] > args.block_angle_range[1]:
         raise ValueError("--block-angle-range MIN must be <= MAX")
+    if args.snapshot_every < 0:
+        raise ValueError("--snapshot-every must be >= 0")
     return args
 
 
@@ -466,6 +474,12 @@ REWARD_COMPONENT_KEYS = [
     "closing_contact_bonus",
     "pregrasp_hover_penalty",
     "disengaged_stall_penalty",
+    "post_attempt_commitment_reward",
+    "escape_posture_penalty",
+    "post_attempt_escape_penalty",
+    "early_close_penalty",
+    "approach_open_gripper_reward",
+    "timed_close_reward",
     "near_contact_reward",
     "contact_persistence_reward",
     "contact_stall_penalty",
@@ -956,6 +970,11 @@ def save_checkpoint(
     )
 
 
+def checkpoint_snapshot_path(path: Path, episode: int) -> Path:
+    """Return a sibling checkpoint path marked with the completed episode."""
+    return path.with_name(f"{path.stem}_ep{episode:04d}{path.suffix}")
+
+
 def load_checkpoint(
     path: Path,
     policy: ACTGaussianPPOPolicy,
@@ -1205,6 +1224,19 @@ def main() -> int:
                     metrics.update(evaluate(eval_env, policy, device, args))
                 save_checkpoint(
                     args.checkpoint_path,
+                    episode,
+                    policy,
+                    critic,
+                    policy_optimizer,
+                    critic_optimizer,
+                    args,
+                    total_chunks=total_chunks,
+                    total_env_steps=total_env_steps,
+                )
+            completed_iterations = episode - start_episode + 1
+            if args.snapshot_every and completed_iterations % args.snapshot_every == 0:
+                save_checkpoint(
+                    checkpoint_snapshot_path(args.checkpoint_path, episode),
                     episode,
                     policy,
                     critic,
