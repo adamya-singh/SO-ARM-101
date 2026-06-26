@@ -305,7 +305,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         
         # Compute reward and preserve staged pickup metrics for diagnostics/logging.
         reward_result = compute_reward(self.model, self.data)
-        reward, done, contacted, gripped, sustained, height_aligned, block_lifted, *extra_metrics = reward_result
+        reward, done, contacted, gripped, sustained, height_aligned, block_lifted, block_height_gain, *extra_metrics = reward_result
         success = done  # done indicates if block is lifted (episode success)
         
         # Update step count
@@ -325,6 +325,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
                 "sustained": bool(sustained),
                 "height_aligned": bool(height_aligned),
                 "block_lifted": bool(block_lifted),
+                "block_height_gain": float(block_height_gain),
             }
         )
         metric_names = [
@@ -372,6 +373,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             "contact_stall_penalty",
             "grasp_reward",
             "grasp_persistence_reward",
+            "grasp_lift_motion_reward",
             "lift_progress_reward",
             "lift_bonus_reward",
             "success_lift_bonus",

@@ -485,6 +485,7 @@ REWARD_COMPONENT_KEYS = [
     "contact_stall_penalty",
     "grasp_reward",
     "grasp_persistence_reward",
+    "grasp_lift_motion_reward",
     "lift_progress_reward",
     "lift_bonus_reward",
     "success_lift_bonus",
@@ -556,18 +557,24 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                     "contact_steps": 0,
                     "grasp_steps": 0,
                     "lift_steps": 0,
+                    "max_block_height_gain": 0.0,
                     "episodes_completed": 0,
                     "reward_components": empty_reward_components(),
                 }
                 for action in action_chunk:
+                    clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high).astype(np.float32)
                     for _ in range(int(steps_per_action)):
-                        obs, reward, terminated, truncated, info = env.step(action)
+                        obs, reward, terminated, truncated, info = env.step(clipped_action)
                         total_reward += float(reward)
                         metrics["steps"] += 1
                         metrics["success"] = max(metrics["success"], float(info.get("success", False)))
                         metrics["contact_steps"] += int(bool(info.get("contacted", False)))
                         metrics["grasp_steps"] += int(bool(info.get("gripped", False)))
                         metrics["lift_steps"] += int(bool(info.get("block_lifted", False)))
+                        metrics["max_block_height_gain"] = max(
+                            metrics["max_block_height_gain"],
+                            float(info.get("block_height_gain", 0.0)),
+                        )
                         add_reward_components(metrics["reward_components"], info)
                         done = bool(terminated or truncated)
                         if done:
@@ -645,12 +652,17 @@ class ACTSubprocVecEnv:
             "contact_steps": 0,
             "grasp_steps": 0,
             "lift_steps": 0,
+            "max_block_height_gain": 0.0,
             "episodes_completed": 0,
             "reward_components": empty_reward_components(),
         }
         for payload in payloads:
             for key in ("steps", "success", "contact_steps", "grasp_steps", "lift_steps", "episodes_completed"):
                 metrics[key] += payload["metrics"][key]
+            metrics["max_block_height_gain"] = max(
+                metrics["max_block_height_gain"],
+                float(payload["metrics"]["max_block_height_gain"]),
+            )
             for key in REWARD_COMPONENT_KEYS:
                 metrics["reward_components"][key] += payload["metrics"]["reward_components"][key]
         return {
@@ -741,6 +753,7 @@ def collect_rollout(
         "contact_steps": 0,
         "grasp_steps": 0,
         "lift_steps": 0,
+        "max_block_height_gain": 0.0,
         "steps": 0,
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
@@ -785,6 +798,10 @@ def collect_rollout(
         metrics["contact_steps"] += int(info.get("contacted", False))
         metrics["grasp_steps"] += int(info.get("gripped", False))
         metrics["lift_steps"] += int(info.get("block_lifted", False))
+        metrics["max_block_height_gain"] = max(
+            metrics["max_block_height_gain"],
+            float(info.get("block_height_gain", 0.0)),
+        )
 
         if chunk_done:
             metrics["episodes_completed"] += 1
@@ -823,6 +840,7 @@ def collect_parallel_rollout(
         "contact_steps": 0,
         "grasp_steps": 0,
         "lift_steps": 0,
+        "max_block_height_gain": 0.0,
         "steps": 0,
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
@@ -859,6 +877,10 @@ def collect_parallel_rollout(
         metrics["contact_steps"] += int(step_metrics["contact_steps"])
         metrics["grasp_steps"] += int(step_metrics["grasp_steps"])
         metrics["lift_steps"] += int(step_metrics["lift_steps"])
+        metrics["max_block_height_gain"] = max(
+            metrics["max_block_height_gain"],
+            float(step_metrics["max_block_height_gain"]),
+        )
         metrics["steps"] += int(step_metrics["steps"])
         metrics["episodes_completed"] += int(step_metrics["episodes_completed"])
         for key in REWARD_COMPONENT_KEYS:
@@ -1096,6 +1118,7 @@ def run_train_iteration(
         "rollout/contact_steps": float(rollout_metrics["contact_steps"]),
         "rollout/grasp_steps": float(rollout_metrics["grasp_steps"]),
         "rollout/lift_steps": float(rollout_metrics["lift_steps"]),
+        "rollout/max_block_height_gain": float(rollout_metrics["max_block_height_gain"]),
         "throughput/env_steps_per_sec": float(env_steps / elapsed),
         "throughput/chunks_per_sec": float(chunks / elapsed),
         "time/iteration_seconds": elapsed,

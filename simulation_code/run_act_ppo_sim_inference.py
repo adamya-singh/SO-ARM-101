@@ -55,6 +55,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--policy-lr", type=float, default=1e-5, help="Optimizer LR needed only to restore checkpoint state.")
     parser.add_argument("--critic-lr", type=float, default=1e-4, help="Optimizer LR needed only to restore checkpoint state.")
     parser.add_argument("--device", default="cuda", help="Torch device for ACT PPO inference.")
+    parser.add_argument("--stochastic", action="store_true", help="Sample actions from the PPO policy distribution instead of using the mean action.")
+    parser.add_argument("--stochastic-scale", type=float, default=1.0, help="Multiplier for learned PPO action std when --stochastic is set.")
     parser.add_argument("--render", action="store_true", help="Open the MuJoCo viewer for live visual inspection.")
     parser.add_argument("--headless", action="store_true", help="Force EGL headless MuJoCo rendering before imports.")
     parser.add_argument("--randomize-block-reset", action="store_true", help="Randomize the block pose at episode reset.")
@@ -97,6 +99,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--chunk-size must be >= 1")
     if args.step_delay is not None and args.step_delay < 0:
         raise ValueError("--step-delay must be >= 0")
+    if args.stochastic_scale < 0:
+        raise ValueError("--stochastic-scale must be >= 0")
     if args.randomize_block_reset and args.block_pos is not None:
         raise ValueError("--randomize-block-reset and --block-pos are mutually exclusive")
     if args.block_dist_range[0] > args.block_dist_range[1]:
@@ -204,7 +208,9 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
     success = False
     final_distance = as_float(info, "distance_to_block")
     final_block_height = as_float(info, "block_height")
+    final_block_height_gain = as_float(info, "block_height_gain", 0.0)
     max_block_height = final_block_height
+    max_block_height_gain = final_block_height_gain
     contact_count = 0
     grasp_count = 0
     lift_count = 0
@@ -217,12 +223,17 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
     with torch.no_grad():
         while steps < args.max_steps_per_episode:
             policy_obs = sim.adapt_sim_observation(obs, device)
-            mean_chunk = policy.mean_chunk(policy_obs, require_grad=False).squeeze(0).detach().cpu().numpy()
+            action_chunk = policy.mean_chunk(policy_obs, require_grad=False)
+            if args.stochastic:
+                std = policy.log_std.exp().view(1, 1, -1).expand_as(action_chunk)
+                action_chunk = action_chunk + torch.randn_like(action_chunk) * std * float(args.stochastic_scale)
+            action_chunk_np = action_chunk.squeeze(0).detach().cpu().numpy()
             if args.verbose:
-                print(f"episode={episode_idx + 1} step={steps} chunk_shape={mean_chunk.shape}")
+                mode = "stochastic" if args.stochastic else "deterministic"
+                print(f"episode={episode_idx + 1} step={steps} mode={mode} chunk_shape={action_chunk_np.shape}")
 
             done = False
-            for action in mean_chunk:
+            for action in action_chunk_np:
                 clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high)
                 obs, reward, terminated, truncated, info = sim.step_action(env, clipped_action, args.steps_per_action)
                 steps += args.steps_per_action
@@ -230,7 +241,9 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
                 success = success or bool(info.get("success", False))
                 final_distance = as_float(info, "distance_to_block", final_distance)
                 final_block_height = as_float(info, "block_height", final_block_height)
+                final_block_height_gain = as_float(info, "block_height_gain", final_block_height_gain)
                 max_block_height = max(max_block_height, final_block_height)
+                max_block_height_gain = max(max_block_height_gain, final_block_height_gain)
                 contact_count += int(bool(info.get("contacted", info.get("contact", False))))
                 grasp_count += int(bool(info.get("gripped", info.get("grasp", False))))
                 lift_count += int(bool(info.get("block_lifted", info.get("lifted", False))))
@@ -258,7 +271,9 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
         "steps": steps,
         "final_distance": final_distance,
         "final_block_height": final_block_height,
+        "final_block_height_gain": final_block_height_gain,
         "max_block_height": max_block_height,
+        "max_block_height_gain": max_block_height_gain,
         "contact_count": contact_count,
         "grasp_count": grasp_count,
         "lift_count": lift_count,
@@ -284,6 +299,7 @@ def print_summary(metrics: list[dict[str, Any]]) -> None:
     print(f"  mean_steps: {mean_metric(metrics, 'steps'):.1f}")
     print(f"  mean_final_distance: {mean_metric(metrics, 'final_distance'):.4f}")
     print(f"  mean_max_block_height: {mean_metric(metrics, 'max_block_height'):.4f}")
+    print(f"  mean_max_block_height_gain: {mean_metric(metrics, 'max_block_height_gain'):.4f}")
     print(f"  mean_contact_count: {mean_metric(metrics, 'contact_count'):.1f}")
     print(f"  mean_grasp_count: {mean_metric(metrics, 'grasp_count'):.1f}")
     print(f"  mean_lift_count: {mean_metric(metrics, 'lift_count'):.1f}")
@@ -310,6 +326,8 @@ def main() -> int:
     sim.define_model_classes()
     import_video_dependencies()
     device = resolve_device(args.device)
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
 
     print(f"Loading ACT init checkpoint: {args.init_checkpoint}")
     print(f"Device: {device}")
@@ -329,6 +347,7 @@ def main() -> int:
                 f"steps={episode_metrics['steps']} "
                 f"final_distance={episode_metrics['final_distance']:.4f} "
                 f"max_block_height={episode_metrics['max_block_height']:.4f} "
+                f"max_block_height_gain={episode_metrics['max_block_height_gain']:.4f} "
                 f"contact_count={episode_metrics['contact_count']} "
                 f"grasp_count={episode_metrics['grasp_count']} "
                 f"lift_count={episode_metrics['lift_count']}"

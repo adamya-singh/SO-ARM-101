@@ -1065,7 +1065,7 @@ def compute_pickup_reward_from_state(
     d,
     state: dict[str, Any],
     block_name: str = "red_block",
-    lift_threshold: float = 0.08,
+    lift_threshold: float = 0.010,
     distance_penalty_scale: float = 1.2,
     horizontal_progress_scale: float = 0.12,
     vertical_approach_scale: float = 0.05,
@@ -1082,18 +1082,20 @@ def compute_pickup_reward_from_state(
     contact_persistence_reward: float = 0.015,
     hover_stall_threshold: int = 8,
     hover_penalty: float = -0.01,
-    bilateral_grasp_bonus: float = 0.85,
-    grasp_persistence_reward: float = 0.25,
+    bilateral_grasp_bonus: float = 1.10,
+    grasp_persistence_reward: float = 0.45,
+    grasp_lift_motion_reward_scale: float = 12.0,
+    grasp_lift_motion_reward_cap: float = 0.35,
     slip_penalty_contact: float = -0.03,
     slip_penalty_grasp: float = -0.08,
     block_displacement_penalty_scale: float = 0.35,
-    lift_bonus: float = 1.25,
-    lift_bonus_threshold: float = 0.04,
+    lift_bonus: float = 2.0,
+    lift_bonus_threshold: float = 0.0090,
     sustained_contact_threshold: int = 5,
     sustained_contact_bonus: float = 0.2,
     contact_stall_threshold: int = 20,
     contact_stall_penalty: float = -0.04,
-    success_lift_bonus: float = 4.0,
+    success_lift_bonus: float = 6.0,
     grasp_attempt_reward: float = 0.0,
     closing_contact_bonus: float = 0.35,
     pregrasp_hover_stall_threshold: int = 10,
@@ -1337,10 +1339,19 @@ def compute_pickup_reward_from_state(
         applied_grasp_persistence_reward = grasp_persistence_reward if grasp_persistent else 0.0
         reward += applied_bilateral_grasp_bonus + applied_grasp_persistence_reward
 
+    gripper_upward_delta = 0.0 if prev_gripper_pos is None else max(0.0, gripper_pos[2] - prev_gripper_pos[2])
+    grasp_lift_motion_reward = 0.0
     if gripped or prev_gripped:
-        lift_progress_reward = min(1.2, 18.0 * block_height_gain)
+        grasp_lift_motion_reward = min(
+            grasp_lift_motion_reward_cap,
+            grasp_lift_motion_reward_scale * gripper_upward_delta,
+        )
+        reward += grasp_lift_motion_reward
+
+    if gripped or prev_gripped:
+        lift_progress_reward = min(2.0, 30.0 * block_height_gain)
     elif contacted:
-        lift_progress_reward = min(0.20, 5.0 * block_height_gain)
+        lift_progress_reward = min(0.35, 8.0 * block_height_gain)
     else:
         lift_progress_reward = 0.0
     reward += lift_progress_reward
@@ -1395,14 +1406,14 @@ def compute_pickup_reward_from_state(
     )
     reward += applied_escape_posture_penalty + applied_post_attempt_escape_penalty
 
-    block_lifted = block_pos[2] > lift_bonus_threshold
+    block_lifted = block_height_gain > lift_bonus_threshold
     lift_bonus_reward = 0.0
     if block_lifted:
         lift_bonus_reward = max(lift_bonus, 0.25)
         reward += lift_bonus_reward
 
     success_lift_bonus_reward = 0.0
-    done = block_pos[2] > lift_threshold
+    done = block_height_gain > lift_threshold
     if done:
         success_lift_bonus_reward = success_lift_bonus
         reward += success_lift_bonus_reward
@@ -1450,6 +1461,7 @@ def compute_pickup_reward_from_state(
         "sustained": sustained,
         "height_aligned": height_aligned,
         "block_lifted": block_lifted,
+        "block_height_gain": block_height_gain,
         "contact_entry": contact_entry,
         "contact_after_alignment": contact_after_alignment,
         "near_contact": near_contact,
@@ -1498,6 +1510,7 @@ def compute_pickup_reward_from_state(
         "contact_stall_penalty": applied_contact_stall_penalty,
         "grasp_reward": applied_bilateral_grasp_bonus,
         "grasp_persistence_reward": applied_grasp_persistence_reward,
+        "grasp_lift_motion_reward": grasp_lift_motion_reward,
         "lift_progress_reward": lift_progress_reward,
         "lift_bonus_reward": lift_bonus_reward,
         "success_lift_bonus": success_lift_bonus_reward,
@@ -1513,7 +1526,7 @@ def compute_reward(
     m,
     d,
     block_name="red_block",
-    lift_threshold=0.08,
+    lift_threshold=0.010,
     distance_penalty_scale=1.2,
     horizontal_progress_scale=0.08,
     vertical_approach_scale=0.04,
@@ -1530,18 +1543,20 @@ def compute_reward(
     contact_persistence_reward=0.015,
     hover_stall_threshold=8,
     hover_penalty=-0.01,
-    bilateral_grasp_bonus=0.85,
-    grasp_persistence_reward=0.25,
+    bilateral_grasp_bonus=1.10,
+    grasp_persistence_reward=0.45,
+    grasp_lift_motion_reward_scale=12.0,
+    grasp_lift_motion_reward_cap=0.35,
     slip_penalty_contact=-0.03,
     slip_penalty_grasp=-0.08,
     block_displacement_penalty_scale=0.35,
-    lift_bonus=1.25,
-    lift_bonus_threshold=0.04,
+    lift_bonus=2.0,
+    lift_bonus_threshold=0.0090,
     sustained_contact_threshold=5,
     sustained_contact_bonus=0.2,
     contact_stall_threshold=20,
     contact_stall_penalty=-0.04,
-    success_lift_bonus=4.0,
+    success_lift_bonus=6.0,
     grasp_attempt_reward=0.0,
     closing_contact_bonus=0.35,
     pregrasp_hover_stall_threshold=10,
@@ -1613,6 +1628,8 @@ def compute_reward(
         hover_penalty=hover_penalty,
         bilateral_grasp_bonus=bilateral_grasp_bonus,
         grasp_persistence_reward=grasp_persistence_reward,
+        grasp_lift_motion_reward_scale=grasp_lift_motion_reward_scale,
+        grasp_lift_motion_reward_cap=grasp_lift_motion_reward_cap,
         slip_penalty_contact=slip_penalty_contact,
         slip_penalty_grasp=slip_penalty_grasp,
         block_displacement_penalty_scale=block_displacement_penalty_scale,
@@ -1655,6 +1672,7 @@ def compute_reward(
         metrics["sustained"],
         metrics["height_aligned"],
         metrics["block_lifted"],
+        metrics["block_height_gain"],
         metrics["contact_entry"],
         metrics["grasp_persistent"],
         metrics["lift_progress"],
@@ -1699,6 +1717,7 @@ def compute_reward(
         metrics["contact_stall_penalty"],
         metrics["grasp_reward"],
         metrics["grasp_persistence_reward"],
+        metrics["grasp_lift_motion_reward"],
         metrics["lift_progress_reward"],
         metrics["lift_bonus_reward"],
         metrics["success_lift_bonus"],
