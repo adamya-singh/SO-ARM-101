@@ -86,13 +86,16 @@ multiprocessing tensor-sharing failures observed on this WSL-mounted workspace.
 For corrected ACT retraining, use `--profile corrected-act`. It runs the
 parquet action/state preflight, enables AMP, computes a 20-epoch step budget,
 and overrides ACT to a shorter `policy.chunk_size=30` and
-`policy.n_action_steps=30` unless explicitly overridden. The old throughput-only
-profile is still available as `--performance-profile fast`.
+`policy.n_action_steps=30` unless explicitly overridden. It also defaults to
+`policy.action_lead_steps=3`, so the supervised target chunk starts from future
+follower poses at `t+3` instead of the same-frame pose at `t`. The old
+throughput-only profile is still available as `--performance-profile fast`.
 
 On this machine, the measured ACT offline benchmark winner was
 `batch_size=128`, `num_workers=0`. Worker counts 1, 2, and 4 still failed under
-WSL even with PyTorch `file_system` sharing enabled. `corrected-act` defaults to
-`batch_size=64` for a more conservative retraining pass.
+WSL even with PyTorch `file_system` sharing enabled. `corrected-act` now
+defaults to `batch_size=32`, because the corrected batch-64 attempt OOMed while
+batch 32 completed.
 
 The physical dataset has an important contract detail: in the recorded parquet
 files, same-frame `action` equals same-frame `observation.state`. LeRobot ACT
@@ -100,6 +103,41 @@ still builds future action chunks using `action_delta_indices`, so this is not
 automatically invalid, but it must be audited before trusting a checkpoint.
 `diagnose_act_setup.py` reports same-frame equality, future chunk deltas,
 gripper range, checkpoint config, and offline policy replay error.
+
+Latest live MuJoCo comparison: the completed lead-3 supervised ACT checkpoint
+`act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model`
+appears more confident than the previous corrected pretrain, moves a little
+faster, and tries to interact with the block more. Treat this as the current
+preferred supervised base for the next comparisons, while still tracking actual
+contact, grasp, lift, and success metrics separately.
+
+For kinesthetic follower-only data, compare the corrected ACT action-lead sweep
+before choosing the next base policy:
+
+```bash
+cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code
+
+python3 train_act_on_data.py \
+  --profile corrected-act \
+  --action-lead-steps 1 \
+  --output-dir outputs/train/act_so101_lead1_30_b32 \
+  --job-name act_so101_lead1_30_b32 \
+  --num-workers 0
+
+python3 train_act_on_data.py \
+  --profile corrected-act \
+  --action-lead-steps 3 \
+  --output-dir outputs/train/act_so101_lead3_30_b32 \
+  --job-name act_so101_lead3_30_b32 \
+  --num-workers 0
+
+python3 train_act_on_data.py \
+  --profile corrected-act \
+  --action-lead-steps 5 \
+  --output-dir outputs/train/act_so101_lead5_30_b32 \
+  --job-name act_so101_lead5_30_b32 \
+  --num-workers 0
+```
 
 Offline training run history is recorded in
 `notes/train-act-on-data-history.md`.
@@ -181,7 +219,7 @@ MuJoCo `observation.images.camera2` is treated as the physical dataset's
 `run_act_sim_inference.py` loads the same checkpoint pre/postprocessors used by
 physical inference. By default it now uses the corrected `30/30` checkpoint at:
 
-`outputs/train/act_so101_corrected_30_b32_20260621_160923/checkpoints/026020/pretrained_model`
+`outputs/train/act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model`
 
 For before/after ACT PPO behavior comparisons, use these two commands.
 `run_act_sim_inference.py` loads LeRobot `pretrained_model` directories, while
@@ -189,6 +227,18 @@ For before/after ACT PPO behavior comparisons, use these two commands.
 `train_act_in_sim.py`.
 
 Before in-sim PPO:
+
+```bash
+python3 run_act_sim_inference.py \
+  --checkpoint outputs/train/act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model \
+  --episodes 5 \
+  --max-steps-per-episode 300 \
+  --steps-per-action 1 \
+  --render \
+  --curriculum-fixed-block
+```
+
+Old best unshifted pretrain comparison:
 
 ```bash
 python3 run_act_sim_inference.py \

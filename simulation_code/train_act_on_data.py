@@ -29,6 +29,7 @@ DEFAULT_SAVE_EVERY_EPOCHS = 5.0
 DEFAULT_CORRECTED_BATCH_SIZE = 32
 DEFAULT_CORRECTED_CHUNK_SIZE = 30
 DEFAULT_CORRECTED_N_ACTION_STEPS = 30
+DEFAULT_CORRECTED_ACTION_LEAD_STEPS = 3
 
 
 class DatasetValidationError(RuntimeError):
@@ -85,6 +86,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="ACT policy.n_action_steps override. corrected-act defaults to 30.",
+    )
+    parser.add_argument(
+        "--action-lead-steps",
+        type=int,
+        default=None,
+        help="ACT policy.action_lead_steps override. corrected-act defaults to 3.",
     )
     parser.add_argument(
         "--skip-preflight",
@@ -277,6 +284,8 @@ def apply_performance_defaults(args: argparse.Namespace, summary: dict) -> None:
                 args.chunk_size = DEFAULT_CORRECTED_CHUNK_SIZE
             if args.n_action_steps is None:
                 args.n_action_steps = DEFAULT_CORRECTED_N_ACTION_STEPS
+            if args.action_lead_steps is None:
+                args.action_lead_steps = DEFAULT_CORRECTED_ACTION_LEAD_STEPS
     elif args.use_amp is None:
         args.use_amp = False
 
@@ -337,6 +346,8 @@ def build_lerobot_command(args: argparse.Namespace, dataset_root: Path) -> list[
         command.append(f"--policy.chunk_size={args.chunk_size}")
     if args.n_action_steps is not None:
         command.append(f"--policy.n_action_steps={args.n_action_steps}")
+    if args.action_lead_steps is not None:
+        command.append(f"--policy.action_lead_steps={args.action_lead_steps}")
     return command
 
 
@@ -365,6 +376,12 @@ def main() -> int:
     print("\nResolved training defaults:")
     print(f"  performance_profile: {args.performance_profile}")
     print(f"  batch_size: {_effective_batch_size(args)}")
+    print(f"  chunk_size: {args.chunk_size if args.chunk_size is not None else 'LeRobot default'}")
+    print(f"  n_action_steps: {args.n_action_steps if args.n_action_steps is not None else 'LeRobot default'}")
+    print(
+        "  action_lead_steps: "
+        f"{args.action_lead_steps if args.action_lead_steps is not None else 'LeRobot default'}"
+    )
     print(f"  use_amp: {args.use_amp}")
     print(f"  target_epochs: {args.target_epochs}")
     print(f"  steps: {args.steps if args.steps is not None else 'LeRobot default'}")

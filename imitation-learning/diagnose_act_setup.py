@@ -43,6 +43,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--physical-log", type=Path, default=None, help="Optional run_act_physical_inference CSV log.")
     parser.add_argument("--samples", type=int, default=16, help="Recorded frames to use for checkpoint replay.")
     parser.add_argument("--horizon", type=int, default=30, help="Future-action horizon for replay diagnostics.")
+    parser.add_argument(
+        "--action-lead-steps",
+        type=int,
+        default=None,
+        help="Action lead used for replay targets. Defaults to checkpoint config, or 0 for old checkpoints.",
+    )
     parser.add_argument("--device", default="cuda", help="Torch device for checkpoint replay.")
     parser.add_argument("--skip-policy-replay", action="store_true", help="Only run metadata/parquet/log diagnostics.")
     return parser.parse_args()
@@ -170,6 +176,7 @@ def checkpoint_audit(checkpoint: Path) -> dict[str, Any]:
         "empty": empty,
         "chunk_size": config.get("chunk_size"),
         "n_action_steps": config.get("n_action_steps"),
+        "action_lead_steps": config.get("action_lead_steps", 0),
         "n_obs_steps": config.get("n_obs_steps"),
         "input_features": config.get("input_features"),
         "output_features": config.get("output_features"),
@@ -180,12 +187,13 @@ def checkpoint_audit(checkpoint: Path) -> dict[str, Any]:
     }
 
 
-def select_valid_indices(df: Any, samples: int, horizon: int) -> list[int]:
+def select_valid_indices(df: Any, samples: int, horizon: int, action_lead_steps: int) -> list[int]:
     valid = []
     for _episode, group in df.groupby("episode_index", sort=True):
         idx = group.index.to_numpy()
-        if len(idx) > horizon:
-            valid.extend(idx[:-horizon].tolist())
+        required_future = action_lead_steps + horizon
+        if len(idx) > required_future:
+            valid.extend(idx[:-required_future].tolist())
     if not valid:
         return []
     if samples >= len(valid):
@@ -204,7 +212,15 @@ def add_batch_dim(batch: dict[str, Any], torch: Any) -> dict[str, Any]:
     return result
 
 
-def run_policy_replay(dataset_path: Path, checkpoint: Path, df: Any, samples: int, horizon: int, device_name: str) -> dict[str, Any]:
+def run_policy_replay(
+    dataset_path: Path,
+    checkpoint: Path,
+    df: Any,
+    samples: int,
+    horizon: int,
+    action_lead_steps: int,
+    device_name: str,
+) -> dict[str, Any]:
     try:
         import numpy as np
         import torch
@@ -230,9 +246,13 @@ def run_policy_replay(dataset_path: Path, checkpoint: Path, df: Any, samples: in
         preprocessor_overrides={"device_processor": {"device": device.type}},
     )
 
-    indices = select_valid_indices(df, samples, horizon)
+    indices = select_valid_indices(df, samples, horizon, action_lead_steps)
     if not indices:
-        return {"samples": 0, "error": f"No valid samples with horizon={horizon}"}
+        return {
+            "samples": 0,
+            "action_lead_steps": action_lead_steps,
+            "error": f"No valid samples with horizon={horizon} and action_lead_steps={action_lead_steps}",
+        }
 
     actions = np.stack(df["action"].to_numpy()).astype(np.float32)
     one_step_errors = []
@@ -267,8 +287,9 @@ def run_policy_replay(dataset_path: Path, checkpoint: Path, df: Any, samples: in
         pred0 = pred[0]
         predicted_actions.append(pred0)
         blank_deltas.append(np.abs(pred0 - blank_action).mean())
-        one_step_errors.append(np.abs(pred0 - actions[idx]).mean())
-        gt_horizon = actions[idx : idx + min(horizon, len(pred))]
+        target_start = idx + action_lead_steps
+        one_step_errors.append(np.abs(pred0 - actions[target_start]).mean())
+        gt_horizon = actions[target_start : target_start + min(horizon, len(pred))]
         pred_horizon = pred[: len(gt_horizon)]
         horizon_errors.append(np.abs(pred_horizon - gt_horizon).mean())
 
@@ -276,6 +297,7 @@ def run_policy_replay(dataset_path: Path, checkpoint: Path, df: Any, samples: in
     return {
         "samples": len(indices),
         "device": str(device),
+        "action_lead_steps": action_lead_steps,
         "one_step_mean_abs_error": float(np.round(np.mean(one_step_errors), 6)),
         "horizon_mean_abs_error": float(np.round(np.mean(horizon_errors), 6)),
         "predicted_action_mean": predicted.mean(axis=0).round(6).tolist(),
@@ -332,6 +354,11 @@ def main() -> int:
     metadata = validate_metadata(dataset_path)
     action_audit, df = action_state_audit(dataset_path, horizons=(1, args.horizon, 100))
     ckpt = checkpoint_audit(checkpoint)
+    action_lead_steps = args.action_lead_steps
+    if action_lead_steps is None:
+        action_lead_steps = int(ckpt.get("action_lead_steps", 0) or 0)
+    if action_lead_steps < 0:
+        raise DiagnosticError(f"--action-lead-steps must be non-negative, got {action_lead_steps}")
 
     print_section("Dataset Metadata", metadata)
     print_section("Action/State Contract", action_audit)
@@ -341,7 +368,18 @@ def main() -> int:
         print_section("Physical Inference Log", physical_log_audit(args.physical_log.expanduser().resolve()))
 
     if not args.skip_policy_replay and ckpt.get("exists") and not ckpt.get("missing") and not ckpt.get("empty"):
-        print_section("Offline Policy Replay", run_policy_replay(dataset_path, checkpoint, df, args.samples, args.horizon, args.device))
+        print_section(
+            "Offline Policy Replay",
+            run_policy_replay(
+                dataset_path,
+                checkpoint,
+                df,
+                args.samples,
+                args.horizon,
+                action_lead_steps,
+                args.device,
+            ),
+        )
     elif args.skip_policy_replay:
         print("\nOffline Policy Replay\n---------------------\nskipped by --skip-policy-replay")
 
