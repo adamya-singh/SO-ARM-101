@@ -23,7 +23,15 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
-DEFAULT_INIT_CHECKPOINT = SCRIPT_DIR / "outputs" / "train" / "act_so101_physical" / "checkpoints" / "last" / "pretrained_model"
+DEFAULT_INIT_CHECKPOINT = (
+    SCRIPT_DIR
+    / "outputs"
+    / "train"
+    / "act_so101_lead3_30_b32_20260709_161056"
+    / "checkpoints"
+    / "026020"
+    / "pretrained_model"
+)
 
 np = None
 torch = None

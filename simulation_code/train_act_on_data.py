@@ -90,8 +90,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--action-lead-steps",
         type=int,
-        default=None,
-        help="ACT policy.action_lead_steps override. corrected-act defaults to 3.",
+        default=DEFAULT_CORRECTED_ACTION_LEAD_STEPS,
+        help="ACT policy.action_lead_steps override. New physical-dataset training defaults to 3.",
     )
     parser.add_argument(
         "--skip-preflight",

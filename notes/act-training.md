@@ -90,10 +90,11 @@ multiprocessing tensor-sharing failures observed on this WSL-mounted workspace.
 For corrected ACT retraining, use `--profile corrected-act`. It runs the
 parquet action/state preflight, enables AMP, computes a 20-epoch step budget,
 and overrides ACT to a shorter `policy.chunk_size=30` and
-`policy.n_action_steps=30` unless explicitly overridden. It also defaults to
-`policy.action_lead_steps=3`, so the supervised target chunk starts from future
-follower poses at `t+3` instead of the same-frame pose at `t`. The old
-throughput-only profile is still available as `--performance-profile fast`.
+`policy.n_action_steps=30` unless explicitly overridden. All new physical-
+dataset training profiles default to `policy.action_lead_steps=3`, so the
+supervised target chunk starts from future follower poses at `t+3` instead of
+the same-frame pose at `t`. The old throughput-only profile is still available
+as `--performance-profile fast`.
 
 On this machine, the measured ACT offline benchmark winner was
 `batch_size=128`, `num_workers=0`. Worker counts 1, 2, and 4 still failed under
@@ -148,13 +149,14 @@ python3 train_act_on_data.py \
 Offline training run history is recorded in
 `notes/train-act-on-data-history.md`.
 
-`train_act_in_sim.py` still defaults to the original offline checkpoint at:
+`train_act_in_sim.py`, simulated and physical ACT inference, ACT PPO inference,
+and the throughput benchmark now default to the selected lead-3 pretrain at:
 
-`outputs/train/act_so101_physical/checkpoints/last/pretrained_model`
+`outputs/train/act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model`
 
-Pass `--init-checkpoint` to use a corrected ACT artifact. This script now
-requires `--experimental-act-ppo` before it will launch, because the previous
-long ACT PPO run completed mechanically but produced 0% success. Use
+Pass `--init-checkpoint` to compare another ACT artifact. This script requires
+`--experimental-act-ppo` before it will launch, because the previous long ACT
+PPO run completed mechanically but produced 0% success. Use
 `train_sim_baseline.py` first to verify the MuJoCo reward and action units.
 
 Experimental ACT PPO command:

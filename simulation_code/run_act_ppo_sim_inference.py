@@ -23,15 +23,7 @@ import train_act_in_sim as sim
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_INIT_CHECKPOINT = (
-    SCRIPT_DIR
-    / "outputs"
-    / "train"
-    / "act_so101_corrected_30_b32_20260621_160923"
-    / "checkpoints"
-    / "026020"
-    / "pretrained_model"
-)
+DEFAULT_INIT_CHECKPOINT = sim.DEFAULT_INIT_CHECKPOINT
 DEFAULT_RESUME = SCRIPT_DIR / "act_sim_ppo_checkpoint.pt"
 
 imageio = None

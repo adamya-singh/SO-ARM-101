@@ -39,6 +39,7 @@ from so101_mujoco_utils import (
     convert_to_dictionary,
     unnormalize_action_for_vla,
     prepare_observation,
+    randomize_scene_appearance,
 )
 from reinflow_smolvla import (
     setup_reinflow_policy,
@@ -121,6 +122,7 @@ else:
 
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
+randomize_scene_appearance(m)
 
 # ===== ReinFlow Policy Setup =====
 if torch.backends.mps.is_available():

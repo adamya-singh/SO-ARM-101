@@ -1771,7 +1771,13 @@ def train_sequential(config, args, device):
     if config.critic_warmup_iters > 0 and start_episode == 0:
         print(f"\n[Critic Warmup] Training critic for {config.critic_warmup_iters} iterations...")
         for warmup_iter in range(config.critic_warmup_iters):
-            reset_env(m, d, config.starting_position, block_pos=_sample_block_pos(config, reset_rng))
+            reset_env(
+                m,
+                d,
+                config.starting_position,
+                block_pos=_sample_block_pos(config, reset_rng),
+                appearance_rng=reset_rng,
+            )
             reset_reward_state()
             
             # Collect one episode worth of data
@@ -1851,7 +1857,13 @@ def train_sequential(config, args, device):
             rl_policy.base.model.sigma_max = sigma_max
             
             # Reset environment
-            reset_env(m, d, config.starting_position, block_pos=_sample_block_pos(config, reset_rng))
+            reset_env(
+                m,
+                d,
+                config.starting_position,
+                block_pos=_sample_block_pos(config, reset_rng),
+                appearance_rng=reset_rng,
+            )
             reset_reward_state()
             
             episode_reward = 0.0

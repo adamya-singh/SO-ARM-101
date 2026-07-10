@@ -20,15 +20,6 @@ import train_act_in_sim as train
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
 NOTES_DIR = PROJECT_DIR / "notes"
-CORRECTED_INIT_CHECKPOINT = (
-    SCRIPT_DIR
-    / "outputs"
-    / "train"
-    / "act_so101_corrected_30_b32_20260621_160923"
-    / "checkpoints"
-    / "026020"
-    / "pretrained_model"
-)
 
 
 @dataclass
@@ -65,7 +56,7 @@ def parse_csv_ints(value: str) -> list[int]:
 
 
 def default_init_checkpoint() -> Path:
-    return CORRECTED_INIT_CHECKPOINT if CORRECTED_INIT_CHECKPOINT.exists() else train.DEFAULT_INIT_CHECKPOINT
+    return train.DEFAULT_INIT_CHECKPOINT
 
 
 def parse_args() -> argparse.Namespace:

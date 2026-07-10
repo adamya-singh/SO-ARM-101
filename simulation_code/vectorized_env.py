@@ -26,6 +26,7 @@ from so101_mujoco_utils import (
     normalize_state_for_vla,
     create_reward_state_tracker,
     compute_pickup_reward_from_state,
+    randomize_scene_appearance,
 )
 
 
@@ -161,6 +162,8 @@ class VectorizedMuJoCoEnv:
 
     def reset_all(self, block_positions: list[tuple[float, float, float]] | None = None):
         """Reset all environments to starting state."""
+        # The model is shared, so sample one coherent appearance per rollout batch.
+        randomize_scene_appearance(self.model, self.reset_rng)
         for i in range(self.num_envs):
             block_pos = None if block_positions is None else block_positions[i]
             self._reset_env(i, block_pos=block_pos)

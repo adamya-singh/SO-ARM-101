@@ -35,7 +35,7 @@ DEFAULT_CHECKPOINT = (
     / "simulation_code"
     / "outputs"
     / "train"
-    / "act_so101_corrected_30_b32_20260621_160923"
+    / "act_so101_lead3_30_b32_20260709_161056"
     / "checkpoints"
     / "026020"
     / "pretrained_model"

@@ -444,6 +444,68 @@ def set_initial_pose(d, position_dict):
     pos = convert_to_list(position_dict)
     d.qpos[:6] = pos  # Only set the first 6 elements (robot joints)
 
+
+def randomize_scene_appearance(m, rng=None):
+    """Apply mild sim-to-real appearance variation for the black-mat setup."""
+    if rng is None:
+        rng = np.random.default_rng()
+
+    floor_material_id = mujoco.mj_name2id(
+        m, mujoco.mjtObj.mjOBJ_MATERIAL, "groundplane"
+    )
+    block_geom_id = mujoco.mj_name2id(
+        m, mujoco.mjtObj.mjOBJ_GEOM, "red_block_geom"
+    )
+
+    floor_brightness = float(rng.uniform(0.018, 0.04))
+    cube_brightness = float(rng.uniform(0.90, 1.0))
+    headlight_diffuse = float(rng.uniform(0.54, 0.66))
+    headlight_ambient = float(rng.uniform(0.255, 0.345))
+    key_light_diffuse = float(rng.uniform(0.63, 0.77))
+
+    if floor_material_id >= 0:
+        m.mat_rgba[floor_material_id] = [
+            floor_brightness,
+            floor_brightness,
+            floor_brightness,
+            1.0,
+        ]
+    if block_geom_id >= 0:
+        m.geom_rgba[block_geom_id] = [
+            cube_brightness,
+            cube_brightness,
+            cube_brightness,
+            1.0,
+        ]
+
+    m.vis.headlight.diffuse[:] = headlight_diffuse
+    m.vis.headlight.ambient[:] = headlight_ambient
+    m.vis.headlight.specular[:] = 0.0
+
+    if m.nlight:
+        m.light_diffuse[:] = key_light_diffuse
+        m.light_ambient[:] = float(rng.uniform(0.0, 0.025))
+        m.light_specular[:] = float(rng.uniform(0.08, 0.16))
+        light_direction = np.array(
+            [
+                rng.uniform(-0.08, 0.08),
+                rng.uniform(-0.08, 0.08),
+                -1.0,
+            ],
+            dtype=np.float64,
+        )
+        light_direction /= np.linalg.norm(light_direction)
+        m.light_dir[:] = light_direction
+
+    return {
+        "floor_brightness": floor_brightness,
+        "cube_brightness": cube_brightness,
+        "headlight_diffuse": headlight_diffuse,
+        "headlight_ambient": headlight_ambient,
+        "key_light_diffuse": key_light_diffuse,
+    }
+
+
 def send_position_command(d, position_dict):
     pos = convert_to_list(position_dict)
     d.ctrl = pos
@@ -1969,7 +2031,14 @@ def reset_reward_state():
     _recent_jaw_centered_contact_steps = 0
 
 
-def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):
+def reset_env(
+    m,
+    d,
+    starting_position,
+    block_pos=(0, 0.3, 0.0125),
+    appearance_rng=None,
+    randomize_appearance=True,
+):
     """
     Reset robot and block to initial positions.
     
@@ -1978,9 +2047,14 @@ def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):
         d: MuJoCo data
         starting_position: dict with joint positions in degrees
         block_pos: tuple (x, y, z) for block initial position
+        appearance_rng: Optional NumPy generator for reproducible appearance variation
+        randomize_appearance: Whether to vary floor/cube brightness and lighting
     """
     # Reset all state
     mujoco.mj_resetData(m, d)
+
+    if randomize_appearance:
+        randomize_scene_appearance(m, appearance_rng)
     
     # Set robot to starting pose
     set_initial_pose(d, starting_position)

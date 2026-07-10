@@ -45,6 +45,7 @@ else:
 
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
+randomize_scene_appearance(m)
 
 # ===== VLA Setup =====
 # Check for device availability (MPS for Apple Silicon, CUDA for NVIDIA, else CPU)

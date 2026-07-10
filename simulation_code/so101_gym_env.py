@@ -256,7 +256,13 @@ class SO101PickPlaceEnv(gymnasium.Env):
             block_pos = (0, 0.3, 0.0125)
         
         # Reset environment
-        reset_env(self.model, self.data, self.starting_position, block_pos)
+        reset_env(
+            self.model,
+            self.data,
+            self.starting_position,
+            block_pos,
+            appearance_rng=self.np_random,
+        )
         reset_reward_state()
         
         # Step physics a few times to settle

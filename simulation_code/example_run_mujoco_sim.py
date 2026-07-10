@@ -1,9 +1,11 @@
 import time
 import mujoco
 import mujoco.viewer
+from so101_mujoco_utils import randomize_scene_appearance
 
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
+randomize_scene_appearance(m)
 
 with mujoco.viewer.launch_passive(m, d) as viewer:
     #close the viewer automatically after 30 wall-seconds

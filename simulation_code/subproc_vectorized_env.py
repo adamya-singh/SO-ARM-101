@@ -100,6 +100,7 @@ def _worker(
         convert_to_dictionary,
         create_reward_state_tracker,
         compute_pickup_reward_from_state,
+        randomize_scene_appearance,
     )
     
     # Initialize MuJoCo model, data, and renderer
@@ -126,6 +127,7 @@ def _worker(
         nonlocal reward_state
         
         mujoco.mj_resetData(model, data)
+        randomize_scene_appearance(model, reset_rng)
         set_initial_pose(data, starting_position)
         
         # Reset block position

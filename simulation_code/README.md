@@ -533,13 +533,21 @@ python train_reinflow.py --randomize-block-reset
 <mujoco model="scene">
     <include file="so101_new_calib.xml" />  <!-- Robot definition -->
     
-    <!-- Red block target object -->
+    <!-- White block target object -->
     <body name="red_block" pos="0 0.3 0.0125">
         <freejoint/>
-        <geom type="box" size="0.0125 0.0125 0.0125" rgba="1 0 0 1"/>
+        <geom type="box" size="0.0125 0.0125 0.0125" rgba="1 1 1 1"/>
     </body>
 </mujoco>
 ```
+
+The floor uses a non-reflective near-black material to match the full-desk
+mouse pad in the physical setup. On reset, simulation environments apply mild
+domain randomization: floor brightness varies from `0.018` to `0.04`, cube
+brightness from `0.90` to `1.0`, key-light intensity by about ±10%, ambient and
+headlight intensity by about ±15%, and the directional light tilts by at most
+roughly 5°. The ranges preserve the black-mat/white-cube identity while reducing
+overfitting to one exposure.
 
 ### Cameras
 

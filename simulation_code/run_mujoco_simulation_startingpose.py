@@ -26,10 +26,15 @@ _configure_wsl_viewer_gl()
 
 import mujoco
 import mujoco.viewer
-from so101_mujoco_utils import set_initial_pose, send_position_command
+from so101_mujoco_utils import (
+    randomize_scene_appearance,
+    send_position_command,
+    set_initial_pose,
+)
 
 m = mujoco.MjModel.from_xml_path('model/scene.xml')
 d = mujoco.MjData(m)
+randomize_scene_appearance(m)
 
 
 starting_position = {
