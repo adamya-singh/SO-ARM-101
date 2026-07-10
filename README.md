@@ -142,7 +142,7 @@ Primary reference:
 
 ### Physical-arm dataset collection
 
-I built a single-arm data collection path for the physical SO-101 that does not require a full leader-follower setup. The resulting dataset includes 100 episodes and 41,631 frames from a wrist-mounted camera.
+I built a single-arm data collection path for the physical SO-101 that does not require a full leader-follower setup. The resulting dataset includes 100 episodes and 41,631 frames from the camera adapter mounted to the rotating gripper. These existing real-arm recordings already use the same mount side and camera orientation now represented in simulation.
 
 Primary code and data:
 - [`imitation-learning/record_single_arm.py`](imitation-learning/record_single_arm.py)

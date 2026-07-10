@@ -100,11 +100,6 @@
               <!-- Joint from lower_arm to wrist -->
               <joint axis="0 0 1" name="wrist_flex" type="hinge" range="-1.6580628494556928 1.6580627293335335" class="sts3215"/>
               <inertial pos="-0.000103312 -0.0386143 0.0281156" mass="0.079" fullinertia="3.68263e-05 2.5391e-05 2.1e-05 1.7893e-08 -5.28128e-08 3.6412e-06"/>
-              <!-- Wrist-mounted camera for OBS_IMAGE_2 -->
-              <camera name="wrist_camera" 
-                      pos="-0.08 -0.04 0.02"
-                      euler="-1.6 -0.8 1.55"
-                      fovy="72"/>
               <!-- Part sts3215_03a_no_horn_v1 -->
               <geom type="mesh" class="visual" pos="8.32667e-17 -0.0424 0.0306" quat="0.5 0.5 0.5 -0.5" mesh="sts3215_03a_no_horn_v1" material="sts3215_03a_no_horn_v1_material"/>
               <geom type="mesh" class="collision" pos="8.32667e-17 -0.0424 0.0306" quat="0.5 0.5 0.5 -0.5" mesh="sts3215_03a_no_horn_v1" material="sts3215_03a_no_horn_v1_material"/>
@@ -122,8 +117,24 @@
                 <!-- Part wrist_roll_follower_so101_v1 -->
                 <geom type="mesh" class="visual" pos="8.32667e-17 -0.000218214 0.000949706" quat="0 1 0 0" mesh="wrist_roll_follower_so101_v1" material="wrist_roll_follower_so101_v1_material"/>
                 <geom type="mesh" class="collision" pos="8.32667e-17 -0.000218214 0.000949706" quat="0 1 0 0" mesh="wrist_roll_follower_so101_v1" material="wrist_roll_follower_so101_v1_material"/>
+                <!-- Camera adapter fixed to the rotating gripper -->
+                <body name="wrist_camera_mount">
+                  <geom name="wrist_camera_mount_visual"
+                        type="mesh" class="visual"
+                        pos="-0.0175 0.026 -0.037"
+                        quat="0.5 -0.5 0.5 -0.5"
+                        mesh="so101_camera_wrist_mount"
+                        material="wrist_roll_follower_so101_v1_material"/>
+                  <!-- Camera optical center on the mounted 32x32 mm UVC module -->
+                  <camera name="wrist_camera"
+                          mode="fixed"
+                          pos="0 0.0685 -0.009"
+                          euler="-0.437 0 0"
+                          fovy="72"/>
+                </body>
                 <!-- Frame gripperframe -->
                 <site group="3" name="gripperframe" pos="-0.0079 -0.000218121 -0.0981274" quat="0.707107 -0 0.707107 -2.37788e-17"/>
+                <site group="3" name="fixed_jaw_tip" pos="-0.0202 0.0188 -0.075" size="0.004" rgba="0 0 1 0.4"/>
                 <!-- Link moving_jaw_so101_v1 -->
                 <body name="moving_jaw_so101_v1" pos="0.0202 0.0188 -0.0234" quat="0.707107 0.707107 -1.85362e-08 1.85362e-08">
                   <!-- Joint from gripper to moving_jaw_so101_v1 -->
@@ -132,6 +143,7 @@
                   <!-- Part moving_jaw_so101_v1 -->
                   <geom type="mesh" class="visual" pos="-5.55112e-17 -5.55112e-17 0.0189" quat="1 -0 3.00524e-16 -2.00834e-17" mesh="moving_jaw_so101_v1" material="moving_jaw_so101_v1_material"/>
                   <geom type="mesh" class="collision" pos="-5.55112e-17 -5.55112e-17 0.0189" quat="1 -0 3.00524e-16 -2.00834e-17" mesh="moving_jaw_so101_v1" material="moving_jaw_so101_v1_material"/>
+                  <site group="3" name="moving_jaw_tip" pos="0 -0.055 0.0189" size="0.004" rgba="0 1 0 0.4"/>
                 </body>
               </body>
             </body>
@@ -154,6 +166,9 @@
     <mesh file="motor_holder_so101_wrist_v1.stl"/>
     <mesh file="sts3215_03a_no_horn_v1.stl"/>
     <mesh file="base_so101_v2.stl"/>
+    <mesh name="so101_camera_wrist_mount"
+          file="so101_camera_wrist_mount.stl"
+          scale="0.001 0.001 0.001"/>
     <material name="base_motor_holder_so101_v1_material" rgba="1 0.82 0.12 1"/>
     <material name="base_so101_v2_material" rgba="1 0.82 0.12 1"/>
     <material name="sts3215_03a_v1_material" rgba="0.1 0.1 0.1 1"/>

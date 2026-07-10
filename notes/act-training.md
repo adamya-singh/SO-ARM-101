@@ -21,6 +21,10 @@ Confirmed dataset schema:
 - 6D `action`
 - wrist-camera video at `observation.images.wrist`, 256x256 RGB
 
+The existing physical episodes were recorded with the camera adapter fixed to
+the rotating gripper, using the same mount side and camera orientation as the
+current MuJoCo model. They do not need to be re-recorded for this synchronization.
+
 The sim PPO script keeps the actor observation schema matched to that physical dataset. It maps the MuJoCo wrist camera from `SO101PickPlaceEnv`:
 
 - sim `observation.images.camera2` -> ACT `observation.images.wrist`
@@ -104,15 +108,17 @@ automatically invalid, but it must be audited before trusting a checkpoint.
 `diagnose_act_setup.py` reports same-frame equality, future chunk deltas,
 gripper range, checkpoint config, and offline policy replay error.
 
-Latest live MuJoCo comparison: the completed lead-3 supervised ACT checkpoint
-`act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model`
-appears more confident than the previous corrected pretrain, moves a little
-faster, and tries to interact with the block more. Treat this as the current
-preferred supervised base for the next comparisons, while still tracking actual
-contact, grasp, lift, and success metrics separately.
+Default supervised pretrain after the 2026-07-09 lead-1/3/5 live MuJoCo sweep:
 
-For kinesthetic follower-only data, compare the corrected ACT action-lead sweep
-before choosing the next base policy:
+`act_so101_lead3_30_b32_20260709_161056/checkpoints/026020/pretrained_model`
+
+All three lead policies ended in the same place: gripper pushing into the
+ground a little before and to the right of the cube, without touching the cube.
+Lead-1 did that slowly, lead-5 did it quickly, and lead-3 stuttered more than
+the other two. Keep lead-3 as the default for now; track contact, grasp, lift,
+and success metrics separately from this qualitative choice.
+
+The action-lead sweep is complete. Reproduce the trained checkpoints with:
 
 ```bash
 cd /home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code

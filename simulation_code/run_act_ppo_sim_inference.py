@@ -213,7 +213,10 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
     max_block_height_gain = final_block_height_gain
     contact_count = 0
     grasp_count = 0
+    micro_lift_count = 0
     lift_count = 0
+    grasped_vertical_lift_reward_total = 0.0
+    lift_side_push_penalty_total = 0.0
     frames = []
     step_delay = args.step_delay if args.step_delay is not None else (0.02 if args.render else 0.0)
 
@@ -246,7 +249,10 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
                 max_block_height_gain = max(max_block_height_gain, final_block_height_gain)
                 contact_count += int(bool(info.get("contacted", info.get("contact", False))))
                 grasp_count += int(bool(info.get("gripped", info.get("grasp", False))))
+                micro_lift_count += int(bool(info.get("micro_lifted", False)))
                 lift_count += int(bool(info.get("block_lifted", info.get("lifted", False))))
+                grasped_vertical_lift_reward_total += as_float(info, "grasped_vertical_lift_reward", 0.0)
+                lift_side_push_penalty_total += as_float(info, "lift_side_push_penalty", 0.0)
 
                 if args.render:
                     env.render()
@@ -276,7 +282,10 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
         "max_block_height_gain": max_block_height_gain,
         "contact_count": contact_count,
         "grasp_count": grasp_count,
+        "micro_lift_count": micro_lift_count,
         "lift_count": lift_count,
+        "grasped_vertical_lift_reward": grasped_vertical_lift_reward_total,
+        "lift_side_push_penalty": lift_side_push_penalty_total,
     }
 
 
@@ -302,7 +311,10 @@ def print_summary(metrics: list[dict[str, Any]]) -> None:
     print(f"  mean_max_block_height_gain: {mean_metric(metrics, 'max_block_height_gain'):.4f}")
     print(f"  mean_contact_count: {mean_metric(metrics, 'contact_count'):.1f}")
     print(f"  mean_grasp_count: {mean_metric(metrics, 'grasp_count'):.1f}")
+    print(f"  mean_micro_lift_count: {mean_metric(metrics, 'micro_lift_count'):.1f}")
     print(f"  mean_lift_count: {mean_metric(metrics, 'lift_count'):.1f}")
+    print(f"  mean_grasped_vertical_lift_reward: {mean_metric(metrics, 'grasped_vertical_lift_reward'):.3f}")
+    print(f"  mean_lift_side_push_penalty: {mean_metric(metrics, 'lift_side_push_penalty'):.3f}")
 
 
 def main() -> int:

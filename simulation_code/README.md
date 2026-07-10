@@ -205,7 +205,9 @@ python example_run_mujoco_sim.py
 
 ### Hold Starting Pose
 
-Holds the robot at the home position:
+Holds the robot at the synchronized home position. The gripper starts with
+`wrist_roll = -84.04°`, rotated 90° right from the earlier pose so the
+gripper-mounted camera faces the workspace:
 
 ```bash
 python run_mujoco_simulation_startingpose.py
@@ -544,8 +546,11 @@ python train_reinflow.py --randomize-block-reset
 | Camera | Name | Purpose |
 |--------|------|---------|
 | Top-down | `camera_up` | Bird's eye view |
-| Wrist | `wrist_camera` | End-effector mounted |
+| Wrist | `wrist_camera` | Fixed to the physical camera adapter on the rotating gripper; follows `wrist_roll` but not jaw motion |
 | Side | `camera_side` | Profile view |
+
+The simulated wrist camera uses the same gripper-mounted orientation as the
+physical camera setup used to record the existing real-arm datasets.
 
 ### Robot Joints
 

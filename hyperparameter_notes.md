@@ -346,7 +346,7 @@ Default joint positions for episode reset (in degrees, MuJoCo frame):
 | `shoulder_lift` | `-100.21` | Arm raised |
 | `elbow_flex` | `89.95` | Elbow bent ~90° |
 | `wrist_flex` | `66.46` | Wrist angled down toward table |
-| `wrist_roll` | `5.96` | Minimal roll |
+| `wrist_roll` | `-84.04` | Gripper rotated 90° right to align the mounted camera with the workspace |
 | `gripper` | `1.0` | Gripper open |
 
 **Source**: `train_reinflow.py` (TrainingConfig.starting_position)
@@ -368,7 +368,7 @@ Default joint positions for episode reset (in degrees, MuJoCo frame):
 |-----------|-------|-------|
 | `image_size` | `256 × 256` | Resolution for all camera observations. SmolVLA expects this size. |
 | `camera_up` | Top-down view | Primary observation camera, mounted above workspace. |
-| `wrist_camera` | End-effector view | Mounted on robot wrist for close-up manipulation view. |
+| `wrist_camera` | End-effector view | Fixed to the camera adapter on the rotating gripper, matching the real-arm dataset setup. |
 | `camera_side` | Side view | Third camera for additional perspective (SmolVLA uses 3 cameras). |
 
 **Source**: `train_reinflow.py`, camera names in MJCF

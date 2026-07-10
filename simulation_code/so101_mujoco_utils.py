@@ -1001,6 +1001,8 @@ _post_attempt_commitment_steps = 0
 _escape_posture_steps = 0
 _early_closed_gripper_steps = 0
 _timed_close_steps = 0
+_recent_pregrasp_aligned_steps = 0
+_recent_jaw_centered_contact_steps = 0
 
 
 def create_reward_state_tracker() -> dict[str, Any]:
@@ -1026,6 +1028,8 @@ def create_reward_state_tracker() -> dict[str, Any]:
         "escape_posture_steps": 0,
         "early_closed_gripper_steps": 0,
         "timed_close_steps": 0,
+        "recent_pregrasp_aligned_steps": 0,
+        "recent_jaw_centered_contact_steps": 0,
     }
 
 
@@ -1036,7 +1040,8 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     global _prev_contacted, _prev_gripped, _prev_near_contact, _prev_block_height
     global _prev_gripper_qpos, _pregrasp_hover_steps, _recent_gripper_closing_steps, _disengaged_steps
     global _recent_contact_steps, _recent_grasp_attempt_steps, _post_attempt_commitment_steps, _escape_posture_steps
-    global _early_closed_gripper_steps, _timed_close_steps
+    global _early_closed_gripper_steps, _timed_close_steps, _recent_pregrasp_aligned_steps
+    global _recent_jaw_centered_contact_steps
 
     _prev_gripper_pos = state["prev_gripper_pos"]
     _prev_block_pos = state["prev_block_pos"]
@@ -1058,6 +1063,8 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     _escape_posture_steps = state["escape_posture_steps"]
     _early_closed_gripper_steps = state["early_closed_gripper_steps"]
     _timed_close_steps = state["timed_close_steps"]
+    _recent_pregrasp_aligned_steps = state["recent_pregrasp_aligned_steps"]
+    _recent_jaw_centered_contact_steps = state["recent_jaw_centered_contact_steps"]
 
 
 def compute_pickup_reward_from_state(
@@ -1091,6 +1098,11 @@ def compute_pickup_reward_from_state(
     block_displacement_penalty_scale: float = 0.35,
     lift_bonus: float = 2.0,
     lift_bonus_threshold: float = 0.0090,
+    micro_lift_bonus_threshold: float = 0.0050,
+    micro_lift_bonus: float = 0.8,
+    grasped_vertical_lift_reward_scale: float = 28.0,
+    grasped_vertical_lift_reward_cap: float = 0.30,
+    lift_side_push_penalty_scale: float = 0.20,
     sustained_contact_threshold: int = 5,
     sustained_contact_bonus: float = 0.2,
     contact_stall_threshold: int = 20,
@@ -1117,6 +1129,14 @@ def compute_pickup_reward_from_state(
     approach_open_gripper_reward: float = 0.015,
     timed_close_reward: float = 0.06,
     timed_close_window: int = 8,
+    pregrasp_alignment_reward_scale: float = 0.12,
+    aligned_close_reward: float = 0.08,
+    misaligned_close_penalty: float = -0.03,
+    misaligned_lift_penalty: float = -0.02,
+    side_push_penalty: float = -0.04,
+    pregrasp_alignment_window: int = 10,
+    recent_jaw_centered_contact_window: int = 15,
+    jaw_centered_contact_reward: float = 0.08,
 ):
     """
     Compute a staged pickup reward using caller-owned mutable state.
@@ -1205,6 +1225,50 @@ def compute_pickup_reward_from_state(
         alignment_reward = min(alignment_reward_cap, alignment_reward_cap * corridor_score * progress_score)
         reward += alignment_reward
 
+    jaw_centering_score = 0.0
+    jaw_axis_alignment = 0.0
+    jaw_gap_width = 0.0
+    jaw_lateral_error = 0.0
+    jaw_depth_error = 0.0
+    try:
+        fixed_jaw_pos = d.site("fixed_jaw_tip").xpos.copy()
+        moving_jaw_pos = d.site("moving_jaw_tip").xpos.copy()
+        jaw_center = 0.5 * (fixed_jaw_pos + moving_jaw_pos)
+        jaw_gap_axis = moving_jaw_pos[:2] - fixed_jaw_pos[:2]
+        jaw_gap_width = float(np.linalg.norm(jaw_gap_axis))
+        if jaw_gap_width > 1e-6:
+            jaw_gap_axis = jaw_gap_axis / jaw_gap_width
+            block_offset_xy = block_pos[:2] - jaw_center[:2]
+            jaw_lateral_offset = float(np.dot(block_offset_xy, jaw_gap_axis))
+            jaw_lateral_error = abs(jaw_lateral_offset)
+            jaw_depth_vec = block_offset_xy - jaw_lateral_offset * jaw_gap_axis
+            jaw_depth_error = float(np.linalg.norm(jaw_depth_vec))
+            lateral_score = np.clip(1.0 - jaw_lateral_error / 0.018, 0.0, 1.0)
+            depth_score = np.clip(1.0 - jaw_depth_error / 0.045, 0.0, 1.0)
+            jaw_height_score = np.clip(1.0 - abs(jaw_center[2] - block_pos[2]) / 0.035, 0.0, 1.0)
+            jaw_axis_alignment = float(lateral_score)
+            jaw_centering_score = float(lateral_score * depth_score * jaw_height_score)
+    except Exception:
+        jaw_centering_score = 0.0
+        jaw_axis_alignment = 0.0
+        jaw_gap_width = 0.0
+        jaw_lateral_error = 0.0
+        jaw_depth_error = 0.0
+
+    centered_score = np.clip(1.0 - horizontal_dist / 0.035, 0.0, 1.0)
+    pregrasp_height_score = np.clip(1.0 - abs(height_above - 0.018) / 0.025, 0.0, 1.0)
+    pregrasp_alignment_score = float(max(jaw_centering_score, centered_score * pregrasp_height_score * 0.25))
+    pregrasp_aligned = pregrasp_alignment_score >= 0.05 and not contacted
+    if pregrasp_aligned:
+        state["recent_pregrasp_aligned_steps"] = pregrasp_alignment_window
+    else:
+        state["recent_pregrasp_aligned_steps"] = max(0, state["recent_pregrasp_aligned_steps"] - 1)
+
+    pregrasp_alignment_reward = 0.0
+    if pregrasp_alignment_score > 0.0 and not contacted:
+        pregrasp_alignment_reward = pregrasp_alignment_reward_scale * pregrasp_alignment_score
+        reward += pregrasp_alignment_reward
+
     near_contact_reward = 0.0
     contact_progressing = horizontal_progress > 0.0 or vertical_progress > 0.0
     if near_contact and contact_progressing:
@@ -1251,6 +1315,16 @@ def compute_pickup_reward_from_state(
         state["recent_gripper_closing_steps"] = recent_gripper_closing_window
     else:
         state["recent_gripper_closing_steps"] = max(0, state["recent_gripper_closing_steps"] - 1)
+
+    aligned_close_reward_value = 0.0
+    misaligned_close_penalty_value = 0.0
+    if gripper_closing and not contacted:
+        if state["recent_pregrasp_aligned_steps"] > 0:
+            aligned_close_reward_value = aligned_close_reward * pregrasp_alignment_score
+            reward += aligned_close_reward_value
+        elif (in_grasp_corridor or near_contact) and pregrasp_alignment_score < 0.05:
+            misaligned_close_penalty_value = misaligned_close_penalty
+            reward += misaligned_close_penalty_value
 
     pregrasp_not_committing = pregrasp_zone and not gripper_closing and horizontal_progress <= 0.0
     if pregrasp_not_committing:
@@ -1310,10 +1384,20 @@ def compute_pickup_reward_from_state(
     applied_contact_persistence_reward = 0.0
     applied_sustained_contact_reward = 0.0
     applied_closing_contact_bonus = 0.0
+    jaw_centered_contact_reward_value = 0.0
     if contacted:
         contact_entry = not prev_contacted
         contact_after_alignment = contact_entry and (state["alignment_ready_steps"] > 0 or prev_near_contact)
         state["consecutive_contact"] += 1
+        if jaw_centering_score >= 0.15:
+            state["recent_jaw_centered_contact_steps"] = recent_jaw_centered_contact_window
+            jaw_centered_contact_reward_value = jaw_centered_contact_reward * jaw_centering_score
+            reward += jaw_centered_contact_reward_value
+        else:
+            state["recent_jaw_centered_contact_steps"] = max(
+                0,
+                state["recent_jaw_centered_contact_steps"] - 1,
+            )
         if contact_entry:
             applied_contact_entry_bonus = contact_entry_bonus
             if contact_after_alignment or near_contact:
@@ -1329,6 +1413,10 @@ def compute_pickup_reward_from_state(
         state["alignment_ready_steps"] = 0
     else:
         state["consecutive_contact"] = 0
+        state["recent_jaw_centered_contact_steps"] = max(
+            0,
+            state["recent_jaw_centered_contact_steps"] - 1,
+        )
 
     grasp_persistent = False
     applied_grasp_persistence_reward = 0.0
@@ -1348,13 +1436,31 @@ def compute_pickup_reward_from_state(
         )
         reward += grasp_lift_motion_reward
 
+    contact_lift_ready = state["recent_jaw_centered_contact_steps"] > 0
     if gripped or prev_gripped:
         lift_progress_reward = min(2.0, 30.0 * block_height_gain)
+    elif contacted and contact_lift_ready:
+        lift_progress_reward = min(1.0, 18.0 * block_height_gain)
     elif contacted:
         lift_progress_reward = min(0.35, 8.0 * block_height_gain)
     else:
         lift_progress_reward = 0.0
     reward += lift_progress_reward
+
+    misaligned_lift_penalty_value = 0.0
+    if (
+        lift_progress_reward > 0.0
+        and block_height_gain > 0.003
+        and not (gripped or prev_gripped)
+        and state["recent_pregrasp_aligned_steps"] <= 0
+    ):
+        misaligned_lift_penalty_value = misaligned_lift_penalty
+        reward += misaligned_lift_penalty_value
+
+    side_push_penalty_value = 0.0
+    if contacted and not gripped and jaw_centering_score < 0.15 and block_height_gain < lift_threshold:
+        side_push_penalty_value = side_push_penalty
+        reward += side_push_penalty_value
 
     if contacted:
         state["recent_contact_steps"] = recent_contact_window
@@ -1406,14 +1512,50 @@ def compute_pickup_reward_from_state(
     )
     reward += applied_escape_posture_penalty + applied_post_attempt_escape_penalty
 
-    block_lifted = block_height_gain > lift_bonus_threshold
+    lift_grasp_ready = (
+        gripped
+        or prev_gripped
+        or state["recent_pregrasp_aligned_steps"] > 0
+        or contact_lift_ready
+    )
+    micro_lift_ready = (
+        gripped
+        or prev_gripped
+        or (contacted and contact_lift_ready)
+        or (sustained and state["recent_jaw_centered_contact_steps"] > 0)
+    )
+    micro_lifted = block_height_gain > micro_lift_bonus_threshold and micro_lift_ready
+    micro_lift_bonus_reward = micro_lift_bonus if micro_lifted else 0.0
+    reward += micro_lift_bonus_reward
+
+    block_vertical_delta = 0.0 if prev_block_pos is None else max(0.0, block_pos[2] - prev_block_pos[2])
+    grasped_vertical_lift_reward = 0.0
+    if (micro_lift_ready or lift_grasp_ready) and block_vertical_delta > 0.0:
+        grasped_vertical_lift_reward = min(
+            grasped_vertical_lift_reward_cap,
+            grasped_vertical_lift_reward_scale * block_vertical_delta,
+        )
+        reward += grasped_vertical_lift_reward
+
+    lift_side_push_penalty = 0.0
+    if (
+        (micro_lift_ready or lift_grasp_ready)
+        and block_height_gain > 0.003
+        and block_displacement > 0.018
+        and block_height_gain < lift_bonus_threshold
+    ):
+        displacement_excess = min(block_displacement - 0.018, 0.05)
+        lift_side_push_penalty = -lift_side_push_penalty_scale * (displacement_excess / 0.05)
+        reward += lift_side_push_penalty
+
+    block_lifted = block_height_gain > lift_bonus_threshold and lift_grasp_ready
     lift_bonus_reward = 0.0
     if block_lifted:
         lift_bonus_reward = max(lift_bonus, 0.25)
         reward += lift_bonus_reward
 
     success_lift_bonus_reward = 0.0
-    done = block_height_gain > lift_threshold
+    done = block_height_gain > lift_threshold and lift_grasp_ready
     if done:
         success_lift_bonus_reward = success_lift_bonus
         reward += success_lift_bonus_reward
@@ -1499,6 +1641,23 @@ def compute_pickup_reward_from_state(
         "gripper_closing": gripper_closing,
         "approach_reward": approach_reward,
         "alignment_reward": alignment_reward,
+        "pregrasp_alignment_score": pregrasp_alignment_score,
+        "jaw_centering_score": jaw_centering_score,
+        "jaw_axis_alignment": jaw_axis_alignment,
+        "jaw_gap_width": jaw_gap_width,
+        "jaw_lateral_error": jaw_lateral_error,
+        "jaw_depth_error": jaw_depth_error,
+        "pregrasp_alignment_reward": pregrasp_alignment_reward,
+        "aligned_close_reward": aligned_close_reward_value,
+        "jaw_centered_contact_reward": jaw_centered_contact_reward_value,
+        "misaligned_close_penalty": misaligned_close_penalty_value,
+        "misaligned_lift_penalty": misaligned_lift_penalty_value,
+        "side_push_penalty": side_push_penalty_value,
+        "lift_grasp_ready": lift_grasp_ready,
+        "micro_lift_ready": micro_lift_ready,
+        "micro_lifted": micro_lifted,
+        "recent_pregrasp_aligned_steps": state["recent_pregrasp_aligned_steps"],
+        "recent_jaw_centered_contact_steps": state["recent_jaw_centered_contact_steps"],
         "near_contact_reward": near_contact_reward,
         "sustained_contact_reward": applied_sustained_contact_reward,
         "horizontal_progress": horizontal_progress,
@@ -1512,6 +1671,9 @@ def compute_pickup_reward_from_state(
         "grasp_persistence_reward": applied_grasp_persistence_reward,
         "grasp_lift_motion_reward": grasp_lift_motion_reward,
         "lift_progress_reward": lift_progress_reward,
+        "micro_lift_bonus": micro_lift_bonus_reward,
+        "grasped_vertical_lift_reward": grasped_vertical_lift_reward,
+        "lift_side_push_penalty": lift_side_push_penalty,
         "lift_bonus_reward": lift_bonus_reward,
         "success_lift_bonus": success_lift_bonus_reward,
         "hover_penalty": applied_hover_penalty,
@@ -1552,6 +1714,11 @@ def compute_reward(
     block_displacement_penalty_scale=0.35,
     lift_bonus=2.0,
     lift_bonus_threshold=0.0090,
+    micro_lift_bonus_threshold=0.0050,
+    micro_lift_bonus=0.8,
+    grasped_vertical_lift_reward_scale=28.0,
+    grasped_vertical_lift_reward_cap=0.30,
+    lift_side_push_penalty_scale=0.20,
     sustained_contact_threshold=5,
     sustained_contact_bonus=0.2,
     contact_stall_threshold=20,
@@ -1578,6 +1745,14 @@ def compute_reward(
     approach_open_gripper_reward=0.015,
     timed_close_reward=0.06,
     timed_close_window=8,
+    pregrasp_alignment_reward_scale=0.12,
+    aligned_close_reward=0.08,
+    misaligned_close_penalty=-0.03,
+    misaligned_lift_penalty=-0.02,
+    side_push_penalty=-0.04,
+    pregrasp_alignment_window=10,
+    recent_jaw_centered_contact_window=15,
+    jaw_centered_contact_reward=0.08,
 ):
     """
     Wrapper around the staged pickup reward for single-environment callers.
@@ -1603,6 +1778,8 @@ def compute_reward(
         "escape_posture_steps": _escape_posture_steps,
         "early_closed_gripper_steps": _early_closed_gripper_steps,
         "timed_close_steps": _timed_close_steps,
+        "recent_pregrasp_aligned_steps": _recent_pregrasp_aligned_steps,
+        "recent_jaw_centered_contact_steps": _recent_jaw_centered_contact_steps,
     }
     reward, done, metrics = compute_pickup_reward_from_state(
         m,
@@ -1635,6 +1812,11 @@ def compute_reward(
         block_displacement_penalty_scale=block_displacement_penalty_scale,
         lift_bonus=lift_bonus,
         lift_bonus_threshold=lift_bonus_threshold,
+        micro_lift_bonus_threshold=micro_lift_bonus_threshold,
+        micro_lift_bonus=micro_lift_bonus,
+        grasped_vertical_lift_reward_scale=grasped_vertical_lift_reward_scale,
+        grasped_vertical_lift_reward_cap=grasped_vertical_lift_reward_cap,
+        lift_side_push_penalty_scale=lift_side_push_penalty_scale,
         sustained_contact_threshold=sustained_contact_threshold,
         sustained_contact_bonus=sustained_contact_bonus,
         contact_stall_threshold=contact_stall_threshold,
@@ -1661,6 +1843,14 @@ def compute_reward(
         approach_open_gripper_reward=approach_open_gripper_reward,
         timed_close_reward=timed_close_reward,
         timed_close_window=timed_close_window,
+        pregrasp_alignment_reward_scale=pregrasp_alignment_reward_scale,
+        aligned_close_reward=aligned_close_reward,
+        misaligned_close_penalty=misaligned_close_penalty,
+        misaligned_lift_penalty=misaligned_lift_penalty,
+        side_push_penalty=side_push_penalty,
+        pregrasp_alignment_window=pregrasp_alignment_window,
+        recent_jaw_centered_contact_window=recent_jaw_centered_contact_window,
+        jaw_centered_contact_reward=jaw_centered_contact_reward,
     )
     _sync_global_reward_state(state)
 
@@ -1681,6 +1871,23 @@ def compute_reward(
         metrics["block_displacement"],
         metrics["approach_reward"],
         metrics["alignment_reward"],
+        metrics["pregrasp_alignment_score"],
+        metrics["jaw_centering_score"],
+        metrics["jaw_axis_alignment"],
+        metrics["jaw_gap_width"],
+        metrics["jaw_lateral_error"],
+        metrics["jaw_depth_error"],
+        metrics["pregrasp_alignment_reward"],
+        metrics["aligned_close_reward"],
+        metrics["jaw_centered_contact_reward"],
+        metrics["misaligned_close_penalty"],
+        metrics["misaligned_lift_penalty"],
+        metrics["side_push_penalty"],
+        metrics["lift_grasp_ready"],
+        metrics["micro_lift_ready"],
+        metrics["micro_lifted"],
+        metrics["recent_pregrasp_aligned_steps"],
+        metrics["recent_jaw_centered_contact_steps"],
         metrics["near_contact"],
         metrics["contact_after_alignment"],
         metrics["horizontal_progress"],
@@ -1719,6 +1926,9 @@ def compute_reward(
         metrics["grasp_persistence_reward"],
         metrics["grasp_lift_motion_reward"],
         metrics["lift_progress_reward"],
+        metrics["micro_lift_bonus"],
+        metrics["grasped_vertical_lift_reward"],
+        metrics["lift_side_push_penalty"],
         metrics["lift_bonus_reward"],
         metrics["success_lift_bonus"],
         metrics["block_displacement_penalty"],
@@ -1733,7 +1943,8 @@ def reset_reward_state():
     global _hover_without_contact_steps, _prev_contacted, _prev_gripped, _prev_near_contact, _prev_block_height
     global _prev_gripper_qpos, _pregrasp_hover_steps, _recent_gripper_closing_steps, _disengaged_steps
     global _recent_contact_steps, _recent_grasp_attempt_steps, _post_attempt_commitment_steps, _escape_posture_steps
-    global _early_closed_gripper_steps, _timed_close_steps
+    global _early_closed_gripper_steps, _timed_close_steps, _recent_pregrasp_aligned_steps
+    global _recent_jaw_centered_contact_steps
     _prev_gripper_pos = None
     _prev_block_pos = None
     _initial_block_pos = None
@@ -1754,6 +1965,8 @@ def reset_reward_state():
     _escape_posture_steps = 0
     _early_closed_gripper_steps = 0
     _timed_close_steps = 0
+    _recent_pregrasp_aligned_steps = 0
+    _recent_jaw_centered_contact_steps = 0
 
 
 def reset_env(m, d, starting_position, block_pos=(0, 0.3, 0.0125)):

@@ -301,6 +301,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--policy-lr", type=float, default=1e-5)
     parser.add_argument("--critic-lr", type=float, default=1e-4)
     parser.add_argument("--log-std-init", type=float, default=-2.0)
+    parser.add_argument(
+        "--resume-log-std-offset",
+        type=float,
+        default=0.0,
+        help=(
+            "Additive offset applied to the checkpoint log_std after --resume. "
+            "Use negative values to continue with lower exploration noise."
+        ),
+    )
     parser.add_argument("--clip-epsilon", type=float, default=0.1)
     parser.add_argument("--gae-lambda", type=float, default=0.95)
     parser.add_argument("--gamma", type=float, default=0.99)
@@ -480,6 +489,23 @@ REWARD_COMPONENT_KEYS = [
     "early_close_penalty",
     "approach_open_gripper_reward",
     "timed_close_reward",
+    "pregrasp_alignment_score",
+    "jaw_centering_score",
+    "jaw_axis_alignment",
+    "jaw_gap_width",
+    "jaw_lateral_error",
+    "jaw_depth_error",
+    "pregrasp_alignment_reward",
+    "aligned_close_reward",
+    "jaw_centered_contact_reward",
+    "misaligned_close_penalty",
+    "misaligned_lift_penalty",
+    "side_push_penalty",
+    "lift_grasp_ready",
+    "micro_lift_ready",
+    "micro_lifted",
+    "recent_pregrasp_aligned_steps",
+    "recent_jaw_centered_contact_steps",
     "near_contact_reward",
     "contact_persistence_reward",
     "contact_stall_penalty",
@@ -487,6 +513,9 @@ REWARD_COMPONENT_KEYS = [
     "grasp_persistence_reward",
     "grasp_lift_motion_reward",
     "lift_progress_reward",
+    "micro_lift_bonus",
+    "grasped_vertical_lift_reward",
+    "lift_side_push_penalty",
     "lift_bonus_reward",
     "success_lift_bonus",
     "block_displacement_penalty",
@@ -1206,6 +1235,12 @@ def main() -> int:
         start_episode, total_chunks, total_env_steps = load_checkpoint(
             args.resume, policy, critic, policy_optimizer, critic_optimizer, device
         )
+        if args.resume_log_std_offset != 0.0:
+            policy.log_std.data.add_(float(args.resume_log_std_offset))
+            print(
+                f"Applied resume log_std offset {args.resume_log_std_offset:+.4f}; "
+                f"log_std_mean={policy.log_std.mean().item():.4f}"
+            )
 
     block_pos = block_position(args)
     env = make_training_env(args, block_pos)

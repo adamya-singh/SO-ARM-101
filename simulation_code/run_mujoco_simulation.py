@@ -191,7 +191,7 @@ starting_position = {
         'shoulder_lift': -100.21,
         'elbow_flex': 89.95,
         'wrist_flex': 66.46,
-        'wrist_roll': 5.96,
+        'wrist_roll': -84.04,
         'gripper': 1.0,  #0-100 range for open and closed
 }
 
