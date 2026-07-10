@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render", action="store_true", help="Open the MuJoCo viewer for live visual inspection.")
     parser.add_argument("--headless", action="store_true", help="Force EGL headless MuJoCo rendering before imports.")
     parser.add_argument("--randomize-block-reset", action="store_true", help="Randomize the block pose at episode reset.")
+    parser.add_argument(
+        "--randomize-appearance",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Vary scene lighting and surface brightness on reset (enabled by default).",
+    )
     parser.add_argument("--block-dist-range", type=float, nargs=2, default=(0.22, 0.26), metavar=("MIN", "MAX"), help="Randomized block distance range used with --randomize-block-reset.")
     parser.add_argument("--block-angle-range", type=float, nargs=2, default=(-10.0, 10.0), metavar=("MIN", "MAX"), help="Randomized block angle range in degrees used with --randomize-block-reset.")
     parser.add_argument(

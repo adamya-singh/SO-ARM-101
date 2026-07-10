@@ -7,6 +7,8 @@ This repo now treats ACT training as a diagnostics-first pipeline:
 3. `simulation_code/train_sim_baseline.py` proves the MuJoCo reward/action contract with a simple privileged-state PPO baseline.
 4. `simulation_code/train_act_in_sim.py` is preserved as an explicit experimental ACT-chunk PPO path, not the default improvement path.
 
+Completed overnight experiment: [2026-07-10 ACT post-train PPO ablation](7-10-act-posttrain-ablation.md).
+
 The default physical dataset is:
 
 `/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/imitation-learning/datasets/so101_pickplace_v1`
@@ -23,7 +25,10 @@ Confirmed dataset schema:
 
 The existing physical episodes were recorded with the camera adapter fixed to
 the rotating gripper, using the same mount side and camera orientation as the
-current MuJoCo model. They do not need to be re-recorded for this synchronization.
+current MuJoCo model. The 2026-07-09 camera and wrist-mount geometry update made
+the simulation substantially closer to that physical recording setup. The
+existing demonstrations therefore do not need to be re-recorded for this
+synchronization.
 
 The sim PPO script keeps the actor observation schema matched to that physical dataset. It maps the MuJoCo wrist camera from `SO101PickPlaceEnv`:
 
@@ -118,6 +123,21 @@ ground a little before and to the right of the cube, without touching the cube.
 Lead-1 did that slowly, lead-5 did it quickly, and lead-3 stuttered more than
 the other two. Keep lead-3 as the default for now; track contact, grasp, lift,
 and success metrics separately from this qualitative choice.
+
+### Post-camera-update lead-3 behavior
+
+Re-evaluation after the 2026-07-09 simulation camera and wrist-mount update
+showed a small qualitative regression, despite the new geometry being much
+closer to the physical setup used to collect all training demonstrations. The
+current lead-3 pretrain repeatedly settles into and hovers at one upright pose
+with the gripper facing forward, rather than continuing a useful approach to
+the cube. This is the current result for the updated simulation; the
+ground-push behavior above records the earlier lead sweep under the previous
+geometry.
+
+![Lead-3 ACT pretrain hovering upright after the camera and wrist-mount update](./images/act-lead3-updated-camera-hover.png)
+
+Image file: [act-lead3-updated-camera-hover.png](./images/act-lead3-updated-camera-hover.png)
 
 The action-lead sweep is complete. Reproduce the trained checkpoints with:
 

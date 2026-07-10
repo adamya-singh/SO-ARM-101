@@ -42,6 +42,14 @@ default because it sits between those extremes and is already the
 `corrected-act` profile default (`action_lead_steps=3`). This is a qualitative
 pre-PPO choice, not a solved pickup result.
 
+Post-update note (2026-07-09): after the simulation camera and wrist mount were
+changed to more closely match the physical setup used for every training
+demonstration, the lead-3 pretrain performed slightly worse in live MuJoCo
+inspection. It now consistently hovers in a single upright, forward-facing
+pose. The earlier ground-push description remains the result of the lead sweep
+before this geometry update. See the [screenshot and detailed
+note](act-training.md#post-camera-update-lead-3-behavior).
+
 ## Dataset Contract
 
 Dataset:
@@ -124,6 +132,10 @@ Intermediate unshifted corrected checkpoints to compare behaviorally:
   policies end with the gripper pushing into the ground a little before and to
   the right of the cube, without touching it. Lead mainly changes speed
   (lead-1 slow, lead-5 fast) and smoothness (lead-3 stutters more).
+- After updating the simulated camera and wrist mount to better match the real
+  demonstration setup, lead-3 regressed to hovering in one upright,
+  forward-facing pose. Treat this as the current updated-geometry baseline;
+  the ground-push result above belongs to the previous geometry.
 - Keep `action_lead_steps=3` as the default supervised pretrain for now.
 - Batch 64 with corrected ACT OOMed despite apparent VRAM headroom; batch 32 is
   the stable default.

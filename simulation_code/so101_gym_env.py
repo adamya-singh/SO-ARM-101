@@ -66,6 +66,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         preprocessor=None,
         postprocessor=None,
         task_instruction: str = "pick up the block",
+        randomize_appearance: bool = True,
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -86,6 +87,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             preprocessor: Optional PolicyProcessorPipeline for state normalization
             postprocessor: Optional PolicyProcessorPipeline for action denormalization
             task_instruction: Task text used by processor-backed SmolVLA normalization
+            randomize_appearance: Whether reset varies scene lighting and surface brightness
         """
         super().__init__()
 
@@ -109,6 +111,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.task_instruction = task_instruction
+        self.randomize_appearance = bool(randomize_appearance)
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -262,6 +265,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             self.starting_position,
             block_pos,
             appearance_rng=self.np_random,
+            randomize_appearance=self.randomize_appearance,
         )
         reset_reward_state()
         

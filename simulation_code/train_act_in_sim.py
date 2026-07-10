@@ -13,6 +13,7 @@ import argparse
 import math
 import multiprocessing as mp
 import os
+import random
 import subprocess
 import sys
 import time
@@ -39,6 +40,30 @@ nn = None
 F = None
 wandb = None
 SO101PickPlaceEnv = None
+
+
+def git_revision() -> str:
+    """Return the source revision used for an experiment, including dirty state."""
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=PROJECT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+        return f"{revision}-dirty" if dirty else revision
+    except Exception:
+        return "unknown"
 
 
 def load_training_dependencies() -> None:
@@ -71,6 +96,20 @@ def load_training_dependencies() -> None:
     F = _F
     wandb = _wandb
     SO101PickPlaceEnv = _SO101PickPlaceEnv
+
+
+def seed_training(seed: int | None) -> None:
+    """Seed the main PPO process; workers are seeded independently."""
+    if seed is None:
+        return
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
 
 @dataclass
@@ -309,6 +348,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--policy-lr", type=float, default=1e-5)
     parser.add_argument("--critic-lr", type=float, default=1e-4)
     parser.add_argument("--log-std-init", type=float, default=-2.0)
+    parser.add_argument("--seed", type=int, default=None, help="Base RNG seed for training and environment workers.")
     parser.add_argument(
         "--resume-log-std-offset",
         type=float,
@@ -326,6 +366,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--parallel-envs", type=int, default=8)
     parser.add_argument("--rollout-chunks-per-env", type=int, default=4)
     parser.add_argument("--randomize-block-reset", action="store_true")
+    parser.add_argument(
+        "--randomize-appearance",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Vary scene lighting and surface brightness on reset (enabled by default).",
+    )
     parser.add_argument("--block-dist-range", type=float, nargs=2, default=(0.22, 0.26), metavar=("MIN", "MAX"))
     parser.add_argument("--block-angle-range", type=float, nargs=2, default=(-10.0, 10.0), metavar=("MIN", "MAX"))
     parser.add_argument(
@@ -550,6 +596,10 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
         from so101_gym_env import SO101PickPlaceEnv as WorkerEnv
 
         np = _np
+        worker_seed = worker_config["seed"]
+        if worker_seed is not None:
+            random.seed(worker_seed)
+            np.random.seed(worker_seed)
         env = WorkerEnv(
             render_mode=None,
             max_episode_steps=worker_config["max_steps_per_episode"],
@@ -557,17 +607,20 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
             block_dist_range=worker_config["block_dist_range"],
             block_angle_range=worker_config["block_angle_range"],
             task_instruction="pick up the block",
+            randomize_appearance=worker_config["randomize_appearance"],
         )
         block_pos = worker_config["block_pos"]
         max_steps = int(worker_config["max_steps_per_episode"])
         done = True
         obs = None
         info = None
+        first_reset = True
 
         def reset_env():
-            nonlocal done, obs, info
+            nonlocal done, obs, info, first_reset
             options = None if worker_config["randomize_block_reset"] else {"block_pos": block_pos}
-            obs, info = env.reset(options=options)
+            obs, info = env.reset(seed=worker_seed if first_reset else None, options=options)
+            first_reset = False
             done = False
 
         def current_payload():
@@ -648,6 +701,7 @@ class ACTSubprocVecEnv:
             "headless": bool(args.headless),
             "max_steps_per_episode": int(args.max_steps_per_episode),
             "randomize_block_reset": bool(args.randomize_block_reset),
+            "randomize_appearance": bool(args.randomize_appearance),
             "block_dist_range": tuple(float(v) for v in args.block_dist_range),
             "block_angle_range": tuple(float(v) for v in args.block_angle_range),
             "block_pos": tuple(float(v) for v in block_pos),
@@ -655,10 +709,14 @@ class ACTSubprocVecEnv:
         self.parent_conns = []
         self.processes = []
         for worker_idx in range(self.num_envs):
+            worker_config_for_process = {
+                **worker_config,
+                "seed": None if args.seed is None else int(args.seed) + worker_idx,
+            }
             parent_conn, child_conn = ctx.Pipe()
             process = ctx.Process(
                 target=_act_env_worker,
-                args=(child_conn, parent_conn, worker_config),
+                args=(child_conn, parent_conn, worker_config_for_process),
                 daemon=True,
                 name=f"act-env-{worker_idx}",
             )
@@ -1103,6 +1161,7 @@ def make_sequential_env(args: argparse.Namespace, block_pos: tuple[float, float,
         block_dist_range=tuple(float(v) for v in args.block_dist_range),
         block_angle_range=tuple(float(v) for v in args.block_angle_range),
         task_instruction="pick up the block",
+        randomize_appearance=args.randomize_appearance,
     )
     if not args.randomize_block_reset:
         env.randomize_block = False
@@ -1114,6 +1173,8 @@ def make_sequential_env(args: argparse.Namespace, block_pos: tuple[float, float,
             return original_reset(*reset_args, options=options, **reset_kwargs)
 
         env.reset = reset_with_block
+    if args.seed is not None:
+        env.reset(seed=int(args.seed))
     return env
 
 
@@ -1225,6 +1286,7 @@ def main() -> int:
         args.no_render = True
     load_training_dependencies()
     define_model_classes()
+    seed_training(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if str(device) != "cuda":
@@ -1256,7 +1318,14 @@ def main() -> int:
 
     use_wandb = not args.no_wandb and wandb is not None
     if use_wandb:
-        wandb.init(project="act-so101-sim-ppo", config=vars(args))
+        wandb.init(
+            project="act-so101-sim-ppo",
+            config={
+                **vars(args),
+                "git_revision": git_revision(),
+                "init_checkpoint_resolved": str(args.init_checkpoint.resolve()),
+            },
+        )
 
     print("Starting ACT PPO fine-tuning in SO-101 MuJoCo")
     print(f"  init_checkpoint: {args.init_checkpoint}")
@@ -1266,6 +1335,9 @@ def main() -> int:
     print(f"  parallel_envs: {args.parallel_envs}")
     print(f"  rollout_chunks_per_env: {args.rollout_chunks_per_env}")
     print(f"  minibatch_size: {args.minibatch_size}")
+    print(f"  seed: {args.seed}")
+    print(f"  randomize_appearance: {args.randomize_appearance}")
+    print(f"  git_revision: {git_revision()}")
 
     last_completed_episode = start_episode - 1
     try:

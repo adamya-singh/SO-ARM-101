@@ -558,7 +558,16 @@ overfitting to one exposure.
 | Side | `camera_side` | Profile view |
 
 The simulated wrist camera uses the same gripper-mounted orientation as the
-physical camera setup used to record the existing real-arm datasets.
+physical camera setup used to record the existing real-arm datasets. The
+2026-07-09 camera and wrist-mount geometry update brought the simulation
+substantially closer to that recording setup.
+
+The first ACT lead-3 pretrain check after this update was nevertheless slightly
+worse: the arm consistently hovered in one upright, forward-facing pose. This
+is the current updated-geometry baseline, not evidence that the physical
+alignment is wrong by itself; the pretrained policy may be sensitive to the
+remaining visual or state-distribution differences. See the
+[ACT training note and screenshot](../notes/act-training.md#post-camera-update-lead-3-behavior).
 
 ### Robot Joints
 
