@@ -1,0 +1,28 @@
+<mujoco model="scene_v2_collision">
+    <include file="so101_new_calib_v2_collision.xml" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="160" elevation="-20" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+            height="3072" />
+        <material name="groundplane" rgba="0.025 0.025 0.025 1"
+            specular="0" shininess="0" reflectance="0" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane" />
+        
+        <!-- White block on the ground (half size: 2.5cm cube) -->
+        <body name="red_block" pos="0 0.3 0.0125">
+            <freejoint/>
+            <geom name="red_block_geom" type="box" size="0.0125 0.0125 0.0125" rgba="1 1 1 1" mass="0.05"/>
+            <inertial pos="0 0 0" mass="0.05" diaginertia="0.00001 0.00001 0.00001"/>
+        </body>
+    </worldbody>
+</mujoco>
