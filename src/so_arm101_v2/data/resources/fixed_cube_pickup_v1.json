@@ -1,0 +1,132 @@
+{
+ "contract_version": 2,
+ "task_id": "fixed_cube_pickup_v1",
+ "description": "Lift a fixed 25 mm cube with a strict bilateral grasp.",
+ "object": {
+  "kind": "cube",
+  "edge_length_m": 0.025
+ },
+ "reset": {
+  "scenario_id": "fixed_front_v1",
+  "cube_position_m": [
+   0.0,
+   0.3,
+   0.0125
+  ],
+  "cube_xy_tolerance_m": 0.002,
+  "robot_qpos_mujoco": [
+   -0.0010472,
+   -3.31,
+   3.13,
+   1.1599458,
+   -1.5154479,
+   0.0314159
+  ],
+  "robot_qpos_tolerance_rad": 0.02,
+  "fixed_camera_mount": true,
+  "fixed_appearance": true
+ },
+ "observations": [
+  {
+   "key": "observation.images.wrist",
+   "dtype": "uint8",
+   "shape": [
+    256,
+    256,
+    3
+   ],
+   "coordinate_domain": null
+  },
+  {
+   "key": "observation.state",
+   "dtype": "float32",
+   "shape": [
+    6
+   ],
+   "coordinate_domain": "act_dataset"
+  }
+ ],
+ "control": {
+  "frequency_hz": 30.0,
+  "action_shape": [
+   6
+  ],
+  "action_dtype": "float32",
+  "action_coordinate_domain": "act_dataset",
+  "action_mode": "absolute_joint_target",
+  "hold_control_periods": 1,
+  "action_chunking": false,
+  "interpolation": false,
+  "temporal_aggregation": false
+ },
+ "episode": {
+  "max_actions": 450,
+  "max_seconds": 15.0,
+  "terminate_on_success": true
+ },
+ "strict_grasp": {
+  "minimum_force_per_jaw_n": 0.1,
+  "minimum_edge_clearance_m": 0.004,
+  "maximum_alignment_error_deg": 25.0,
+  "acquisition_frames": 5,
+  "requires_opposing_interior_faces": true
+ },
+ "success": {
+  "minimum_height_gain_m": 0.02,
+  "hold_frames": 30,
+  "hold_seconds": 1.0,
+  "requires_strict_grasp_each_frame": true,
+  "requires_no_safety_violation": true
+ },
+ "diagnostics": {
+  "reach_distance_m": 0.04,
+  "lift_thresholds_m": [
+   0.005,
+   0.01,
+   0.02
+  ],
+  "drop_height_gain_m": 0.002
+ },
+ "safety": {
+  "act_command_low": [
+   -3.141592653589793,
+   -3.141592653589793,
+   -3.141592653589793,
+   -3.141592653589793,
+   -3.141592653589793,
+   0.0
+  ],
+  "act_command_high": [
+   3.141592653589793,
+   3.141592653589793,
+   3.141592653589793,
+   3.141592653589793,
+   3.141592653589793,
+   1.7
+  ],
+  "mujoco_joint_low": [
+   -1.919862151145935,
+   -3.3161256313323975,
+   -0.11920368671417236,
+   -1.6580628156661987,
+   -2.7899999618530273,
+   -0.17399999499320984
+  ],
+  "mujoco_joint_high": [
+   1.919862151145935,
+   0.17399999499320984,
+   3.140000104904175,
+   1.6580626964569092,
+   2.7899999618530273,
+   1.7453291416168213
+  ],
+  "maximum_act_delta_per_step": [
+   0.6283185307179586,
+   0.6283185307179586,
+   0.6283185307179586,
+   0.6283185307179586,
+   0.6283185307179586,
+   0.34
+  ]
+ }
+}

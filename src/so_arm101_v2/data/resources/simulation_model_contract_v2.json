@@ -1,0 +1,125 @@
+{
+  "contract_version": 2,
+  "description": "v2 simulation model contract: MuJoCo Menagerie trs_so_arm100 with the composed ACT->MuJoCo joint mapping.",
+  "model": {
+    "runtime_scene": "simulation_code/model/menagerie_so_arm100/scene_v2.xml",
+    "patched_arm": "simulation_code/model/menagerie_so_arm100/so_arm101_v2.xml",
+    "upstream": {
+      "repository": "https://github.com/google-deepmind/mujoco_menagerie",
+      "path": "trs_so_arm100",
+      "commit": "71f066ad0be9cd271f7ed58c030243ef157af9f4",
+      "license": "Apache-2.0"
+    },
+    "legacy_model": "simulation_code/model/so101_new_calib.xml"
+  },
+  "joint_order": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "act_to_mujoco": {
+    "method": "composed_affine",
+    "step_1": "affine endpoint mapping from ACT dataset coordinates onto legacy_model_joint_low/high (the LeRobot-calibrated endpoints recorded in act_coordinate_contract.json, unchanged)",
+    "step_2": "q_menagerie = model_conversion_sign * q_legacy + model_conversion_offset",
+    "legacy_model_joint_low": [
+      -1.9198621771937616,
+      -1.7453292519943224,
+      -1.69,
+      -1.6580628494556928,
+      -2.7438472969992493,
+      -0.17453297762778586
+    ],
+    "legacy_model_joint_high": [
+      1.9198621771937634,
+      1.7453292519943366,
+      1.69,
+      1.6580627293335335,
+      2.841206309382605,
+      1.7453291995659765
+    ],
+    "model_conversion_sign": [
+      -1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "model_conversion_offset": [
+      0.0,
+      -1.5707963267948966,
+      1.5707963267948966,
+      0.0,
+      -0.04867319,
+      0.0
+    ]
+  },
+  "base_alignment": {
+    "description": "Pose of the patched model's Base body so the arm occupies the legacy world workspace. Derived by matching the shoulder_pan axis line (xy) and the shoulder_lift axis height (z); yaw resolves the OFFSET[0]=0 gauge.",
+    "pos": [
+      0.0,
+      -0.0063647,
+      -0.0024
+    ],
+    "quat_wxyz": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "derivation": {
+    "method": "chain-descent matching of physical invariants only (joint axis lines, next-joint axes, joint anchors, distal body centers of mass); body frames are export-arbitrary and were not compared. Offsets snapped to multiples of pi/2 when within 0.03 rad.",
+    "validation": {
+      "random_poses": 120,
+      "worst_joint_axis_line_residual_m": 0.00027,
+      "worst_joint_axis_misalignment_deg": 0.0,
+      "worst_distal_body_com_residual_m": 0.0063,
+      "note": "COM residual reflects real SO-ARM100-v1.3-CAD vs SO-101-export geometry differences, not a convention error."
+    }
+  },
+  "camera_site_transplant": {
+    "description": "wrist_camera, fixed_jaw_tip and moving_jaw_tip were FK-transplanted from the legacy model into the new gripper / moving jaw frames (runtime world poses; exact for plain frames). The wrist_camera_mount_visual MESH geom pose was instead derived by transforming the legacy XML's declared local pose through the rigid old-gripper -> new-gripper body transform, because MuJoCo's compiler folds a mesh re-centering transform into runtime geom poses and writing those back into XML applies the re-centering twice.",
+    "mount_visual_pose": {
+      "pos": [
+        0.0174898,
+        -0.0377991,
+        0.0258225
+      ],
+      "quat_wxyz": [
+        0.0,
+        -0.7071068,
+        0.0,
+        0.7071068
+      ]
+    },
+    "second_pose_verification": {
+      "camera_position_residual_m": 0.00018,
+      "camera_orientation_residual_deg": 0.0,
+      "site_position_residual_m": 0.00019,
+      "mount_cross_check": "the same rigid-transform derivation reproduces the FK-transplanted camera pose to 7 decimal places"
+    }
+  },
+  "mujoco_joint_bounds": {
+    "description": "Clipping/safety envelope in Menagerie coordinates: converted calibrated endpoints (elementwise ordered) intersected with the Menagerie mechanical joint ranges.",
+    "menagerie_mechanical_low": [
+      -1.92,
+      -3.32,
+      -0.174,
+      -1.66,
+      -2.79,
+      -0.174
+    ],
+    "menagerie_mechanical_high": [
+      1.92,
+      0.174,
+      3.14,
+      1.66,
+      2.79,
+      1.75
+    ]
+  }
+}

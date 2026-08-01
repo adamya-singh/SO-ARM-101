@@ -1,0 +1,28 @@
+{
+  "content_sha256": "0f0c23e787d46f8cdf688d5e1a761d23dd6ce92fa92e8b0503be58173367c74e",
+  "dataset_digest": "bb6ddb0572ee61eecbd21fe0a8f0342a1b81f0cac57a6c40ca64c92bf04028f9",
+  "dataset_id": "so101_pickplace_v1",
+  "episode_count": 10,
+  "episode_ids": [
+    10,
+    12,
+    40,
+    41,
+    46,
+    54,
+    57,
+    61,
+    74,
+    85
+  ],
+  "frame_count": 4384,
+  "provenance_batch_counts": {
+    "repo_batch_000_016": 2,
+    "repo_batch_017_049": 3,
+    "repo_batch_050_099": 5
+  },
+  "ranking_key": "sha256(<dataset_id>:split_v1:<episode_id>)",
+  "schema_version": 1,
+  "split": "test",
+  "split_version": "split_v1"
+}

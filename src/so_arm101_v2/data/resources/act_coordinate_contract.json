@@ -1,0 +1,44 @@
+{
+  "contract_version": 1,
+  "dataset": "so101_pickplace_v1",
+  "recording_commit": "60fbb767cbf5d54a53097bbf42b779ea05588428",
+  "recording_calibration_path": "~/.cache/huggingface/lerobot/calibration/robots/so100_follower/None.json",
+  "raw_calibration_recovery": {
+    "status": "not_present_in_local_or_git_history",
+    "note": "The January recording file is absent. Raw servo tick endpoints cancel after FeetechMotorsBus normalizes readings into the recorded motor ranges."
+  },
+  "current_physical_inference_calibration": {
+    "source": "~/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json",
+    "pinned_copy": "physical_inference_calibration_20260620.json",
+    "source_sha256": "00c6940f682c47448c484ee727117d28439744cc4fbc93a60f9b492ce2892ca8",
+    "pinned_copy_sha256": "f48d0ca37c2152f1279ca88f7a34dbcbf2c3cbe37054cb4a55584a7f6c83eb40",
+    "modified": "2026-06-20T04:50:33-04:00",
+    "status": "authoritative_current_physical_deployment_calibration",
+    "relationship_to_dataset": "Current calibration used by physical inference. It validates the same normalized motor-coordinate convention; its raw tick endpoints supersede older hardware calibration but cancel from the ACT-to-MuJoCo endpoint mapping after LeRobot normalization."
+  },
+  "joint_order": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "physical_bus_normalization": {
+    "body_joints": {
+      "mode": "RANGE_M100_100",
+      "range": [-100.0, 100.0],
+      "dataset_encoding": "motor_value / 100 * pi"
+    },
+    "gripper": {
+      "mode": "RANGE_0_100",
+      "range": [0.0, 100.0],
+      "dataset_encoding": "motor_value / 100 * 1.7"
+    }
+  },
+  "simulation_mapping": {
+    "method": "affine_endpoint_mapping",
+    "source": "simulation_code/model/so101_new_calib.xml joint limits",
+    "assumption": "LeRobot calibrated range endpoints and corresponding MuJoCo mechanical joint limits represent the same physical endpoints."
+  }
+}

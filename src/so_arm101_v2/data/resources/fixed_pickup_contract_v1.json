@@ -1,0 +1,124 @@
+{
+ "schema_version": 1,
+ "suite_id": "fixed_pickup_contract_v1",
+ "task_contract": "fixed_cube_pickup_v1",
+ "repeats": 3,
+ "diagnostic_only": false,
+ "scenarios": [
+  {
+   "scenario_id": "nominal",
+   "cube_position_m": [
+    0.0,
+    0.3,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  },
+  {
+   "scenario_id": "cube_x_minus_1p5mm",
+   "cube_position_m": [
+    -0.0015,
+    0.3,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  },
+  {
+   "scenario_id": "cube_x_plus_1p5mm",
+   "cube_position_m": [
+    0.0015,
+    0.3,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  },
+  {
+   "scenario_id": "cube_y_minus_1p5mm",
+   "cube_position_m": [
+    0.0,
+    0.2985,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  },
+  {
+   "scenario_id": "cube_y_plus_1p5mm",
+   "cube_position_m": [
+    0.0,
+    0.3015,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  }
+ ]
+}

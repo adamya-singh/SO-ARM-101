@@ -1,0 +1,40 @@
+{
+ "schema_version": 1,
+ "suite_id": "fixed_pickup_recovery_probe_v1",
+ "task_contract": "fixed_cube_pickup_v1",
+ "repeats": 3,
+ "diagnostic_only": true,
+ "recovery_probe": {
+  "strict_frames_before_probe": 5,
+  "opening_units_per_frame": 10,
+  "maximum_opening_frames": 5,
+  "recovery_strict_frames": 5,
+  "recovery_window_actions": 60,
+  "latest_trigger_action": 360
+ },
+ "scenarios": [
+  {
+   "scenario_id": "nominal_recovery",
+   "cube_position_m": [
+    0.0,
+    0.3,
+    0.0125
+   ],
+   "robot_qpos_mujoco": [
+    -0.0010472,
+    -3.31,
+    3.13,
+    1.1599458,
+    -1.5154479,
+    0.0314159
+   ],
+   "cube_quaternion_wxyz": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "fixed_appearance": true
+  }
+ ]
+}

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=71"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "so-arm101-v2"
+version = "0.4.0"
+description = "Diagnostics-first contracts and data tools for SO-ARM-101 robot learning"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24,<3",
+]
+
+[project.optional-dependencies]
+data = [
+    "av>=15,<17",
+    "pyarrow>=15,<24",
+]
+visualize = [
+    "mujoco>=3.4,<4",
+    "Pillow>=10,<13",
+]
+learn = [
+    "torch>=2.7,<2.8",
+]
+sim = [
+    "av>=15,<17",
+    "mujoco>=3.4,<4",
+]
+test = [
+    "av>=15,<17",
+    "mujoco>=3.4,<4",
+    "Pillow>=10,<13",
+    "pyarrow>=15,<24",
+    "pytest>=8,<9",
+    "torch>=2.7,<2.8",
+]
+
+[project.scripts]
+so-arm101-v2-data = "so_arm101_v2.data.cli:main"
+so-arm101-v2-learn = "so_arm101_v2.learning.cli:main"
+so-arm101-v2-sim = "so_arm101_v2.simulation.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"so_arm101_v2.data.resources" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --capture=no"
