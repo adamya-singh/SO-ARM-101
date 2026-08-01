@@ -30,6 +30,11 @@ def main() -> int:
     parser.add_argument(
         "--mujoco-model", default="simulation_code/model/menagerie_so_arm100/scene_v2.xml"
     )
+    parser.add_argument(
+        "--stop-on-success", action="store_true",
+        help="end the episode at pickup success like the task contract does; "
+        "by default the full sequence (including the napkin place) plays out",
+    )
     args = parser.parse_args()
 
     suite = load_simulation_suite("fixed_pickup_contract_v1")
@@ -45,6 +50,7 @@ def main() -> int:
             policy.reset(adapter)
             state = TaskEvaluationState()
             strict_frames = 0
+            contract_done = False
             for action in range(contract.episode.max_actions):
                 if not viewer.is_running():
                     break
@@ -53,21 +59,28 @@ def main() -> int:
                 command = adapter.apply_policy_command(requested)
                 adapter.advance_control_period()
                 measurement, _ = adapter.measurement(command)
-                state, evaluation = evaluate_task_step(contract, measurement, state)
+                # the contract refuses evaluation after a terminal outcome, so
+                # once it ends we keep stepping physics for the place phase
+                # without consulting it further
+                if not contract_done:
+                    state, evaluation = evaluate_task_step(contract, measurement, state)
                 strict_frames += int(measurement.strict_bilateral_grasp)
                 viewer.sync()
-                if action % 30 == 0 or measurement.strict_bilateral_grasp:
+                if action % 30 == 0 or (measurement.strict_bilateral_grasp and not contract_done):
                     print(
                         f"a={action + 1:3d} gain={1000 * measurement.cube_height_gain_m:6.1f}mm "
                         f"strict={measurement.strict_bilateral_grasp} "
                         f"unsafe={measurement.unsafe_contact} clip={measurement.command_bound_violation}"
                     )
-                if evaluation.terminated or evaluation.truncated:
+                if not contract_done and (evaluation.terminated or evaluation.truncated):
+                    contract_done = True
                     print(
-                        f"episode over: success={evaluation.success} "
+                        f"contract outcome: success={evaluation.success} "
                         f"invalidated={evaluation.invalidated} strict_frames={strict_frames}"
                     )
-                    break
+                    if args.stop_on_success or not evaluation.success:
+                        break
+                    print("...continuing past contract success to play the napkin place phase")
                 budget = (1.0 / 30.0) / max(args.speed, 1e-3) - (time.time() - step_start)
                 if budget > 0:
                     time.sleep(budget)

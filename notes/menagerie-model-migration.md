@@ -120,3 +120,25 @@ seconds what blind sweeps mislocalized for hours.
   ~29.8 mm (target 3 cm). Note the episode terminates on success, so the
   measured apex depends on lift speed as well as the commanded height;
   realized gain ~= command - 1.3 mm with the current stage timing.
+
+## Napkin place phase (2026-08-01)
+
+The physical dataset episodes end by placing the cube on a 2 in x 2 in napkin
+a few inches from the cube; the sim now matches:
+
+- `scene_v2.xml` adds a static 50.8 mm x 50.8 mm x 1 mm `napkin` geom at
+  (0.08, 0.30) - it enters both the physics and every camera view, closing a
+  visual domain gap for future imitation learning.
+- The privileged controller reads the napkin geom's pose and, after the lift,
+  traverses over it, sets the cube down, opens, and retreats (place-phase IK
+  solves run with loosened orientation tolerances/weights - carrying does not
+  need grasp-grade wrist orientation). All five suite scenarios finish with
+  the cube at rest on the napkin.
+- The task contract still terminates on pickup success, so contract-evaluated
+  episodes and the preflight are unchanged (re-certified after the scene
+  change: environment_proven=true, 15/15, tests 84/84). Extending the formal
+  success definition to "cube at rest on the napkin" is a deliberate future
+  contract revision (v3) - the sim behavior and visuals now match the data
+  ahead of that.
+- `tools/view_privileged_live.py` plays the full pick-and-place by default;
+  `--stop-on-success` reproduces the contract's early termination.

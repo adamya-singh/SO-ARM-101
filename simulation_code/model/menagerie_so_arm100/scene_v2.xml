@@ -22,6 +22,12 @@
         <camera name="camera_up" pos="0 0.2 0.6" xyaxes="1 0 0 0 1 0" fovy="72" />
         <camera name="camera_side" pos="0.5 0.2 0.25" xyaxes="0 1 0 -0.2873 0 0.9578" fovy="72" />
 
+        <!-- 2in x 2in napkin (place target), matching the physical dataset
+             where the cube is always set down on a napkin a few inches away.
+             Static thin box; the privileged controller reads its pose. -->
+        <geom name="napkin" type="box" pos="0.08 0.30 0.0005" size="0.0254 0.0254 0.0005"
+              rgba="0.93 0.91 0.85 1" friction="1 0.005 0.0001" />
+
         <!-- White block on the ground (half size: 2.5cm cube) -->
         <body name="red_block" pos="0 0.3 0.0125">
             <freejoint/>

@@ -99,12 +99,19 @@ class PrivilegedStagedController:
             adapter.data.qpos[address] = value
         mujoco.mj_forward(adapter.model, adapter.data)
 
-    def _solve(self, adapter: Any, seed: np.ndarray, pocket_target: np.ndarray, gripper: float, station: np.ndarray | None = None) -> np.ndarray:
+    def _solve(self, adapter: Any, seed: np.ndarray, pocket_target: np.ndarray, gripper: float, station: np.ndarray | None = None, loose: bool = False) -> np.ndarray:
         mujoco = _mujoco()
         original_qpos = adapter.data.qpos.copy()
         original_qvel = adapter.data.qvel.copy()
         qpos = seed.astype(np.float64).copy()
         qpos[5] = gripper
+        # Carrying/placing solves do not need grasp-grade orientation: allow
+        # the wrist to yaw and pitch with the reach, and soften the orientation
+        # residual weights so they cannot stall position convergence.
+        normal_tolerance = 60.0 if loose else self.normal_tolerance_deg
+        depth_tolerance = 45.0 if loose else self.depth_tolerance_deg
+        axis_weight = self.axis_weight * 0.2 if loose else self.axis_weight
+        depth_weight = self.depth_weight * 0.2 if loose else self.depth_weight
         station_local = POCKET_GRIPPER_FRAME if station is None else station
         station_offset = station_local - POCKET_GRIPPER_FRAME
         normal_target, depth_target = self._targets()
@@ -123,15 +130,15 @@ class PrivilegedStagedController:
                 depth_error = float(np.degrees(np.arccos(np.clip(np.dot(depth, depth_target), -1, 1))))
                 if (
                     position_error <= self.position_tolerance_m
-                    and normal_error <= self.normal_tolerance_deg
-                    and depth_error <= self.depth_tolerance_deg
+                    and normal_error <= normal_tolerance
+                    and depth_error <= depth_tolerance
                 ):
                     break
                 signed_normal_target = normal_target if np.dot(normal, normal_target) >= 0 else -normal_target
                 residual = np.concatenate((
                     position_residual,
-                    self.axis_weight * (signed_normal_target - normal),
-                    self.depth_weight * (depth_target - depth),
+                    axis_weight * (signed_normal_target - normal),
+                    depth_weight * (depth_target - depth),
                 ))
                 jacobian = np.empty((9, 5), dtype=np.float64)
                 epsilon = 1e-4
@@ -142,8 +149,8 @@ class PrivilegedStagedController:
                     rotation2 = np.asarray(adapter.data.body("gripper").xmat).reshape(3, 3)
                     pocket2 = pocket2 + rotation2 @ station_offset
                     jacobian[:3, joint] = (pocket2 - pocket) / epsilon
-                    jacobian[3:6, joint] = self.axis_weight * (normal2 - normal) / epsilon
-                    jacobian[6:, joint] = self.depth_weight * (depth2 - depth) / epsilon
+                    jacobian[3:6, joint] = axis_weight * (normal2 - normal) / epsilon
+                    jacobian[6:, joint] = depth_weight * (depth2 - depth) / epsilon
                     adapter.data.qpos[adapter._joint_qpos[joint]] = qpos[joint]
                 lhs = jacobian @ jacobian.T + self.damping * np.eye(9)
                 update = jacobian.T @ np.linalg.solve(lhs, residual)
@@ -151,8 +158,8 @@ class PrivilegedStagedController:
                 qpos[:5] = np.clip(qpos[:5] + update, MUJOCO_JOINT_LOW[:5], MUJOCO_JOINT_HIGH[:5])
             solved = bool(
                 position_error <= self.position_tolerance_m
-                and normal_error <= self.normal_tolerance_deg
-                and depth_error <= self.depth_tolerance_deg
+                and normal_error <= normal_tolerance
+                and depth_error <= depth_tolerance
             )
             self.solve_diagnostics.append({
                 "solved": solved, "position_error_m": position_error,
@@ -225,6 +232,36 @@ class PrivilegedStagedController:
             half_closed, closed, closed, lift, lift,
         ]
         self.boundaries = (0, 70, 110, 145, 175, 205, 255, 285, 315, 355, 450)
+
+        # Place phase, matching the physical dataset: carry the cube over the
+        # napkin, set it down, release, and retreat. The task contract still
+        # terminates on pickup success, so contract-evaluated episodes (and
+        # the preflight) end before these stages; the live viewer plays them.
+        mujoco = _mujoco()
+        napkin_geom = mujoco.mj_name2id(adapter.model, mujoco.mjtObj.mjOBJ_GEOM, "napkin")
+        if napkin_geom >= 0:
+            napkin = adapter.data.geom_xpos[napkin_geom].copy()
+            lift_z = self.grasp_height_m + self.lift_command_m
+            # While held, the cube center rides ~8.5 mm below the pocket, so a
+            # pocket 1.5 mm above grasp height sets the cube gently onto the
+            # 1 mm napkin before release.
+            pocket_over = np.array([napkin[0], napkin[1] - self.depth_lead_m, lift_z])
+            pocket_down = np.array([napkin[0], napkin[1] - self.depth_lead_m, self.grasp_height_m + 0.0015])
+            traverse = self._solve(adapter, lift, pocket_over, closed_gripper, loose=True)
+            set_down = self._solve(adapter, traverse, pocket_down, closed_gripper, loose=True)
+            released = with_gripper(set_down, open_gripper)
+            retreat = self._solve(
+                adapter, released, pocket_down + np.array([0.0, 0.0, 0.06]), open_gripper, loose=True
+            )
+            self.waypoints = [
+                start, above, lowered, descended, engaged, seated,
+                half_closed, closed, closed, lift, lift,
+                traverse, set_down, released, released, retreat,
+            ]
+            self.boundaries = (
+                0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
+                395, 420, 435, 445, 450,
+            )
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
         del image, current_act, adapter

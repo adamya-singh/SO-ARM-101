@@ -70,7 +70,10 @@ for the first time in the repo's history (269 consecutive frames at 56.5 N in a
 wedge test). The privileged-controller preflight now **passes end-to-end**
 (`environment_proven: true`, 15/15 deterministic strict-grasp pickups with
 zero safety violations) - the first proven-solvable simulator this project has
-had. Migration record: [`notes/menagerie-model-migration.md`](notes/menagerie-model-migration.md).
+had. The scene and controller also now match the physical dataset's full
+episode structure: a 2 in napkin place target is present in every camera view,
+and the privileged controller carries the cube to it and sets it down after
+the certified pickup. Migration record: [`notes/menagerie-model-migration.md`](notes/menagerie-model-migration.md).
 The legacy stack and all results below are unchanged and remain interpretable
 in their original context.
 

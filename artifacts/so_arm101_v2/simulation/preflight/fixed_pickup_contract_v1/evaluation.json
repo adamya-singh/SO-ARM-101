@@ -1,5 +1,5 @@
 {
-  "content_sha256": "124b120e4b4de8affb24e730754c51e526fc2f250238bac1398054b3096e7caf",
+  "content_sha256": "415716976dc9ae4a2c9cff886688bde8334faa8cd7d70da99aa1ab3779977fc0",
   "deterministic": true,
   "environment_proven": true,
   "interpretation_allowed": true,
@@ -13,22 +13,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002260983086362305,
-        0.3004209032560258,
-        0.0420847783624078
+        0.07368847564176696,
+        0.3013017591874048,
+        0.04302917713198411
       ],
       "final_robot_qpos": [
-        -0.005335689522325993,
-        -1.041974425315857,
-        2.4558448791503906,
-        -1.2422616481781006,
-        -1.5706485509872437,
-        0.03519374877214432
+        -0.2709706723690033,
+        -1.0115548372268677,
+        2.3642966747283936,
+        -1.1939369440078735,
+        -1.5585148334503174,
+        0.035194844007492065
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029753114814056618,
+      "maximum_height_gain_m": 0.03069751358363293,
       "nonfinite_frames": 0,
       "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/videos/privileged_staged.nominal.repeat0.overview.mp4",
       "policy_id": "privileged_staged",
@@ -54,22 +54,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002260983086362305,
-        0.3004209032560258,
-        0.0420847783624078
+        0.07368847564176696,
+        0.3013017591874048,
+        0.04302917713198411
       ],
       "final_robot_qpos": [
-        -0.005335689522325993,
-        -1.041974425315857,
-        2.4558448791503906,
-        -1.2422616481781006,
-        -1.5706485509872437,
-        0.03519374877214432
+        -0.2709706723690033,
+        -1.0115548372268677,
+        2.3642966747283936,
+        -1.1939369440078735,
+        -1.5585148334503174,
+        0.035194844007492065
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029753114814056618,
+      "maximum_height_gain_m": 0.03069751358363293,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -95,22 +95,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002260983086362305,
-        0.3004209032560258,
-        0.0420847783624078
+        0.07368847564176696,
+        0.3013017591874048,
+        0.04302917713198411
       ],
       "final_robot_qpos": [
-        -0.005335689522325993,
-        -1.041974425315857,
-        2.4558448791503906,
-        -1.2422616481781006,
-        -1.5706485509872437,
-        0.03519374877214432
+        -0.2709706723690033,
+        -1.0115548372268677,
+        2.3642966747283936,
+        -1.1939369440078735,
+        -1.5585148334503174,
+        0.035194844007492065
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029753114814056618,
+      "maximum_height_gain_m": 0.03069751358363293,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -136,22 +136,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0007314219921802922,
-        0.3004910620922406,
-        0.042019046218086414
+        0.0098892338783942,
+        0.301610681882195,
+        0.04262438932707386
       ],
       "final_robot_qpos": [
-        0.0004978397046215832,
-        -1.041662573814392,
-        2.455472946166992,
-        -1.2418700456619263,
-        -1.57193124294281,
-        0.035191845148801804
+        -0.03493785113096237,
+        -1.0401356220245361,
+        2.4457356929779053,
+        -1.2378005981445312,
+        -1.5712049007415771,
+        0.035191357135772705
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.02968738266973523,
+      "maximum_height_gain_m": 0.030292725778722676,
       "nonfinite_frames": 0,
       "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/videos/privileged_staged.cube_x_minus_1p5mm.repeat0.overview.mp4",
       "policy_id": "privileged_staged",
@@ -177,22 +177,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0007314219921802922,
-        0.3004910620922406,
-        0.042019046218086414
+        0.0098892338783942,
+        0.301610681882195,
+        0.04262438932707386
       ],
       "final_robot_qpos": [
-        0.0004978397046215832,
-        -1.041662573814392,
-        2.455472946166992,
-        -1.2418700456619263,
-        -1.57193124294281,
-        0.035191845148801804
+        -0.03493785113096237,
+        -1.0401356220245361,
+        2.4457356929779053,
+        -1.2378005981445312,
+        -1.5712049007415771,
+        0.035191357135772705
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.02968738266973523,
+      "maximum_height_gain_m": 0.030292725778722676,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -218,22 +218,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0007314219921802922,
-        0.3004910620922406,
-        0.042019046218086414
+        0.0098892338783942,
+        0.301610681882195,
+        0.04262438932707386
       ],
       "final_robot_qpos": [
-        0.0004978397046215832,
-        -1.041662573814392,
-        2.455472946166992,
-        -1.2418700456619263,
-        -1.57193124294281,
-        0.035191845148801804
+        -0.03493785113096237,
+        -1.0401356220245361,
+        2.4457356929779053,
+        -1.2378005981445312,
+        -1.5712049007415771,
+        0.035191357135772705
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.02968738266973523,
+      "maximum_height_gain_m": 0.030292725778722676,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -259,22 +259,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0037334646541016168,
-        0.3003547730357365,
-        0.04208785609550123
+        0.07367371312813169,
+        0.30090184582579577,
+        0.043075822766845295
       ],
       "final_robot_qpos": [
-        -0.010958101600408554,
-        -1.0419691801071167,
-        2.4558067321777344,
-        -1.2422373294830322,
-        -1.5694756507873535,
-        0.035191167145967484
+        -0.27131661772727966,
+        -1.011960744857788,
+        2.367095947265625,
+        -1.1970956325531006,
+        -1.5593230724334717,
+        0.03519243374466896
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029756192547150048,
+      "maximum_height_gain_m": 0.030744159218494112,
       "nonfinite_frames": 0,
       "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/videos/privileged_staged.cube_x_plus_1p5mm.repeat0.overview.mp4",
       "policy_id": "privileged_staged",
@@ -300,22 +300,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0037334646541016168,
-        0.3003547730357365,
-        0.04208785609550123
+        0.07367371312813169,
+        0.30090184582579577,
+        0.043075822766845295
       ],
       "final_robot_qpos": [
-        -0.010958101600408554,
-        -1.0419691801071167,
-        2.4558067321777344,
-        -1.2422373294830322,
-        -1.5694756507873535,
-        0.035191167145967484
+        -0.27131661772727966,
+        -1.011960744857788,
+        2.367095947265625,
+        -1.1970956325531006,
+        -1.5593230724334717,
+        0.03519243374466896
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029756192547150048,
+      "maximum_height_gain_m": 0.030744159218494112,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -341,22 +341,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0037334646541016168,
-        0.3003547730357365,
-        0.04208785609550123
+        0.07367371312813169,
+        0.30090184582579577,
+        0.043075822766845295
       ],
       "final_robot_qpos": [
-        -0.010958101600408554,
-        -1.0419691801071167,
-        2.4558067321777344,
-        -1.2422373294830322,
-        -1.5694756507873535,
-        0.035191167145967484
+        -0.27131661772727966,
+        -1.011960744857788,
+        2.367095947265625,
+        -1.1970956325531006,
+        -1.5593230724334717,
+        0.03519243374466896
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029756192547150048,
+      "maximum_height_gain_m": 0.030744159218494112,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -382,22 +382,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002255277870006495,
-        0.2989472282253356,
-        0.04207957453002142
+        0.0670648734364496,
+        0.30183145932485156,
+        0.042985312813518826
       ],
       "final_robot_qpos": [
-        -0.005342339631170034,
-        -1.0458511114120483,
-        2.4683828353881836,
-        -1.2505890130996704,
-        -1.5706344842910767,
-        0.035189319401979446
+        -0.2471361756324768,
+        -1.0141559839248657,
+        2.374393939971924,
+        -1.2018311023712158,
+        -1.5597440004348755,
+        0.0351814404129982
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029747910981670234,
+      "maximum_height_gain_m": 0.030653649265167643,
       "nonfinite_frames": 0,
       "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/videos/privileged_staged.cube_y_minus_1p5mm.repeat0.overview.mp4",
       "policy_id": "privileged_staged",
@@ -423,22 +423,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002255277870006495,
-        0.2989472282253356,
-        0.04207957453002142
+        0.0670648734364496,
+        0.30183145932485156,
+        0.042985312813518826
       ],
       "final_robot_qpos": [
-        -0.005342339631170034,
-        -1.0458511114120483,
-        2.4683828353881836,
-        -1.2505890130996704,
-        -1.5706344842910767,
-        0.035189319401979446
+        -0.2471361756324768,
+        -1.0141559839248657,
+        2.374393939971924,
+        -1.2018311023712158,
+        -1.5597440004348755,
+        0.0351814404129982
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029747910981670234,
+      "maximum_height_gain_m": 0.030653649265167643,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -464,22 +464,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.002255277870006495,
-        0.2989472282253356,
-        0.04207957453002142
+        0.0670648734364496,
+        0.30183145932485156,
+        0.042985312813518826
       ],
       "final_robot_qpos": [
-        -0.005342339631170034,
-        -1.0458511114120483,
-        2.4683828353881836,
-        -1.2505890130996704,
-        -1.5706344842910767,
-        0.035189319401979446
+        -0.2471361756324768,
+        -1.0141559839248657,
+        2.374393939971924,
+        -1.2018311023712158,
+        -1.5597440004348755,
+        0.0351814404129982
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029747910981670234,
+      "maximum_height_gain_m": 0.030653649265167643,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -505,22 +505,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0022638060716521696,
-        0.3019087766476685,
-        0.04208432192682459
+        0.07639610522931624,
+        0.30103070410323074,
+        0.043056009168118414
       ],
       "final_robot_qpos": [
-        -0.005316043738275766,
-        -1.038889765739441,
-        2.443427324295044,
-        -1.2324930429458618,
-        -1.5706485509872437,
-        0.03519676625728607
+        -0.2806778848171234,
+        -1.0120666027069092,
+        2.360621213912964,
+        -1.1880162954330444,
+        -1.557900309562683,
+        0.035202279686927795
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029752658378473407,
+      "maximum_height_gain_m": 0.03072434561976723,
       "nonfinite_frames": 0,
       "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/videos/privileged_staged.cube_y_plus_1p5mm.repeat0.overview.mp4",
       "policy_id": "privileged_staged",
@@ -546,22 +546,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0022638060716521696,
-        0.3019087766476685,
-        0.04208432192682459
+        0.07639610522931624,
+        0.30103070410323074,
+        0.043056009168118414
       ],
       "final_robot_qpos": [
-        -0.005316043738275766,
-        -1.038889765739441,
-        2.443427324295044,
-        -1.2324930429458618,
-        -1.5706485509872437,
-        0.03519676625728607
+        -0.2806778848171234,
+        -1.0120666027069092,
+        2.360621213912964,
+        -1.1880162954330444,
+        -1.557900309562683,
+        0.035202279686927795
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029752658378473407,
+      "maximum_height_gain_m": 0.03072434561976723,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
@@ -587,22 +587,22 @@
       "drops": 0,
       "failure_category": "success",
       "final_cube_position": [
-        0.0022638060716521696,
-        0.3019087766476685,
-        0.04208432192682459
+        0.07639610522931624,
+        0.30103070410323074,
+        0.043056009168118414
       ],
       "final_robot_qpos": [
-        -0.005316043738275766,
-        -1.038889765739441,
-        2.443427324295044,
-        -1.2324930429458618,
-        -1.5706485509872437,
-        0.03519676625728607
+        -0.2806778848171234,
+        -1.0120666027069092,
+        2.360621213912964,
+        -1.1880162954330444,
+        -1.557900309562683,
+        0.035202279686927795
       ],
       "grasp_losses": 0,
       "invalidated": false,
       "limiting_frames": 0,
-      "maximum_height_gain_m": 0.029752658378473407,
+      "maximum_height_gain_m": 0.03072434561976723,
       "nonfinite_frames": 0,
       "overview_video_path": null,
       "policy_id": "privileged_staged",
