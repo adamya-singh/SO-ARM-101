@@ -49,6 +49,31 @@ The current training stack is materially more stable than the January 2026 PPO r
 
 The current bottleneck is no longer catastrophic PPO instability. It is reward topology and behavior discovery: the agent can now train stably enough to expose whether the reward is pushing toward actual pickup behavior.
 
+### August 2026 update: the simulator itself was the blocker
+
+A privileged-controller "preflight" for the v2 rebuild lane (an oracle controller
+with ground-truth state that must prove the task is solvable before any learning
+is trusted) uncovered that **a strict opposing-face grasp of the 25 mm cube was
+physically impossible in every simulator configuration this repo had ever used**:
+MuJoCo collides mesh geoms by convex hull, and the one-piece jaw meshes' hulls
+filled the jaw mouth, so no policy could ever have learned the grasp the reward
+was asking for. This retroactively explains the corner-pinch-only behavior across
+all RL campaigns. Full chain of evidence:
+[`notes/privileged-controller-preflight-findings.md`](notes/privileged-controller-preflight-findings.md).
+
+In response, the v2 simulation lane was migrated to the community-validated
+MuJoCo Menagerie `trs_so_arm100` model (decomposed jaw collision meshes plus
+fingertip pad primitives - the standard fix), with a numerically derived and
+test-guarded joint-convention conversion, an FK-transplanted wrist camera, and
+migrated task/suite contracts. On the new model the strict grasp detector fired
+for the first time in the repo's history (269 consecutive frames at 56.5 N in a
+wedge test). The privileged-controller preflight now **passes end-to-end**
+(`environment_proven: true`, 15/15 deterministic strict-grasp pickups with
+zero safety violations) - the first proven-solvable simulator this project has
+had. Migration record: [`notes/menagerie-model-migration.md`](notes/menagerie-model-migration.md).
+The legacy stack and all results below are unchanged and remain interpretable
+in their original context.
+
 Evidence trail:
 - Physical dataset metadata: [`imitation-learning/datasets/so101_pickplace_v1/meta/info.json`](imitation-learning/datasets/so101_pickplace_v1/meta/info.json)
 - Sim dataset metadata: [`simulation_code/datasets/so101_pickplace/meta/info.json`](simulation_code/datasets/so101_pickplace/meta/info.json), [`simulation_code/datasets/so101_pickplace_fixed/meta/info.json`](simulation_code/datasets/so101_pickplace_fixed/meta/info.json)
