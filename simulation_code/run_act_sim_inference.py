@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from act_coordinate_utils import act_to_mujoco_qpos, clip_mujoco_qpos, mujoco_qpos_to_act
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CHECKPOINT = (
@@ -171,7 +173,8 @@ def adapt_sim_observation(obs: dict[str, Any]) -> dict[str, "torch.Tensor"]:
     if wrist_tensor.ndim != 3 or wrist_tensor.shape[-1] != 3:
         raise ValueError(f"Expected wrist image shape HWC RGB, got {tuple(wrist_tensor.shape)}")
 
-    state_tensor = torch.as_tensor(obs["observation.state"], dtype=torch.float32)
+    act_state = mujoco_qpos_to_act(np.asarray(obs["observation.state"], dtype=np.float32))
+    state_tensor = torch.as_tensor(act_state, dtype=torch.float32)
     if state_tensor.shape[-1] != 6:
         raise ValueError(f"Expected 6D joint state, got shape {tuple(state_tensor.shape)}")
 
@@ -202,13 +205,31 @@ def reset_options(args: argparse.Namespace) -> dict[str, Any] | None:
     return None
 
 
-def select_action(policy: Any, preprocessor: Any, postprocessor: Any, obs: dict[str, Any], env: Any) -> Any:
+def select_action(
+    policy: Any,
+    preprocessor: Any,
+    postprocessor: Any,
+    obs: dict[str, Any],
+    env: Any,
+    *,
+    return_diagnostics: bool = False,
+) -> Any:
     policy_obs = preprocessor(adapt_sim_observation(obs))
     with torch.no_grad():
         action = policy.select_action(policy_obs)
         action = postprocessor(action)
-    action_np = action.squeeze(0).detach().cpu().numpy().astype(np.float32)
-    return np.clip(action_np, env.joint_limits_low, env.joint_limits_high)
+    act_action = action.squeeze(0).detach().cpu().numpy().astype(np.float32)
+    mujoco_target = act_to_mujoco_qpos(act_action)
+    clipped_target, clip_mask = clip_mujoco_qpos(mujoco_target)
+    if not return_diagnostics:
+        return clipped_target
+    state_z = policy_obs["observation.state"].squeeze(0).detach().cpu().numpy().astype(np.float32)
+    return clipped_target, {
+        "act_action": act_action,
+        "mujoco_target": mujoco_target,
+        "clip_mask": clip_mask,
+        "state_z": state_z,
+    }
 
 
 def video_frame(obs: dict[str, Any], cameras: str) -> Any:
@@ -267,9 +288,25 @@ def run_episode(
         frames.append(video_frame(obs, args.video_cameras))
 
     while steps < args.max_steps_per_episode:
-        action = select_action(policy, preprocessor, postprocessor, obs, env)
         if args.verbose:
-            print(f"episode={episode_idx + 1} step={steps} action={np.round(action, 4).tolist()}")
+            action, action_diagnostics = select_action(
+                policy,
+                preprocessor,
+                postprocessor,
+                obs,
+                env,
+                return_diagnostics=True,
+            )
+        else:
+            action = select_action(policy, preprocessor, postprocessor, obs, env)
+        if args.verbose:
+            print(
+                f"episode={episode_idx + 1} step={steps} "
+                f"act_action={np.round(action_diagnostics['act_action'], 4).tolist()} "
+                f"mujoco_target={np.round(action_diagnostics['mujoco_target'], 4).tolist()} "
+                f"clip_mask={action_diagnostics['clip_mask'].astype(int).tolist()} "
+                f"state_z={np.round(action_diagnostics['state_z'], 3).tolist()}"
+            )
 
         for _ in range(args.steps_per_action):
             obs, reward, terminated, truncated, info = env.step(action)

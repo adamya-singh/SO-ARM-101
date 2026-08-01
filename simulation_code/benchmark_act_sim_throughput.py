@@ -86,7 +86,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--clip-epsilon", type=float, default=0.1)
     parser.add_argument("--gae-lambda", type=float, default=0.95)
     parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--randomize-block-reset", action="store_true")
+    parser.add_argument(
+        "--randomize-appearance",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument("--block-dist-range", type=float, nargs=2, default=(0.22, 0.26), metavar=("MIN", "MAX"))
+    parser.add_argument("--block-angle-range", type=float, nargs=2, default=(-10.0, 10.0), metavar=("MIN", "MAX"))
     parser.add_argument(
         "--curriculum-fixed-block",
         action=argparse.BooleanOptionalAction,
@@ -121,7 +129,11 @@ def make_train_args(args: argparse.Namespace, result: TrialResult | None = None)
         minibatch_size=minibatch_size,
         parallel_envs=parallel_envs,
         rollout_chunks_per_env=rollout_chunks_per_env,
+        seed=args.seed,
         randomize_block_reset=args.randomize_block_reset,
+        randomize_appearance=args.randomize_appearance,
+        block_dist_range=tuple(args.block_dist_range),
+        block_angle_range=tuple(args.block_angle_range),
         curriculum_fixed_block=args.curriculum_fixed_block,
         no_render=True,
         headless=True,
@@ -359,11 +371,13 @@ def main() -> int:
         device = train.torch.device("cuda" if train.torch.cuda.is_available() else "cpu")
 
     act_policy = train.load_act_policy(args.init_checkpoint, device)
+    normalization_stats = train.load_act_normalization_stats(args.init_checkpoint, device)
     policy = train.ACTGaussianPPOPolicy(
         act_policy,
         action_dim=6,
         chunk_size=args.chunk_size,
         log_std_init=args.log_std_init,
+        normalization_stats=normalization_stats,
     ).to(device)
     critic = train.PrivilegedCritic(input_dim=16).to(device)
     policy_optimizer = train.torch.optim.Adam(policy.parameters(), lr=args.policy_lr)

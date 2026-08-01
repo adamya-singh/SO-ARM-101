@@ -16,3 +16,6 @@ simulation_code/train.log
 __pycache__/
 *.egg-info/
 .pytest_cache/
+
+# Follow simulation_code/.gitignore convention for new wandb run dirs
+/wandb/

@@ -10,6 +10,9 @@ schema as the physical dataset; the critic uses privileged MuJoCo state.
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
+import json
 import math
 import multiprocessing as mp
 import os
@@ -20,6 +23,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path, PosixPath
 from typing import Any
+
+from act_coordinate_utils import (
+    MUJOCO_JOINT_HIGH,
+    MUJOCO_JOINT_LOW,
+    act_to_mujoco_qpos_torch,
+    clip_mujoco_qpos,
+    mujoco_qpos_to_act,
+)
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -33,6 +44,54 @@ DEFAULT_INIT_CHECKPOINT = (
     / "026020"
     / "pretrained_model"
 )
+
+ACT_REWARD_PROFILES: dict[str, dict[str, float | int | bool]] = {
+    "baseline": {},
+    "jaw_quality": {
+        "pregrasp_alignment_reward_scale": 0.16,
+        "aligned_close_reward": 0.14,
+        "jaw_centered_contact_reward": 0.16,
+        "recent_jaw_centered_contact_window": 20,
+    },
+    "jaw_quality_rebalanced": {
+        "pregrasp_alignment_reward_scale": 0.16,
+        "aligned_close_reward": 0.14,
+        "jaw_centered_contact_reward": 0.16,
+        "recent_jaw_centered_contact_window": 20,
+        "bilateral_grasp_bonus": 0.8,
+        "grasp_persistence_reward": 0.25,
+        "side_push_penalty": -0.06,
+        "block_displacement_penalty_scale": 0.45,
+    },
+    "strict_transition": {
+        "strict_transition": True,
+        "strict_grasp_required_steps": 5,
+        "pregrasp_alignment_reward_scale": 0.0,
+        "aligned_close_reward": 0.0,
+        "jaw_centered_contact_reward": 0.0,
+        "contact_persistence_reward": 0.0,
+        "bilateral_grasp_bonus": 1.10,
+        "grasp_persistence_reward": 0.10,
+        "grasped_vertical_lift_reward_scale": 40.0,
+        "grasped_vertical_lift_reward_cap": 0.40,
+        "micro_lift_bonus": 0.80,
+        "lift_bonus": 2.0,
+        "success_lift_bonus": 6.0,
+        "pregrasp_potential_scale": 0.20,
+        "interior_contact_potential_scale": 0.30,
+        "bilateral_opposition_potential_scale": 0.50,
+        "corner_only_contact_penalty": -0.08,
+    },
+}
+
+
+def resolve_reward_profile(name: str) -> dict[str, float | int | bool]:
+    """Return an isolated reward-override mapping for a named ACT PPO profile."""
+    try:
+        return dict(ACT_REWARD_PROFILES[name])
+    except KeyError as exc:
+        choices = ", ".join(sorted(ACT_REWARD_PROFILES))
+        raise ValueError(f"Unknown reward profile {name!r}; choose one of: {choices}") from exc
 
 np = None
 torch = None
@@ -64,6 +123,51 @@ def git_revision() -> str:
         return f"{revision}-dirty" if dirty else revision
     except Exception:
         return "unknown"
+
+
+def simulator_model_hash() -> str:
+    """Hash the production arm XML recorded in checkpoints and manifests."""
+    path = SCRIPT_DIR / "model" / "so101_new_calib.xml"
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def configure_actor_train_scope(policy: Any, scope: str) -> list[str]:
+    """Freeze ACT parameters outside a declared fine-tuning scope."""
+    for parameter in policy.act_policy.parameters():
+        parameter.requires_grad_(False)
+    prefixes = {
+        "all": ("",),
+        "decoder_head": (
+            "model.decoder.",
+            "model.decoder_pos_embed.",
+            "model.action_head.",
+        ),
+        "action_head": ("model.action_head.",),
+    }[scope]
+    for name, parameter in policy.act_policy.named_parameters():
+        if any(name.startswith(prefix) for prefix in prefixes):
+            parameter.requires_grad_(True)
+    policy.log_std.requires_grad_(True)
+    trainable = [name for name, parameter in policy.named_parameters() if parameter.requires_grad]
+    if not trainable:
+        raise RuntimeError(f"actor train scope {scope!r} selected no parameters")
+    return trainable
+
+
+def set_optimizer_lr(optimizer: Any, learning_rate: float) -> None:
+    """Apply the requested effective LR after restoring Adam state."""
+    for group in optimizer.param_groups:
+        group["lr"] = float(learning_rate)
+
+
+def load_branch_checkpoint(path: Path, policy: Any, critic: Any, device: Any) -> dict[str, Any]:
+    """Load weights for a new branch without inheriting optimizer/counter state."""
+    torch.serialization.add_safe_globals([PosixPath])
+    checkpoint = torch.load(path, map_location=device)
+    policy.act_policy.load_state_dict(checkpoint["act_policy"], strict=False)
+    policy.log_std.data.copy_(checkpoint["log_std"].to(device))
+    critic.load_state_dict(checkpoint["critic"])
+    return checkpoint
 
 
 def load_training_dependencies() -> None:
@@ -149,12 +253,21 @@ class ACTGaussianPPOPolicy(nn.Module if nn is not None else object):
     LeRobot version only exposes no-grad inference, training fails explicitly.
     """
 
-    def __init__(self, act_policy: nn.Module, action_dim: int, chunk_size: int, log_std_init: float):
+    def __init__(
+        self,
+        act_policy: nn.Module,
+        action_dim: int,
+        chunk_size: int,
+        log_std_init: float,
+        normalization_stats: dict[str, torch.Tensor],
+    ):
         super().__init__()
         self.act_policy = act_policy
         self.action_dim = action_dim
         self.chunk_size = chunk_size
         self.log_std = nn.Parameter(torch.full((action_dim,), float(log_std_init)))
+        for name, value in normalization_stats.items():
+            self.register_buffer(name, value.detach().clone(), persistent=False)
 
     def _extract_action_tensor(self, output: Any) -> torch.Tensor:
         if isinstance(output, torch.Tensor):
@@ -176,7 +289,15 @@ class ACTGaussianPPOPolicy(nn.Module if nn is not None else object):
             output = self.act_policy(observation)
             return self._extract_action_tensor(output)
 
-        batch = dict(observation)
+        batch = {
+            **observation,
+            "observation.state": (
+                observation["observation.state"] - self.state_mean
+            ) / self.state_std,
+            "observation.images.wrist": (
+                observation["observation.images.wrist"] - self.image_mean
+            ) / self.image_std,
+        }
         image_features = getattr(getattr(self.act_policy, "config", None), "image_features", None)
         if image_features:
             batch["observation.images"] = [batch[key] for key in image_features]
@@ -206,7 +327,9 @@ class ACTGaussianPPOPolicy(nn.Module if nn is not None else object):
         if mean.shape[1] < self.chunk_size:
             pad = mean[:, -1:, :].expand(-1, self.chunk_size - mean.shape[1], -1)
             mean = torch.cat([mean, pad], dim=1)
-        return mean[:, : self.chunk_size, :]
+        normalized_mean = mean[:, : self.chunk_size, :]
+        act_mean = normalized_mean * self.action_std + self.action_mean
+        return act_to_mujoco_qpos_torch(act_mean)
 
     def distribution(self, observation: dict[str, torch.Tensor]) -> torch.distributions.Normal:
         mean = self.mean_chunk(observation)
@@ -251,12 +374,21 @@ def define_model_classes() -> None:
         LeRobot version only exposes no-grad inference, training fails explicitly.
         """
 
-        def __init__(self, act_policy: nn.Module, action_dim: int, chunk_size: int, log_std_init: float):
+        def __init__(
+            self,
+            act_policy: nn.Module,
+            action_dim: int,
+            chunk_size: int,
+            log_std_init: float,
+            normalization_stats: dict[str, torch.Tensor],
+        ):
             super().__init__()
             self.act_policy = act_policy
             self.action_dim = action_dim
             self.chunk_size = chunk_size
             self.log_std = nn.Parameter(torch.full((action_dim,), float(log_std_init)))
+            for name, value in normalization_stats.items():
+                self.register_buffer(name, value.detach().clone(), persistent=False)
 
         def _extract_action_tensor(self, output: Any) -> torch.Tensor:
             if isinstance(output, torch.Tensor):
@@ -278,7 +410,15 @@ def define_model_classes() -> None:
                 output = self.act_policy(observation)
                 return self._extract_action_tensor(output)
 
-            batch = dict(observation)
+            batch = {
+                **observation,
+                "observation.state": (
+                    observation["observation.state"] - self.state_mean
+                ) / self.state_std,
+                "observation.images.wrist": (
+                    observation["observation.images.wrist"] - self.image_mean
+                ) / self.image_std,
+            }
             image_features = getattr(getattr(self.act_policy, "config", None), "image_features", None)
             if image_features:
                 batch["observation.images"] = [batch[key] for key in image_features]
@@ -308,7 +448,9 @@ def define_model_classes() -> None:
             if mean.shape[1] < self.chunk_size:
                 pad = mean[:, -1:, :].expand(-1, self.chunk_size - mean.shape[1], -1)
                 mean = torch.cat([mean, pad], dim=1)
-            return mean[:, : self.chunk_size, :]
+            normalized_mean = mean[:, : self.chunk_size, :]
+            act_mean = normalized_mean * self.action_std + self.action_mean
+            return act_to_mujoco_qpos_torch(act_mean)
 
         def distribution(self, observation: dict[str, torch.Tensor]) -> torch.distributions.Normal:
             mean = self.mean_chunk(observation)
@@ -348,6 +490,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--policy-lr", type=float, default=1e-5)
     parser.add_argument("--critic-lr", type=float, default=1e-4)
     parser.add_argument("--log-std-init", type=float, default=-2.0)
+    parser.add_argument(
+        "--reward-profile",
+        choices=tuple(ACT_REWARD_PROFILES),
+        default="baseline",
+        help="Named staged-pickup reward configuration; baseline preserves current reward defaults.",
+    )
+    parser.add_argument(
+        "--reset-curriculum", choices=("none", "mixed", "adaptive"), default="none"
+    )
+    parser.add_argument("--reset-bank", type=Path, default=None)
+    parser.add_argument(
+        "--adaptive-stage",
+        choices=("lift", "grasp", "full", "normal"),
+        default="lift",
+        help="Reset mixture used when --reset-curriculum adaptive.",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Base RNG seed for training and environment workers.")
     parser.add_argument(
         "--resume-log-std-offset",
@@ -384,7 +542,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--no-wandb", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
+    parser.add_argument(
+        "--branch-from",
+        type=Path,
+        default=None,
+        help="Load policy/critic weights from a PPO checkpoint but start fresh optimizers and counters.",
+    )
+    parser.add_argument(
+        "--actor-train-scope",
+        choices=("all", "decoder_head", "action_head"),
+        default="all",
+    )
+    parser.add_argument("--reference-anchor-coef", type=float, default=0.0)
+    parser.add_argument("--entropy-coef", type=float, default=0.0)
+    parser.add_argument("--campaign-generation", type=int, default=-1)
+    parser.add_argument("--campaign-condition", default="")
+    parser.add_argument("--lineage-parent", default="")
+    parser.add_argument(
+        "--branch-log-std-offset",
+        type=float,
+        default=0.0,
+        help="Global log-standard-deviation offset applied only with --branch-from.",
+    )
+    parser.add_argument(
+        "--gripper-log-std-offset",
+        type=float,
+        default=0.0,
+        help="Gripper-only log-standard-deviation offset applied only with --branch-from.",
+    )
     parser.add_argument("--checkpoint-path", type=Path, default=SCRIPT_DIR / "act_sim_ppo_checkpoint.pt")
+    parser.add_argument("--metrics-jsonl", type=Path, default=None)
+    parser.add_argument("--wandb-url-path", type=Path, default=None)
     parser.add_argument(
         "--snapshot-every",
         type=int,
@@ -399,7 +587,60 @@ def parse_args() -> argparse.Namespace:
         raise ValueError("--block-angle-range MIN must be <= MAX")
     if args.snapshot_every < 0:
         raise ValueError("--snapshot-every must be >= 0")
+    if args.reset_curriculum != "none" and args.reset_bank is None:
+        raise ValueError("--reset-bank is required for mixed/adaptive curricula")
+    if args.resume is not None and args.branch_from is not None:
+        raise ValueError("--resume and --branch-from are mutually exclusive")
+    if args.branch_from is None and (
+        args.branch_log_std_offset != 0.0 or args.gripper_log_std_offset != 0.0
+    ):
+        raise ValueError("branch log-std offsets require --branch-from")
+    if args.reference_anchor_coef < 0.0 or args.entropy_coef < 0.0:
+        raise ValueError("anchor and entropy coefficients must be non-negative")
+    if args.reset_bank is not None and not args.reset_bank.is_file():
+        raise FileNotFoundError(args.reset_bank)
+    for checkpoint_arg in (args.resume, args.branch_from):
+        if checkpoint_arg is not None and not checkpoint_arg.is_file():
+            raise FileNotFoundError(checkpoint_arg)
+    args.reward_kwargs = resolve_reward_profile(args.reward_profile)
     return args
+
+
+def reset_stage_probabilities(curriculum: str, progress: int, adaptive_stage: str) -> dict[str, float]:
+    if curriculum == "none":
+        return {"normal": 1.0, "pregrasp": 0.0, "grasped": 0.0}
+    if curriculum == "mixed":
+        if progress < 30:
+            return {"normal": 0.25, "pregrasp": 0.35, "grasped": 0.40}
+        if progress < 60:
+            return {"normal": 0.50, "pregrasp": 0.35, "grasped": 0.15}
+        return {"normal": 0.75, "pregrasp": 0.25, "grasped": 0.0}
+    mixes = {
+        "lift": {"normal": 0.0, "pregrasp": 0.30, "grasped": 0.70},
+        "grasp": {"normal": 0.20, "pregrasp": 0.60, "grasped": 0.20},
+        "full": {"normal": 0.75, "pregrasp": 0.25, "grasped": 0.0},
+        "normal": {"normal": 1.0, "pregrasp": 0.0, "grasped": 0.0},
+    }
+    return mixes[adaptive_stage]
+
+
+def load_reset_bank(path: Path | None) -> dict[str, list[dict[str, Any]]]:
+    if path is None:
+        return {"pregrasp": [], "grasped": []}
+    payload = json.loads(path.read_text())
+    if int(payload.get("schema_version", 0)) != 2:
+        raise ValueError("Reset bank must use preload-aware schema_version 2")
+    bank = {stage: list(payload.get(stage, [])) for stage in ("pregrasp", "grasped")}
+    for stage, states in bank.items():
+        if len(states) < 32:
+            raise ValueError(f"Reset bank requires at least 32 validated {stage} states; found {len(states)}")
+        for index, state in enumerate(states):
+            for key in ("robot_qpos", "robot_ctrl", "grasp_ctrl", "lift_ctrl", "block_pos"):
+                if key not in state:
+                    raise ValueError(f"Reset bank {stage}[{index}] is missing {key}")
+            if not bool(state.get("proof", {}).get("valid", False)):
+                raise ValueError(f"Reset bank {stage}[{index}] lacks a valid dynamic proof")
+    return bank
 
 
 def load_act_policy(checkpoint: Path, device: torch.device) -> nn.Module:
@@ -426,6 +667,34 @@ def load_act_policy(checkpoint: Path, device: torch.device) -> nn.Module:
     return policy
 
 
+def load_act_normalization_stats(checkpoint: Path, device: torch.device) -> dict[str, torch.Tensor]:
+    """Load differentiable ACT normalization constants from the checkpoint."""
+    try:
+        from safetensors.torch import load_file
+    except ImportError as exc:
+        raise RuntimeError("safetensors is required to load ACT normalization statistics") from exc
+
+    stats_path = checkpoint.resolve() / "policy_preprocessor_step_3_normalizer_processor.safetensors"
+    if not stats_path.is_file():
+        raise FileNotFoundError(f"ACT normalization statistics not found: {stats_path}")
+    values = load_file(str(stats_path), device=str(device))
+    required = {
+        "state_mean": "observation.state.mean",
+        "state_std": "observation.state.std",
+        "image_mean": "observation.images.wrist.mean",
+        "image_std": "observation.images.wrist.std",
+        "action_mean": "action.mean",
+        "action_std": "action.std",
+    }
+    missing = [key for key in required.values() if key not in values]
+    if missing:
+        raise KeyError(f"ACT normalization statistics are missing: {', '.join(missing)}")
+    return {
+        name: values[key].to(device=device, dtype=torch.float32)
+        for name, key in required.items()
+    }
+
+
 def adapt_sim_observation(obs: dict[str, np.ndarray], device: torch.device) -> dict[str, torch.Tensor]:
     """Map SO101PickPlaceEnv output to the physical ACT dataset schema."""
     wrist = obs["observation.images.camera2"]
@@ -434,7 +703,8 @@ def adapt_sim_observation(obs: dict[str, np.ndarray], device: torch.device) -> d
     else:
         wrist_tensor = torch.from_numpy(wrist).float()
     wrist_tensor = wrist_tensor.permute(2, 0, 1).unsqueeze(0).to(device)
-    state_tensor = torch.from_numpy(obs["observation.state"].astype(np.float32)).unsqueeze(0).to(device)
+    act_state = mujoco_qpos_to_act(obs["observation.state"].astype(np.float32))
+    state_tensor = torch.from_numpy(act_state).unsqueeze(0).to(device)
     return {
         "observation.images.wrist": wrist_tensor,
         "observation.state": state_tensor,
@@ -449,7 +719,8 @@ def adapt_sim_observation_batch(wrist_images: np.ndarray, states: np.ndarray, de
     if wrist_tensor.ndim != 4:
         raise ValueError(f"Expected batched wrist images with shape (B,H,W,C), got {tuple(wrist_tensor.shape)}")
     wrist_tensor = wrist_tensor.permute(0, 3, 1, 2).contiguous().to(device)
-    state_tensor = torch.from_numpy(states.astype(np.float32)).to(device)
+    act_states = mujoco_qpos_to_act(states.astype(np.float32))
+    state_tensor = torch.from_numpy(act_states).to(device)
     return {
         "observation.images.wrist": wrist_tensor,
         "observation.state": state_tensor,
@@ -549,6 +820,15 @@ REWARD_COMPONENT_KEYS = [
     "jaw_gap_width",
     "jaw_lateral_error",
     "jaw_depth_error",
+    "pregrasp_face_axis_alignment",
+    "pregrasp_face_guidance_score",
+    "pregrasp_face_height_error",
+    "pregrasp_face_depth_error",
+    "pregrasp_face_lateral_error",
+    "face_axis_guidance_progress",
+    "interior_face_contact_score",
+    "face_contact_quality",
+    "bilateral_opposition_quality",
     "pregrasp_alignment_reward",
     "aligned_close_reward",
     "jaw_centered_contact_reward",
@@ -608,8 +888,12 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
             block_angle_range=worker_config["block_angle_range"],
             task_instruction="pick up the block",
             randomize_appearance=worker_config["randomize_appearance"],
+            reward_kwargs=worker_config["reward_kwargs"],
         )
         block_pos = worker_config["block_pos"]
+        reset_bank = worker_config["reset_bank"]
+        reset_rng = random.Random(worker_seed)
+        training_progress = 0
         max_steps = int(worker_config["max_steps_per_episode"])
         done = True
         obs = None
@@ -618,7 +902,17 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
 
         def reset_env():
             nonlocal done, obs, info, first_reset
-            options = None if worker_config["randomize_block_reset"] else {"block_pos": block_pos}
+            probabilities = reset_stage_probabilities(
+                worker_config["reset_curriculum"], training_progress, worker_config["adaptive_stage"]
+            )
+            stage = reset_rng.choices(
+                ("normal", "pregrasp", "grasped"),
+                weights=tuple(probabilities[name] for name in ("normal", "pregrasp", "grasped")),
+                k=1,
+            )[0]
+            options = {} if worker_config["randomize_block_reset"] else {"block_pos": block_pos}
+            if stage != "normal":
+                options["reset_state"] = reset_rng.choice(reset_bank[stage])
             obs, info = env.reset(seed=worker_seed if first_reset else None, options=options)
             first_reset = False
             done = False
@@ -646,13 +940,35 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                     "success": 0.0,
                     "contact_steps": 0,
                     "grasp_steps": 0,
+                    "force_grasp_steps": 0,
+                    "face_grasp_steps": 0,
+                    "force_only_grasp_steps": 0,
+                    "interior_face_contact_steps": 0,
+                    "corner_only_contact_steps": 0,
+                    "fixed_interior_face_contact_steps": 0,
+                    "moving_interior_face_contact_steps": 0,
+                    "bilateral_interior_face_contact_steps": 0,
+                    "face_corner_rejection_steps": 0,
+                    "face_alignment_sum": 0.0,
+                    "face_opposition_sum": 0.0,
+                    "face_jaw_axis_alignment_sum": 0.0,
+                    "face_diagnostic_steps": 0,
                     "lift_steps": 0,
                     "max_block_height_gain": 0.0,
+                    "max_strict_grasp_streak": 0,
+                    "strict_success_steps": 0,
+                    "stage_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+                    "stage_strict_success_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+                    "stage_max_strict_grasp_streak": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
                     "episodes_completed": 0,
+                    "action_clip_count": 0,
+                    "action_value_count": 0,
                     "reward_components": empty_reward_components(),
                 }
                 for action in action_chunk:
-                    clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high).astype(np.float32)
+                    clipped_action, clip_mask = clip_mujoco_qpos(action)
+                    metrics["action_clip_count"] += int(clip_mask.sum())
+                    metrics["action_value_count"] += int(clip_mask.size)
                     for _ in range(int(steps_per_action)):
                         obs, reward, terminated, truncated, info = env.step(clipped_action)
                         total_reward += float(reward)
@@ -660,10 +976,52 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                         metrics["success"] = max(metrics["success"], float(info.get("success", False)))
                         metrics["contact_steps"] += int(bool(info.get("contacted", False)))
                         metrics["grasp_steps"] += int(bool(info.get("gripped", False)))
+                        metrics["force_grasp_steps"] += int(bool(info.get("force_gripped", False)))
+                        metrics["face_grasp_steps"] += int(bool(info.get("face_gripped", False)))
+                        metrics["force_only_grasp_steps"] += int(
+                            bool(info.get("force_only_grasp", False))
+                        )
+                        metrics["interior_face_contact_steps"] += int(
+                            bool(info.get("interior_face_contact", False))
+                        )
+                        metrics["corner_only_contact_steps"] += int(
+                            bool(info.get("corner_only_contact", False))
+                        )
+                        metrics["fixed_interior_face_contact_steps"] += int(
+                            bool(info.get("fixed_interior_face_contact", False))
+                        )
+                        metrics["moving_interior_face_contact_steps"] += int(
+                            bool(info.get("moving_interior_face_contact", False))
+                        )
+                        metrics["bilateral_interior_face_contact_steps"] += int(
+                            bool(info.get("bilateral_interior_face_contact", False))
+                        )
+                        metrics["face_corner_rejection_steps"] += int(
+                            bool(info.get("face_corner_rejection", False))
+                        )
+                        metrics["face_alignment_sum"] += float(info.get("face_alignment", 0.0))
+                        metrics["face_opposition_sum"] += float(info.get("face_opposition", 0.0))
+                        metrics["face_jaw_axis_alignment_sum"] += float(
+                            info.get("face_jaw_axis_alignment", 0.0)
+                        )
+                        metrics["face_diagnostic_steps"] += 1
                         metrics["lift_steps"] += int(bool(info.get("block_lifted", False)))
                         metrics["max_block_height_gain"] = max(
                             metrics["max_block_height_gain"],
                             float(info.get("block_height_gain", 0.0)),
+                        )
+                        reset_stage = str(info.get("reset_stage", "normal"))
+                        metrics["stage_steps"][reset_stage] += 1
+                        strict_success = int(bool(info.get("strict_lift_success", False)))
+                        metrics["strict_success_steps"] += strict_success
+                        metrics["stage_strict_success_steps"][reset_stage] += strict_success
+                        metrics["max_strict_grasp_streak"] = max(
+                            metrics["max_strict_grasp_streak"],
+                            int(info.get("strict_grasp_streak", 0)),
+                        )
+                        metrics["stage_max_strict_grasp_streak"][reset_stage] = max(
+                            metrics["stage_max_strict_grasp_streak"][reset_stage],
+                            int(info.get("strict_grasp_streak", 0)),
                         )
                         add_reward_components(metrics["reward_components"], info)
                         done = bool(terminated or truncated)
@@ -679,6 +1037,9 @@ def _act_env_worker(remote, parent_remote, worker_config: dict[str, Any]) -> Non
                         "metrics": metrics,
                     }
                 )
+            elif cmd == "set_progress":
+                training_progress = int(payload)
+                remote.send({"ok": True})
             elif cmd == "close":
                 env.close()
                 remote.close()
@@ -705,6 +1066,10 @@ class ACTSubprocVecEnv:
             "block_dist_range": tuple(float(v) for v in args.block_dist_range),
             "block_angle_range": tuple(float(v) for v in args.block_angle_range),
             "block_pos": tuple(float(v) for v in block_pos),
+            "reward_kwargs": dict(args.reward_kwargs),
+            "reset_curriculum": args.reset_curriculum,
+            "adaptive_stage": args.adaptive_stage,
+            "reset_bank": load_reset_bank(args.reset_bank),
         }
         self.parent_conns = []
         self.processes = []
@@ -724,6 +1089,12 @@ class ACTSubprocVecEnv:
             child_conn.close()
             self.parent_conns.append(parent_conn)
             self.processes.append(process)
+
+    def set_training_progress(self, progress: int) -> None:
+        for conn in self.parent_conns:
+            conn.send(("set_progress", int(progress)))
+        payloads = [conn.recv() for conn in self.parent_conns]
+        self._raise_worker_errors(payloads)
 
     def get_obs(self) -> dict[str, np.ndarray]:
         for conn in self.parent_conns:
@@ -746,18 +1117,71 @@ class ACTSubprocVecEnv:
             "success": 0.0,
             "contact_steps": 0,
             "grasp_steps": 0,
+            "force_grasp_steps": 0,
+            "face_grasp_steps": 0,
+            "force_only_grasp_steps": 0,
+            "interior_face_contact_steps": 0,
+            "corner_only_contact_steps": 0,
+            "fixed_interior_face_contact_steps": 0,
+            "moving_interior_face_contact_steps": 0,
+            "bilateral_interior_face_contact_steps": 0,
+            "face_corner_rejection_steps": 0,
+            "face_alignment_sum": 0.0,
+            "face_opposition_sum": 0.0,
+            "face_jaw_axis_alignment_sum": 0.0,
+            "face_diagnostic_steps": 0,
             "lift_steps": 0,
             "max_block_height_gain": 0.0,
+            "max_strict_grasp_streak": 0,
+            "strict_success_steps": 0,
+            "stage_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+            "stage_strict_success_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+            "stage_max_strict_grasp_streak": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
             "episodes_completed": 0,
+            "action_clip_count": 0,
+            "action_value_count": 0,
             "reward_components": empty_reward_components(),
         }
         for payload in payloads:
-            for key in ("steps", "success", "contact_steps", "grasp_steps", "lift_steps", "episodes_completed"):
+            for key in (
+                "steps",
+                "success",
+                "contact_steps",
+                "grasp_steps",
+                "force_grasp_steps",
+                "face_grasp_steps",
+                "force_only_grasp_steps",
+                "interior_face_contact_steps",
+                "corner_only_contact_steps",
+                "fixed_interior_face_contact_steps",
+                "moving_interior_face_contact_steps",
+                "bilateral_interior_face_contact_steps",
+                "face_corner_rejection_steps",
+                "face_alignment_sum",
+                "face_opposition_sum",
+                "face_jaw_axis_alignment_sum",
+                "face_diagnostic_steps",
+                "lift_steps",
+                "episodes_completed",
+                "action_clip_count",
+                "action_value_count",
+            ):
                 metrics[key] += payload["metrics"][key]
             metrics["max_block_height_gain"] = max(
                 metrics["max_block_height_gain"],
                 float(payload["metrics"]["max_block_height_gain"]),
             )
+            metrics["max_strict_grasp_streak"] = max(
+                metrics["max_strict_grasp_streak"], payload["metrics"]["max_strict_grasp_streak"]
+            )
+            metrics["strict_success_steps"] += payload["metrics"]["strict_success_steps"]
+            for stage in ("normal", "pregrasp", "grasped"):
+                metrics["stage_steps"][stage] += payload["metrics"]["stage_steps"][stage]
+                metrics["stage_strict_success_steps"][stage] += payload["metrics"]["stage_strict_success_steps"][stage]
+                metrics["stage_max_strict_grasp_streak"][stage] = max(
+                    metrics["stage_max_strict_grasp_streak"][stage],
+                    payload["metrics"]["stage_max_strict_grasp_streak"][stage],
+                )
             for key in REWARD_COMPONENT_KEYS:
                 metrics["reward_components"][key] += payload["metrics"]["reward_components"][key]
         return {
@@ -847,12 +1271,32 @@ def collect_rollout(
         "success": 0.0,
         "contact_steps": 0,
         "grasp_steps": 0,
+        "force_grasp_steps": 0,
+        "face_grasp_steps": 0,
+        "force_only_grasp_steps": 0,
+        "interior_face_contact_steps": 0,
+        "corner_only_contact_steps": 0,
+        "fixed_interior_face_contact_steps": 0,
+        "moving_interior_face_contact_steps": 0,
+        "bilateral_interior_face_contact_steps": 0,
+        "face_corner_rejection_steps": 0,
+        "face_alignment_sum": 0.0,
+        "face_opposition_sum": 0.0,
+        "face_jaw_axis_alignment_sum": 0.0,
+        "face_diagnostic_steps": 0,
         "lift_steps": 0,
         "max_block_height_gain": 0.0,
+        "max_strict_grasp_streak": 0,
+        "strict_success_steps": 0,
+        "stage_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+        "stage_strict_success_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+        "stage_max_strict_grasp_streak": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
         "steps": 0,
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
         "env_step_sec": 0.0,
+        "action_clip_count": 0,
+        "action_value_count": 0,
         "reward_components": empty_reward_components(),
     }
 
@@ -871,7 +1315,9 @@ def collect_rollout(
         chunk_done = False
         env_start = time.time()
         for action in action_chunk_np:
-            clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high)
+            clipped_action, clip_mask = clip_mujoco_qpos(action)
+            metrics["action_clip_count"] += int(clip_mask.sum())
+            metrics["action_value_count"] += int(clip_mask.size)
             obs, reward, terminated, truncated, info = step_action(env, clipped_action, args.steps_per_action)
             chunk_reward += reward
             metrics["steps"] += 1
@@ -892,10 +1338,47 @@ def collect_rollout(
         metrics["success"] = float(info.get("success", False))
         metrics["contact_steps"] += int(info.get("contacted", False))
         metrics["grasp_steps"] += int(info.get("gripped", False))
+        metrics["force_grasp_steps"] += int(info.get("force_gripped", False))
+        metrics["face_grasp_steps"] += int(info.get("face_gripped", False))
+        metrics["force_only_grasp_steps"] += int(info.get("force_only_grasp", False))
+        metrics["interior_face_contact_steps"] += int(
+            info.get("interior_face_contact", False)
+        )
+        metrics["corner_only_contact_steps"] += int(
+            info.get("corner_only_contact", False)
+        )
+        metrics["fixed_interior_face_contact_steps"] += int(
+            info.get("fixed_interior_face_contact", False)
+        )
+        metrics["moving_interior_face_contact_steps"] += int(
+            info.get("moving_interior_face_contact", False)
+        )
+        metrics["bilateral_interior_face_contact_steps"] += int(
+            info.get("bilateral_interior_face_contact", False)
+        )
+        metrics["face_corner_rejection_steps"] += int(info.get("face_corner_rejection", False))
+        metrics["face_alignment_sum"] += float(info.get("face_alignment", 0.0))
+        metrics["face_opposition_sum"] += float(info.get("face_opposition", 0.0))
+        metrics["face_jaw_axis_alignment_sum"] += float(
+            info.get("face_jaw_axis_alignment", 0.0)
+        )
+        metrics["face_diagnostic_steps"] += 1
         metrics["lift_steps"] += int(info.get("block_lifted", False))
         metrics["max_block_height_gain"] = max(
             metrics["max_block_height_gain"],
             float(info.get("block_height_gain", 0.0)),
+        )
+        metrics["max_strict_grasp_streak"] = max(
+            metrics["max_strict_grasp_streak"], int(info.get("strict_grasp_streak", 0))
+        )
+        reset_stage = str(info.get("reset_stage", "normal"))
+        strict_success = int(bool(info.get("strict_lift_success", False)))
+        metrics["strict_success_steps"] += strict_success
+        metrics["stage_steps"][reset_stage] += 1
+        metrics["stage_strict_success_steps"][reset_stage] += strict_success
+        metrics["stage_max_strict_grasp_streak"][reset_stage] = max(
+            metrics["stage_max_strict_grasp_streak"][reset_stage],
+            int(info.get("strict_grasp_streak", 0)),
         )
 
         if chunk_done:
@@ -934,12 +1417,32 @@ def collect_parallel_rollout(
         "success": 0.0,
         "contact_steps": 0,
         "grasp_steps": 0,
+        "force_grasp_steps": 0,
+        "face_grasp_steps": 0,
+        "force_only_grasp_steps": 0,
+        "interior_face_contact_steps": 0,
+        "corner_only_contact_steps": 0,
+        "fixed_interior_face_contact_steps": 0,
+        "moving_interior_face_contact_steps": 0,
+        "bilateral_interior_face_contact_steps": 0,
+        "face_corner_rejection_steps": 0,
+        "face_alignment_sum": 0.0,
+        "face_opposition_sum": 0.0,
+        "face_jaw_axis_alignment_sum": 0.0,
+        "face_diagnostic_steps": 0,
         "lift_steps": 0,
         "max_block_height_gain": 0.0,
+        "max_strict_grasp_streak": 0,
+        "strict_success_steps": 0,
+        "stage_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+        "stage_strict_success_steps": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
+        "stage_max_strict_grasp_streak": {stage: 0 for stage in ("normal", "pregrasp", "grasped")},
         "steps": 0,
         "episodes_completed": 0,
         "policy_forward_sec": 0.0,
         "env_step_sec": 0.0,
+        "action_clip_count": 0,
+        "action_value_count": 0,
         "reward_components": empty_reward_components(),
     }
 
@@ -971,13 +1474,53 @@ def collect_parallel_rollout(
         metrics["success"] += float(step_metrics["success"])
         metrics["contact_steps"] += int(step_metrics["contact_steps"])
         metrics["grasp_steps"] += int(step_metrics["grasp_steps"])
+        metrics["force_grasp_steps"] += int(step_metrics["force_grasp_steps"])
+        metrics["face_grasp_steps"] += int(step_metrics["face_grasp_steps"])
+        metrics["force_only_grasp_steps"] += int(step_metrics["force_only_grasp_steps"])
+        metrics["interior_face_contact_steps"] += int(
+            step_metrics["interior_face_contact_steps"]
+        )
+        metrics["corner_only_contact_steps"] += int(
+            step_metrics["corner_only_contact_steps"]
+        )
+        metrics["fixed_interior_face_contact_steps"] += int(
+            step_metrics["fixed_interior_face_contact_steps"]
+        )
+        metrics["moving_interior_face_contact_steps"] += int(
+            step_metrics["moving_interior_face_contact_steps"]
+        )
+        metrics["bilateral_interior_face_contact_steps"] += int(
+            step_metrics["bilateral_interior_face_contact_steps"]
+        )
+        metrics["face_corner_rejection_steps"] += int(step_metrics["face_corner_rejection_steps"])
+        metrics["face_alignment_sum"] += float(step_metrics["face_alignment_sum"])
+        metrics["face_opposition_sum"] += float(step_metrics["face_opposition_sum"])
+        metrics["face_jaw_axis_alignment_sum"] += float(
+            step_metrics["face_jaw_axis_alignment_sum"]
+        )
+        metrics["face_diagnostic_steps"] += int(step_metrics["face_diagnostic_steps"])
         metrics["lift_steps"] += int(step_metrics["lift_steps"])
         metrics["max_block_height_gain"] = max(
             metrics["max_block_height_gain"],
             float(step_metrics["max_block_height_gain"]),
         )
+        metrics["max_strict_grasp_streak"] = max(
+            metrics["max_strict_grasp_streak"], int(step_metrics["max_strict_grasp_streak"])
+        )
+        metrics["strict_success_steps"] += int(step_metrics["strict_success_steps"])
+        for stage in ("normal", "pregrasp", "grasped"):
+            metrics["stage_steps"][stage] += int(step_metrics["stage_steps"][stage])
+            metrics["stage_strict_success_steps"][stage] += int(
+                step_metrics["stage_strict_success_steps"][stage]
+            )
+            metrics["stage_max_strict_grasp_streak"][stage] = max(
+                metrics["stage_max_strict_grasp_streak"][stage],
+                int(step_metrics["stage_max_strict_grasp_streak"][stage]),
+            )
         metrics["steps"] += int(step_metrics["steps"])
         metrics["episodes_completed"] += int(step_metrics["episodes_completed"])
+        metrics["action_clip_count"] += int(step_metrics["action_clip_count"])
+        metrics["action_value_count"] += int(step_metrics["action_value_count"])
         for key in REWARD_COMPONENT_KEYS:
             metrics["reward_components"][key] += float(step_metrics["reward_components"][key])
 
@@ -1006,6 +1549,7 @@ def update_ppo(
     critic_optimizer: torch.optim.Optimizer,
     rollout: RolloutBatch,
     args: argparse.Namespace,
+    reference_policy: ACTGaussianPPOPolicy | None = None,
 ) -> dict:
     returns, advantages = compute_returns_advantages(
         rollout.rewards,
@@ -1017,7 +1561,15 @@ def update_ppo(
     )
     num_samples = rollout.rewards.numel()
     indices = torch.arange(num_samples, device=rollout.rewards.device)
-    stats = {"policy_loss": 0.0, "critic_loss": 0.0, "approx_kl": 0.0, "clip_fraction": 0.0}
+    stats = {
+        "policy_loss": 0.0,
+        "surrogate_loss": 0.0,
+        "anchor_loss": 0.0,
+        "entropy": 0.0,
+        "critic_loss": 0.0,
+        "approx_kl": 0.0,
+        "clip_fraction": 0.0,
+    }
     updates = 0
     update_start = time.time()
 
@@ -1025,11 +1577,29 @@ def update_ppo(
         perm = indices[torch.randperm(num_samples, device=indices.device)]
         for start in range(0, num_samples, args.minibatch_size):
             mb = perm[start : start + args.minibatch_size]
-            new_log_probs = policy.log_prob(select_observation_batch(rollout.observations, mb), rollout.actions[mb])
+            observations = select_observation_batch(rollout.observations, mb)
+            distribution = policy.distribution(observations)
+            new_log_probs = distribution.log_prob(rollout.actions[mb]).sum(dim=(1, 2))
             ratio = torch.exp(torch.clamp(new_log_probs - rollout.old_log_probs[mb], -20.0, 20.0))
             unclipped = ratio * advantages[mb]
             clipped = torch.clamp(ratio, 1.0 - args.clip_epsilon, 1.0 + args.clip_epsilon) * advantages[mb]
-            policy_loss = -torch.min(unclipped, clipped).mean()
+            surrogate_loss = -torch.min(unclipped, clipped).mean()
+            entropy = distribution.entropy().mean()
+            anchor_loss = torch.zeros((), dtype=surrogate_loss.dtype, device=surrogate_loss.device)
+            if reference_policy is not None and args.reference_anchor_coef > 0.0:
+                with torch.no_grad():
+                    reference_mean = reference_policy.mean_chunk(observations, require_grad=False)
+                joint_range = torch.as_tensor(
+                    MUJOCO_JOINT_HIGH - MUJOCO_JOINT_LOW,
+                    dtype=distribution.mean.dtype,
+                    device=distribution.mean.device,
+                ).view(1, 1, -1)
+                anchor_loss = ((distribution.mean - reference_mean) / joint_range).square().mean()
+            policy_loss = (
+                surrogate_loss
+                + float(args.reference_anchor_coef) * anchor_loss
+                - float(args.entropy_coef) * entropy
+            )
 
             value_pred = critic(rollout.critic_obs[mb])
             critic_loss = F.mse_loss(value_pred, returns[mb])
@@ -1048,6 +1618,9 @@ def update_ppo(
                 approx_kl = (rollout.old_log_probs[mb] - new_log_probs).mean().item()
                 clip_fraction = ((ratio - 1.0).abs() > args.clip_epsilon).float().mean().item()
             stats["policy_loss"] += policy_loss.item()
+            stats["surrogate_loss"] += surrogate_loss.item()
+            stats["anchor_loss"] += anchor_loss.item()
+            stats["entropy"] += entropy.item()
             stats["critic_loss"] += critic_loss.item()
             stats["approx_kl"] += approx_kl
             stats["clip_fraction"] += clip_fraction
@@ -1069,11 +1642,13 @@ def save_checkpoint(
     args: argparse.Namespace,
     total_chunks: int = 0,
     total_env_steps: int = 0,
+    reference_policy: ACTGaussianPPOPolicy | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
+    payload = {
             "episode": episode,
+            "curriculum_progress": episode,
+            "curriculum_stage": args.adaptive_stage if args.reset_curriculum == "adaptive" else args.reset_curriculum,
             "total_chunks": total_chunks,
             "total_env_steps": total_env_steps,
             "act_policy": policy.act_policy.state_dict(),
@@ -1082,9 +1657,28 @@ def save_checkpoint(
             "policy_optimizer": policy_optimizer.state_dict(),
             "critic_optimizer": critic_optimizer.state_dict(),
             "config": vars(args),
-        },
-        path,
-    )
+            "metadata": {
+                "simulator_model_sha256": simulator_model_hash(),
+                "trainable_actor_parameters": [
+                    name for name, parameter in policy.named_parameters() if parameter.requires_grad
+                ],
+                "effective_policy_lrs": [float(group["lr"]) for group in policy_optimizer.param_groups],
+                "effective_critic_lrs": [float(group["lr"]) for group in critic_optimizer.param_groups],
+                "lineage_parent": args.lineage_parent
+                or str(args.branch_from or args.resume or args.init_checkpoint),
+                "campaign_generation": int(args.campaign_generation),
+                "campaign_condition": args.campaign_condition,
+                "reset_configuration": {
+                    "reset_curriculum": args.reset_curriculum,
+                    "randomize_block_reset": bool(args.randomize_block_reset),
+                    "curriculum_fixed_block": bool(args.curriculum_fixed_block),
+                },
+                "reward_profile": args.reward_profile,
+            },
+        }
+    if reference_policy is not None:
+        payload["reference_act_policy"] = reference_policy.act_policy.state_dict()
+    torch.save(payload, path)
 
 
 def checkpoint_snapshot_path(path: Path, episode: int) -> Path:
@@ -1099,7 +1693,7 @@ def load_checkpoint(
     policy_optimizer: torch.optim.Optimizer,
     critic_optimizer: torch.optim.Optimizer,
     device: torch.device,
-) -> int:
+) -> tuple[int, int, int, dict[str, Any]]:
     torch.serialization.add_safe_globals([PosixPath])
     checkpoint = torch.load(path, map_location=device)
     policy.act_policy.load_state_dict(checkpoint["act_policy"], strict=False)
@@ -1111,6 +1705,7 @@ def load_checkpoint(
         int(checkpoint.get("episode", 0)) + 1,
         int(checkpoint.get("total_chunks", 0)),
         int(checkpoint.get("total_env_steps", 0)),
+        checkpoint,
     )
 
 
@@ -1162,6 +1757,7 @@ def make_sequential_env(args: argparse.Namespace, block_pos: tuple[float, float,
         block_angle_range=tuple(float(v) for v in args.block_angle_range),
         task_instruction="pick up the block",
         randomize_appearance=args.randomize_appearance,
+        reward_kwargs=dict(args.reward_kwargs),
     )
     if not args.randomize_block_reset:
         env.randomize_block = False
@@ -1197,13 +1793,24 @@ def run_train_iteration(
     critic_optimizer: torch.optim.Optimizer,
     device: torch.device,
     args: argparse.Namespace,
+    progress: int = 0,
+    reference_policy: ACTGaussianPPOPolicy | None = None,
 ) -> tuple[dict[str, float], RolloutBatch]:
     iteration_start = time.time()
     if isinstance(env, ACTSubprocVecEnv):
+        env.set_training_progress(progress)
         rollout, rollout_metrics = collect_parallel_rollout(env, policy, critic, device, args)
     else:
         rollout, rollout_metrics = collect_rollout(env, policy, critic, device, args)
-    ppo_metrics = update_ppo(policy, critic, policy_optimizer, critic_optimizer, rollout, args)
+    ppo_metrics = update_ppo(
+        policy,
+        critic,
+        policy_optimizer,
+        critic_optimizer,
+        rollout,
+        args,
+        reference_policy=reference_policy,
+    )
     elapsed = max(time.time() - iteration_start, 1e-9)
     chunks = int(rollout.rewards.numel())
     env_steps = int(rollout_metrics["steps"])
@@ -1215,8 +1822,48 @@ def run_train_iteration(
         "rollout/episodes_completed": float(rollout_metrics["episodes_completed"]),
         "rollout/contact_steps": float(rollout_metrics["contact_steps"]),
         "rollout/grasp_steps": float(rollout_metrics["grasp_steps"]),
+        "rollout/force_grasp_steps": float(rollout_metrics["force_grasp_steps"]),
+        "rollout/face_grasp_steps": float(rollout_metrics["face_grasp_steps"]),
+        "rollout/force_only_grasp_steps": float(
+            rollout_metrics["force_only_grasp_steps"]
+        ),
+        "rollout/interior_face_contact_steps": float(
+            rollout_metrics["interior_face_contact_steps"]
+        ),
+        "rollout/corner_only_contact_steps": float(
+            rollout_metrics["corner_only_contact_steps"]
+        ),
+        "rollout/fixed_interior_face_contact_steps": float(
+            rollout_metrics["fixed_interior_face_contact_steps"]
+        ),
+        "rollout/moving_interior_face_contact_steps": float(
+            rollout_metrics["moving_interior_face_contact_steps"]
+        ),
+        "rollout/bilateral_interior_face_contact_steps": float(
+            rollout_metrics["bilateral_interior_face_contact_steps"]
+        ),
+        "rollout/face_corner_rejection_steps": float(
+            rollout_metrics["face_corner_rejection_steps"]
+        ),
+        "rollout/mean_face_alignment": float(
+            rollout_metrics["face_alignment_sum"]
+            / max(1, rollout_metrics["face_diagnostic_steps"])
+        ),
+        "rollout/mean_face_opposition": float(
+            rollout_metrics["face_opposition_sum"]
+            / max(1, rollout_metrics["face_diagnostic_steps"])
+        ),
+        "rollout/mean_face_jaw_axis_alignment": float(
+            rollout_metrics["face_jaw_axis_alignment_sum"]
+            / max(1, rollout_metrics["face_diagnostic_steps"])
+        ),
         "rollout/lift_steps": float(rollout_metrics["lift_steps"]),
         "rollout/max_block_height_gain": float(rollout_metrics["max_block_height_gain"]),
+        "rollout/max_strict_grasp_streak": float(rollout_metrics["max_strict_grasp_streak"]),
+        "rollout/strict_success_steps": float(rollout_metrics["strict_success_steps"]),
+        "rollout/action_clip_rate": float(
+            rollout_metrics["action_clip_count"] / max(1, rollout_metrics["action_value_count"])
+        ),
         "throughput/env_steps_per_sec": float(env_steps / elapsed),
         "throughput/chunks_per_sec": float(chunks / elapsed),
         "time/iteration_seconds": elapsed,
@@ -1232,6 +1879,14 @@ def run_train_iteration(
             for key, value in rollout_metrics["reward_components"].items()
         }
     )
+    for stage in ("normal", "pregrasp", "grasped"):
+        metrics[f"rollout/reset_stage/{stage}_steps"] = float(rollout_metrics["stage_steps"][stage])
+        metrics[f"rollout/reset_stage/{stage}_strict_success_steps"] = float(
+            rollout_metrics["stage_strict_success_steps"][stage]
+        )
+        metrics[f"rollout/reset_stage/{stage}_max_strict_grasp_streak"] = float(
+            rollout_metrics["stage_max_strict_grasp_streak"][stage]
+        )
     return metrics, rollout
 
 
@@ -1250,7 +1905,7 @@ def evaluate(env: SO101PickPlaceEnv, policy: ACTGaussianPPOPolicy, device: torch
                 mean_chunk = policy.mean_chunk(policy_obs, require_grad=False).squeeze(0).detach().cpu().numpy()
                 done = False
                 for action in mean_chunk:
-                    clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high)
+                    clipped_action, _clip_mask = clip_mujoco_qpos(action)
                     obs, reward, terminated, truncated, info = step_action(env, clipped_action, args.steps_per_action)
                     total_reward += reward
                     done = terminated or truncated
@@ -1293,24 +1948,57 @@ def main() -> int:
         print("Warning: CUDA is not available; ACT PPO will be slow.", file=sys.stderr)
 
     act_policy = load_act_policy(args.init_checkpoint, device)
-    policy = ACTGaussianPPOPolicy(act_policy, action_dim=6, chunk_size=args.chunk_size, log_std_init=args.log_std_init).to(device)
+    normalization_stats = load_act_normalization_stats(args.init_checkpoint, device)
+    policy = ACTGaussianPPOPolicy(
+        act_policy,
+        action_dim=6,
+        chunk_size=args.chunk_size,
+        log_std_init=args.log_std_init,
+        normalization_stats=normalization_stats,
+    ).to(device)
     critic = PrivilegedCritic(input_dim=16).to(device)
-    policy_optimizer = torch.optim.Adam(policy.parameters(), lr=args.policy_lr)
-    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=args.critic_lr)
 
     start_episode = 0
     total_chunks = 0
     total_env_steps = 0
+    restored_checkpoint = None
+    if args.branch_from is not None:
+        restored_checkpoint = load_branch_checkpoint(args.branch_from, policy, critic, device)
+        policy.log_std.data.add_(float(args.branch_log_std_offset))
+        policy.log_std.data[-1].add_(float(args.gripper_log_std_offset))
+
+    trainable_actor_parameters = configure_actor_train_scope(policy, args.actor_train_scope)
+    policy_optimizer = torch.optim.Adam(
+        [parameter for parameter in policy.parameters() if parameter.requires_grad],
+        lr=args.policy_lr,
+    )
+    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=args.critic_lr)
+
     if args.resume is not None:
-        start_episode, total_chunks, total_env_steps = load_checkpoint(
+        start_episode, total_chunks, total_env_steps, restored_checkpoint = load_checkpoint(
             args.resume, policy, critic, policy_optimizer, critic_optimizer, device
         )
+        set_optimizer_lr(policy_optimizer, args.policy_lr)
+        set_optimizer_lr(critic_optimizer, args.critic_lr)
         if args.resume_log_std_offset != 0.0:
             policy.log_std.data.add_(float(args.resume_log_std_offset))
             print(
                 f"Applied resume log_std offset {args.resume_log_std_offset:+.4f}; "
                 f"log_std_mean={policy.log_std.mean().item():.4f}"
             )
+
+    reference_policy = None
+    if args.reference_anchor_coef > 0.0:
+        reference_policy = copy.deepcopy(policy).to(device).eval()
+        if args.resume is not None:
+            reference_state = (restored_checkpoint or {}).get("reference_act_policy")
+            if reference_state is None:
+                raise ValueError(
+                    "anchored exact resume requires reference_act_policy in the checkpoint"
+                )
+            reference_policy.act_policy.load_state_dict(reference_state, strict=False)
+        for parameter in reference_policy.parameters():
+            parameter.requires_grad_(False)
 
     block_pos = block_position(args)
     env = make_training_env(args, block_pos)
@@ -1326,6 +2014,9 @@ def main() -> int:
                 "init_checkpoint_resolved": str(args.init_checkpoint.resolve()),
             },
         )
+        if args.wandb_url_path is not None:
+            args.wandb_url_path.parent.mkdir(parents=True, exist_ok=True)
+            args.wandb_url_path.write_text(str(wandb.run.url or "") + "\n")
 
     print("Starting ACT PPO fine-tuning in SO-101 MuJoCo")
     print(f"  init_checkpoint: {args.init_checkpoint}")
@@ -1337,6 +2028,13 @@ def main() -> int:
     print(f"  minibatch_size: {args.minibatch_size}")
     print(f"  seed: {args.seed}")
     print(f"  randomize_appearance: {args.randomize_appearance}")
+    print(f"  reward_profile: {args.reward_profile}")
+    print(f"  reward_kwargs: {args.reward_kwargs}")
+    print(f"  actor_train_scope: {args.actor_train_scope}")
+    print(f"  trainable_actor_parameters: {len(trainable_actor_parameters)}")
+    print(f"  reference_anchor_coef: {args.reference_anchor_coef}")
+    print(f"  entropy_coef: {args.entropy_coef}")
+    print(f"  simulator_model_sha256: {simulator_model_hash()}")
     print(f"  git_revision: {git_revision()}")
 
     last_completed_episode = start_episode - 1
@@ -1350,6 +2048,8 @@ def main() -> int:
                 critic_optimizer,
                 device,
                 args,
+                progress=episode,
+                reference_policy=reference_policy,
             )
             total_chunks += int(rollout.rewards.numel())
             total_env_steps += int(metrics["rollout/steps"])
@@ -1370,6 +2070,7 @@ def main() -> int:
                     args,
                     total_chunks=total_chunks,
                     total_env_steps=total_env_steps,
+                    reference_policy=reference_policy,
                 )
             completed_iterations = episode - start_episode + 1
             if args.snapshot_every and completed_iterations % args.snapshot_every == 0:
@@ -1383,9 +2084,14 @@ def main() -> int:
                     args,
                     total_chunks=total_chunks,
                     total_env_steps=total_env_steps,
+                    reference_policy=reference_policy,
                 )
             if use_wandb:
                 wandb.log(metrics, step=episode)
+            if args.metrics_jsonl is not None:
+                args.metrics_jsonl.parent.mkdir(parents=True, exist_ok=True)
+                with args.metrics_jsonl.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(metrics, sort_keys=True) + "\n")
             print(
                 f"[{episode:05d}] return={metrics['rollout/return']:.3f} "
                 f"success={metrics['rollout/success']:.0f} "
@@ -1405,6 +2111,7 @@ def main() -> int:
             args,
             total_chunks=total_chunks,
             total_env_steps=total_env_steps,
+            reference_policy=reference_policy,
         )
         close_training_env(env)
         close_training_env(eval_env)

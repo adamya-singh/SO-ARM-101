@@ -448,7 +448,7 @@ env = SO101PickPlaceEnv(smolvla_normalize=True)
     "observation.images.camera1": (256, 256, 3),  # Top-down camera
     "observation.images.camera2": (256, 256, 3),  # Wrist camera
     "observation.images.camera3": (256, 256, 3),  # Side camera
-    "observation.state": (6,),                     # Joint positions (radians)
+    "observation.state": (6,),                     # MuJoCo mechanical radians
 }
 ```
 
@@ -459,6 +459,11 @@ env = SO101PickPlaceEnv(smolvla_normalize=True)
 # [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper]
 action_space = Box(low=joint_limits_low, high=joint_limits_high, shape=(6,))
 ```
+
+ACT checkpoints use a different state/action contract: calibrated motor-range
+values encoded as `[-pi, pi]` for body joints and `[0, 1.7]` for the gripper.
+`act_coordinate_utils.py` maps these values to and from MuJoCo mechanical
+coordinates. See [ACT Coordinate Contract](../notes/act-coordinate-contract.md).
 
 ### Reward Function
 
@@ -562,12 +567,35 @@ physical camera setup used to record the existing real-arm datasets. The
 2026-07-09 camera and wrist-mount geometry update brought the simulation
 substantially closer to that recording setup.
 
-The first ACT lead-3 pretrain check after this update was nevertheless slightly
-worse: the arm consistently hovered in one upright, forward-facing pose. This
-is the current updated-geometry baseline, not evidence that the physical
-alignment is wrong by itself; the pretrained policy may be sensitive to the
-remaining visual or state-distribution differences. See the
+The first ACT lead-3 pretrain check after this update hovered in one upright,
+forward-facing pose. That run was later found to be confounded by a coordinate
+bug: calibrated motor-range encodings were sent as direct MuJoCo radians.
+The corrected adapter eliminated action clipping in a controlled rebaseline
+but did not yet produce a pickup. The pretrained policy may still be sensitive
+to remaining visual or state-distribution differences. See the
 [ACT training note and screenshot](../notes/act-training.md#post-camera-update-lead-3-behavior).
+
+### Single- and dual-policy ACT queues
+
+ACT PPO training queue scripts use the optimized single-policy preset by
+default: one GPU process with 12 parallel environments and 2 rollout chunks per
+environment. Set `ACT_POLICY_MODE=dual` to run two independent policies at once;
+each process uses 6 environments and 4 rollout chunks per environment. Both
+presets therefore collect 24 chunks per policy update.
+
+```bash
+# Existing optimized behavior
+./queue_act_grasp_phase1_20260711.sh
+
+# Two independent policies sharing the GPU
+ACT_POLICY_MODE=dual ./queue_act_grasp_phase1_20260711.sh
+
+# Inspect generated commands without enqueueing them
+DRY_RUN=1 ACT_POLICY_MODE=dual ./queue_act_grasp_phase1_20260711.sh
+```
+
+Mixed training/evaluation queues reserve every configured slot for evaluation,
+so evaluation cannot overlap a training process.
 
 ### Robot Joints
 

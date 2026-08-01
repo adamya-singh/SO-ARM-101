@@ -50,6 +50,14 @@ pose. The earlier ground-push description remains the result of the lead sweep
 before this geometry update. See the [screenshot and detailed
 note](act-training.md#post-camera-update-lead-3-behavior).
 
+Coordinate follow-up (2026-07-10): the hover observation was confounded by a
+confirmed ACT dataset-coordinate versus MuJoCo mechanical-radian mismatch.
+After adding the explicit adapter, a controlled three-episode lead-3 comparison
+reduced steps with any clipped joint from `435/450` to `0/450`, improved mean
+return from `-54.909` to `-24.906`, and reduced mean final distance from
+`0.1823 m` to `0.1452 m`. Success remained `0/3`. See
+[ACT Coordinate Contract](act-coordinate-contract.md).
+
 ## Dataset Contract
 
 Dataset:
@@ -134,8 +142,12 @@ Intermediate unshifted corrected checkpoints to compare behaviorally:
   (lead-1 slow, lead-5 fast) and smoothness (lead-3 stutters more).
 - After updating the simulated camera and wrist mount to better match the real
   demonstration setup, lead-3 regressed to hovering in one upright,
-  forward-facing pose. Treat this as the current updated-geometry baseline;
-  the ground-push result above belongs to the previous geometry.
+  forward-facing pose under the legacy direct-coordinate path. Do not treat it
+  as a clean camera-only baseline: that path was also clipping ACT
+  motor-range-encoded actions as if they were mechanical radians.
+- The corrected affine coordinate adapter removes systematic clipping and
+  improves approach distance, but the initial three-episode rebaseline still
+  produced no pickup.
 - Keep `action_lead_steps=3` as the default supervised pretrain for now.
 - Batch 64 with corrected ACT OOMed despite apparent VRAM headroom; batch 32 is
   the stable default.

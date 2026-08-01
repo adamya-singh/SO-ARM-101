@@ -47,6 +47,25 @@ action clipping. The final setting is chosen by sustained-grasp episode rate,
 then strict lift/success, with height, displacement, and clipping as
 tie-breakers.
 
+## Phase-One Live Inspection
+
+User side-by-side stochastic live simulation compared:
+
+- A baseline, seed 17, episode 99; and
+- E jaw-quality-rebalanced, seed 71, episode 79.
+
+The A checkpoint appeared to be trying to align around the block and establish
+a grasp before lifting. Its alignment and grasp were not yet correct, but the
+behavior looked close to the intended sequence. The E checkpoint appeared more
+clumsy: it sometimes missed the block entirely and sometimes shook or disturbed
+the block instead of forming a controlled grasp.
+
+This observation favors A qualitatively and raises concern that E's additional
+training grasp/micro-lift activity includes unstable contact rather than better
+grasp quality. It is user visual evidence from selected checkpoints, not an
+independent success-rate measurement; the planned replicated and headless
+evaluation remains necessary.
+
 ## Phase-One Results
 
 All 12 runs completed 100 updates. The figures below were aggregated from all
@@ -133,3 +152,118 @@ collect training data around a snapshot; it does not directly evaluate the
 saved checkpoint. Neither candidate has yet passed the planned deterministic
 and stochastic independent evaluation, so this phase does not establish a
 new final policy.
+
+### Live Inspection of A and C
+
+User live inspection of the provisional fixed-block stochastic candidates
+found that neither produced the intended face-to-face grasp:
+
+- `A seed 17 ep0099` contacted the block at its corners with a relatively loose
+  grip. It shook the block substantially and sometimes rolled it rather than
+  securing it for a lift.
+- `C seed 71 ep0089` repeatedly pinched the block at its corners. It appeared
+  to be learning contact and closure, but did not form a secure face grip or
+  visibly attempt a lift.
+
+This qualitative result changes the interpretation of the training counters.
+The current `gripped` signal requires sufficient force from both gripper bodies
+but does not require contact on opposing block faces or exclude corners.
+Likewise, `jaw_centering_score` measures the jaw-tip midpoint relative to the
+block center rather than the locations and normals of the contacts. A corner
+pinch can therefore count as a centered grasp and accumulate grasp-persistence
+reward. The high grasp and micro-lift totals, especially for C seed 71, are
+evidence of interaction under the present detector, not evidence of a
+lift-ready grasp.
+
+Consequently, A remains the most reproducible setting only by the current
+training metrics, and C remains the peak training run only by those same
+metrics. Neither is a validated policy candidate after live inspection.
+Continuing either checkpoint unchanged risks reinforcing corner pinching,
+shaking, or rolling. Before phase-two training, the grasp-quality detector and
+reward should require opposing face contacts away from corners and should use
+contact locations/normals; candidate checkpoints should then be reevaluated
+with explicit face-grasp and lift-attempt metrics.
+
+## A Seed-17 Continuation to Episode 149
+
+On 2026-07-12, A seed 17 was resumed unchanged from `ep0099` for 50 additional
+updates. The continuation reused W&B run
+[`kdwzzqh7`](https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/kdwzzqh7)
+and completed at episode 149 with 107,968 environment steps and 3,600 rollout
+chunks. The saved continuation snapshot is
+[`ep0149`](../simulation_code/outputs/train/act_lead3_grasp_phase1_20260711/A_baseline_lr1em6_stdm2.0_s17/act_sim_ppo_checkpoint_ep0149.pt).
+
+User live inspection of stochastic, fixed-block `ep0149` inference found that
+the policy was trying to align more than `ep0099`. This is a useful qualitative
+improvement in the approach/pregrasp phase. It still did not begin lifting,
+however, so the extra training has not demonstrated grasp-to-lift conversion or
+a successful policy. The next behavioral objective is a deliberate upward arm
+motion after a stable face grasp; alignment alone should not be treated as the
+new best-policy criterion. This observation is qualitative and does not replace
+the planned independent checkpoint evaluation.
+
+## Strict Face-Grasp Follow-up
+
+On 2026-07-12, the environment was instrumented with a geometry-aware detector
+that separately records legacy force closure, interior jaw-to-face contact,
+bilateral interior contact, and a strict opposing-face grasp. Strict reward
+profiles G through P then tested progressively stronger curricula: strict
+gating, pregrasp alignment, potential-difference shaping, single-jaw interior
+contact, graded contact quality, and bilateral opposition. The strict detector
+was unit-tested against valid opposing contacts, corner pinches, one-sided
+contacts, and misaligned normals. Re-evaluation also confirmed that the old A
+and C corner-pinching behavior is rejected.
+
+None of the strict screens produced a strict face-grasp step. In the final O/P
+screen, each profile was trained for 100 updates at seeds 17 and 71:
+
+- O recorded 3 and 4 single-jaw interior-contact steps, 0 bilateral interior
+  steps, 0 strict face-grasp steps, and 0 lift steps.
+- P recorded 4 and 5 single-jaw interior-contact steps, 0 bilateral interior
+  steps, 0 strict face-grasp steps, and 0 lift steps.
+- All four runs still accumulated thousands of corner-only contact steps
+  (3,443 to 5,998). The new continuous contact-quality reward provided a
+  learning signal, but did not convert one-sided or corner contact into an
+  opposing-face pair.
+
+Because the predeclared advancement gate required reproducible strict
+face-grasp activity, no profile qualified for long replication. To check
+whether training-rollout transients hid useful checkpoint behavior, two
+diagnostic snapshots were nevertheless evaluated for 30 episodes in each of
+deterministic fixed-block, stochastic fixed-block, and stochastic narrow-reset
+modes:
+
+- M seed 17 `ep0059`, selected from the screen's highest single-jaw interior
+  window, produced 0 strict grasps, 0 interior-face contacts, 0 strict lifts,
+  and 0 successes in all 90 evaluation episodes.
+- P seed 71 `ep0079`, selected from P's highest single-jaw interior window,
+  produced 0 strict grasps, 0 bilateral contacts, 0 strict lifts, and 0
+  successes in all 90 evaluation episodes. It produced one isolated
+  single-jaw interior-contact step in stochastic narrow evaluation.
+
+User live inspection of stochastic fixed-block inference confirmed the
+quantitative failure for both snapshots. M `ep0059` and P `ep0079` mostly
+hovered around the cube, occasionally poked it, and otherwise barely interacted
+with it. Neither showed a credible grasp attempt, secure contact, or transition
+toward lifting. They should not be described as usable policies or practical
+"best" candidates; they were only the least-bad diagnostic snapshots selected
+for failure analysis.
+
+The unbiased conclusion is that no new policy was found. More PPO updates on
+these checkpoints are not justified by the evidence: exploration repeatedly
+finds corner contact but almost never reaches even one interior face, and never
+reaches a bilateral opposing pair. The next experiment should change the
+initial-state or action curriculum so the policy can experience bilateral
+face contact before asking PPO to discover the entire sequence from the current
+start distribution. The legacy A/C policies and all G-P profiles remain
+diagnostic artifacts, not deployment candidates.
+
+## 2026-07-12 Reward Rollback
+
+Strict G-P reward shaping was retired after live inspection showed hovering
+and poking instead of credible grasp attempts. Training and evaluation again
+use the legacy force-based grasp and lift reward behavior. The geometry-aware
+face-grasp detector remains enabled as telemetry only, including face
+alignment/opposition, interior and bilateral contacts, corner rejection, and
+contact quality. All historical G-P checkpoints and results remain failures
+and are not deployment candidates.

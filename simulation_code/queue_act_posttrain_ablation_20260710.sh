@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY="${PY:-/home/win10ubuntu/miniforge3/envs/lerobot/bin/python}"
 TSP="${TSP:-/home/win10ubuntu/.local/bin/tsp}"
+DRY_RUN="${DRY_RUN:-0}"
+source "${SCRIPT_DIR}/act_policy_mode.sh"
 START_AT="${START_AT:-2026-07-10 00:00:00}"
 GROUP="${WANDB_RUN_GROUP:-act-posttrain-ablation-20260710}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${SCRIPT_DIR}/outputs/train/act_posttrain_ablation_20260710}"
@@ -17,7 +19,8 @@ OLD_PRETRAIN="${SCRIPT_DIR}/outputs/train/act_so101_corrected_30_b32_20260621_16
 [[ -f "$OLD_PRETRAIN/model.safetensors" ]] || { echo "Missing old pretrain: $OLD_PRETRAIN" >&2; exit 1; }
 
 mkdir -p "$OUTPUT_ROOT"
-"$TSP" -S 1
+act_print_policy_mode
+act_configure_queue "$TSP" "$DRY_RUN"
 
 enqueue_run() {
     local run_name="$1"
@@ -42,7 +45,7 @@ enqueue_run() {
             "${run_dir}/wandb" "$GROUP" "$run_name" "$seed"
         printf 'exec %q -u train_act_in_sim.py' "$PY"
         printf ' --experimental-act-ppo --init-checkpoint %q' "$checkpoint"
-        printf ' --parallel-envs 12 --rollout-chunks-per-env 2 --minibatch-size 64 --ppo-epochs 1'
+        act_append_trainer_resource_args
         printf ' --chunk-size 30 --max-steps-per-episode 150 --steps-per-action 1'
         printf ' --policy-lr 1e-6 --critic-lr 5e-5 --log-std-init -2'
         printf ' --episodes 200 --snapshot-every 10 --eval-episodes 0 --seed %q' "$seed"
@@ -60,7 +63,7 @@ enqueue_run() {
         printf ' --headless --no-render > %q 2>&1\n' "${run_dir}/train.log"
     } > "$command_file"
     chmod +x "$command_file"
-    "$TSP" -L "$run_name" "$command_file"
+    act_enqueue_training "$TSP" "$DRY_RUN" "$run_name" "$command_file"
 }
 
 enqueue_run new_app_fixed_s11    "$NEW_PRETRAIN" randomized fixed  11 yes
@@ -74,4 +77,4 @@ enqueue_run old_noapp_fixed_s29  "$OLD_PRETRAIN" fixed      fixed  29 no
 enqueue_run new_app_narrow_s11   "$NEW_PRETRAIN" randomized narrow 11 no
 enqueue_run new_app_narrow_s29   "$NEW_PRETRAIN" randomized narrow 29 no
 
-"$TSP"
+if [[ "$DRY_RUN" != "1" ]]; then "$TSP"; fi

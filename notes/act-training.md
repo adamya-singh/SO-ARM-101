@@ -7,7 +7,10 @@ This repo now treats ACT training as a diagnostics-first pipeline:
 3. `simulation_code/train_sim_baseline.py` proves the MuJoCo reward/action contract with a simple privileged-state PPO baseline.
 4. `simulation_code/train_act_in_sim.py` is preserved as an explicit experimental ACT-chunk PPO path, not the default improvement path.
 
-Completed overnight experiment: [2026-07-10 ACT post-train PPO ablation](7-10-act-posttrain-ablation.md).
+Latest overnight experiment:
+[2026-07-10 corrected-coordinate ACT PPO sweep](7-10-act-coordinate-lr-sweep.md).
+The earlier [post-train PPO ablation](7-10-act-posttrain-ablation.md) used the
+pre-fix coordinate path and is retained as coordinate-confounded history.
 
 The default physical dataset is:
 
@@ -138,6 +141,49 @@ geometry.
 ![Lead-3 ACT pretrain hovering upright after the camera and wrist-mount update](./images/act-lead3-updated-camera-hover.png)
 
 Image file: [act-lead3-updated-camera-hover.png](./images/act-lead3-updated-camera-hover.png)
+
+Coordinate-contract correction (2026-07-10): this screenshot was captured
+while ACT's calibrated motor-range encoding was still being treated as direct
+MuJoCo mechanical radians. That legacy path clipped at least one joint on 435
+of 450 deterministic evaluation steps. With the explicit affine adapter,
+clipping fell to 0 of 450 steps, mean return improved from `-54.909` to
+`-24.906`, and mean final gripper-to-block distance improved from `0.1823 m` to
+`0.1452 m` over three fixed-block episodes. Pickup remained `0/3`, so this
+fixes a major control-contract bug without proving that the remaining camera or
+sim-to-real shift is solved. See [ACT Coordinate Contract](act-coordinate-contract.md).
+
+### Corrected-coordinate PPO result
+
+The subsequent 12-run fixed-appearance, fixed-block sweep compared lead-3 and
+the old unshifted corrected pretrain at actor learning rates `1e-6` and `3e-6`
+over seeds 11, 29, and 47. At `1e-6`, old corrected exceeded lead-3 on training
+success chunks, strict lift steps, micro lifts, and peak height at all three
+seeds. Raising old corrected to `3e-6` increased contact/grasp activity but
+reduced lift outcomes at all three seeds.
+
+The initial three-seed fixed-block sweep selected old corrected plus actor LR
+`1e-6` as its provisional evaluation condition. A later controlled seed-5 pair
+at the same LR favored lead-3 on success chunks, lift steps, micro lifts, and
+grasp steps. User side-by-side live inspection found the two candidates
+similar, but lead-3 attempted grasping more and looked slightly better.
+
+Use lead-3 as the practical default supervised pretrain for current PPO
+follow-up. This does not erase the earlier conflicting seed evidence, and no
+PPO snapshot is validated until controlled evaluation is complete. Full counts
+and limitations are in
+[the corrected-coordinate sweep note](7-10-act-coordinate-lr-sweep.md).
+
+In the 2026-07-11 grasp-focused phase-one screen, user live comparison favored
+the baseline A checkpoint over the jaw-quality-rebalanced E checkpoint. A
+attempted the intended align-then-grasp sequence but was not yet accurate; E
+was more erratic, sometimes missing or shaking the block. This qualitative
+result suggests E's higher grasp/micro-lift training counts may include
+unstable contact. See [the grasp ablation note](7-11-lead3-grasp-ablation.md).
+
+User live-simulation inspection of the provisional seed-11 episode-189
+snapshot reported block interaction and limited grasp attempts. Treat this as
+qualitative behavior evidence only; controlled success/lift evaluation remains
+pending.
 
 The action-lead sweep is complete. Reproduce the trained checkpoints with:
 

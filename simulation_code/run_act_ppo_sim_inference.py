@@ -10,6 +10,7 @@ For supervised LeRobot ACT `pretrained_model` directories, use
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -44,6 +45,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps-per-action", type=int, default=1, help="Repeat each selected ACT action this many env steps.")
     parser.add_argument("--chunk-size", type=int, default=30, help="ACT action chunk size used by the PPO checkpoint.")
     parser.add_argument("--log-std-init", type=float, default=-2.0, help="Initial PPO log std; overwritten by checkpoint.")
+    parser.add_argument(
+        "--reward-profile",
+        choices=tuple(sim.ACT_REWARD_PROFILES),
+        default="baseline",
+        help="Reward profile used for evaluation metrics and termination semantics.",
+    )
     parser.add_argument("--policy-lr", type=float, default=1e-5, help="Optimizer LR needed only to restore checkpoint state.")
     parser.add_argument("--critic-lr", type=float, default=1e-4, help="Optimizer LR needed only to restore checkpoint state.")
     parser.add_argument("--device", default="cuda", help="Torch device for ACT PPO inference.")
@@ -69,6 +76,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--block-pos", type=float, nargs=3, metavar=("X", "Y", "Z"), help="Fixed block position.")
     parser.add_argument("--seed", type=int, default=None, help="Base RNG seed. Episode index is added when set.")
     parser.add_argument("--save-video", type=Path, default=None, help="Directory for rollout MP4 files.")
+    parser.add_argument("--output-json", type=Path, default=None, help="Write per-episode and aggregate metrics as JSON.")
+    parser.add_argument("--reset-bank", type=Path, default=None)
+    parser.add_argument(
+        "--evaluation-reset-stage", choices=("normal", "pregrasp", "grasped"), default="normal"
+    )
     parser.add_argument(
         "--video-cameras",
         default="all",
@@ -105,6 +117,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--block-dist-range MIN must be <= MAX")
     if args.block_angle_range[0] > args.block_angle_range[1]:
         raise ValueError("--block-angle-range MIN must be <= MAX")
+    if args.evaluation_reset_stage != "normal" and args.reset_bank is None:
+        raise ValueError("--reset-bank is required for pregrasp/grasped evaluation")
 
 
 def resolve_device(device_name: str) -> torch.device:
@@ -168,25 +182,23 @@ def as_float(info: dict[str, Any], key: str, default: float = float("nan")) -> f
 
 def build_policy(args: argparse.Namespace, device: torch.device) -> tuple[Any, Any]:
     act_policy = sim.load_act_policy(args.init_checkpoint, device)
+    normalization_stats = sim.load_act_normalization_stats(args.init_checkpoint, device)
     policy = sim.ACTGaussianPPOPolicy(
         act_policy,
         action_dim=6,
         chunk_size=args.chunk_size,
         log_std_init=args.log_std_init,
+        normalization_stats=normalization_stats,
     ).to(device)
     critic = sim.PrivilegedCritic(input_dim=16).to(device)
     policy_optimizer = torch.optim.Adam(policy.parameters(), lr=args.policy_lr)
     critic_optimizer = torch.optim.Adam(critic.parameters(), lr=args.critic_lr)
 
     torch.serialization.add_safe_globals([PosixPath])
-    start_episode, total_chunks, total_env_steps = sim.load_checkpoint(
-        args.resume,
-        policy,
-        critic,
-        policy_optimizer,
-        critic_optimizer,
-        device,
-    )
+    checkpoint = sim.load_branch_checkpoint(args.resume, policy, critic, device)
+    start_episode = int(checkpoint.get("episode", 0)) + 1
+    total_chunks = int(checkpoint.get("total_chunks", 0))
+    total_env_steps = int(checkpoint.get("total_env_steps", 0))
     print(
         "Loaded ACT PPO checkpoint: "
         f"{args.resume} "
@@ -199,7 +211,12 @@ def build_policy(args: argparse.Namespace, device: torch.device) -> tuple[Any, A
 
 def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Namespace, episode_idx: int) -> dict[str, Any]:
     seed = None if args.seed is None else args.seed + episode_idx
-    obs, info = env.reset(seed=seed)
+    options = None
+    if args.evaluation_reset_stage != "normal":
+        bank = sim.load_reset_bank(args.reset_bank)
+        states = bank[args.evaluation_reset_stage]
+        options = {"reset_state": states[episode_idx % len(states)]}
+    obs, info = env.reset(seed=seed, options=options)
 
     total_return = 0.0
     steps = 0
@@ -211,8 +228,38 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
     max_block_height_gain = final_block_height_gain
     contact_count = 0
     grasp_count = 0
+    force_grasp_count = 0
+    face_grasp_count = 0
+    force_only_grasp_count = 0
+    interior_face_contact_count = 0
+    corner_only_contact_count = 0
+    fixed_interior_face_contact_count = 0
+    moving_interior_face_contact_count = 0
+    bilateral_interior_face_contact_count = 0
+    face_corner_rejection_count = 0
+    face_alignment_total = 0.0
+    face_opposition_total = 0.0
+    face_jaw_axis_alignment_total = 0.0
+    face_diagnostic_steps = 0
+    pregrasp_face_axis_alignment_total = 0.0
+    pregrasp_face_guidance_score_total = 0.0
+    face_axis_guidance_progress_total = 0.0
+    pregrasp_face_height_error_total = 0.0
+    pregrasp_face_depth_error_total = 0.0
+    pregrasp_face_lateral_error_total = 0.0
+    interior_face_contact_score_total = 0.0
+    face_contact_quality_total = 0.0
+    bilateral_opposition_quality_total = 0.0
     micro_lift_count = 0
     lift_count = 0
+    consecutive_grasp_steps = 0
+    max_consecutive_grasp_steps = 0
+    max_block_displacement = 0.0
+    max_strict_grasp_streak = 0
+    strict_lift = False
+    strict_success = False
+    action_clip_count = 0
+    action_value_count = 0
     grasped_vertical_lift_reward_total = 0.0
     lift_side_push_penalty_total = 0.0
     frames = []
@@ -235,7 +282,14 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
 
             done = False
             for action in action_chunk_np:
-                clipped_action = np.clip(action, env.joint_limits_low, env.joint_limits_high)
+                clipped_action, clip_mask = sim.clip_mujoco_qpos(action)
+                action_clip_count += int(clip_mask.sum())
+                action_value_count += int(clip_mask.size)
+                if args.verbose and clip_mask.any():
+                    print(
+                        f"  unclipped_mujoco_target={np.round(action, 4).tolist()} "
+                        f"clip_mask={clip_mask.astype(int).tolist()}"
+                    )
                 obs, reward, terminated, truncated, info = sim.step_action(env, clipped_action, args.steps_per_action)
                 steps += args.steps_per_action
                 total_return += float(reward)
@@ -247,10 +301,79 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
                 max_block_height_gain = max(max_block_height_gain, final_block_height_gain)
                 contact_count += int(bool(info.get("contacted", info.get("contact", False))))
                 grasp_count += int(bool(info.get("gripped", info.get("grasp", False))))
+                force_grasp_count += int(bool(info.get("force_gripped", False)))
+                face_grasp_count += int(bool(info.get("face_gripped", False)))
+                force_only_grasp_count += int(
+                    bool(info.get("force_only_grasp", False))
+                )
+                interior_face_contact_count += int(
+                    bool(info.get("interior_face_contact", False))
+                )
+                corner_only_contact_count += int(
+                    bool(info.get("corner_only_contact", False))
+                )
+                fixed_interior_face_contact_count += int(
+                    bool(info.get("fixed_interior_face_contact", False))
+                )
+                moving_interior_face_contact_count += int(
+                    bool(info.get("moving_interior_face_contact", False))
+                )
+                bilateral_interior_face_contact_count += int(
+                    bool(info.get("bilateral_interior_face_contact", False))
+                )
+                face_corner_rejection_count += int(
+                    bool(info.get("face_corner_rejection", False))
+                )
+                face_alignment_total += as_float(info, "face_alignment", 0.0)
+                face_opposition_total += as_float(info, "face_opposition", 0.0)
+                face_jaw_axis_alignment_total += as_float(
+                    info, "face_jaw_axis_alignment", 0.0
+                )
+                face_diagnostic_steps += 1
+                pregrasp_face_axis_alignment_total += as_float(
+                    info, "pregrasp_face_axis_alignment", 0.0
+                )
+                pregrasp_face_guidance_score_total += as_float(
+                    info, "pregrasp_face_guidance_score", 0.0
+                )
+                face_axis_guidance_progress_total += as_float(
+                    info, "face_axis_guidance_progress", 0.0
+                )
+                pregrasp_face_height_error_total += as_float(
+                    info, "pregrasp_face_height_error", 0.0
+                )
+                pregrasp_face_depth_error_total += as_float(
+                    info, "pregrasp_face_depth_error", 0.0
+                )
+                pregrasp_face_lateral_error_total += as_float(
+                    info, "pregrasp_face_lateral_error", 0.0
+                )
+                interior_face_contact_score_total += as_float(
+                    info, "interior_face_contact_score", 0.0
+                )
+                face_contact_quality_total += as_float(
+                    info, "face_contact_quality", 0.0
+                )
+                bilateral_opposition_quality_total += as_float(
+                    info, "bilateral_opposition_quality", 0.0
+                )
+                if bool(info.get("gripped", info.get("grasp", False))):
+                    consecutive_grasp_steps += 1
+                    max_consecutive_grasp_steps = max(max_consecutive_grasp_steps, consecutive_grasp_steps)
+                else:
+                    consecutive_grasp_steps = 0
                 micro_lift_count += int(bool(info.get("micro_lifted", False)))
                 lift_count += int(bool(info.get("block_lifted", info.get("lifted", False))))
                 grasped_vertical_lift_reward_total += as_float(info, "grasped_vertical_lift_reward", 0.0)
                 lift_side_push_penalty_total += as_float(info, "lift_side_push_penalty", 0.0)
+                max_block_displacement = max(max_block_displacement, as_float(info, "block_displacement", 0.0))
+                max_strict_grasp_streak = max(
+                    max_strict_grasp_streak, int(info.get("strict_grasp_streak", 0))
+                )
+                strict_success = strict_success or bool(info.get("strict_lift_success", False))
+                strict_lift = strict_lift or bool(
+                    info.get("independent_strict_lift_crossed", False)
+                )
 
                 if args.render:
                     env.render()
@@ -280,8 +403,56 @@ def run_episode(env: Any, policy: Any, device: torch.device, args: argparse.Name
         "max_block_height_gain": max_block_height_gain,
         "contact_count": contact_count,
         "grasp_count": grasp_count,
+        "force_grasp_count": force_grasp_count,
+        "face_grasp_count": face_grasp_count,
+        "force_only_grasp_count": force_only_grasp_count,
+        "interior_face_contact_count": interior_face_contact_count,
+        "corner_only_contact_count": corner_only_contact_count,
+        "fixed_interior_face_contact_count": fixed_interior_face_contact_count,
+        "moving_interior_face_contact_count": moving_interior_face_contact_count,
+        "bilateral_interior_face_contact_count": bilateral_interior_face_contact_count,
+        "face_corner_rejection_count": face_corner_rejection_count,
+        "mean_face_alignment": face_alignment_total / max(1, face_diagnostic_steps),
+        "mean_face_opposition": face_opposition_total / max(1, face_diagnostic_steps),
+        "mean_face_jaw_axis_alignment": (
+            face_jaw_axis_alignment_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_pregrasp_face_axis_alignment": (
+            pregrasp_face_axis_alignment_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_pregrasp_face_guidance_score": (
+            pregrasp_face_guidance_score_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_face_axis_guidance_progress": (
+            face_axis_guidance_progress_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_pregrasp_face_height_error": (
+            pregrasp_face_height_error_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_pregrasp_face_depth_error": (
+            pregrasp_face_depth_error_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_pregrasp_face_lateral_error": (
+            pregrasp_face_lateral_error_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_interior_face_contact_score": (
+            interior_face_contact_score_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_face_contact_quality": (
+            face_contact_quality_total / max(1, face_diagnostic_steps)
+        ),
+        "mean_bilateral_opposition_quality": (
+            bilateral_opposition_quality_total / max(1, face_diagnostic_steps)
+        ),
         "micro_lift_count": micro_lift_count,
         "lift_count": lift_count,
+        "sustained_grasp": max_strict_grasp_streak >= 5,
+        "max_consecutive_grasp_steps": max_consecutive_grasp_steps,
+        "max_strict_grasp_streak": max_strict_grasp_streak,
+        "strict_lift": strict_lift,
+        "strict_success": strict_success,
+        "max_block_displacement": max_block_displacement,
+        "action_clip_rate": action_clip_count / max(1, action_value_count),
         "grasped_vertical_lift_reward": grasped_vertical_lift_reward_total,
         "lift_side_push_penalty": lift_side_push_penalty_total,
     }
@@ -293,15 +464,98 @@ def mean_metric(metrics: list[dict[str, Any]], key: str) -> float:
     return float(np.mean([float(item[key]) for item in metrics]))
 
 
-def print_summary(metrics: list[dict[str, Any]]) -> None:
+def build_summary(metrics: list[dict[str, Any]]) -> dict[str, Any]:
+    if not metrics:
+        return {"episodes": 0}
+    return {
+        "episodes": len(metrics),
+        "success_rate": float(np.mean([float(item["success"]) for item in metrics])),
+        "strict_success_rate": float(np.mean([float(item["strict_success"]) for item in metrics])),
+        "sustained_grasp_rate": float(np.mean([float(item["sustained_grasp"]) for item in metrics])),
+        "strict_lift_rate": float(np.mean([float(item["strict_lift"]) for item in metrics])),
+        "mean_return": mean_metric(metrics, "return"),
+        "mean_steps": mean_metric(metrics, "steps"),
+        "mean_final_distance": mean_metric(metrics, "final_distance"),
+        "mean_max_block_height": mean_metric(metrics, "max_block_height"),
+        "mean_max_block_height_gain": mean_metric(metrics, "max_block_height_gain"),
+        "mean_contact_count": mean_metric(metrics, "contact_count"),
+        "mean_grasp_count": mean_metric(metrics, "grasp_count"),
+        "mean_force_grasp_count": mean_metric(metrics, "force_grasp_count"),
+        "mean_face_grasp_count": mean_metric(metrics, "face_grasp_count"),
+        "mean_force_only_grasp_count": mean_metric(
+            metrics, "force_only_grasp_count"
+        ),
+        "mean_interior_face_contact_count": mean_metric(
+            metrics, "interior_face_contact_count"
+        ),
+        "mean_corner_only_contact_count": mean_metric(
+            metrics, "corner_only_contact_count"
+        ),
+        "mean_fixed_interior_face_contact_count": mean_metric(
+            metrics, "fixed_interior_face_contact_count"
+        ),
+        "mean_moving_interior_face_contact_count": mean_metric(
+            metrics, "moving_interior_face_contact_count"
+        ),
+        "mean_bilateral_interior_face_contact_count": mean_metric(
+            metrics, "bilateral_interior_face_contact_count"
+        ),
+        "mean_face_corner_rejection_count": mean_metric(
+            metrics, "face_corner_rejection_count"
+        ),
+        "mean_face_alignment": mean_metric(metrics, "mean_face_alignment"),
+        "mean_face_opposition": mean_metric(metrics, "mean_face_opposition"),
+        "mean_face_jaw_axis_alignment": mean_metric(
+            metrics, "mean_face_jaw_axis_alignment"
+        ),
+        "mean_pregrasp_face_axis_alignment": mean_metric(
+            metrics, "mean_pregrasp_face_axis_alignment"
+        ),
+        "mean_pregrasp_face_guidance_score": mean_metric(
+            metrics, "mean_pregrasp_face_guidance_score"
+        ),
+        "mean_face_axis_guidance_progress": mean_metric(
+            metrics, "mean_face_axis_guidance_progress"
+        ),
+        "mean_pregrasp_face_height_error": mean_metric(
+            metrics, "mean_pregrasp_face_height_error"
+        ),
+        "mean_pregrasp_face_depth_error": mean_metric(
+            metrics, "mean_pregrasp_face_depth_error"
+        ),
+        "mean_pregrasp_face_lateral_error": mean_metric(
+            metrics, "mean_pregrasp_face_lateral_error"
+        ),
+        "mean_interior_face_contact_score": mean_metric(
+            metrics, "mean_interior_face_contact_score"
+        ),
+        "mean_face_contact_quality": mean_metric(
+            metrics, "mean_face_contact_quality"
+        ),
+        "mean_bilateral_opposition_quality": mean_metric(
+            metrics, "mean_bilateral_opposition_quality"
+        ),
+        "mean_max_consecutive_grasp_steps": mean_metric(metrics, "max_consecutive_grasp_steps"),
+        "mean_micro_lift_count": mean_metric(metrics, "micro_lift_count"),
+        "mean_lift_count": mean_metric(metrics, "lift_count"),
+        "mean_max_block_displacement": mean_metric(metrics, "max_block_displacement"),
+        "mean_action_clip_rate": mean_metric(metrics, "action_clip_rate"),
+        "mean_grasped_vertical_lift_reward": mean_metric(metrics, "grasped_vertical_lift_reward"),
+        "mean_lift_side_push_penalty": mean_metric(metrics, "lift_side_push_penalty"),
+    }
+
+
+def print_summary(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     if not metrics:
         print("No episodes requested; checkpoint and dependencies loaded successfully.")
-        return
+        return build_summary(metrics)
 
-    success_rate = float(np.mean([float(item["success"]) for item in metrics]))
+    summary = build_summary(metrics)
     print("\nSummary")
-    print(f"  episodes: {len(metrics)}")
-    print(f"  success_rate: {success_rate:.3f}")
+    print(f"  episodes: {summary['episodes']}")
+    print(f"  success_rate: {summary['success_rate']:.3f}")
+    print(f"  sustained_grasp_rate: {summary['sustained_grasp_rate']:.3f}")
+    print(f"  strict_lift_rate: {summary['strict_lift_rate']:.3f}")
     print(f"  mean_return: {mean_metric(metrics, 'return'):.3f}")
     print(f"  mean_steps: {mean_metric(metrics, 'steps'):.1f}")
     print(f"  mean_final_distance: {mean_metric(metrics, 'final_distance'):.4f}")
@@ -309,10 +563,73 @@ def print_summary(metrics: list[dict[str, Any]]) -> None:
     print(f"  mean_max_block_height_gain: {mean_metric(metrics, 'max_block_height_gain'):.4f}")
     print(f"  mean_contact_count: {mean_metric(metrics, 'contact_count'):.1f}")
     print(f"  mean_grasp_count: {mean_metric(metrics, 'grasp_count'):.1f}")
+    print(f"  mean_force_grasp_count: {summary['mean_force_grasp_count']:.1f}")
+    print(f"  mean_face_grasp_count: {summary['mean_face_grasp_count']:.1f}")
+    print(
+        f"  mean_force_only_grasp_count: "
+        f"{summary['mean_force_only_grasp_count']:.1f}"
+    )
+    print(
+        "  mean_interior_face_contact_count: "
+        f"{summary['mean_interior_face_contact_count']:.1f}"
+    )
+    print(
+        "  mean_corner_only_contact_count: "
+        f"{summary['mean_corner_only_contact_count']:.1f}"
+    )
+    print(
+        "  mean_fixed_interior_face_contact_count: "
+        f"{summary['mean_fixed_interior_face_contact_count']:.1f}"
+    )
+    print(
+        "  mean_moving_interior_face_contact_count: "
+        f"{summary['mean_moving_interior_face_contact_count']:.1f}"
+    )
+    print(
+        "  mean_bilateral_interior_face_contact_count: "
+        f"{summary['mean_bilateral_interior_face_contact_count']:.1f}"
+    )
+    print(
+        "  mean_face_corner_rejection_count: "
+        f"{summary['mean_face_corner_rejection_count']:.1f}"
+    )
+    print(f"  mean_face_alignment: {summary['mean_face_alignment']:.3f}")
+    print(f"  mean_face_opposition: {summary['mean_face_opposition']:.3f}")
+    print(
+        "  mean_face_jaw_axis_alignment: "
+        f"{summary['mean_face_jaw_axis_alignment']:.3f}"
+    )
+    print(
+        "  mean_pregrasp_face_axis_alignment: "
+        f"{summary['mean_pregrasp_face_axis_alignment']:.3f}"
+    )
+    print(
+        "  mean_pregrasp_face_guidance_score: "
+        f"{summary['mean_pregrasp_face_guidance_score']:.3f}"
+    )
+    print(
+        "  mean_face_axis_guidance_progress: "
+        f"{summary['mean_face_axis_guidance_progress']:.4f}"
+    )
+    print(
+        "  mean_interior_face_contact_score: "
+        f"{summary['mean_interior_face_contact_score']:.3f}"
+    )
+    print(
+        "  mean_face_contact_quality: "
+        f"{summary['mean_face_contact_quality']:.3f}"
+    )
+    print(
+        "  mean_bilateral_opposition_quality: "
+        f"{summary['mean_bilateral_opposition_quality']:.3f}"
+    )
     print(f"  mean_micro_lift_count: {mean_metric(metrics, 'micro_lift_count'):.1f}")
     print(f"  mean_lift_count: {mean_metric(metrics, 'lift_count'):.1f}")
     print(f"  mean_grasped_vertical_lift_reward: {mean_metric(metrics, 'grasped_vertical_lift_reward'):.3f}")
     print(f"  mean_lift_side_push_penalty: {mean_metric(metrics, 'lift_side_push_penalty'):.3f}")
+    print(f"  mean_max_block_displacement: {mean_metric(metrics, 'max_block_displacement'):.4f}")
+    print(f"  mean_action_clip_rate: {mean_metric(metrics, 'action_clip_rate'):.4f}")
+    return summary
 
 
 def main() -> int:
@@ -322,6 +639,9 @@ def main() -> int:
     args.init_checkpoint = args.init_checkpoint.expanduser().resolve()
     if args.save_video is not None:
         args.save_video = args.save_video.expanduser().resolve()
+    if args.output_json is not None:
+        args.output_json = args.output_json.expanduser().resolve()
+    args.reward_kwargs = sim.resolve_reward_profile(args.reward_profile)
     if not args.resume.is_file():
         raise FileNotFoundError(f"ACT PPO checkpoint not found: {args.resume}")
     if not args.init_checkpoint.exists():
@@ -365,7 +685,14 @@ def main() -> int:
     finally:
         env.close()
 
-    print_summary(metrics)
+    summary = print_summary(metrics)
+    if args.output_json is not None:
+        args.output_json.parent.mkdir(parents=True, exist_ok=True)
+        args.output_json.write_text(
+            json.dumps({"summary": summary, "episodes": metrics}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Wrote evaluation JSON: {args.output_json}")
     return 0
 
 

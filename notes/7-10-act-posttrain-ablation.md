@@ -1,5 +1,12 @@
 # 2026-07-10 ACT Post-train PPO Ablation
 
+> **Historical, coordinate-confounded experiment.** These jobs ran before the
+> ACT dataset-coordinate adapter and differentiable checkpoint normalization
+> fix. Their internal matched comparisons are retained as historical evidence,
+> but their policies and absolute metrics are not directly comparable with the
+> corrected-coordinate sweep. Do not resume these PPO checkpoints. See
+> [the corrected-coordinate ACT PPO sweep](7-10-act-coordinate-lr-sweep.md).
+
 ## Goal
 
 Run a controlled overnight study after the camera, initial-pose, scene-appearance,

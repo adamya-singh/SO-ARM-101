@@ -949,6 +949,15 @@ _hover_without_contact_steps = 0
 _prev_contacted = False
 _prev_gripped = False
 _prev_block_height = None
+_prev_face_contact_quality = 0.0
+_prev_bilateral_opposition_quality = 0.0
+_strict_grasp_streak = 0
+_micro_lift_awarded = False
+_lift_awarded = False
+_success_awarded = False
+_independent_strict_micro_lift_awarded = False
+_independent_strict_lift_awarded = False
+_independent_strict_success_awarded = False
 
 
 def check_gripper_block_contact(m, d, block_name="red_block"):
@@ -1023,6 +1032,310 @@ def check_block_gripped_with_force(m, d, block_name="red_block", min_force=0.1):
     return False, 0.0
 
 
+FACE_GRASP_MIN_FORCE = 0.1
+FACE_GRASP_CUBE_HALF_EXTENT = 0.0125
+FACE_GRASP_CORNER_MARGIN = 0.004
+FACE_GRASP_NORMAL_COSINE = float(np.cos(np.deg2rad(25.0)))
+FACE_GRASP_SURFACE_TOLERANCE = 0.002
+PREGRASP_FACE_HEIGHT_TOLERANCE = 0.020
+PREGRASP_FACE_DEPTH_TOLERANCE = 0.030
+PREGRASP_FACE_LATERAL_TOLERANCE = 0.018
+
+
+def evaluate_face_grasp_contacts(
+    contacts: list[dict[str, Any]],
+    jaw_axis_local: np.ndarray,
+    *,
+    min_force: float = FACE_GRASP_MIN_FORCE,
+    cube_half_extent: float = FACE_GRASP_CUBE_HALF_EXTENT,
+    corner_margin: float = FACE_GRASP_CORNER_MARGIN,
+    normal_cosine: float = FACE_GRASP_NORMAL_COSINE,
+    surface_tolerance: float = FACE_GRASP_SURFACE_TOLERANCE,
+) -> tuple[bool, float, dict[str, Any]]:
+    """Evaluate strict opposing-face contact geometry without MuJoCo dependencies.
+
+    Thresholds target the 25 mm cube in ``scene.xml``: each jaw must contribute
+    more than 0.1 N, contacts must stay at least 4 mm from every face edge,
+    and face-normal, jaw-axis, and opposing-normal alignment must be within
+    25 degrees. ``normal_local`` may have either sign; it is oriented outward
+    from the cube using the contact position before comparisons.
+    """
+    jaw_axis = np.asarray(jaw_axis_local, dtype=np.float64)
+    jaw_axis_norm = float(np.linalg.norm(jaw_axis))
+    if jaw_axis_norm <= 1e-9:
+        return False, 0.0, {
+            "face_alignment": 0.0,
+            "face_opposition": 0.0,
+            "face_jaw_axis_alignment": 0.0,
+            "face_corner_rejection": False,
+            "face_corner_rejection_count": 0,
+            "interior_face_contact": False,
+            "interior_face_contact_score": 0.0,
+            "interior_face_contact_count": 0,
+            "face_contact_quality": 0.0,
+            "fixed_interior_face_contact": False,
+            "moving_interior_face_contact": False,
+            "bilateral_interior_face_contact": False,
+            "bilateral_opposition_quality": 0.0,
+        }
+    jaw_axis /= jaw_axis_norm
+
+    usable: dict[str, list[dict[str, Any]]] = {"fixed": [], "moving": []}
+    corner_rejections = 0
+    best_face_alignment = 0.0
+    best_jaw_alignment = 0.0
+    best_contact_quality = 0.0
+    for contact in contacts:
+        side = contact.get("side")
+        if side not in usable:
+            continue
+        position = np.asarray(contact["position_local"], dtype=np.float64)
+        normal = np.asarray(contact["normal_local"], dtype=np.float64)
+        normal_norm = float(np.linalg.norm(normal))
+        if position.shape != (3,) or normal.shape != (3,) or normal_norm <= 1e-9:
+            continue
+        normal /= normal_norm
+
+        # Contact-frame normals change sign when MuJoCo swaps geom1/geom2.
+        # Orient geometrically from the cube center so detector output does not.
+        if float(np.dot(normal, position)) < 0.0:
+            normal = -normal
+
+        face_axis = int(np.argmax(np.abs(position)))
+        face_sign = 1.0 if position[face_axis] >= 0.0 else -1.0
+        expected_normal = np.zeros(3, dtype=np.float64)
+        expected_normal[face_axis] = face_sign
+        face_alignment = float(np.dot(normal, expected_normal))
+        jaw_alignment = float(abs(np.dot(normal, jaw_axis)))
+        best_face_alignment = max(best_face_alignment, face_alignment)
+        best_jaw_alignment = max(best_jaw_alignment, jaw_alignment)
+
+        tangential = np.delete(np.abs(position), face_axis)
+        edge_clearance = cube_half_extent - float(np.max(tangential))
+        edge_clearance_quality = float(
+            np.clip(edge_clearance / max(corner_margin, 1e-9), 0.0, 1.0)
+        )
+        contact_quality = float(
+            np.clip(face_alignment, 0.0, 1.0)
+            * np.clip(jaw_alignment, 0.0, 1.0)
+            * edge_clearance_quality
+        )
+        best_contact_quality = max(best_contact_quality, contact_quality)
+        inside_margin = bool(np.all(tangential <= cube_half_extent - corner_margin))
+        if not inside_margin:
+            corner_rejections += 1
+            continue
+        on_surface = abs(abs(float(position[face_axis])) - cube_half_extent) <= surface_tolerance
+        if not on_surface or face_alignment < normal_cosine or jaw_alignment < normal_cosine:
+            continue
+        usable[side].append(
+            {
+                "normal": normal,
+                "axis": face_axis,
+                "sign": face_sign,
+                "force": max(0.0, float(contact.get("force", 0.0))),
+                "face_alignment": face_alignment,
+                "jaw_alignment": jaw_alignment,
+                "contact_quality": contact_quality,
+            }
+        )
+
+    best_pair = None
+    best_opposition = 0.0
+    for fixed in usable["fixed"]:
+        for moving in usable["moving"]:
+            opposition = float(-np.dot(fixed["normal"], moving["normal"]))
+            best_opposition = max(best_opposition, opposition)
+            opposite_faces = fixed["axis"] == moving["axis"] and fixed["sign"] == -moving["sign"]
+            if not opposite_faces or opposition < normal_cosine:
+                continue
+            pair_score = min(
+                fixed["face_alignment"],
+                moving["face_alignment"],
+                fixed["jaw_alignment"],
+                moving["jaw_alignment"],
+                opposition,
+            )
+            if best_pair is None or pair_score > best_pair[0]:
+                best_pair = (
+                    pair_score,
+                    fixed["axis"],
+                    fixed["sign"],
+                    moving["sign"],
+                    min(fixed["face_alignment"], moving["face_alignment"]),
+                    min(fixed["jaw_alignment"], moving["jaw_alignment"]),
+                    opposition,
+                )
+
+    fixed_force = 0.0
+    moving_force = 0.0
+    if best_pair is not None:
+        _, pair_axis, fixed_sign, moving_sign, _, _, _ = best_pair
+        fixed_force = sum(
+            item["force"]
+            for item in usable["fixed"]
+            if item["axis"] == pair_axis and item["sign"] == fixed_sign
+        )
+        moving_force = sum(
+            item["force"]
+            for item in usable["moving"]
+            if item["axis"] == pair_axis and item["sign"] == moving_sign
+        )
+    face_gripped = best_pair is not None and fixed_force > min_force and moving_force > min_force
+    grip_force = min(fixed_force, moving_force) if face_gripped else 0.0
+    interior_contacts = usable["fixed"] + usable["moving"]
+    interior_contact_score = max(
+        (
+            min(
+                item["face_alignment"],
+                item["jaw_alignment"],
+                np.clip(item["force"] / max(min_force, 1e-9), 0.0, 1.0),
+            )
+            for item in interior_contacts
+        ),
+        default=0.0,
+    )
+    diagnostics = {
+        "face_alignment": float(best_pair[4] if best_pair is not None else best_face_alignment),
+        "face_opposition": float(best_pair[6] if best_pair is not None else best_opposition),
+        "face_jaw_axis_alignment": float(
+            best_pair[5] if best_pair is not None else best_jaw_alignment
+        ),
+        "face_corner_rejection": corner_rejections > 0,
+        "face_corner_rejection_count": corner_rejections,
+        "interior_face_contact": bool(interior_contacts),
+        "interior_face_contact_score": float(interior_contact_score),
+        "interior_face_contact_count": len(interior_contacts),
+        "face_contact_quality": best_contact_quality,
+        "fixed_interior_face_contact": bool(usable["fixed"]),
+        "moving_interior_face_contact": bool(usable["moving"]),
+        "bilateral_interior_face_contact": bool(
+            usable["fixed"] and usable["moving"]
+        ),
+        "bilateral_opposition_quality": best_opposition,
+    }
+    return face_gripped, grip_force, diagnostics
+
+
+def check_block_face_gripped(m, d, block_name="red_block"):
+    """Detect a forceful, centered pinch on two opposing cube faces."""
+    block_body_id = m.body(block_name).id
+    gripper_body_id = m.body("gripper").id
+    jaw_body_id = m.body("moving_jaw_so101_v1").id
+    block_pos = d.body(block_name).xpos.copy()
+    block_rotation = np.asarray(d.body(block_name).xmat).reshape(3, 3)
+    fixed_tip = d.site("fixed_jaw_tip").xpos.copy()
+    moving_tip = d.site("moving_jaw_tip").xpos.copy()
+    jaw_axis_world = moving_tip - fixed_tip
+    jaw_axis_local = block_rotation.T @ jaw_axis_world
+    contacts = []
+
+    for i in range(d.ncon):
+        contact = d.contact[i]
+        geom1_body = m.geom_bodyid[contact.geom1]
+        geom2_body = m.geom_bodyid[contact.geom2]
+        bodies = {geom1_body, geom2_body}
+        if block_body_id not in bodies:
+            continue
+        side = None
+        if gripper_body_id in bodies:
+            side = "fixed"
+        elif jaw_body_id in bodies:
+            side = "moving"
+        if side is None:
+            continue
+        wrench = np.zeros(6)
+        mujoco.mj_contactForce(m, d, i, wrench)
+        world_normal = np.asarray(contact.frame[:3], dtype=np.float64)
+        contacts.append(
+            {
+                "side": side,
+                "position_local": block_rotation.T @ (np.asarray(contact.pos) - block_pos),
+                "normal_local": block_rotation.T @ world_normal,
+                "force": float(np.linalg.norm(wrench[:3])),
+            }
+        )
+
+    return evaluate_face_grasp_contacts(contacts, jaw_axis_local)
+
+
+def evaluate_pregrasp_face_guidance(
+    block_rotation: np.ndarray,
+    block_position: np.ndarray,
+    fixed_jaw_tip: np.ndarray,
+    moving_jaw_tip: np.ndarray,
+) -> dict[str, float]:
+    """Score a centered pregrasp whose closing axis targets a horizontal cube face.
+
+    Axis score is zero for a 45-degree diagonal approach and rises linearly to
+    one when the horizontal jaw-closing axis matches either block-local X or Y.
+    Centering reaches one inside the block center and decays over 20 mm height,
+    30 mm depth, and 18 mm closing-axis lateral error. The combined score keeps
+    axis alignment mandatory while providing dense height/depth guidance.
+    """
+    rotation = np.asarray(block_rotation, dtype=np.float64).reshape(3, 3)
+    block_pos = np.asarray(block_position, dtype=np.float64)
+    fixed_tip = np.asarray(fixed_jaw_tip, dtype=np.float64)
+    moving_tip = np.asarray(moving_jaw_tip, dtype=np.float64)
+    jaw_center = 0.5 * (fixed_tip + moving_tip)
+    jaw_axis_world = moving_tip - fixed_tip
+    jaw_axis_horizontal = jaw_axis_world.copy()
+    jaw_axis_horizontal[2] = 0.0
+    jaw_axis_norm = float(np.linalg.norm(jaw_axis_horizontal))
+    if jaw_axis_norm <= 1e-9:
+        return {
+            "pregrasp_face_axis_alignment": 0.0,
+            "pregrasp_face_guidance_score": 0.0,
+            "pregrasp_face_height_error": float("inf"),
+            "pregrasp_face_depth_error": float("inf"),
+            "pregrasp_face_lateral_error": float("inf"),
+        }
+    jaw_axis_horizontal /= jaw_axis_norm
+
+    horizontal_axes = []
+    for local_axis in (0, 1):
+        axis = rotation[:, local_axis].copy()
+        axis[2] = 0.0
+        axis_norm = float(np.linalg.norm(axis))
+        horizontal_axes.append(axis / axis_norm if axis_norm > 1e-9 else np.zeros(3))
+    raw_alignments = np.asarray(
+        [abs(float(np.dot(jaw_axis_horizontal, axis))) for axis in horizontal_axes]
+    )
+    selected_axis = int(np.argmax(raw_alignments))
+    raw_axis_alignment = float(raw_alignments[selected_axis])
+    diagonal_alignment = float(1.0 / np.sqrt(2.0))
+    axis_score = float(
+        np.clip(
+            (raw_axis_alignment - diagonal_alignment) / (1.0 - diagonal_alignment),
+            0.0,
+            1.0,
+        )
+    )
+
+    offset_local = rotation.T @ (jaw_center - block_pos)
+    depth_axis = 1 - selected_axis
+    lateral_error = abs(float(offset_local[selected_axis]))
+    depth_error = abs(float(offset_local[depth_axis]))
+    height_error = abs(float(offset_local[2]))
+    lateral_score = float(
+        np.clip(1.0 - lateral_error / PREGRASP_FACE_LATERAL_TOLERANCE, 0.0, 1.0)
+    )
+    depth_score = float(
+        np.clip(1.0 - depth_error / PREGRASP_FACE_DEPTH_TOLERANCE, 0.0, 1.0)
+    )
+    height_score = float(
+        np.clip(1.0 - height_error / PREGRASP_FACE_HEIGHT_TOLERANCE, 0.0, 1.0)
+    )
+    centering_score = 0.25 * lateral_score + 0.40 * depth_score + 0.35 * height_score
+    return {
+        "pregrasp_face_axis_alignment": raw_axis_alignment,
+        "pregrasp_face_guidance_score": float(axis_score * centering_score),
+        "pregrasp_face_height_error": height_error,
+        "pregrasp_face_depth_error": depth_error,
+        "pregrasp_face_lateral_error": lateral_error,
+    }
+
+
 def get_floor_contact_force(m, d, floor_geom_name="floor"):
     """
     Measure total contact force between robot and floor.
@@ -1065,6 +1378,7 @@ _early_closed_gripper_steps = 0
 _timed_close_steps = 0
 _recent_pregrasp_aligned_steps = 0
 _recent_jaw_centered_contact_steps = 0
+_prev_face_guidance_score = None
 
 
 def create_reward_state_tracker() -> dict[str, Any]:
@@ -1092,6 +1406,16 @@ def create_reward_state_tracker() -> dict[str, Any]:
         "timed_close_steps": 0,
         "recent_pregrasp_aligned_steps": 0,
         "recent_jaw_centered_contact_steps": 0,
+        "prev_face_guidance_score": None,
+        "prev_face_contact_quality": 0.0,
+        "prev_bilateral_opposition_quality": 0.0,
+        "strict_grasp_streak": 0,
+        "micro_lift_awarded": False,
+        "lift_awarded": False,
+        "success_awarded": False,
+        "independent_strict_micro_lift_awarded": False,
+        "independent_strict_lift_awarded": False,
+        "independent_strict_success_awarded": False,
     }
 
 
@@ -1103,7 +1427,11 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     global _prev_gripper_qpos, _pregrasp_hover_steps, _recent_gripper_closing_steps, _disengaged_steps
     global _recent_contact_steps, _recent_grasp_attempt_steps, _post_attempt_commitment_steps, _escape_posture_steps
     global _early_closed_gripper_steps, _timed_close_steps, _recent_pregrasp_aligned_steps
-    global _recent_jaw_centered_contact_steps
+    global _recent_jaw_centered_contact_steps, _prev_face_guidance_score
+    global _prev_face_contact_quality, _prev_bilateral_opposition_quality
+    global _strict_grasp_streak, _micro_lift_awarded, _lift_awarded, _success_awarded
+    global _independent_strict_micro_lift_awarded, _independent_strict_lift_awarded
+    global _independent_strict_success_awarded
 
     _prev_gripper_pos = state["prev_gripper_pos"]
     _prev_block_pos = state["prev_block_pos"]
@@ -1127,6 +1455,24 @@ def _sync_global_reward_state(state: dict[str, Any]) -> None:
     _timed_close_steps = state["timed_close_steps"]
     _recent_pregrasp_aligned_steps = state["recent_pregrasp_aligned_steps"]
     _recent_jaw_centered_contact_steps = state["recent_jaw_centered_contact_steps"]
+    _prev_face_guidance_score = state.get("prev_face_guidance_score")
+    _prev_face_contact_quality = float(state.get("prev_face_contact_quality", 0.0))
+    _prev_bilateral_opposition_quality = float(
+        state.get("prev_bilateral_opposition_quality", 0.0)
+    )
+    _strict_grasp_streak = int(state.get("strict_grasp_streak", 0))
+    _micro_lift_awarded = bool(state.get("micro_lift_awarded", False))
+    _lift_awarded = bool(state.get("lift_awarded", False))
+    _success_awarded = bool(state.get("success_awarded", False))
+    _independent_strict_micro_lift_awarded = bool(
+        state.get("independent_strict_micro_lift_awarded", False)
+    )
+    _independent_strict_lift_awarded = bool(
+        state.get("independent_strict_lift_awarded", False)
+    )
+    _independent_strict_success_awarded = bool(
+        state.get("independent_strict_success_awarded", False)
+    )
 
 
 def compute_pickup_reward_from_state(
@@ -1199,6 +1545,12 @@ def compute_pickup_reward_from_state(
     pregrasp_alignment_window: int = 10,
     recent_jaw_centered_contact_window: int = 15,
     jaw_centered_contact_reward: float = 0.08,
+    strict_transition: bool = False,
+    strict_grasp_required_steps: int = 5,
+    pregrasp_potential_scale: float = 0.20,
+    interior_contact_potential_scale: float = 0.30,
+    bilateral_opposition_potential_scale: float = 0.50,
+    corner_only_contact_penalty: float = -0.08,
 ):
     """
     Compute a staged pickup reward using caller-owned mutable state.
@@ -1246,7 +1598,17 @@ def compute_pickup_reward_from_state(
     reward = distance_penalty
 
     contacted = check_gripper_block_contact(m, d, block_name)
-    gripped, grip_force = check_block_gripped_with_force(m, d, block_name)
+    force_gripped, force_grip_force = check_block_gripped_with_force(m, d, block_name)
+    face_gripped, face_grip_force, face_diagnostics = check_block_face_gripped(m, d, block_name)
+    gripped = face_gripped if strict_transition else force_gripped
+    grip_force = face_grip_force if strict_transition else force_grip_force
+    if face_gripped:
+        state["strict_grasp_streak"] = int(state.get("strict_grasp_streak", 0)) + 1
+    else:
+        state["strict_grasp_streak"] = 0
+    strict_grasp_ready = bool(
+        face_gripped and state["strict_grasp_streak"] >= strict_grasp_required_steps
+    )
 
     far_from_block_penalty = 0.0
     if not contacted:
@@ -1330,6 +1692,71 @@ def compute_pickup_reward_from_state(
     if pregrasp_alignment_score > 0.0 and not contacted:
         pregrasp_alignment_reward = pregrasp_alignment_reward_scale * pregrasp_alignment_score
         reward += pregrasp_alignment_reward
+
+    pregrasp_face_diagnostics = {
+        "pregrasp_face_axis_alignment": 0.0,
+        "pregrasp_face_guidance_score": 0.0,
+        "pregrasp_face_height_error": 0.0,
+        "pregrasp_face_depth_error": 0.0,
+        "pregrasp_face_lateral_error": 0.0,
+    }
+    try:
+        pregrasp_face_diagnostics = evaluate_pregrasp_face_guidance(
+            np.asarray(d.body(block_name).xmat).reshape(3, 3),
+            block_pos,
+            d.site("fixed_jaw_tip").xpos.copy(),
+            d.site("moving_jaw_tip").xpos.copy(),
+        )
+    except Exception:
+        pass
+    current_face_guidance_score = float(
+        pregrasp_face_diagnostics["pregrasp_face_guidance_score"]
+    )
+    face_axis_guidance_progress = (
+        0.0
+        if state.get("prev_face_guidance_score") is None or contacted
+        else current_face_guidance_score - float(state["prev_face_guidance_score"])
+    )
+    state["prev_face_guidance_score"] = current_face_guidance_score
+
+    strict_pregrasp_potential_reward = 0.0
+    strict_interior_contact_potential_reward = 0.0
+    strict_bilateral_opposition_potential_reward = 0.0
+    if strict_transition:
+        previous_guidance = float(state.get("prev_strict_face_guidance_score", 0.0))
+        previous_quality = float(state.get("prev_face_contact_quality", 0.0))
+        previous_opposition = float(state.get("prev_bilateral_opposition_quality", 0.0))
+        current_quality = float(face_diagnostics["face_contact_quality"])
+        current_opposition = float(face_diagnostics["bilateral_opposition_quality"])
+        strict_pregrasp_potential_reward = float(
+            np.clip(
+                pregrasp_potential_scale * (0.99 * current_face_guidance_score - previous_guidance),
+                -pregrasp_potential_scale,
+                pregrasp_potential_scale,
+            )
+        )
+        strict_interior_contact_potential_reward = float(
+            np.clip(
+                interior_contact_potential_scale * (0.99 * current_quality - previous_quality),
+                -interior_contact_potential_scale,
+                interior_contact_potential_scale,
+            )
+        )
+        strict_bilateral_opposition_potential_reward = float(
+            np.clip(
+                bilateral_opposition_potential_scale * (0.99 * current_opposition - previous_opposition),
+                -bilateral_opposition_potential_scale,
+                bilateral_opposition_potential_scale,
+            )
+        )
+        reward += (
+            strict_pregrasp_potential_reward
+            + strict_interior_contact_potential_reward
+            + strict_bilateral_opposition_potential_reward
+        )
+        state["prev_strict_face_guidance_score"] = current_face_guidance_score
+        state["prev_face_contact_quality"] = current_quality
+        state["prev_bilateral_opposition_quality"] = current_opposition
 
     near_contact_reward = 0.0
     contact_progressing = horizontal_progress > 0.0 or vertical_progress > 0.0
@@ -1484,14 +1911,35 @@ def compute_pickup_reward_from_state(
     applied_grasp_persistence_reward = 0.0
     applied_bilateral_grasp_bonus = 0.0
     if gripped:
-        applied_bilateral_grasp_bonus = bilateral_grasp_bonus
         grasp_persistent = prev_gripped
-        applied_grasp_persistence_reward = grasp_persistence_reward if grasp_persistent else 0.0
+        if strict_transition:
+            applied_bilateral_grasp_bonus = (
+                bilateral_grasp_bonus
+                if state["strict_grasp_streak"] == strict_grasp_required_steps
+                else 0.0
+            )
+            applied_grasp_persistence_reward = (
+                grasp_persistence_reward
+                if state["strict_grasp_streak"] > strict_grasp_required_steps
+                else 0.0
+            )
+        else:
+            applied_bilateral_grasp_bonus = bilateral_grasp_bonus
+            applied_grasp_persistence_reward = grasp_persistence_reward if grasp_persistent else 0.0
         reward += applied_bilateral_grasp_bonus + applied_grasp_persistence_reward
+
+    force_only_grasp = force_gripped and not face_gripped
+    corner_only_contact = bool(
+        contacted and not face_diagnostics["interior_face_contact"]
+    )
+    corner_only_contact_penalty_value = 0.0
+    if strict_transition and corner_only_contact:
+        corner_only_contact_penalty_value = corner_only_contact_penalty
+        reward += corner_only_contact_penalty_value
 
     gripper_upward_delta = 0.0 if prev_gripper_pos is None else max(0.0, gripper_pos[2] - prev_gripper_pos[2])
     grasp_lift_motion_reward = 0.0
-    if gripped or prev_gripped:
+    if not strict_transition and (gripped or prev_gripped):
         grasp_lift_motion_reward = min(
             grasp_lift_motion_reward_cap,
             grasp_lift_motion_reward_scale * gripper_upward_delta,
@@ -1499,7 +1947,16 @@ def compute_pickup_reward_from_state(
         reward += grasp_lift_motion_reward
 
     contact_lift_ready = state["recent_jaw_centered_contact_steps"] > 0
-    if gripped or prev_gripped:
+    if strict_transition:
+        block_vertical_delta = (
+            0.0 if prev_block_pos is None else max(0.0, block_pos[2] - prev_block_pos[2])
+        )
+        lift_progress_reward = (
+            min(grasped_vertical_lift_reward_cap, grasped_vertical_lift_reward_scale * block_vertical_delta)
+            if strict_grasp_ready
+            else 0.0
+        )
+    elif gripped or prev_gripped:
         lift_progress_reward = min(2.0, 30.0 * block_height_gain)
     elif contacted and contact_lift_ready:
         lift_progress_reward = min(1.0, 18.0 * block_height_gain)
@@ -1574,25 +2031,69 @@ def compute_pickup_reward_from_state(
     )
     reward += applied_escape_posture_penalty + applied_post_attempt_escape_penalty
 
-    lift_grasp_ready = (
-        gripped
-        or prev_gripped
-        or state["recent_pregrasp_aligned_steps"] > 0
-        or contact_lift_ready
+    if strict_transition:
+        lift_grasp_ready = strict_grasp_ready
+        micro_lift_ready = strict_grasp_ready
+    else:
+        lift_grasp_ready = (
+            gripped
+            or prev_gripped
+            or state["recent_pregrasp_aligned_steps"] > 0
+            or contact_lift_ready
+        )
+        micro_lift_ready = (
+            gripped
+            or prev_gripped
+            or (contacted and contact_lift_ready)
+            or (sustained and state["recent_jaw_centered_contact_steps"] > 0)
+        )
+    previous_height_gain = (
+        0.0 if prev_block_pos is None else max(0.0, prev_block_pos[2] - initial_block_pos[2])
     )
-    micro_lift_ready = (
-        gripped
-        or prev_gripped
-        or (contacted and contact_lift_ready)
-        or (sustained and state["recent_jaw_centered_contact_steps"] > 0)
+    # Reward-profile-independent task telemetry.  These events deliberately use
+    # only the geometry-aware opposing-face grasp and threshold crossings; they
+    # never alter reward or termination semantics.
+    independent_strict_micro_lift_crossed = bool(
+        strict_grasp_ready
+        and previous_height_gain <= micro_lift_bonus_threshold
+        and block_height_gain > micro_lift_bonus_threshold
+        and not state.get("independent_strict_micro_lift_awarded", False)
     )
-    micro_lifted = block_height_gain > micro_lift_bonus_threshold and micro_lift_ready
+    independent_strict_lift_crossed = bool(
+        strict_grasp_ready
+        and previous_height_gain <= lift_bonus_threshold
+        and block_height_gain > lift_bonus_threshold
+        and not state.get("independent_strict_lift_awarded", False)
+    )
+    independent_strict_success_crossed = bool(
+        strict_grasp_ready
+        and previous_height_gain <= lift_threshold
+        and block_height_gain > lift_threshold
+        and not state.get("independent_strict_success_awarded", False)
+    )
+    if independent_strict_micro_lift_crossed:
+        state["independent_strict_micro_lift_awarded"] = True
+    if independent_strict_lift_crossed:
+        state["independent_strict_lift_awarded"] = True
+    if independent_strict_success_crossed:
+        state["independent_strict_success_awarded"] = True
+    micro_lift_crossed = bool(
+        micro_lift_ready
+        and previous_height_gain <= micro_lift_bonus_threshold
+        and block_height_gain > micro_lift_bonus_threshold
+        and not state.get("micro_lift_awarded", False)
+    )
+    micro_lifted = micro_lift_crossed if strict_transition else (
+        block_height_gain > micro_lift_bonus_threshold and micro_lift_ready
+    )
     micro_lift_bonus_reward = micro_lift_bonus if micro_lifted else 0.0
+    if strict_transition and micro_lift_crossed:
+        state["micro_lift_awarded"] = True
     reward += micro_lift_bonus_reward
 
     block_vertical_delta = 0.0 if prev_block_pos is None else max(0.0, block_pos[2] - prev_block_pos[2])
     grasped_vertical_lift_reward = 0.0
-    if (micro_lift_ready or lift_grasp_ready) and block_vertical_delta > 0.0:
+    if not strict_transition and (micro_lift_ready or lift_grasp_ready) and block_vertical_delta > 0.0:
         grasped_vertical_lift_reward = min(
             grasped_vertical_lift_reward_cap,
             grasped_vertical_lift_reward_scale * block_vertical_delta,
@@ -1610,17 +2111,37 @@ def compute_pickup_reward_from_state(
         lift_side_push_penalty = -lift_side_push_penalty_scale * (displacement_excess / 0.05)
         reward += lift_side_push_penalty
 
-    block_lifted = block_height_gain > lift_bonus_threshold and lift_grasp_ready
+    lift_crossed = bool(
+        lift_grasp_ready
+        and previous_height_gain <= lift_bonus_threshold
+        and block_height_gain > lift_bonus_threshold
+        and not state.get("lift_awarded", False)
+    )
+    block_lifted = lift_crossed if strict_transition else (
+        block_height_gain > lift_bonus_threshold and lift_grasp_ready
+    )
     lift_bonus_reward = 0.0
     if block_lifted:
         lift_bonus_reward = max(lift_bonus, 0.25)
         reward += lift_bonus_reward
+        if strict_transition:
+            state["lift_awarded"] = True
 
     success_lift_bonus_reward = 0.0
-    done = block_height_gain > lift_threshold and lift_grasp_ready
+    success_crossed = bool(
+        lift_grasp_ready
+        and previous_height_gain <= lift_threshold
+        and block_height_gain > lift_threshold
+    )
+    done = success_crossed if strict_transition else bool(
+        block_height_gain > lift_threshold and lift_grasp_ready
+    )
     if done:
-        success_lift_bonus_reward = success_lift_bonus
+        success_lift_bonus_reward = (
+            success_lift_bonus if not state.get("success_awarded", False) else 0.0
+        )
         reward += success_lift_bonus_reward
+        state["success_awarded"] = True
 
     applied_contact_stall_penalty = 0.0
     if contacted and not gripped and block_height_gain < 0.01 and state["consecutive_contact"] >= contact_stall_threshold:
@@ -1712,6 +2233,24 @@ def compute_pickup_reward_from_state(
         "pregrasp_alignment_reward": pregrasp_alignment_reward,
         "aligned_close_reward": aligned_close_reward_value,
         "jaw_centered_contact_reward": jaw_centered_contact_reward_value,
+        **pregrasp_face_diagnostics,
+        "face_axis_guidance_progress": face_axis_guidance_progress,
+        "force_only_grasp": force_only_grasp,
+        "corner_only_contact": corner_only_contact,
+        "corner_only_contact_penalty": corner_only_contact_penalty_value,
+        "strict_grasp_streak": int(state["strict_grasp_streak"]),
+        "strict_grasp_ready": strict_grasp_ready,
+        "micro_lift_crossed": micro_lift_crossed,
+        "lift_crossed": lift_crossed,
+        "independent_strict_micro_lift_crossed": independent_strict_micro_lift_crossed,
+        "independent_strict_lift_crossed": independent_strict_lift_crossed,
+        "independent_strict_success_crossed": independent_strict_success_crossed,
+        # Backward-compatible name used by rollout/evaluation telemetry.  It is
+        # intentionally independent of the active reward profile.
+        "strict_lift_success": independent_strict_success_crossed,
+        "strict_pregrasp_potential_reward": strict_pregrasp_potential_reward,
+        "strict_interior_contact_potential_reward": strict_interior_contact_potential_reward,
+        "strict_bilateral_opposition_potential_reward": strict_bilateral_opposition_potential_reward,
         "misaligned_close_penalty": misaligned_close_penalty_value,
         "misaligned_lift_penalty": misaligned_lift_penalty_value,
         "side_push_penalty": side_push_penalty_value,
@@ -1742,6 +2281,11 @@ def compute_pickup_reward_from_state(
         "slip_penalty": slip_penalty,
         "block_displacement_penalty": block_displacement_penalty,
         "grip_force": grip_force,
+        "force_gripped": force_gripped,
+        "face_gripped": face_gripped,
+        "force_grip_force": force_grip_force,
+        "face_grip_force": face_grip_force,
+        **face_diagnostics,
     }
     return reward, done, metrics
 
@@ -1815,6 +2359,12 @@ def compute_reward(
     pregrasp_alignment_window=10,
     recent_jaw_centered_contact_window=15,
     jaw_centered_contact_reward=0.08,
+    strict_transition=False,
+    strict_grasp_required_steps=5,
+    pregrasp_potential_scale=0.20,
+    interior_contact_potential_scale=0.30,
+    bilateral_opposition_potential_scale=0.50,
+    corner_only_contact_penalty=-0.08,
 ):
     """
     Wrapper around the staged pickup reward for single-environment callers.
@@ -1842,6 +2392,16 @@ def compute_reward(
         "timed_close_steps": _timed_close_steps,
         "recent_pregrasp_aligned_steps": _recent_pregrasp_aligned_steps,
         "recent_jaw_centered_contact_steps": _recent_jaw_centered_contact_steps,
+        "prev_face_guidance_score": _prev_face_guidance_score,
+        "prev_face_contact_quality": _prev_face_contact_quality,
+        "prev_bilateral_opposition_quality": _prev_bilateral_opposition_quality,
+        "strict_grasp_streak": _strict_grasp_streak,
+        "micro_lift_awarded": _micro_lift_awarded,
+        "lift_awarded": _lift_awarded,
+        "success_awarded": _success_awarded,
+        "independent_strict_micro_lift_awarded": _independent_strict_micro_lift_awarded,
+        "independent_strict_lift_awarded": _independent_strict_lift_awarded,
+        "independent_strict_success_awarded": _independent_strict_success_awarded,
     }
     reward, done, metrics = compute_pickup_reward_from_state(
         m,
@@ -1913,6 +2473,12 @@ def compute_reward(
         pregrasp_alignment_window=pregrasp_alignment_window,
         recent_jaw_centered_contact_window=recent_jaw_centered_contact_window,
         jaw_centered_contact_reward=jaw_centered_contact_reward,
+        strict_transition=strict_transition,
+        strict_grasp_required_steps=strict_grasp_required_steps,
+        pregrasp_potential_scale=pregrasp_potential_scale,
+        interior_contact_potential_scale=interior_contact_potential_scale,
+        bilateral_opposition_potential_scale=bilateral_opposition_potential_scale,
+        corner_only_contact_penalty=corner_only_contact_penalty,
     )
     _sync_global_reward_state(state)
 
@@ -1995,10 +2561,44 @@ def compute_reward(
         metrics["success_lift_bonus"],
         metrics["block_displacement_penalty"],
         metrics["grip_force"],
+        metrics["force_gripped"],
+        metrics["face_gripped"],
+        metrics["force_grip_force"],
+        metrics["face_grip_force"],
+        metrics["face_alignment"],
+        metrics["face_opposition"],
+        metrics["face_jaw_axis_alignment"],
+        metrics["face_corner_rejection"],
+        metrics["face_corner_rejection_count"],
+        metrics["interior_face_contact"],
+        metrics["interior_face_contact_score"],
+        metrics["interior_face_contact_count"],
+        metrics["face_contact_quality"],
+        metrics["fixed_interior_face_contact"],
+        metrics["moving_interior_face_contact"],
+        metrics["bilateral_interior_face_contact"],
+        metrics["bilateral_opposition_quality"],
+        metrics["pregrasp_face_axis_alignment"],
+        metrics["pregrasp_face_guidance_score"],
+        metrics["pregrasp_face_height_error"],
+        metrics["pregrasp_face_depth_error"],
+        metrics["pregrasp_face_lateral_error"],
+        metrics["face_axis_guidance_progress"],
+        metrics["force_only_grasp"],
+        metrics["corner_only_contact"],
+        metrics["corner_only_contact_penalty"],
+        metrics["strict_grasp_streak"],
+        metrics["strict_grasp_ready"],
+        metrics["micro_lift_crossed"],
+        metrics["lift_crossed"],
+        metrics["strict_lift_success"],
+        metrics["strict_pregrasp_potential_reward"],
+        metrics["strict_interior_contact_potential_reward"],
+        metrics["strict_bilateral_opposition_potential_reward"],
     )
 
 
-def reset_reward_state():
+def reset_reward_state(initial_strict_grasp_streak=0):
     """Reset the reward state (call at episode start)."""
     global _prev_gripper_pos, _prev_block_pos, _initial_block_pos, _consecutive_contact
     global _alignment_ready_steps
@@ -2006,7 +2606,11 @@ def reset_reward_state():
     global _prev_gripper_qpos, _pregrasp_hover_steps, _recent_gripper_closing_steps, _disengaged_steps
     global _recent_contact_steps, _recent_grasp_attempt_steps, _post_attempt_commitment_steps, _escape_posture_steps
     global _early_closed_gripper_steps, _timed_close_steps, _recent_pregrasp_aligned_steps
-    global _recent_jaw_centered_contact_steps
+    global _recent_jaw_centered_contact_steps, _prev_face_guidance_score
+    global _prev_face_contact_quality, _prev_bilateral_opposition_quality
+    global _strict_grasp_streak, _micro_lift_awarded, _lift_awarded, _success_awarded
+    global _independent_strict_micro_lift_awarded, _independent_strict_lift_awarded
+    global _independent_strict_success_awarded
     _prev_gripper_pos = None
     _prev_block_pos = None
     _initial_block_pos = None
@@ -2029,6 +2633,16 @@ def reset_reward_state():
     _timed_close_steps = 0
     _recent_pregrasp_aligned_steps = 0
     _recent_jaw_centered_contact_steps = 0
+    _prev_face_guidance_score = None
+    _prev_face_contact_quality = 0.0
+    _prev_bilateral_opposition_quality = 0.0
+    _strict_grasp_streak = int(initial_strict_grasp_streak)
+    _micro_lift_awarded = False
+    _lift_awarded = False
+    _success_awarded = False
+    _independent_strict_micro_lift_awarded = False
+    _independent_strict_lift_awarded = False
+    _independent_strict_success_awarded = False
 
 
 def reset_env(

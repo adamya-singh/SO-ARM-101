@@ -26,6 +26,7 @@ from so101_mujoco_utils import (
     set_initial_pose,
     compute_reward,
     reset_reward_state,
+    check_block_face_gripped,
     # Model-agnostic normalization functions that route based on model_type
     normalize_state_for_vla,
     unnormalize_action_for_vla,
@@ -51,6 +52,10 @@ class SO101PickPlaceEnv(gymnasium.Env):
         "render_modes": ["human", "rgb_array"],
         "render_fps": 30,
     }
+    RESET_SETTLE_STEPS = 10
+    VALIDATION_HOLD_ACTIONS = 5
+    VALIDATION_LIFT_RAMP_STEPS = 300
+    VALIDATION_LIFT_HOLD_STEPS = 200
     
     def __init__(
         self,
@@ -67,6 +72,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         postprocessor=None,
         task_instruction: str = "pick up the block",
         randomize_appearance: bool = True,
+        reward_kwargs: dict | None = None,
     ):
         """
         Initialize the SO-101 pick-and-place environment.
@@ -88,6 +94,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             postprocessor: Optional PolicyProcessorPipeline for action denormalization
             task_instruction: Task text used by processor-backed SmolVLA normalization
             randomize_appearance: Whether reset varies scene lighting and surface brightness
+            reward_kwargs: Optional keyword overrides for the staged pickup reward
         """
         super().__init__()
 
@@ -112,6 +119,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
         self.postprocessor = postprocessor
         self.task_instruction = task_instruction
         self.randomize_appearance = bool(randomize_appearance)
+        self.reward_kwargs = dict(reward_kwargs or {})
         
         # Load MuJoCo model
         model_path = os.path.join(os.path.dirname(__file__), "model", "scene.xml")
@@ -171,6 +179,8 @@ class SO101PickPlaceEnv(gymnasium.Env):
         
         # Episode tracking
         self._step_count = 0
+        self._reset_stage = "normal"
+        self._reset_strict_grasp_streak = 0
     
     @property
     def renderer(self):
@@ -224,6 +234,112 @@ class SO101PickPlaceEnv(gymnasium.Env):
             "distance_to_block": distance,
             "block_height": block_pos[2],
             "step_count": self._step_count,
+            "reset_stage": self._reset_stage,
+            "reset_strict_grasp_streak": self._reset_strict_grasp_streak,
+        }
+
+    def apply_curriculum_reset_state(self, reset_state):
+        """Apply the complete preload-aware state used by every curriculum consumer."""
+        robot_qpos = np.asarray(reset_state["robot_qpos"], dtype=np.float64)
+        robot_ctrl = np.asarray(reset_state["robot_ctrl"], dtype=np.float64)
+        block_pos = np.asarray(reset_state["block_pos"], dtype=np.float64)
+        block_quat = np.asarray(
+            reset_state.get("block_quat", [1.0, 0.0, 0.0, 0.0]), dtype=np.float64
+        )
+        if robot_qpos.shape != (6,) or robot_ctrl.shape != (6,):
+            raise ValueError("reset_state requires robot_qpos[6] and robot_ctrl[6]")
+        if block_pos.shape != (3,) or block_quat.shape != (4,):
+            raise ValueError("reset_state requires block_pos[3] and block_quat[4]")
+        self.data.qpos[:6] = robot_qpos
+        self.data.qpos[6:9] = block_pos
+        self.data.qpos[9:13] = block_quat
+        self.data.qvel[:] = 0.0
+        self.data.ctrl[:6] = np.clip(robot_ctrl, self.joint_limits_low, self.joint_limits_high)
+        mujoco.mj_forward(self.model, self.data)
+        self._reset_stage = str(reset_state.get("stage", "normal"))
+
+    def _block_has_unsafe_airborne_contact(self, minimum_height_gain, initial_height):
+        if self.data.body("red_block").xpos[2] - initial_height <= minimum_height_gain:
+            return False
+        block_id = self.model.body("red_block").id
+        allowed = {
+            self.model.body("gripper").id,
+            self.model.body("moving_jaw_so101_v1").id,
+        }
+        for contact in self.data.contact[: self.data.ncon]:
+            bodies = {
+                int(self.model.geom_bodyid[contact.geom1]),
+                int(self.model.geom_bodyid[contact.geom2]),
+            }
+            if block_id in bodies and any(body not in allowed | {block_id} for body in bodies):
+                return True
+        return False
+
+    def prove_curriculum_reset(self, reset_state):
+        """Prove a reset through the production reset, close, and dynamic-lift path."""
+        self.reset(seed=0, options={"reset_state": reset_state})
+        stage = str(reset_state.get("stage", "normal"))
+        if stage == "grasped" and self._reset_strict_grasp_streak < 5:
+            return {"valid": False, "reason": "strict grasp did not survive final settling steps"}
+        grasp_ctrl = np.asarray(
+            reset_state.get("grasp_ctrl", reset_state["robot_ctrl"]), dtype=np.float64
+        )
+        lift_ctrl = np.asarray(reset_state["lift_ctrl"], dtype=np.float64)
+        if grasp_ctrl.shape != (6,) or lift_ctrl.shape != (6,):
+            raise ValueError("validated reset states require grasp_ctrl[6] and lift_ctrl[6]")
+
+        if stage == "pregrasp":
+            close_start = self.data.ctrl.copy()
+            for step in range(self.VALIDATION_LIFT_RAMP_STEPS):
+                fraction = float(step + 1) / self.VALIDATION_LIFT_RAMP_STEPS
+                self.data.ctrl[:] = (1.0 - fraction) * close_start + fraction * grasp_ctrl
+                mujoco.mj_step(self.model, self.data)
+            for _ in range(self.VALIDATION_LIFT_HOLD_STEPS):
+                self.data.ctrl[:] = grasp_ctrl
+                mujoco.mj_step(self.model, self.data)
+
+        strict_streak = 0
+        for _ in range(self.VALIDATION_HOLD_ACTIONS):
+            self.data.ctrl[:] = grasp_ctrl
+            for _ in range(5):
+                mujoco.mj_step(self.model, self.data)
+            strict, _, _ = check_block_face_gripped(self.model, self.data)
+            strict_streak = strict_streak + 1 if strict else 0
+        if strict_streak < self.VALIDATION_HOLD_ACTIONS:
+            return {"valid": False, "reason": "strict grasp did not survive production reset/close"}
+
+        initial_block = self.data.body("red_block").xpos.copy()
+        lift_start_ctrl = self.data.ctrl.copy()
+        unsafe_contact = False
+        for step in range(self.VALIDATION_LIFT_RAMP_STEPS):
+            fraction = float(step + 1) / self.VALIDATION_LIFT_RAMP_STEPS
+            self.data.ctrl[:] = (1.0 - fraction) * lift_start_ctrl + fraction * lift_ctrl
+            mujoco.mj_step(self.model, self.data)
+            unsafe_contact |= self._block_has_unsafe_airborne_contact(0.002, initial_block[2])
+        for _ in range(self.VALIDATION_LIFT_HOLD_STEPS):
+            self.data.ctrl[:] = lift_ctrl
+            mujoco.mj_step(self.model, self.data)
+            unsafe_contact |= self._block_has_unsafe_airborne_contact(0.002, initial_block[2])
+
+        final_block = self.data.body("red_block").xpos.copy()
+        strict, grip_force, diagnostics = check_block_face_gripped(self.model, self.data)
+        height_gain = float(final_block[2] - initial_block[2])
+        lateral_displacement = float(np.linalg.norm(final_block[:2] - initial_block[:2]))
+        valid = bool(
+            height_gain > 0.010
+            and lateral_displacement <= 0.005
+            and strict
+            and not unsafe_contact
+        )
+        return {
+            "valid": valid,
+            "reason": "ok" if valid else "dynamic lift acceptance failed",
+            "strict_grasp_steps": strict_streak,
+            "height_gain": height_gain,
+            "lateral_displacement": lateral_displacement,
+            "grip_force": float(grip_force),
+            "unsafe_contact": bool(unsafe_contact),
+            "face_opposition": float(diagnostics["face_opposition"]),
         }
     
     def reset(self, seed=None, options=None):
@@ -240,8 +356,11 @@ class SO101PickPlaceEnv(gymnasium.Env):
         """
         super().reset(seed=seed)
         
-        # Determine block position
-        if options is not None and "block_pos" in options:
+        # Determine block position and optional curriculum state.
+        reset_state = None if options is None else options.get("reset_state")
+        if reset_state is not None:
+            block_pos = tuple(reset_state["block_pos"])
+        elif options is not None and "block_pos" in options:
             block_pos = options["block_pos"]
         elif self.randomize_block:
             # Randomize block position using polar coordinates
@@ -267,11 +386,23 @@ class SO101PickPlaceEnv(gymnasium.Env):
             appearance_rng=self.np_random,
             randomize_appearance=self.randomize_appearance,
         )
-        reset_reward_state()
+        if reset_state is not None:
+            self.apply_curriculum_reset_state(reset_state)
+        else:
+            self._reset_stage = "normal"
         
         # Step physics a few times to settle
-        for _ in range(10):
+        self._reset_strict_grasp_streak = 0
+        for _ in range(self.RESET_SETTLE_STEPS):
             mujoco.mj_step(self.model, self.data)
+            if reset_state is not None and self._reset_stage == "grasped":
+                strict, _, _ = check_block_face_gripped(self.model, self.data)
+                self._reset_strict_grasp_streak = (
+                    self._reset_strict_grasp_streak + 1 if strict else 0
+                )
+        reset_reward_state(
+            self._reset_strict_grasp_streak if self._reset_stage == "grasped" else 0
+        )
         
         # Reset episode counter
         self._step_count = 0
@@ -314,7 +445,7 @@ class SO101PickPlaceEnv(gymnasium.Env):
             mujoco.mj_step(self.model, self.data)
         
         # Compute reward and preserve staged pickup metrics for diagnostics/logging.
-        reward_result = compute_reward(self.model, self.data)
+        reward_result = compute_reward(self.model, self.data, **self.reward_kwargs)
         reward, done, contacted, gripped, sustained, height_aligned, block_lifted, block_height_gain, *extra_metrics = reward_result
         success = done  # done indicates if block is lifted (episode success)
         
@@ -409,6 +540,40 @@ class SO101PickPlaceEnv(gymnasium.Env):
             "success_lift_bonus",
             "block_displacement_penalty",
             "grip_force",
+            "force_gripped",
+            "face_gripped",
+            "force_grip_force",
+            "face_grip_force",
+            "face_alignment",
+            "face_opposition",
+            "face_jaw_axis_alignment",
+            "face_corner_rejection",
+            "face_corner_rejection_count",
+            "interior_face_contact",
+            "interior_face_contact_score",
+            "interior_face_contact_count",
+            "face_contact_quality",
+            "fixed_interior_face_contact",
+            "moving_interior_face_contact",
+            "bilateral_interior_face_contact",
+            "bilateral_opposition_quality",
+            "pregrasp_face_axis_alignment",
+            "pregrasp_face_guidance_score",
+            "pregrasp_face_height_error",
+            "pregrasp_face_depth_error",
+            "pregrasp_face_lateral_error",
+            "face_axis_guidance_progress",
+            "force_only_grasp",
+            "corner_only_contact",
+            "corner_only_contact_penalty",
+            "strict_grasp_streak",
+            "strict_grasp_ready",
+            "micro_lift_crossed",
+            "lift_crossed",
+            "strict_lift_success",
+            "strict_pregrasp_potential_reward",
+            "strict_interior_contact_potential_reward",
+            "strict_bilateral_opposition_potential_reward",
         ]
         info.update({name: value for name, value in zip(metric_names, extra_metrics)})
         
