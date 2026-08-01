@@ -5,3 +5,14 @@ oak-d-lite-mount/snap-on-mount-from-thingiverse/Snap-on Camera Mount for Robot G
 
 # Local training/evaluation outputs
 imitation-learning/outputs/
+
+# Large local training outputs and evaluation artifacts (reports are
+# force-added selectively for provenance)
+outputs/
+artifacts/
+simulation_code/train.log
+
+# Python build/test litter
+__pycache__/
+*.egg-info/
+.pytest_cache/
