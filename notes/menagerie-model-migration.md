@@ -134,11 +134,184 @@ a few inches from the cube; the sim now matches:
   solves run with loosened orientation tolerances/weights - carrying does not
   need grasp-grade wrist orientation). All five suite scenarios finish with
   the cube at rest on the napkin.
-- The task contract still terminates on pickup success, so contract-evaluated
-  episodes and the preflight are unchanged (re-certified after the scene
-  change: environment_proven=true, 15/15, tests 84/84). Extending the formal
-  success definition to "cube at rest on the napkin" is a deliberate future
-  contract revision (v3) - the sim behavior and visuals now match the data
-  ahead of that.
+- The preserved v2 task contract still terminates on pickup success, so its
+  contract-evaluated episodes and preflight were unchanged (re-certified after
+  the scene change: environment_proven=true, 15/15, tests 84/84 at that
+  migration checkpoint). A separate full-task v3 contract was subsequently
+  added and is documented below; v2 semantics and artifacts remain unchanged.
 - `tools/view_privileged_live.py` plays the full pick-and-place by default;
   `--stop-on-success` reproduces the contract's early termination.
+
+## Full-task v3 contract and oracle distillation (2026-08-01)
+
+The napkin behavior is now independently certified without changing the
+pickup-v2 contract or its artifacts:
+
+- `fixed_cube_pick_place_v3` extends the earlier strict pickup requirement with
+  napkin-local cube-footprint containment, support height, release, linear and
+  angular rest thresholds for ten consecutive frames, a 40 mm retreat, and
+  permanent safety invalidation. Its 480-action budget lets the 450-action
+  controller complete and hold its final pose.
+- The `fixed_pick_place_v3` privileged preflight passes 15/15 deterministically
+  with zero clipping, limiting, nonfinite commands, or unsafe contacts. Report:
+  `artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json`.
+- The capture tool recorded one content-addressed nominal demonstration with
+  exactly 450 aligned pre-action state / requested action / executed action /
+  post-action measurement rows, plus wrist and overview videos. Manifest:
+  `artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/
+  5de8ab6ee95e2500/manifest.json`.
+- The first deliberately small `phase_state` residual MLP did **not** pass the
+  near-exact offline gate after its fixed 10,000 steps. It reached normalized
+  delta MSE `4.305080802e-05` and maximum ACT error `0.04552662373`; the gates
+  were `1e-6` and `0.01`. Its worst error is shoulder lift at row 446 in the
+  five-frame retreat transition, while all predicted training commands remain
+  inside the unchanged safety path. This is a valid Karpathy-style stop: feedback-state,
+  multi-scenario cloning, and learned closed-loop evaluation were not run.
+
+### Smooth-retreat controlled follow-up
+
+The five-frame final retreat was then tested as a specific causal hypothesis.
+It was lengthened to 26 actions while preserving 16 actions for gripper
+opening. A first rebalance that shortened opening to 10 actions was rejected:
+servo lag activated the real delta limiter at action 411 and invalidated all
+15 preflight rollouts. With the 16-action opening restored, the smooth
+controller passed the v3 preflight 15/15 deterministically with zero clipping,
+limiting, nonfinite commands, or unsafe contacts. The current preflight report
+at the path above is this smooth-retreat certificate.
+
+The new nominal capture contains the same 450 aligned rows and is stored at:
+
+`artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/
+9164a76699186c34/manifest.json`
+
+The unchanged 128-wide, seed-101 `phase_state` clone improved materially but
+still failed its predefined offline gate:
+
+| Measurement | Five-frame retreat | Smooth retreat | Gate |
+|---|---:|---:|---:|
+| Normalized delta MSE | `4.305080802e-05` | `2.328354094e-05` | `<=1e-6` |
+| Maximum ACT error | `0.04552662373` | `0.01958596706` | `<=0.01` |
+| Worst point | row 446, retreat | row 147, mid-descent | n/a |
+| Training safety violations | 0 | 0 | 0 |
+
+This removes retreat as the dominant error but leaves a whole-trajectory
+optimization or capacity floor. Diagnostic:
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+0db4db27b04f7b1c/report.html`.
+
+A late 10x learning-rate-reduction diagnostic was also reported at
+`1.99e-05` MSE and `0.0201` maximum error, so simple decay did not clear either
+gate. No immutable artifact for that diagnostic is present; it must not be
+treated as promotable evidence. The checked-in trainer still uses fixed-rate
+Adam.
+
+Commands from the repository root (inside the `lerobot` environment):
+
+```bash
+PYTHONPATH=src python -m so_arm101_v2.simulation.cli preflight \
+  --suite fixed_pick_place_v3 --no-video
+PYTHONPATH=src python -m so_arm101_v2.simulation.cli capture-oracle \
+  --suite fixed_pick_place_v3 --scenario nominal
+PYTHONPATH=src python -m so_arm101_v2.learning.cli distill-oracle \
+  --manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/manifest.json \
+  --model-kind phase_state --seed 101 --max-steps 10000 \
+  --hidden-width 128 --training-rows memorization32
+
+PYTHONPATH=src python -m so_arm101_v2.learning.cli distill-oracle \
+  --manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/manifest.json \
+  --model-kind phase_state --seed 101 --max-steps 10000 \
+  --hidden-width 128 --training-rows full
+
+PYTHONPATH=src python -m so_arm101_v2.learning.cli distill-oracle \
+  --manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/manifest.json \
+  --model-kind phase_state --seed 101 --max-steps 10000 \
+  --hidden-width 256 --training-rows full
+```
+
+These policies use privileged simulator state and are diagnostics only. Wrist
+images are recorded for inspection but are not model inputs.
+
+### Controlled capacity gate
+
+The planned capacity diagnostic was executed without changing the oracle,
+features, target, optimizer, learning rate, seed, step budget, or thresholds:
+
+| Run | Rows | Width | MSE | Maximum ACT error | Safety violations | Result |
+|---|---:|---:|---:|---:|---:|---|
+| Fixed memorization set | 32 | 128 | `9.945671309e-07` | `0.004400968552` | 0 | pass, diagnostic only |
+| Full parity control | 450 | 128 | `2.328354094e-05` | `0.01958596706` | 0 | fail, exact prior replay |
+| Full capacity test | 450 | 256 | `4.330015145e-06` | `0.009032011032` | 0 | fail MSE gate |
+
+The 32 rows are selected only after computing normalization on all 450 source
+rows. The subset passed at step 7,577 and is structurally prohibited from
+closed-loop promotion. The width-128 full replay matched the old loss trace and
+metrics exactly, establishing that width was the only optimization change in
+the 256 run. Width 256 cleared the maximum-error threshold but missed the
+`1e-6` MSE threshold by 4.33x. Its immutable report is
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+6fc677db0c3ae755/report.json`.
+
+The offline report therefore has `closed_loop_eligible: false`; no nominal
+MuJoCo clone evaluation was run. Feedback state, five-scenario training,
+vision, ACT, physical deployment, RL, and additional capacity or optimizer
+changes remain blocked pending a new controlled plan.
+
+The two prerequisite reports are
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+2215e6361027023e/report.json` (fixed-32 pass) and
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+5b9ff38c61eb8673/report.json` (exact width-128/full parity replay). The source
+suite passed 107 tests at that capacity-gate checkpoint.
+
+### Closed-loop diagnosis and phase-wide recovery follow-up (2026-08-02)
+
+The later width-256 scheduled run passed the full-450 offline gate at step
+28,718 (`9.999720305e-07` normalized MSE, `0.007196128` maximum ACT error,
+zero safety violations), but its three nominal autonomous repeats all failed
+pickup. This is the original offline/closed-loop discrepancy; model artifact:
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+d5f96d397bd9b915/`, evaluation artifact:
+`artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/
+943cf536710e3d84/`.
+
+The aligned diagnosis found small joint error from the first action and a cube
+trajectory split at shared first contact, action 194. The decisive fixed-action
+test inferred all 450 clone actions on teacher states and replayed them without
+feedback; that sequence completed pick-place safely. This establishes
+covariate shift/feedback compounding on the demonstrated system. It does not
+identify one scalar error threshold as the cause. Immutable evidence is under
+`artifacts/so_arm101_v2/oracle_distillation/diagnostics/
+first_divergence_v1/` and `fixed_action_replay_v1/`.
+
+The controlled data follow-up added eight physical MuJoCo recovery rows at
+approach (70), first contact (195), seating (205), closure (255), lift (315),
+transport (365), placement (386), and release (419). Each was generated by a
+`0.01`-ACT perturbation to the prior command, reproduced exactly twice, labeled
+by the unchanged phase oracle, passed unchanged through the safety layer, and
+validated by a complete safe oracle suffix. The manifest also records changes
+to velocity, cube orientation/velocity, and other quantities omitted from the
+10-input student; these omissions limit the generality of the labels but did
+not create a demonstrated contradiction for the eight accepted states.
+Recovery artifact: `artifacts/so_arm101_v2/oracle_distillation/recovery/
+0570ec8c0d37002f/`.
+
+With only those rows added, the otherwise unchanged 458-row run passed offline
+at step 24,691 (`9.999772601e-07` MSE, `0.005619988` maximum ACT error, zero
+training-command safety violations). Autonomous control regressed: all 15
+standard rollouts failed, with 291 clipped frames and 13 unsafe-contact frames
+in each nominal repeat. Exact handoffs at the labeled anchors also fell from
+`3/8` successes for the old clone to `1/8` for the augmented clone. Artifacts:
+`artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+c3ca76dc2c0fa42d/`, `clone_evaluations/e67ba4433d3aa98c/`, and
+`recovery_evaluations/{4e5e4f1252d582ae,b0e6e56a018c1d7f}/`.
+
+Established conclusion: eight isolated equal-weight anchors are insufficient
+and can destabilize off-table predictions despite excellent finite-table fit.
+Hypotheses about hidden contact-state aliasing remain unproven. The next
+controlled test is to reuse the same immutable rows at relative recovery-loss
+weights `0.10`, `0.25`, and `0.50`, reject saturation using a dense pre-rollout
+command-bound scan, and require nominal `3/3` with zero safety events before
+broader evaluation. No larger model, new feature, vision, ACT, RL, or physical
+deployment is authorized by these results.
+
+The complete source suite after this follow-up passes 114 tests.

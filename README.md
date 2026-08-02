@@ -33,11 +33,17 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 | Sim demonstration data | 50 randomized-block episodes + 50 fixed-block episodes |
 | Experiment scale | 129 local `wandb` run summaries tracked in this repo |
 | Strongest supported later PPO summary | `reward/batch_avg = -8.49` at 21,650 episodes, with `contact_rate = 12.8%`, `sustained_contact_rate = 6.9%`, and `grasp_rate = 2.6%` |
+| Active rebuild status | Simulator/oracle proven; offline and fixed-action replay pass, but both the original and phase-wide recovery clones fail autonomous control |
 | Main limitation | The system clearly improved shaped behavior and contact/grasp emergence, but did not yet reach robust task completion |
 
-**Status:** this repo documents meaningful progress toward approach, contact, sustained contact, and occasional grasp behavior, but it does **not** claim solved pick-and-place performance.
+**Status:** the privileged controller solves the fixed full pick-and-place task.
+The width-256 phase-state clone passed the immutable offline gate, and its fixed
+450 predicted commands complete pick-and-place when inferred on teacher states.
+Autonomous feedback still fails. An eight-anchor recovery-data experiment also
+passed offline but failed all 15 standard rollouts and introduced pervasive
+command clipping. This repo does **not** claim learned pick-and-place success.
 
-## Current RL Status
+## Legacy RL Stack Status
 
 The current training stack is materially more stable than the January 2026 PPO regime documented elsewhere in this repo.
 
@@ -47,7 +53,12 @@ The current training stack is materially more stable than the January 2026 PPO r
 - Critic warmup actor sampling runs under `torch.no_grad()`, and critic features are detached by default so value learning does not move shared actor conditioning.
 - On the current 14.6 GB single-GPU setup, `--parallel-envs 5` is the practical headless SmolVLA ceiling.
 
-The current bottleneck is no longer catastrophic PPO instability. It is reward topology and behavior discovery: the agent can now train stably enough to expose whether the reward is pushing toward actual pickup behavior.
+Within the legacy RL lane, the bottleneck moved from catastrophic PPO
+instability to reward topology and behavior discovery. That lane is preserved
+as research history; it is not the active next step of the diagnostics-first
+rebuild.
+
+## Current Diagnostics-First Rebuild Status
 
 ### August 2026 update: the simulator itself was the blocker
 
@@ -74,6 +85,84 @@ had. The scene and controller also now match the physical dataset's full
 episode structure: a 2 in napkin place target is present in every camera view,
 and the privileged controller carries the cube to it and sets it down after
 the certified pickup. Migration record: [`notes/menagerie-model-migration.md`](notes/menagerie-model-migration.md).
+The full behavior now also has a separate v3 contract and passes its own 15/15
+privileged preflight. The first supervised-distillation rung exposed an
+unnecessarily abrupt five-action retreat. Lengthening that retreat to 26
+actions removed it as the worst imitation error, preserved deterministic 15/15
+v3 oracle success with zero safety violations, and reduced the phase clone's
+MSE by about 46% and maximum ACT error by about 57%. The retrained clone still
+missed the predefined near-exact offline gate (`2.328e-05` MSE and `0.01959`
+maximum error versus `1e-6` and `0.01`), so feedback-state, learned closed-loop,
+vision, ACT, and RL stages were deliberately not run. A diagnostic late 10x
+learning-rate reduction also failed to clear the gate. This gated result is
+recorded in
+[`notes/karpathy-style-rebuild-plan.md`](notes/karpathy-style-rebuild-plan.md).
+The subsequent controlled capacity gate proved that the 128-wide trainer can
+memorize a fixed 32-row stage-spanning subset (`9.946e-7` MSE, `0.004401`
+maximum ACT error), and a full-trajectory parity replay exactly reproduced the
+prior 128-wide result. Changing only hidden width to 256 improved the full
+450-row result to `4.330e-6` MSE and `0.009032` maximum error with zero safety
+violations. Because MSE still missed the `1e-6` gate by 4.33x, that checkpoint
+was not closed-loop eligible.
+The authoritative capacity artifacts are the fixed-32 report
+[`2215e6361027023e`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/2215e6361027023e/report.json),
+the exact width-128/full parity replay
+[`5b9ff38c61eb8673`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/5b9ff38c61eb8673/report.json),
+and the fixed-rate width-256/full failure
+[`6fc677db0c3ae755`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/6fc677db0c3ae755/report.json).
+A residual-first optimizer tranche then found the smallest new failing rung at
+64 rows
+([`05ac242f8c404ebe`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/05ac242f8c404ebe/report.json)).
+The predefined staged learning-rate schedule reproduced the fixed 10,000-step
+prefix exactly, passed that rung, and passed the unchanged full-450 gate at
+step 28,718 (`9.99972e-7` MSE, `0.007196` maximum error, zero safety
+violations):
+[`d5f96d397bd9b915`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/d5f96d397bd9b915/report.json).
+Its one authorized nominal MuJoCo evaluation was deterministic and had zero
+safety interventions, but all three repeats timed out with incomplete pickup
+and only `0.159 mm` maximum cube-height gain:
+[`943cf536710e3d84`](artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/evaluation.json).
+The follow-up diagnostics resolved that branch. The cube paths are identical
+until shared first contact at action 194, where they first split; the clone had
+already accumulated small joint error, including more than `0.01` ACT by action
+74. Inferring all clone commands on the stored teacher states and replaying that
+fixed sequence succeeds end-to-end with zero safety events. Therefore the
+offline tolerance is task-sufficient on the demonstrated path and autonomous
+failure is caused by feedback compounding/covariate shift, not a bad fixed
+action sequence. Immutable diagnostics:
+[`first_divergence_v1`](artifacts/so_arm101_v2/oracle_distillation/diagnostics/first_divergence_v1/report.json)
+and
+[`fixed_action_replay_v1`](artifacts/so_arm101_v2/oracle_distillation/diagnostics/fixed_action_replay_v1/report.json).
+
+The authorized recovery experiment then added exactly eight physical,
+oracle-labeled rows spanning approach, first contact, seating, closure, lift,
+transport, placement, and release. Every state was reproduced exactly twice;
+its label passed the safety layer unchanged; and its complete oracle suffix
+succeeded without a safety event. With architecture, 10-input feature set,
+optimizer, schedule, normalization, nominal 450 rows, and safety path fixed,
+the 458-row model passed offline at step 24,691 (`9.99977e-7` MSE,
+`0.005620` max error). It nevertheless failed deterministically on all 15
+standard rollouts. Nominal repeats produced 291 clipped frames and 13 unsafe
+contact frames each. Exact anchor handoffs also regressed from `3/8` success
+for the old clone to `1/8` for the augmented clone. Evidence:
+[`recovery data`](artifacts/so_arm101_v2/oracle_distillation/recovery/0570ec8c0d37002f/manifest.json),
+[`augmented model`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/c3ca76dc2c0fa42d/report.json),
+[`standard evaluation`](artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/e67ba4433d3aa98c/policies/fixed_pick_place_v3/evaluation.json), and
+[`anchor evaluation`](artifacts/so_arm101_v2/oracle_distillation/recovery_evaluations/4e5e4f1252d582ae/report.json).
+
+Established conclusion: eight isolated, equal-weight recovery anchors do not
+produce safe feedback recovery and can warp off-table interpolation despite an
+excellent finite-table fit. This does not establish that all recovery training
+or the current feature set must fail. The next controlled experiment is a
+recovery-row loss-weight ablation (`0.10`, `0.25`, `0.50`) using the same eight
+immutable rows, preceded by a dense command-bound scan and requiring nominal
+`3/3` with zero safety events before broader evaluation. Full reasoning and
+stop rules are recorded in
+[`notes/karpathy-style-rebuild-plan.md`](notes/karpathy-style-rebuild-plan.md).
+The older small-model decision was also regenerated against the passing
+simulator: it now reports `environment_proven: true` but remains
+`blocked_offline` (0 reach/contact/success and a 91.5% clip-or-limit frame rate),
+replacing the stale environment-blocked diagnosis without overwriting it.
 The legacy stack and all results below are unchanged and remain interpretable
 in their original context.
 

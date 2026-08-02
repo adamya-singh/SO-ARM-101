@@ -21,7 +21,7 @@ specification. We should revise it when experiments teach us something. When we
 depart from it, the important requirement is to record why the change is
 reasonable and what observation motivated it.
 
-## Progress status (updated 2026-08-01)
+## Progress status (updated 2026-08-02)
 
 - Phases 1-3 (task/eval contract, data understanding, coordinate/timing
   contracts): implemented in `src/so_arm101_v2/` with pinned resources and
@@ -38,9 +38,195 @@ reasonable and what observation motivated it.
   `artifacts/so_arm101_v2/simulation/preflight/`). This phase working exactly
   as designed - failing loudly before any learning - is the strongest
   validation of the plan's approach so far.
-- Next per this plan: Phase 7+ (closed-loop model selection, stronger IL) on
-  the now-proven simulator; the passing privileged controller doubles as a
-  demonstration generator for supervised distillation.
+- **Full-task v3 oracle gate: PASSED 2026-08-01.** The pickup-v2 contract and
+  its immutable 15/15 evidence remain unchanged. A separate
+  `fixed_cube_pick_place_v3` contract now requires the earlier strict pickup,
+  full cube-footprint containment on the napkin, support, release, ten settled
+  frames, retreat, and no safety invalidation. The privileged controller passes
+  all 15 v3 rollouts deterministically (`artifacts/so_arm101_v2/simulation/
+  preflight/fixed_pick_place_v3/evaluation.json`).
+- **The stale learned-policy decision was regenerated against the proven
+  simulator.** The new v2 closed-loop report contains 165 matched rollouts:
+  every old current-pose, mean, state-only, image-state, and black-image policy
+  has zero reach, contact, and success. The selected comparison has a
+  `0.9148148148` clip-or-limit frame rate. The replacement decision artifact is
+  `artifacts/so_arm101_v2/act_gate.menagerie_a0f737b.json`; its status is now
+  correctly `blocked_offline`, with `environment_proven: true`, rather than the
+  stale `blocked_environment` diagnosis. The old artifact remains immutable.
+- **Initial oracle-distillation attempt: STOPPED AT THE PREDEFINED OFFLINE
+  GATE.** A
+  content-addressed nominal 450-row oracle episode was captured at
+  `artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/
+  5de8ab6ee95e2500/manifest.json`. The fixed phase-plus-state residual MLP ran
+  for 10,000 full-batch steps and improved over the zero-delta baseline by
+  roughly 600x, but did not reach near-exact memorization: normalized delta MSE
+  `4.305080802e-05` versus the `1e-6` gate and maximum ACT error
+  `0.04552662373` versus the `0.01` gate. The worst point is shoulder lift at
+  row 446, during the short retreat transition; predicted training commands
+  still produce zero safety interventions. Per the plan, no learned closed-loop
+  claim was made and feedback-state, five-scenario distillation, vision, ACT,
+  and RL were not run. Diagnostic report:
+  `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  99be03da6572c481/report.html`.
+- **Controlled smooth-retreat follow-up: ORACLE PASSED; CLONE STILL FAILED
+  OFFLINE.** Inspection identified that the final 60 mm retreat had only five
+  actions and produced the initial worst error. The controller now reserves 26
+  actions for retreat. Its gripper-opening stage remains at 16 actions: an
+  intermediate 10-action version activated the delta limiter at action 411 and
+  invalidated all 15 preflight rollouts, so that unsafe rebalance was rejected.
+  The corrected controller was re-certified 15/15 deterministically with zero
+  clipping, limiting, nonfinite commands, or unsafe contacts. The new nominal
+  450-row capture is `artifacts/so_arm101_v2/oracle_distillation/oracle/
+  fixed_pick_place_v3/9164a76699186c34/manifest.json`.
+- Retraining the unchanged 128-wide `phase_state` MLP on that capture reduced
+  normalized delta MSE from `4.305080802e-05` to `2.328354094e-05` (about 46%)
+  and maximum ACT error from `0.04552662373` to `0.01958596706` (about 57%).
+  The worst error moved from retreat row 446 to ordinary mid-descent row 147,
+  confirming that the retreat pathology was removed. The model still missed
+  the `1e-6` MSE gate by 23.3x and the `0.01` maximum-error gate by 1.96x;
+  training-row safety violations remained zero. Immutable diagnostic:
+  `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  0db4db27b04f7b1c/report.html`.
+- A separately reported diagnostic that reduced the learning rate 10x late in
+  training also failed (`1.99e-05` MSE, `0.0201` maximum error). That run has no
+  content-addressed checkpoint or report in the current artifact tree, so
+  these values are recorded as reported evidence rather than a promotable
+  result. The production trainer remains fixed-learning-rate Adam.
+- **The controlled capacity diagnostic is complete and stopped at its defined
+  gate.** The fixed 32-row set spans every controller stage and transition and
+  uses normalization computed from all 450 source rows. The unchanged
+  128-wide model passed at step 7,577 with normalized MSE
+  `9.945671309e-07`, maximum ACT error `0.004400968552`, and zero safety
+  violations. Its subset checkpoint is explicitly not closed-loop eligible.
+  Immutable report: `artifacts/so_arm101_v2/oracle_distillation/models/
+  phase_state/2215e6361027023e/report.json`.
+- A refactored width-128/full-450 parity run reproduced the prior run exactly:
+  the complete 101-point loss trace, final MSE, maximum error, baseline, worst
+  row, and safety count all match `0db4db27b04f7b1c`. Its new explicit-contract
+  report is `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  5b9ff38c61eb8673/report.json`.
+- Width was then the only optimization change, from 128 to 256. The official
+  full-450 run improved MSE to `4.330015145e-06` and maximum ACT error to
+  `0.009032011032`, with zero safety violations. The maximum-error gate passed,
+  but MSE remained 4.33x above `1e-6`, so the overall offline gate failed and
+  `closed_loop_eligible` is false. Immutable report:
+  `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  6fc677db0c3ae755/report.json`.
+- **The controlled optimizer tranche passed offline and then failed its one
+  authorized nominal closed-loop gate.** The immutable residual analysis of
+  `6fc677db0c3ae755` confirms that stages 1-3 dominate the remaining fixed-rate
+  error, with stage 3 and rows 145-151 the main cluster. It records eight
+  threshold-defined possible label conflicts, mostly among close temporal
+  neighbors during early acceleration and final settling; these are flags for
+  inspection, not identical-feature contradictory labels. Analysis:
+  `artifacts/so_arm101_v2/oracle_distillation/analyses/phase_state/
+  a315c8bb809dfe17/analysis.json`.
+- The deterministic nested ladder stopped at its first failure as required.
+  Width 256 with fixed `1e-3` Adam failed the 64-row rung after 10,000 steps
+  (`8.43844191e-06` MSE, `0.008444309235` maximum ACT error); 128 and 256 rows
+  were not run. Immutable report: `artifacts/so_arm101_v2/
+  oracle_distillation/models/phase_state/05ac242f8c404ebe/report.json`.
+- The predefined `1e-3`/`1e-4`/`1e-5` schedule exactly matched that fixed
+  run's full 10,000-step prefix, then passed the 64-row rung at step 14,501
+  (`9.992273817e-07` MSE, `0.005263864994` maximum error). The subset remains
+  non-promotable. Immutable report: `artifacts/so_arm101_v2/
+  oracle_distillation/models/phase_state/39ef30ed7328fe9d/report.json`.
+- The same schedule then exactly matched the authoritative full fixed prefix
+  `6fc677db0c3ae755` and passed the unchanged full-450 gate at step 28,718:
+  normalized MSE `9.999720305e-07`, maximum ACT error `0.007196128368`, more
+  than 100x improvement over zero delta, finite values, and zero command-safety
+  violations. Its report marks `closed_loop_eligible: true`:
+  `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  d5f96d397bd9b915/report.json`.
+- That pass authorized exactly one nominal learned MuJoCo evaluation. All three
+  repeats were deterministic and had zero clipping, limiting, nonfinite
+  commands, unsafe contacts, or invalidation, but all three timed out with
+  `pickup_incomplete`. Maximum cube height gain was only
+  `0.0001588361 m`; placement was never entered and settling never occurred.
+  Thus near-exact teacher-trajectory fitting did not survive closed-loop state
+  drift. Immutable report and videos: `artifacts/so_arm101_v2/
+  oracle_distillation/clone_evaluations/943cf536710e3d84/policies/
+  fixed_pick_place_v3.nominal/evaluation.json`.
+- **First-divergence diagnosis and fixed-action replay: COVARIATE SHIFT
+  CONFIRMED.** The first nonzero command error is at action 0; clone joint error
+  exceeds `0.005` ACT by action 31 and `0.01` by action 74. The cube trajectories
+  remain identical until both policies first contact at action 194, when their
+  post-action cube positions split by about `0.0209 mm`. The clone reaches six
+  actions early (111 versus 117), never establishes bilateral contact, and
+  never lifts. This temporal alignment is evidence about onset, not by itself
+  proof of cause: `artifacts/so_arm101_v2/oracle_distillation/diagnostics/
+  first_divergence_v1/report.json`.
+- The decisive isolation inferred the clone's 450 actions on the stored oracle
+  pre-action states, then replayed those fixed absolute commands from a fresh
+  nominal reset. It completed full pick-place with every required pickup and
+  placement event and zero clip, limit, nonfinite, or unsafe frames. Thus the
+  finite predicted sequence is task-sufficient; autonomous feedback failure is
+  caused by state drift and compounding off the demonstrated path. Artifact:
+  `artifacts/so_arm101_v2/oracle_distillation/diagnostics/
+  fixed_action_replay_v1/report.json`.
+- **Eight-anchor phase-wide recovery experiment: OFFLINE PASS, AUTONOMOUS
+  FAIL.** One `0.01`-ACT perturbation was injected immediately before each of
+  approach (70), first contact (195), seating (205), closure (255), lift (315),
+  transport (365), placement (386), and release (419). MuJoCo produced each
+  recovery state. Each accepted state was bitwise-repeatable across two
+  captures, its oracle label passed the unchanged safety layer exactly, and
+  its full fixed-oracle suffix succeeded with zero safety events. The rejected
+  initial action-403 negative-gripper candidate clipped at the closed bound and
+  was never included. Manifest: `artifacts/so_arm101_v2/oracle_distillation/
+  recovery/0570ec8c0d37002f/manifest.json`.
+- Architecture, `phase_state` inputs, full-batch Adam, seed, 30k schedule,
+  nominal normalization, safety path, and all 450 nominal rows were unchanged;
+  only the eight rows were appended. The 458-row run passed at step 24,691 with
+  normalized MSE `9.999772601e-07`, maximum ACT error `0.005619987845`, and
+  zero training-command safety violations. Report:
+  `artifacts/so_arm101_v2/oracle_distillation/models/phase_state/
+  c3ca76dc2c0fa42d/report.json`.
+- That offline pass did not transfer. The augmented policy failed all 15
+  standard rollouts deterministically. Nominal produced only `0.005173 m`
+  maximum height gain, 291 clipped frames, and 13 unsafe-contact frames per
+  repeat; the four ±1.5 mm cube starts also failed with 359-450 clipped frames
+  per repeat and up to 32 limited frames. Report:
+  `artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/
+  e67ba4433d3aa98c/policies/fixed_pick_place_v3/evaluation.json`.
+- Exact recovery-anchor handoffs rule out failure-to-reach as a complete
+  explanation. The old scheduled clone safely completed from transport,
+  placement, and release (`3/8`); the augmented clone completed only release
+  (`1/8`) and clipped after every failed handoff. Comparison artifacts:
+  `artifacts/so_arm101_v2/oracle_distillation/recovery_evaluations/
+  b0e6e56a018c1d7f/report.json` and `4e5e4f1252d582ae/report.json`.
+- Exploratory feasibility probes remain non-authoritative. They predicted the
+  64-row fixed failure and a scheduled full pass near step 28,800, but only the
+  content-addressed reports above are evidence for promotion decisions.
+- The source suite passed 112 tests at the original closed-loop checkpoint.
+  After adding recovery capture, augmentation, evaluation, and hash-validation
+  tests, the complete suite passes 114 tests.
+
+## Current takeaway and next controlled gate
+
+The diagnostic branch is complete. Established facts are: the original clone's
+teacher-state action sequence works; feedback deviations compound at contact;
+all eight selected states have clear, physically validated oracle suffixes; and
+equal-weight training on those isolated states both fails recovery and creates
+severe off-table saturation. Near-exact finite-table fit is therefore not a
+sufficient promotion gate, even after adding sparse phase coverage.
+
+The current inputs omit robot velocity, cube orientation/velocity, and explicit
+contact/grasp state. The recovery manifest records those hidden-state deltas.
+No accepted row has a demonstrated contradictory label, so “feature aliasing
+caused this failure” remains a hypothesis, not an established fact. Likewise,
+this one negative data design does not prove that all recovery-state training
+or this architecture must fail.
+
+The exact next controlled experiment is a recovery-loss-weight ablation using
+the same immutable eight rows at relative weights `0.10`, `0.25`, and `0.50`.
+Keep architecture, features, optimizer, schedule, nominal data, and safety path
+fixed. Before any MuJoCo rollout, scan command bounds densely along the nominal
+trajectory and linear feature interpolants to every recovery row; reject a
+checkpoint that saturates. Require nominal `3/3` with zero safety events before
+running all five starts and the eight anchor handoffs. If no weight passes that
+nominal safety gate, stop sparse-anchor distillation and run a deliberate
+feature-alias/contact-state observability audit before adding inputs. Width
+512, vision, ACT, RL, and physical deployment remain unauthorized.
 
 ---
 
@@ -1614,4 +1800,3 @@ Before implementing or launching something substantial, ask:
 If those questions have clear answers, proceed. If they do not, the next step
 is usually to inspect, simplify, or instrument the system—not to launch a
 larger training run.
-
