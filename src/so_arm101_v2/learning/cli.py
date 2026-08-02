@@ -18,6 +18,11 @@ from .full_dataset import (
     train_small_models,
 )
 from .tiny_model import TinyModelConfig, run_tiny_overfit
+from .oracle_distillation import (
+    OracleDistillationConfig,
+    analyze_oracle_residuals,
+    distill_oracle_policy,
+)
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -69,12 +74,69 @@ def _parser() -> argparse.ArgumentParser:
     decide.add_argument("--preflight-report", type=Path, required=True)
     decide.add_argument("--simulation-report", type=Path, required=True)
     decide.add_argument("--output", type=Path, default=Path("artifacts/so_arm101_v2/act_gate.json"))
+    oracle = commands.add_parser("distill-oracle")
+    oracle.add_argument("--manifest", type=Path, required=True)
+    oracle.add_argument("--model-kind", choices=("phase_state", "feedback_state"), required=True)
+    oracle.add_argument("--seed", type=int, default=101)
+    oracle.add_argument("--max-steps", type=int, default=10_000)
+    oracle.add_argument("--hidden-width", type=int, choices=(128, 256), default=128)
+    oracle.add_argument(
+        "--training-rows",
+        choices=(
+            "full", "memorization32", "memorization64", "memorization128",
+            "memorization256",
+        ),
+        default="full",
+    )
+    oracle.add_argument(
+        "--lr-schedule", choices=("fixed", "decay_10k_20k"), default="fixed"
+    )
+    oracle.add_argument("--prefix-parity-report", type=Path)
+    oracle.add_argument("--recovery-manifest", type=Path)
+    oracle.add_argument(
+        "--output-dir", type=Path,
+        default=Path("artifacts/so_arm101_v2/oracle_distillation"),
+    )
+    analysis = commands.add_parser("analyze-oracle")
+    analysis.add_argument("--manifest", type=Path, required=True)
+    analysis.add_argument("--checkpoint", type=Path, required=True)
+    analysis.add_argument(
+        "--output-dir", type=Path,
+        default=Path("artifacts/so_arm101_v2/oracle_distillation"),
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "distill-oracle":
+            result = distill_oracle_policy(
+                args.manifest, args.output_dir, kind=args.model_kind,
+                config=OracleDistillationConfig(
+                    seed=args.seed,
+                    max_steps=args.max_steps,
+                    hidden_width=args.hidden_width,
+                    training_rows=args.training_rows,
+                    lr_schedule=args.lr_schedule,
+                ),
+                prefix_parity_report=args.prefix_parity_report,
+                recovery_manifest_path=args.recovery_manifest,
+            )
+            print(result.report_json)
+            print(
+                f"passed={str(result.passed).lower()} steps={result.steps} "
+                f"closed_loop_eligible={str(result.closed_loop_eligible).lower()} "
+                f"normalized_mse={result.normalized_mse:.10g} "
+                f"max_act_error={result.max_act_error:.10g}"
+            )
+            return 0 if result.passed else 2
+        if args.command == "analyze-oracle":
+            result = analyze_oracle_residuals(
+                args.manifest, args.checkpoint, args.output_dir
+            )
+            print(result.report_json)
+            return 0
         inventory = inventory_physical_dataset(args.dataset_root)
         manifests = build_split_manifests(inventory)
         if args.command == "baselines":

@@ -1,0 +1,21 @@
+{
+  "contract_version": 3,
+  "task_id": "fixed_cube_pick_place_v3",
+  "description": "Strictly pick up the fixed 25 mm cube, place it on the napkin, release it at rest, and retreat.",
+  "base_pickup_contract": "fixed_cube_pickup_v1",
+  "episode": {
+    "max_actions": 480,
+    "max_seconds": 16.0,
+    "terminate_on_success": true
+  },
+  "placement": {
+    "napkin_geom": "napkin",
+    "footprint_edge_margin_m": 0.002,
+    "maximum_support_error_m": 0.001,
+    "maximum_linear_speed_m_s": 0.005,
+    "maximum_angular_speed_rad_s": 0.1,
+    "settled_frames": 10,
+    "minimum_gripper_act_open": 0.75,
+    "minimum_jaw_cube_clearance_m": 0.04
+  }
+}

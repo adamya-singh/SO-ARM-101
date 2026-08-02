@@ -10,6 +10,7 @@ import numpy as np
 
 from so_arm101_v2.contracts import (
     JOINT_NAMES,
+    PickPlaceMeasurement,
     TaskMeasurement,
     act_to_mujoco_qpos,
     evaluate_physical_command,
@@ -42,6 +43,18 @@ class CommandApplication:
     relative_limit_mask: np.ndarray
 
 
+@dataclass(frozen=True)
+class PrivilegedStateSnapshot:
+    """Finite pre-action simulator state used only by diagnostic policies."""
+
+    current_act: np.ndarray
+    robot_qvel: np.ndarray
+    cube_position: np.ndarray
+    cube_quaternion_wxyz: np.ndarray
+    cube_linear_velocity: np.ndarray
+    cube_angular_velocity: np.ndarray
+
+
 class MujocoTaskAdapter:
     """Own one MuJoCo model/data pair without importing the legacy environment."""
 
@@ -56,6 +69,7 @@ class MujocoTaskAdapter:
         self.data = mujoco.MjData(self.model)
         self.renderer = mujoco.Renderer(self.model, height=256, width=256)
         self._joint_qpos = []
+        self._joint_dof = []
         self._actuator_ids = []
         for name in JOINT_NAMES:
             joint = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
@@ -63,12 +77,14 @@ class MujocoTaskAdapter:
             if joint < 0 or actuator < 0:
                 raise ValueError(f"MuJoCo model is missing named joint/actuator {name!r}")
             self._joint_qpos.append(int(self.model.jnt_qposadr[joint]))
+            self._joint_dof.append(int(self.model.jnt_dofadr[joint]))
             self._actuator_ids.append(actuator)
         block_body = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "red_block")
         if block_body < 0:
             raise ValueError("MuJoCo model is missing red_block")
         block_joint = int(self.model.body_jntadr[block_body])
         self._block_qpos = int(self.model.jnt_qposadr[block_joint])
+        self._block_dof = int(self.model.jnt_dofadr[block_joint])
         self._block_body = block_body
         self._fixed_body = int(self.model.body("gripper").id)
         self._moving_body = int(self.model.body("moving_jaw_so101_v1").id)
@@ -109,6 +125,27 @@ class MujocoTaskAdapter:
 
     def current_act(self) -> np.ndarray:
         return mujoco_qpos_to_act(self.mujoco_qpos())
+
+    def privileged_state(self) -> PrivilegedStateSnapshot:
+        quaternion = np.asarray(self.data.qpos[self._block_qpos + 3:self._block_qpos + 7], dtype=np.float32).copy()
+        norm = float(np.linalg.norm(quaternion))
+        if norm <= 0 or not np.isfinite(norm):
+            raise RuntimeError("cube quaternion is invalid")
+        quaternion /= np.float32(norm)
+        if quaternion[0] < 0:
+            quaternion *= np.float32(-1.0)
+        snapshot = PrivilegedStateSnapshot(
+            current_act=self.current_act(),
+            robot_qvel=np.asarray([self.data.qvel[address] for address in self._joint_dof], dtype=np.float32),
+            cube_position=np.asarray(self.data.body("red_block").xpos, dtype=np.float32).copy(),
+            cube_quaternion_wxyz=quaternion,
+            cube_linear_velocity=np.asarray(self.data.qvel[self._block_dof:self._block_dof + 3], dtype=np.float32).copy(),
+            cube_angular_velocity=np.asarray(self.data.qvel[self._block_dof + 3:self._block_dof + 6], dtype=np.float32).copy(),
+        )
+        arrays = tuple(getattr(snapshot, field) for field in snapshot.__dataclass_fields__)
+        if not all(np.all(np.isfinite(array)) for array in arrays):
+            raise RuntimeError("privileged state contains nonfinite values")
+        return snapshot
 
     def render(self, camera: str = "wrist_camera") -> np.ndarray:
         self.renderer.update_scene(self.data, camera=camera)
@@ -214,5 +251,50 @@ class MujocoTaskAdapter:
         )
         return measurement, {"grip_force_n": float(force), **diagnostics}
 
+    def pick_place_measurement(
+        self, command: CommandApplication | None = None, *, footprint_edge_margin_m: float = 0.002
+    ) -> tuple[PickPlaceMeasurement, dict[str, Any]]:
+        """Measure the full task in napkin-local geometry."""
+        mujoco = _mujoco()
+        pickup, diagnostics = self.measurement(command)
+        napkin_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "napkin")
+        if napkin_id < 0:
+            raise ValueError("MuJoCo model is missing napkin geom")
+        napkin_position = np.asarray(self.data.geom_xpos[napkin_id], dtype=np.float64)
+        napkin_rotation = np.asarray(self.data.geom_xmat[napkin_id], dtype=np.float64).reshape(3, 3)
+        napkin_size = np.asarray(self.model.geom_size[napkin_id], dtype=np.float64)
+        cube_body = self.data.body("red_block")
+        cube_position = np.asarray(cube_body.xpos, dtype=np.float64)
+        cube_rotation = np.asarray(cube_body.xmat, dtype=np.float64).reshape(3, 3)
+        half = 0.0125
+        local_corners = np.asarray(
+            [(x, y, z) for x in (-half, half) for y in (-half, half) for z in (-half, half)],
+            dtype=np.float64,
+        )
+        world_corners = cube_position + local_corners @ cube_rotation.T
+        napkin_corners = (world_corners - napkin_position) @ napkin_rotation
+        xy_limit = napkin_size[:2] - float(footprint_edge_margin_m)
+        footprint_inside = bool(np.all(np.abs(napkin_corners[:, :2]) <= xy_limit + 1e-12))
+        support_error = float(np.min(napkin_corners[:, 2]) - napkin_size[2])
+        velocity = np.asarray(self.data.qvel[self._block_dof:self._block_dof + 6], dtype=np.float64)
+        measurement = PickPlaceMeasurement(
+            pickup=pickup,
+            cube_footprint_inside=footprint_inside,
+            cube_support_error_m=support_error,
+            cube_linear_speed_m_s=float(np.linalg.norm(velocity[:3])),
+            cube_angular_speed_rad_s=float(np.linalg.norm(velocity[3:])),
+            gripper_act=float(self.current_act()[5]),
+        )
+        diagnostics = {
+            **diagnostics,
+            "napkin_local_cube_corners": napkin_corners.tolist(),
+            "cube_footprint_inside": footprint_inside,
+            "cube_support_error_m": support_error,
+            "cube_linear_speed_m_s": measurement.cube_linear_speed_m_s,
+            "cube_angular_speed_rad_s": measurement.cube_angular_speed_rad_s,
+            "gripper_act": measurement.gripper_act,
+        }
+        return measurement, diagnostics
 
-__all__ = ["CommandApplication", "MujocoTaskAdapter"]
+
+__all__ = ["CommandApplication", "MujocoTaskAdapter", "PrivilegedStateSnapshot"]

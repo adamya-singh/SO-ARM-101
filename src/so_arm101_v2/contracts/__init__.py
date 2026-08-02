@@ -34,6 +34,15 @@ from .physical import (
     load_physical_calibration,
     physical_normalized_to_act,
 )
+from .pick_place import (
+    PickPlaceContract,
+    PickPlaceDiagnosticEvent,
+    PickPlaceEvaluation,
+    PickPlaceEvaluationState,
+    PickPlaceMeasurement,
+    evaluate_pick_place_step,
+    load_pick_place_contract,
+)
 
 __all__ = [
     "ACT_DATASET_HIGH",
@@ -50,6 +59,11 @@ __all__ = [
     "PHYSICAL_NORMALIZED_LOW",
     "PhysicalCalibration",
     "PhysicalCommandEvaluation",
+    "PickPlaceContract",
+    "PickPlaceDiagnosticEvent",
+    "PickPlaceEvaluation",
+    "PickPlaceEvaluationState",
+    "PickPlaceMeasurement",
     "TaskContract",
     "TaskEvaluation",
     "TaskEvaluationState",
@@ -60,8 +74,10 @@ __all__ = [
     "clip_mujoco_qpos",
     "evaluate_task_step",
     "evaluate_physical_command",
+    "evaluate_pick_place_step",
     "load_task_contract",
     "load_physical_calibration",
+    "load_pick_place_contract",
     "mujoco_qpos_to_act",
     "physical_normalized_to_act",
 ]

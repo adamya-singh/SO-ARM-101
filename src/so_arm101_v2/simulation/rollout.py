@@ -10,8 +10,11 @@ import numpy as np
 
 from so_arm101_v2.contracts import (
     DiagnosticEvent,
+    PickPlaceEvaluationState,
     TaskEvaluationState,
+    evaluate_pick_place_step,
     evaluate_task_step,
+    load_pick_place_contract,
     load_task_contract,
 )
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
@@ -58,9 +61,42 @@ class RolloutMetrics:
 
 
 @dataclass(frozen=True)
+class PickPlaceRolloutMetrics:
+    policy_id: str
+    suite_id: str
+    scenario_id: str
+    repeat: int
+    actions: int
+    success: bool
+    invalidated: bool
+    timed_out: bool
+    failure_category: str
+    pickup_completed: bool
+    entered_placement_region: bool
+    released: bool
+    settled: bool
+    retreated: bool
+    settled_frames: int
+    maximum_height_gain_m: float
+    final_support_error_m: float
+    final_linear_speed_m_s: float
+    final_angular_speed_rad_s: float
+    final_gripper_act: float
+    clipping_frames: int
+    limiting_frames: int
+    nonfinite_frames: int
+    unsafe_contact_frames: int
+    final_robot_qpos: tuple[float, ...]
+    final_cube_position: tuple[float, ...]
+    telemetry_path: str
+    wrist_video_path: str | None
+    overview_video_path: str | None
+
+
+@dataclass(frozen=True)
 class SimulationEvaluation:
     suite: SimulationSuite
-    rollouts: tuple[RolloutMetrics, ...]
+    rollouts: tuple[RolloutMetrics | PickPlaceRolloutMetrics, ...]
     report_json: Path
     environment_proven: bool | None
     deterministic: bool
@@ -309,8 +345,156 @@ def _run_rollout(
     )
 
 
-def _deterministic(rollouts: list[RolloutMetrics]) -> bool:
-    groups: dict[tuple[str, str], list[RolloutMetrics]] = {}
+def _run_pick_place_rollout(
+    model_path: Path,
+    suite: SimulationSuite,
+    scenario: SimulationScenario,
+    repeat: int,
+    policy_id: str,
+    policy_factory: Callable[[], SimulationPolicy],
+    output_dir: Path,
+    *,
+    record_video: bool,
+) -> PickPlaceRolloutMetrics:
+    adapter = MujocoTaskAdapter(model_path)
+    policy = policy_factory()
+    contract = load_pick_place_contract(suite.task_contract)
+    try:
+        adapter.reset(scenario)
+        reset_method = getattr(policy, "reset", None)
+        if callable(reset_method):
+            try:
+                reset_method(adapter)
+            except TypeError:
+                reset_method()
+    except BaseException:
+        adapter.close()
+        raise
+    stem = f"{policy_id}.{scenario.scenario_id}.repeat{repeat}"
+    telemetry_path = output_dir / "telemetry" / f"{stem}.json"
+    wrist_path = output_dir / "videos" / f"{stem}.wrist.mp4" if record_video else None
+    overview_path = output_dir / "videos" / f"{stem}.overview.mp4" if record_video and repeat == 0 else None
+    wrist_writer = _VideoWriter(wrist_path)
+    overview_writer = _VideoWriter(overview_path)
+    state = PickPlaceEvaluationState()
+    rows: list[dict[str, Any]] = []
+    all_events: set[str] = set()
+    maximum_height = 0.0
+    counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
+    evaluation = None
+    try:
+        for action in range(contract.max_actions):
+            raw, _, current = adapter.observation()
+            wrist_writer.add(raw)
+            if overview_path is not None:
+                overview_writer.add(adapter.render("camera_side"))
+            requested = policy.predict(raw, current, adapter)
+            command = adapter.apply_policy_command(requested)
+            substeps = adapter.advance_control_period()
+            measurement, diagnostics = adapter.pick_place_measurement(
+                command, footprint_edge_margin_m=contract.placement.footprint_edge_margin_m
+            )
+            state, evaluation = evaluate_pick_place_step(contract, measurement, state)
+            pickup_events = [event.value for event in evaluation.pickup_events]
+            place_events = [event.value for event in evaluation.events]
+            all_events.update(pickup_events)
+            all_events.update(place_events)
+            counts["clip"] += int(measurement.pickup.command_bound_violation)
+            counts["limit"] += int(measurement.pickup.delta_limiter_activated)
+            counts["nonfinite"] += int(measurement.pickup.nonfinite_command)
+            counts["unsafe"] += int(measurement.pickup.unsafe_contact)
+            maximum_height = max(maximum_height, measurement.pickup.cube_height_gain_m)
+            rows.append({
+                "action": action + 1,
+                "simulation_time_s": float(adapter.data.time),
+                "physics_substeps": substeps,
+                "current_act": current.tolist(),
+                "requested_act": command.requested_act.tolist(),
+                "executed_act": command.executed_act.tolist(),
+                "robot_qpos": adapter.mujoco_qpos().tolist(),
+                "cube_position": adapter.data.body("red_block").xpos.tolist(),
+                "pickup_measurement": asdict(measurement.pickup),
+                "placement_measurement": {
+                    "cube_footprint_inside": measurement.cube_footprint_inside,
+                    "cube_support_error_m": measurement.cube_support_error_m,
+                    "cube_linear_speed_m_s": measurement.cube_linear_speed_m_s,
+                    "cube_angular_speed_rad_s": measurement.cube_angular_speed_rad_s,
+                    "gripper_act": measurement.gripper_act,
+                },
+                "contact": diagnostics,
+                "pickup_events": pickup_events,
+                "placement_events": place_events,
+            })
+            if evaluation.terminated or evaluation.truncated:
+                break
+    finally:
+        wrist_writer.close()
+        overview_writer.close()
+        adapter.close()
+    if evaluation is None or not rows:
+        raise RuntimeError("pick-place rollout produced no evaluation")
+    final_place = rows[-1]["placement_measurement"]
+    if evaluation.success:
+        failure = "success"
+    elif evaluation.invalidated:
+        failure = "safety_invalidation"
+    elif not evaluation.pickup_completed:
+        failure = "pickup_incomplete"
+    elif "entered_placement_region" not in all_events:
+        failure = "place_region_missed"
+    elif "released" not in all_events:
+        failure = "not_released"
+    elif "settled" not in all_events:
+        failure = "not_settled"
+    else:
+        failure = "retreat_incomplete"
+    telemetry_path.parent.mkdir(parents=True, exist_ok=True)
+    telemetry_payload = {
+        "schema_version": 2,
+        "policy_id": policy_id,
+        "suite_id": suite.suite_id,
+        "scenario_id": scenario.scenario_id,
+        "repeat": repeat,
+        "reward_used": False,
+        "rows": rows,
+    }
+    telemetry_payload["content_sha256"] = content_sha256(telemetry_payload)
+    write_immutable_json(telemetry_path, telemetry_payload)
+    return PickPlaceRolloutMetrics(
+        policy_id=policy_id,
+        suite_id=suite.suite_id,
+        scenario_id=scenario.scenario_id,
+        repeat=repeat,
+        actions=evaluation.actions_evaluated,
+        success=evaluation.success,
+        invalidated=evaluation.invalidated,
+        timed_out=evaluation.truncated,
+        failure_category=failure,
+        pickup_completed=evaluation.pickup_completed,
+        entered_placement_region="entered_placement_region" in all_events,
+        released="released" in all_events,
+        settled="settled" in all_events,
+        retreated="retreated" in all_events,
+        settled_frames=evaluation.settled_frames,
+        maximum_height_gain_m=maximum_height,
+        final_support_error_m=float(final_place["cube_support_error_m"]),
+        final_linear_speed_m_s=float(final_place["cube_linear_speed_m_s"]),
+        final_angular_speed_rad_s=float(final_place["cube_angular_speed_rad_s"]),
+        final_gripper_act=float(final_place["gripper_act"]),
+        clipping_frames=counts["clip"],
+        limiting_frames=counts["limit"],
+        nonfinite_frames=counts["nonfinite"],
+        unsafe_contact_frames=counts["unsafe"],
+        final_robot_qpos=tuple(float(value) for value in rows[-1]["robot_qpos"]),
+        final_cube_position=tuple(float(value) for value in rows[-1]["cube_position"]),
+        telemetry_path=str(telemetry_path.resolve()),
+        wrist_video_path=None if wrist_path is None else str(wrist_path.resolve()),
+        overview_video_path=None if overview_path is None else str(overview_path.resolve()),
+    )
+
+
+def _deterministic(rollouts: list[RolloutMetrics | PickPlaceRolloutMetrics]) -> bool:
+    groups: dict[tuple[str, str], list[RolloutMetrics | PickPlaceRolloutMetrics]] = {}
     for item in rollouts:
         groups.setdefault((item.policy_id, item.scenario_id), []).append(item)
     for values in groups.values():
@@ -352,6 +536,7 @@ def evaluate_closed_loop(
     *,
     environment_proven: bool | None = None,
     record_video: bool = True,
+    provenance: Mapping[str, Any] | None = None,
 ) -> SimulationEvaluation:
     """Evaluate matched policies without consulting any reward signal."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
@@ -364,13 +549,16 @@ def evaluate_closed_loop(
             "blocked_reason": "privileged controller did not prove strict task success",
             "requested_policy_ids": list(policies),
         }
+        if provenance is not None:
+            report["provenance"] = dict(provenance)
         report["content_sha256"] = content_sha256(report)
         report_path = destination / "evaluation.json"
         write_immutable_json(report_path, report)
         _write_evaluation_html(destination / "evaluation.html", report)
         return SimulationEvaluation(suite, (), report_path, False, True)
+    runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
     rollouts = [
-        _run_rollout(Path(model_path), suite, scenario, repeat, policy_id, factory, destination, record_video=record_video)
+        runner(Path(model_path), suite, scenario, repeat, policy_id, factory, destination, record_video=record_video)
         for policy_id, factory in policies.items()
         for scenario in suite.scenarios
         for repeat in range(suite.repeats)
@@ -382,6 +570,8 @@ def evaluate_closed_loop(
         "rollouts": [asdict(item) for item in rollouts],
         "interpretation_allowed": bool(environment_proven) if environment_proven is not None else None,
     }
+    if provenance is not None:
+        report["provenance"] = dict(provenance)
     report["content_sha256"] = content_sha256(report)
     report_path = destination / "evaluation.json"
     write_immutable_json(report_path, report)
@@ -393,13 +583,15 @@ def run_simulation_preflight(
     model_path: str | Path,
     output_dir: str | Path,
     *,
+    suite: SimulationSuite | str = "fixed_pickup_contract_v1",
     record_video: bool = True,
 ) -> SimulationEvaluation:
     """Require the privileged staged controller to prove all fixed scenarios."""
-    suite = load_simulation_suite("fixed_pickup_contract_v1")
+    suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
     destination = Path(output_dir) / "preflight" / suite.suite_id
+    runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
     rollouts = [
-        _run_rollout(
+        runner(
             Path(model_path), suite, scenario, repeat, "privileged_staged",
             PrivilegedStagedController, destination, record_video=record_video,
         )
@@ -417,7 +609,8 @@ def run_simulation_preflight(
         )
     )
     payload: dict[str, Any] = {
-        "schema_version": 1, "suite": asdict(suite), "reward_used": False,
+        "schema_version": 2 if suite.task_contract == "fixed_cube_pick_place_v3" else 1,
+        "suite": asdict(suite), "reward_used": False,
         "environment_proven": proven, "deterministic": deterministic,
         "rollouts": [asdict(item) for item in rollouts],
         "interpretation_allowed": proven,
@@ -430,6 +623,6 @@ def run_simulation_preflight(
 
 
 __all__ = [
-    "ConstantPosePolicy", "CurrentPosePolicy", "RolloutMetrics", "SimulationEvaluation",
+    "ConstantPosePolicy", "CurrentPosePolicy", "PickPlaceRolloutMetrics", "RolloutMetrics", "SimulationEvaluation",
     "SimulationPolicy", "TorchCheckpointPolicy", "evaluate_closed_loop", "run_simulation_preflight",
 ]

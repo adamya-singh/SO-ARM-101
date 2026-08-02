@@ -258,9 +258,14 @@ class PrivilegedStagedController:
                 half_closed, closed, closed, lift, lift,
                 traverse, set_down, released, released, retreat,
             ]
+            # The retreat gets ~26 actions: a 5-action retreat produced a
+            # ~670 mm/s snap that the phase-state oracle clone could not
+            # imitate (worst-error row of the failed offline gate). The
+            # gripper release keeps >=16 actions: opening faster trips the
+            # delta limiter through servo lag (requested-vs-current gap).
             self.boundaries = (
                 0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
-                395, 420, 435, 445, 450,
+                386, 403, 419, 424, 450,
             )
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:

@@ -38,7 +38,11 @@ class SimulationSuite:
 
 
 def load_simulation_suite(name: str) -> SimulationSuite:
-    if name not in {"fixed_pickup_contract_v1", "fixed_pickup_recovery_probe_v1"}:
+    if name not in {
+        "fixed_pickup_contract_v1",
+        "fixed_pickup_recovery_probe_v1",
+        "fixed_pick_place_v3",
+    }:
         raise ValueError(f"unknown simulation suite: {name!r}")
     resource = files("so_arm101_v2.data.resources").joinpath(f"{name}.json")
     payload = json.loads(resource.read_text(encoding="utf-8"))
