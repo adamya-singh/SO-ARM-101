@@ -1,0 +1,205 @@
+{
+  "claim": "decisive_fixed_action_replay_only_no_training_or_policy_change",
+  "comparison": {
+    "autonomous_checkpoint_rollout": {
+      "actions": 450,
+      "event_indices_zero_based": {
+        "bilateral_interior_contact": null,
+        "entered_placement_region": null,
+        "first_contact": 194,
+        "lift_5mm": null,
+        "reach": 111,
+        "released": 51,
+        "retreated": 0,
+        "settled": null,
+        "strict_grasp_acquired": null,
+        "success": null
+      },
+      "failure_category": "pickup_incomplete",
+      "maximum_cube_height_gain_m": 0.00015883613549393973,
+      "safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    "expert": {
+      "event_indices_zero_based": {
+        "bilateral_interior_contact": 360,
+        "entered_placement_region": 383,
+        "first_contact": 194,
+        "lift_5mm": 328,
+        "reach": 117,
+        "released": 51,
+        "retreated": 0,
+        "settled": 426,
+        "strict_grasp_acquired": 364,
+        "success": 389
+      },
+      "maximum_cube_height_gain_m": 0.030747732913671257,
+      "safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": true,
+      "terminal_action_count": 438
+    }
+  },
+  "content_sha256": "5bd49705ee701c1b47f6b3510b08688c3a072a6744021e59f1bda4fe4b4d08cb",
+  "fixed_action_replay": {
+    "all_pickup_events": [
+      "bilateral_interior_contact",
+      "first_contact",
+      "lift_10mm",
+      "lift_20mm",
+      "lift_5mm",
+      "reach",
+      "strict_grasp_acquired",
+      "success"
+    ],
+    "all_placement_events": [
+      "cube_supported",
+      "entered_placement_region",
+      "released",
+      "retreated",
+      "settled",
+      "success"
+    ],
+    "contact_spans_zero_based": {
+      "any_contact": {
+        "first": 194,
+        "frames": 215,
+        "last": 408
+      },
+      "bilateral_interior_contact": {
+        "first": 360,
+        "frames": 48,
+        "last": 407
+      },
+      "strict_bilateral_grasp": {
+        "first": 360,
+        "frames": 48,
+        "last": 407
+      }
+    },
+    "event_indices_zero_based": {
+      "bilateral_interior_contact": 360,
+      "entered_placement_region": 383,
+      "first_contact": 194,
+      "lift_5mm": 328,
+      "reach": 117,
+      "released": 51,
+      "retreated": 0,
+      "settled": 426,
+      "strict_grasp_acquired": 364,
+      "success": 389
+    },
+    "final_cube_position": [
+      0.08401532471179962,
+      0.2982543408870697,
+      0.013392244465649128
+    ],
+    "final_robot_qpos": [
+      0.5051207542419434,
+      0.8341751098632812,
+      1.5237400531768799,
+      -2.4344515800476074,
+      -1.7397478818893433,
+      0.8617401719093323
+    ],
+    "maximum_cube_height_gain_m": 0.030741591885450663,
+    "outcome": "success",
+    "pickup_completed": true,
+    "safety_counts": {
+      "clip": 0,
+      "limit": 0,
+      "nonfinite": 0,
+      "unsafe": 0
+    },
+    "settled_frames": 21,
+    "success": true,
+    "terminal_action_count": 438
+  },
+  "inputs": {
+    "autonomous_evaluation": {
+      "content_sha256": "5efae2575721a03d2166e04261ca041bfb993fcedb3161a6a7af07cc29b3d1f2",
+      "path": "artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/evaluation.json",
+      "sha256": "5a0624d4cfb0cc57e1ef375121a77d511b3201a73882de27e70d7c86573b2629"
+    },
+    "autonomous_telemetry": {
+      "content_sha256": "8f4958626080fa979f30afd87eb7e2714745d4ba2ea88be1b8efea38123a2c4b",
+      "path": "artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/telemetry/phase_state.seed101.nominal.repeat0.json",
+      "sha256": "54574bb108c1abb7af34d5318e05bfed642b8ae09a9e75e8bbd2f12cde846cc9"
+    },
+    "checkpoint": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/models/phase_state/d5f96d397bd9b915/model.pt",
+      "sha256": "8ba87aae58e8e8e4057fdaae900eff3b453056d13a68b8e17c11e14806ce10eb"
+    },
+    "first_divergence_report": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/diagnostics/first_divergence_v1/report.json",
+      "sha256": "f141fd8955497f14dea226b616a6b062523a755c8b109e5b990edbd79d0062f6"
+    },
+    "manifest": {
+      "content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+      "path": "artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/manifest.json",
+      "sha256": "e47f3d497ed1e354161665b21bad9a5144a8ec7aef4e0fc1a69875a8e2d9d50c"
+    },
+    "mujoco_model": {
+      "path": "simulation_code/model/menagerie_so_arm100/scene_v2.xml",
+      "sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9"
+    },
+    "offline_report": {
+      "content_sha256": "54b2e4a0242450b0fd685e47777522d60bc85d2047088a689d08a0f511a4b946",
+      "path": "artifacts/so_arm101_v2/oracle_distillation/models/phase_state/d5f96d397bd9b915/report.json",
+      "sha256": "20aa723f2e59410a530548e469b476b12ed94bd02f94a4ec6fe51dadf8d1ce92"
+    },
+    "oracle_arrays": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/demonstrations.npz",
+      "sha256": "0c1e78e27abeec5fbd7b2a4d0c77cc1428058d1eb92b9fa507e71f51ce208e24"
+    }
+  },
+  "interpretation": {
+    "covariate_shift_confirmed_if_fixed_succeeds": true,
+    "fixed_sequence_succeeds": true,
+    "offline_gate_task_sensitivity_disproved_if_fixed_fails": false
+  },
+  "outputs": {
+    "overview_video": {
+      "path": "fixed_action_replay.overview.mp4",
+      "sha256": "a42b915e0738a4c8a0cbde94425be0928d79a7ed8c7c3f2b94f2a0a0680f8af1"
+    },
+    "predictions": {
+      "path": "teacher_state_predictions.npz",
+      "sha256": "fd4e9237f591662799983906ee81538eadcd9e251b4da5033dbeb555ac911cf1"
+    },
+    "telemetry": {
+      "content_sha256": "faa1353d2d95e7334d847bbca5d29f6d90a8d3c4da88c36e1ae8b1ce53b1aed4",
+      "path": "fixed_action_replay_telemetry.json",
+      "sha256": "92f04d39ee5574e8957a9850e3a70f8e82751d1bd1a27dcfa73715b38d351791"
+    },
+    "wrist_video": {
+      "path": "fixed_action_replay.wrist.mp4",
+      "sha256": "4dd79e1bbeff42b652d224b8407eb0693ef0bce61c89f051627aafe9982ebfb3"
+    }
+  },
+  "schema_version": 1,
+  "setup": {
+    "actions_predicted": 450,
+    "actions_replayed": 450,
+    "execution": "fresh nominal reset followed by the 450 fixed absolute ACT commands in action-index order",
+    "inference": "one checkpoint prediction per stored expert pre-action state; no simulator-produced state was used for inference",
+    "reward_used": false,
+    "safety": "each fixed command passed through MujocoTaskAdapter.apply_policy_command before execution"
+  },
+  "teacher_state_prediction_reproduction": {
+    "exactly_matches_offline_report": true,
+    "feature_mean_matches_checkpoint": true,
+    "feature_std_matches_checkpoint": true,
+    "maximum_act_error": 0.0071961283683776855,
+    "normalized_delta_mse": 9.999720305131632e-07
+  }
+}

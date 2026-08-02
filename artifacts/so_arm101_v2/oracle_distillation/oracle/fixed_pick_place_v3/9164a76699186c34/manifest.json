@@ -1,0 +1,2548 @@
+{
+  "arrays": {
+    "fields": {
+      "action_index": [
+        450
+      ],
+      "cube_angular_velocity": [
+        450,
+        3
+      ],
+      "cube_linear_velocity": [
+        450,
+        3
+      ],
+      "cube_position": [
+        450,
+        3
+      ],
+      "cube_quaternion_wxyz": [
+        450,
+        4
+      ],
+      "current_act": [
+        450,
+        6
+      ],
+      "executed_act": [
+        450,
+        6
+      ],
+      "executed_delta_act": [
+        450,
+        6
+      ],
+      "post_any_contact": [
+        450
+      ],
+      "post_bilateral_interior_contact": [
+        450
+      ],
+      "post_command_bound_violation": [
+        450
+      ],
+      "post_cube_angular_speed_rad_s": [
+        450
+      ],
+      "post_cube_footprint_inside": [
+        450
+      ],
+      "post_cube_height_gain_m": [
+        450
+      ],
+      "post_cube_linear_speed_m_s": [
+        450
+      ],
+      "post_cube_position": [
+        450,
+        3
+      ],
+      "post_cube_support_error_m": [
+        450
+      ],
+      "post_delta_limiter_activated": [
+        450
+      ],
+      "post_gripper_act": [
+        450
+      ],
+      "post_jaw_cube_distance_m": [
+        450
+      ],
+      "post_nonfinite_command": [
+        450
+      ],
+      "post_strict_bilateral_grasp": [
+        450
+      ],
+      "post_unsafe_contact": [
+        450
+      ],
+      "progress": [
+        450
+      ],
+      "requested_act": [
+        450,
+        6
+      ],
+      "robot_qvel": [
+        450,
+        6
+      ],
+      "scenario_index": [
+        450
+      ]
+    },
+    "path": "demonstrations.npz",
+    "rows": 450,
+    "sha256": "0c1e78e27abeec5fbd7b2a4d0c77cc1428058d1eb92b9fa507e71f51ce208e24"
+  },
+  "claim": "privileged_simulation_demonstrations_only_not_deployment_data",
+  "collection_digest": "9164a76699186c347843b1ec546e0f81994ffe96d4653d39124adfb4dff4282b",
+  "content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+  "controller": {
+    "approach_back_m": 0.06,
+    "approach_clearance_m": 0.005,
+    "approach_lift_m": 0.04,
+    "approach_pitch_rad": 1.361356816555577,
+    "axis_weight": 0.04,
+    "damping": 0.001,
+    "depth_lead_m": 0.006,
+    "depth_tolerance_deg": 15.0,
+    "depth_weight": 0.04,
+    "grasp_height_m": 0.021,
+    "lift_command_m": 0.031,
+    "maximum_update_rad": 0.05,
+    "nearly_closed_gripper_rad": 0.0,
+    "normal_tolerance_deg": 10.0,
+    "open_gripper_rad": 0.8,
+    "position_tolerance_m": 0.001
+  },
+  "coordinate_contract_sha256": "f95eaaf09a9635529077049b7332ee40359ba4d5c64dd8b7d23c8dd9cbad0ae7",
+  "episodes": [
+    {
+      "events": [
+        {
+          "action_index": 0,
+          "pickup_events": [],
+          "placement_events": [
+            "retreated"
+          ]
+        },
+        {
+          "action_index": 1,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 2,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 3,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 4,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 5,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 6,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 7,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 8,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 9,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 10,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 11,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 12,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 13,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 14,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 15,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 16,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 17,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 18,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 19,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 20,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 21,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 22,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 23,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 24,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 25,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 26,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 27,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 28,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 29,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 30,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 31,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 32,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 33,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 34,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 35,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 36,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 37,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 38,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 39,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 40,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 41,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 42,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 43,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 44,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 45,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 46,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 47,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 48,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 49,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 50,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 51,
+          "pickup_events": [],
+          "placement_events": [
+            "released"
+          ]
+        },
+        {
+          "action_index": 52,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 53,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 54,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 55,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 56,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 57,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 58,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 59,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 60,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 61,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 62,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 63,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 64,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 65,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 66,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 67,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 68,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 69,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 70,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 71,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 72,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 73,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 74,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 75,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 76,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 77,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 78,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 79,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 80,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 81,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 82,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 83,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 84,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 85,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 86,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 87,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 88,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 89,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 90,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 91,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 92,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 93,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 94,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 95,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 96,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 97,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 98,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 99,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 100,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 101,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 102,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 103,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 104,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 105,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 106,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 107,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 108,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 109,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 110,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 111,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 112,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 113,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 114,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 115,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 116,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 117,
+          "pickup_events": [
+            "reach"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 118,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 119,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 120,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 121,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 122,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 123,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 124,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 125,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 126,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 127,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 128,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 129,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 130,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 131,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 132,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 133,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 134,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 135,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 136,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 137,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 138,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 139,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 140,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 141,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 142,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 143,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 144,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 145,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 146,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 147,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 148,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 149,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 150,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 151,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 152,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 153,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 154,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 155,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 156,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 157,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 158,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 159,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 160,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 161,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 162,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 163,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 164,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 165,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 166,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 167,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 168,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 169,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 170,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 171,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 172,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 173,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 174,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 175,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 176,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 177,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 178,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 179,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 180,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 181,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 182,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 183,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 184,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 185,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 186,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 187,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 188,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 189,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 190,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 191,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 192,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 193,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 194,
+          "pickup_events": [
+            "first_contact"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 195,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 196,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 197,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 198,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 199,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 200,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 201,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 202,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 203,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 204,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 205,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 206,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 207,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 208,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 209,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 210,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 211,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 212,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 213,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 214,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 215,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 216,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 217,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 218,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 219,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 220,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 221,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 222,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 223,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 224,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 225,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 226,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 227,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 228,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 229,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 230,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 231,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 232,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 233,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 234,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 235,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 236,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 237,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 238,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 239,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 240,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 241,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 242,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 243,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 244,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 245,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 246,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 247,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 248,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 249,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 250,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 251,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 252,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 253,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 254,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 255,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 256,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 257,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 258,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 259,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 260,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 261,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 262,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 263,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 264,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 265,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 266,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 267,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 268,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 269,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 270,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 271,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 272,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 273,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 274,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 275,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 276,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 277,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 278,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 279,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 280,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 281,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 282,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 283,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 284,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 285,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 286,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 287,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 288,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 289,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 290,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 291,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 292,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 293,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 294,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 295,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 296,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 297,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 298,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 299,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 300,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 301,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 302,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 303,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 304,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 305,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 306,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 307,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 308,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 309,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 310,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 311,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 312,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 313,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 314,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 315,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 316,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 317,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 318,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 319,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 320,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 321,
+          "pickup_events": [],
+          "placement_events": [
+            "cube_supported"
+          ]
+        },
+        {
+          "action_index": 322,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 323,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 324,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 325,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 326,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 327,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 328,
+          "pickup_events": [
+            "lift_5mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 329,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 330,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 331,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 332,
+          "pickup_events": [
+            "lift_10mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 333,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 334,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 335,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 336,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 337,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 338,
+          "pickup_events": [
+            "lift_20mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 339,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 340,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 341,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 342,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 343,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 344,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 345,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 346,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 347,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 348,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 349,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 350,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 351,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 352,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 353,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 354,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 355,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 356,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 357,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 358,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 359,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 360,
+          "pickup_events": [
+            "bilateral_interior_contact"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 361,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 362,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 363,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 364,
+          "pickup_events": [
+            "strict_grasp_acquired"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 365,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 366,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 367,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 368,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 369,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 370,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 371,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 372,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 373,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 374,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 375,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 376,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 377,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 378,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 379,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 380,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 381,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 382,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 383,
+          "pickup_events": [],
+          "placement_events": [
+            "entered_placement_region"
+          ]
+        },
+        {
+          "action_index": 384,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 385,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 386,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 387,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 388,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 389,
+          "pickup_events": [
+            "success"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 390,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 391,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 392,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 393,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 394,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 395,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 396,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 397,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 398,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 399,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 400,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 401,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 402,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 403,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 404,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 405,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 406,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 407,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 408,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 409,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 410,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 411,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 412,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 413,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 414,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 415,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 416,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 417,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 418,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 419,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 420,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 421,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 422,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 423,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 424,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 425,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 426,
+          "pickup_events": [],
+          "placement_events": [
+            "settled"
+          ]
+        },
+        {
+          "action_index": 427,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 428,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 429,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 430,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 431,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 432,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 433,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 434,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 435,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 436,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 437,
+          "pickup_events": [],
+          "placement_events": [
+            "success"
+          ]
+        },
+        {
+          "action_index": 438,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 439,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 440,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 441,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 442,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 443,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 444,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 445,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 446,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 447,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 448,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 449,
+          "pickup_events": [],
+          "placement_events": []
+        }
+      ],
+      "final_evaluation": {
+        "actions_evaluated": 438,
+        "events": [
+          "success"
+        ],
+        "invalidated": false,
+        "outcome": "success",
+        "pickup_completed": true,
+        "pickup_events": [],
+        "settled_frames": 21,
+        "success": true,
+        "terminated": true,
+        "truncated": false
+      },
+      "rows": 450,
+      "safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "scenario_id": "nominal",
+      "solve_diagnostics": [
+        {
+          "depth_error_deg": 2.8084281995297355,
+          "normal_error_deg": 0.3544880525547327,
+          "position_error_m": 0.00044137310470398534,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 2.870365207424564,
+          "normal_error_deg": 0.6852331180574873,
+          "position_error_m": 0.0004593458428359783,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.541772057775539,
+          "normal_error_deg": 0.6836874041922715,
+          "position_error_m": 0.0005684930791377789,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.242899479329482,
+          "normal_error_deg": 0.6843042750824425,
+          "position_error_m": 0.0004972685172127376,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.092460502885593,
+          "normal_error_deg": 0.6846831388387323,
+          "position_error_m": 0.0005076861967314286,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 2.267988582682658,
+          "normal_error_deg": 0.34662366842414005,
+          "position_error_m": 0.00034125131623073484,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.4854335826905376,
+          "normal_error_deg": 0.36196753035680873,
+          "position_error_m": 0.0005935220055184521,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 17.95041310743349,
+          "normal_error_deg": 17.636633619955315,
+          "position_error_m": 0.0001656788630120984,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 17.72761587716914,
+          "normal_error_deg": 17.38971327663854,
+          "position_error_m": 0.0003686292815339182,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 22.273983339617565,
+          "normal_error_deg": 17.844562551204326,
+          "position_error_m": 0.0002827158490790245,
+          "solved": true
+        }
+      ],
+      "waypoint_boundaries": [
+        0,
+        70,
+        110,
+        145,
+        175,
+        205,
+        255,
+        285,
+        315,
+        350,
+        365,
+        386,
+        403,
+        419,
+        424,
+        450
+      ]
+    }
+  ],
+  "feature_schemas": {
+    "feedback_state": [
+      "current_act[6]",
+      "robot_qvel[6]",
+      "cube_position[3]",
+      "cube_quaternion_wxyz[4]",
+      "cube_linear_velocity[3]",
+      "cube_angular_velocity[3]"
+    ],
+    "phase_state": [
+      "current_act[6]",
+      "cube_position[3]",
+      "progress[1]"
+    ]
+  },
+  "git": {
+    "dirty": true,
+    "dirty_fingerprint": "400e57814ceb5332400756cfc8dc04ac38c71b03e0910b08306d84cf690b2ab4",
+    "revision": "a0f737bd7f0c4cf1b3dbb10d6bff94663b86bef0"
+  },
+  "model_sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9",
+  "preflight_content_sha256": "0330cc109640ead4c2229b3d326a54815c70872373e506c8a9ffd546aaa9bd9f",
+  "scenario_ids": [
+    "nominal"
+  ],
+  "schema_version": 1,
+  "suite_id": "fixed_pick_place_v3",
+  "suite_resource_sha256": "85cb977defb3db896e6345bf28cecfe054760c4d81034b42a546586c5d29572d",
+  "task_resource_sha256": "7553abe24e0b31a2cebf27bd23708f47b3f91cf8375a8d2aada09b05ceb420a7",
+  "teacher_horizon": 450,
+  "videos": [
+    {
+      "path": "videos/nominal.wrist.mp4",
+      "sha256": "671a012f0130a1e7b48ee462d8c1fec3128fa1ff1f01b576239d8d85965bcd46"
+    },
+    {
+      "path": "videos/nominal.overview.mp4",
+      "sha256": "1d610dd0a7b6cb4be4d5053901fd55987449a4e5b7dacead9524c5a0871c0ea4"
+    }
+  ]
+}

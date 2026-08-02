@@ -1,0 +1,707 @@
+{
+  "anchors": [
+    {
+      "action_index": 70,
+      "name": "approach",
+      "perturbation_act": [
+        0,
+        0.01,
+        -0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "end of high approach"
+    },
+    {
+      "action_index": 195,
+      "name": "first_contact",
+      "perturbation_act": [
+        0.01,
+        0,
+        0,
+        -0.01,
+        0,
+        0
+      ],
+      "rationale": "first post-contact state"
+    },
+    {
+      "action_index": 205,
+      "name": "seating",
+      "perturbation_act": [
+        -0.01,
+        0,
+        0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of final centering"
+    },
+    {
+      "action_index": 255,
+      "name": "closure",
+      "perturbation_act": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.01
+      ],
+      "rationale": "start of jaw closure"
+    },
+    {
+      "action_index": 315,
+      "name": "lift",
+      "perturbation_act": [
+        0,
+        0.01,
+        -0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of lift motion"
+    },
+    {
+      "action_index": 365,
+      "name": "transport",
+      "perturbation_act": [
+        0.01,
+        0,
+        0,
+        -0.01,
+        0,
+        0
+      ],
+      "rationale": "start of carry to napkin"
+    },
+    {
+      "action_index": 386,
+      "name": "placement",
+      "perturbation_act": [
+        0,
+        -0.01,
+        0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of set-down"
+    },
+    {
+      "action_index": 419,
+      "name": "release",
+      "perturbation_act": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.01
+      ],
+      "rationale": "end of controlled release"
+    }
+  ],
+  "arrays": {
+    "path": "recovery_examples.npz",
+    "rows": 8,
+    "sha256": "25ab3566d441007045dfef7e968e329dc977f463f4b3c985857b8f92e1a8f798"
+  },
+  "arrays_sha256": "25ab3566d441007045dfef7e968e329dc977f463f4b3c985857b8f92e1a8f798",
+  "claim": "eight_local_validated_recovery_labels_not_a_broad_robustness_distribution",
+  "collection_digest": "0570ec8c0d37002f37fd109618cef707f9e6f8e17e0d95356bdc63882dac7fd6",
+  "content_sha256": "248379090c54335d03b88190316e35b8b03668e27b0f58829ec08285fc7a9850",
+  "experiment": "phase_wide_oracle_recovery_v1",
+  "feature_schema": [
+    "current_act[6]",
+    "cube_position[3]",
+    "progress[1]"
+  ],
+  "known_omissions": [
+    "robot_qvel",
+    "cube_quaternion_wxyz",
+    "cube_linear_velocity",
+    "cube_angular_velocity",
+    "contact flags",
+    "grasp flags"
+  ],
+  "label_rule": "unchanged oracle absolute action at the same phase index",
+  "model_sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9",
+  "records": [
+    {
+      "action_index": 70,
+      "deterministic_repeats": 2,
+      "name": "approach",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "current_act": [
+          0.0,
+          0.0017867088317871094,
+          -0.0018401145935058594,
+          -1.0728836059570312e-06,
+          0.0,
+          2.980232238769531e-07
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "cube_linear_velocity": [
+          0.0,
+          0.0,
+          1.5107969129207754e-12
+        ],
+        "cube_quaternion_wxyz": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "robot_qvel": [
+          -7.309718057513237e-07,
+          0.04166930168867111,
+          -0.042022477835416794,
+          -6.563961505889893e-06,
+          1.3085082173347473e-07,
+          6.596557796001434e-06
+        ]
+      },
+      "oracle_label": [
+        -0.020217180252075195,
+        0.18518733978271484,
+        1.7585694789886475,
+        -1.4984112977981567,
+        -1.7700471878051758,
+        0.86292964220047
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0,
+        0.01,
+        -0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "end of high approach",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 195,
+      "deterministic_repeats": 2,
+      "name": "first_contact",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          0.00017558119725435972,
+          3.4689903259277344e-05,
+          0.0001350250095129013
+        ],
+        "current_act": [
+          0.0012688636779785156,
+          -0.00016927719116210938,
+          -8.058547973632812e-05,
+          -0.0018391609191894531,
+          -7.152557373046875e-07,
+          0.0
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          -0.06478366255760193,
+          0.01274833083152771,
+          -0.1019524335861206
+        ],
+        "cube_linear_velocity": [
+          0.010955890640616417,
+          0.0017370192799717188,
+          0.005673096980899572
+        ],
+        "cube_quaternion_wxyz": [
+          -5.960464477539062e-07,
+          0.0003627463011071086,
+          -2.748530823737383e-05,
+          -0.0009062252938747406
+        ],
+        "robot_qvel": [
+          -0.04093034565448761,
+          -0.001812143251299858,
+          -0.0020769801922142506,
+          -0.0428314171731472,
+          1.4664779882878065e-05,
+          -1.4256947906687856e-06
+        ]
+      },
+      "oracle_label": [
+        0.005037069320678711,
+        1.2652575969696045,
+        1.4523441791534424,
+        -2.337035894393921,
+        -1.7674850225448608,
+        0.8629297614097595
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0.01,
+        0,
+        0,
+        -0.01,
+        0,
+        0
+      ],
+      "rationale": "first post-contact state",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 205,
+      "deterministic_repeats": 2,
+      "name": "seating",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          -4.1442341171205044e-05,
+          -2.6732683181762695e-05,
+          -4.385598003864288e-06
+        ],
+        "current_act": [
+          -0.00025391578674316406,
+          -9.059906005859375e-06,
+          0.0002789497375488281,
+          2.5272369384765625e-05,
+          9.5367431640625e-07,
+          0.0
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          0.05312084034085274,
+          -0.041199058294296265,
+          0.013495306484401226
+        ],
+        "cube_linear_velocity": [
+          -0.0014946351293474436,
+          -0.0009768200106918812,
+          -0.0001090847363229841
+        ],
+        "cube_quaternion_wxyz": [
+          1.7285346984863281e-06,
+          0.0008146996842697263,
+          -0.0006204950623214245,
+          0.00017784407828003168
+        ],
+        "robot_qvel": [
+          0.005320433992892504,
+          -0.0007458080071955919,
+          0.005791778676211834,
+          0.00028447946533560753,
+          2.6110035832971334e-05,
+          2.684828359633684e-09
+        ]
+      },
+      "oracle_label": [
+        0.009959936141967773,
+        1.2699453830718994,
+        1.4509713649749756,
+        -2.3447365760803223,
+        -1.7669686079025269,
+        0.8628747463226318
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        -0.01,
+        0,
+        0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of final centering",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 255,
+      "deterministic_repeats": 2,
+      "name": "closure",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          1.0813819244503975e-06,
+          6.854534149169922e-07,
+          -8.651986718177795e-07
+        ],
+        "current_act": [
+          -5.4836273193359375e-06,
+          1.9073486328125e-06,
+          3.337860107421875e-06,
+          7.152557373046875e-07,
+          -3.5762786865234375e-07,
+          0.00027185678482055664
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          -0.0001228803303092718,
+          0.001274441834539175,
+          0.0036852294579148293
+        ],
+        "cube_linear_velocity": [
+          3.217963967472315e-05,
+          2.2571086446987465e-05,
+          -3.0334407711052336e-05
+        ],
+        "cube_quaternion_wxyz": [
+          1.7881393432617188e-07,
+          -1.944630639627576e-06,
+          1.8436112441122532e-05,
+          5.5733369663357735e-05
+        ],
+        "robot_qvel": [
+          0.00010893575381487608,
+          3.175297752022743e-05,
+          6.887692143209279e-05,
+          1.5088793588802218e-05,
+          -1.3485056115314364e-05,
+          0.009578481316566467
+        ]
+      },
+      "oracle_label": [
+        0.009959936141967773,
+        1.2699453830718994,
+        1.4509713649749756,
+        -2.3447365760803223,
+        -1.7669686079025269,
+        0.15449251234531403
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.01
+      ],
+      "rationale": "start of jaw closure",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 315,
+      "deterministic_repeats": 2,
+      "name": "lift",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          -4.882458597421646e-07,
+          1.2010335922241211e-05,
+          -5.974434316158295e-05
+        ],
+        "current_act": [
+          -3.337860107421875e-06,
+          0.0009298324584960938,
+          -0.0007266998291015625,
+          -1.5735626220703125e-05,
+          0.0,
+          -1.5348196029663086e-06
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          -0.004719309974461794,
+          -6.093899719417095e-05,
+          9.281467646360397e-05
+        ],
+        "cube_linear_velocity": [
+          -2.2370513761416078e-05,
+          0.0005975042004138231,
+          -0.0026959541719406843
+        ],
+        "cube_quaternion_wxyz": [
+          0.0,
+          -5.995729588903487e-05,
+          7.683411240577698e-08,
+          7.580965757369995e-07
+        ],
+        "robot_qvel": [
+          9.02880565263331e-05,
+          0.02170620672404766,
+          -0.016663873568177223,
+          -0.00041927292477339506,
+          2.4054315872490406e-08,
+          -7.651210762560368e-05
+        ]
+      },
+      "oracle_label": [
+        0.009959936141967773,
+        1.2698686122894287,
+        1.4510128498077393,
+        -2.344740867614746,
+        -1.7669686079025269,
+        0.0040138657204806805
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0,
+        0.01,
+        -0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of lift motion",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 365,
+      "deterministic_repeats": 2,
+      "name": "transport",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          0.00021711480803787708,
+          1.8656253814697266e-05,
+          0.00010152533650398254
+        ],
+        "current_act": [
+          0.0014846324920654297,
+          2.384185791015625e-06,
+          4.76837158203125e-07,
+          -0.0017049312591552734,
+          0.0,
+          -4.470348358154297e-08
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          0.038078803569078445,
+          -0.0023758523166179657,
+          -0.039039310067892075
+        ],
+        "cube_linear_velocity": [
+          0.010170531459152699,
+          0.0008695483556948602,
+          0.0047444854862987995
+        ],
+        "cube_quaternion_wxyz": [
+          -2.956390380859375e-05,
+          0.0004466325044631958,
+          -1.4854129403829575e-05,
+          -0.00045471638441085815
+        ],
+        "robot_qvel": [
+          -0.038852836936712265,
+          1.9960221834480762e-05,
+          1.5507335774600506e-05,
+          -0.03837687149643898,
+          -1.7501588445156813e-07,
+          -2.3699249140918255e-06
+        ]
+      },
+      "oracle_label": [
+        0.01089930534362793,
+        0.9269592761993408,
+        1.6376426219940186,
+        -2.362793445587158,
+        -1.7667800188064575,
+        0.0040138657204806805
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0.01,
+        0,
+        0,
+        -0.01,
+        0,
+        0
+      ],
+      "rationale": "start of carry to napkin",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 386,
+      "deterministic_repeats": 2,
+      "name": "placement",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          -2.6628375053405762e-05,
+          -8.821487426757812e-05,
+          9.2238187789917e-06
+        ],
+        "current_act": [
+          -4.76837158203125e-07,
+          -0.0012073516845703125,
+          0.00182342529296875,
+          -2.86102294921875e-06,
+          0.0,
+          -4.470348358154297e-08
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          -0.019031384959816933,
+          -0.0005408357828855515,
+          0.00041954219341278076
+        ],
+        "cube_linear_velocity": [
+          -0.001385282725095749,
+          -0.004534740000963211,
+          -0.0011900397948920727
+        ],
+        "cube_quaternion_wxyz": [
+          8.404254913330078e-06,
+          -0.00015276670455932617,
+          2.0205974578857422e-05,
+          5.21540641784668e-07
+        ],
+        "robot_qvel": [
+          -4.470348358154297e-07,
+          -0.0221426859498024,
+          0.04143387824296951,
+          -0.00024757348001003265,
+          -2.8312206268310547e-07,
+          1.0679941624403e-06
+        ]
+      },
+      "oracle_label": [
+        0.5066170692443848,
+        0.9951069355010986,
+        1.4389808177947998,
+        -2.2537195682525635,
+        -1.7492703199386597,
+        0.0040138657204806805
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0,
+        -0.01,
+        0.01,
+        0,
+        0,
+        0
+      ],
+      "rationale": "start of set-down",
+      "safety_layer_changed_label": false
+    },
+    {
+      "action_index": 419,
+      "deterministic_repeats": 2,
+      "name": "release",
+      "observable_delta_from_nominal": {
+        "cube_position_m": [
+          2.2351741790771484e-08,
+          0.0,
+          0.0
+        ],
+        "current_act": [
+          0.0,
+          0.0,
+          -9.5367431640625e-07,
+          0.0,
+          0.0,
+          0.001896202564239502
+        ]
+      },
+      "omitted_input_delta_from_nominal": {
+        "cube_angular_velocity": [
+          3.1377567211166024e-11,
+          2.546585164964199e-11,
+          1.9571093293004635e-21
+        ],
+        "cube_linear_velocity": [
+          1.7763568394002505e-14,
+          -5.471179065352771e-13,
+          1.1652900866465643e-12
+        ],
+        "cube_quaternion_wxyz": [
+          5.960464477539063e-08,
+          -5.258016244624741e-13,
+          -1.9184653865522705e-13,
+          7.003545761108398e-07
+        ],
+        "robot_qvel": [
+          1.4614197425544262e-06,
+          -1.1880183592438698e-07,
+          -6.711343303322792e-07,
+          -2.60770320892334e-08,
+          -6.100162863731384e-08,
+          0.09114259481430054
+        ]
+      },
+      "oracle_label": [
+        0.5067064762115479,
+        1.2163727283477783,
+        1.2947242259979248,
+        -2.0604770183563232,
+        -1.7387945652008057,
+        0.86292964220047
+      ],
+      "oracle_suffix_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "oracle_suffix_success": true,
+      "perturbation_act": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.01
+      ],
+      "rationale": "end of controlled release",
+      "safety_layer_changed_label": false
+    }
+  ],
+  "schema_version": 1,
+  "source_collection_digest": "9164a76699186c347843b1ec546e0f81994ffe96d4653d39124adfb4dff4282b",
+  "source_manifest_content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+  "validation_rule": "two exact captures; unchanged label through safety layer; full fixed-oracle suffix succeeds without safety events"
+}

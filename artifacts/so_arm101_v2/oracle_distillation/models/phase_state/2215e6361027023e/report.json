@@ -1,0 +1,2848 @@
+{
+  "architecture": [
+    "linear_10_128",
+    "relu",
+    "linear_128_128",
+    "relu",
+    "linear_128_6_zero_init"
+  ],
+  "claim": "privileged_pipeline_memorization_only_not_closed_loop_success",
+  "closed_loop_eligible": false,
+  "collection_digest": "9164a76699186c347843b1ec546e0f81994ffe96d4653d39124adfb4dff4282b",
+  "config": {
+    "baseline_improvement_factor": 100.0,
+    "hidden_width": 128,
+    "learning_rate": 0.001,
+    "max_act_error_threshold": 0.01,
+    "max_steps": 10000,
+    "normalized_mse_threshold": 1e-06,
+    "seed": 101,
+    "training_rows": "memorization32"
+  },
+  "content_sha256": "4f30769bff61ffc18956fd67d1fb8a44a0589e086669deade177e19c09699f19",
+  "cumulative_absolute_act_error_per_joint": [
+    0.007099969661794603,
+    0.016844749450683594,
+    0.009772539138793945,
+    0.013139694929122925,
+    0.009489178657531738,
+    0.004295457620173693
+  ],
+  "episodes": [
+    {
+      "events": [
+        {
+          "action_index": 0,
+          "pickup_events": [],
+          "placement_events": [
+            "retreated"
+          ]
+        },
+        {
+          "action_index": 1,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 2,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 3,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 4,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 5,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 6,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 7,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 8,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 9,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 10,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 11,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 12,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 13,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 14,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 15,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 16,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 17,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 18,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 19,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 20,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 21,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 22,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 23,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 24,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 25,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 26,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 27,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 28,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 29,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 30,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 31,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 32,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 33,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 34,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 35,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 36,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 37,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 38,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 39,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 40,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 41,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 42,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 43,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 44,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 45,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 46,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 47,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 48,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 49,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 50,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 51,
+          "pickup_events": [],
+          "placement_events": [
+            "released"
+          ]
+        },
+        {
+          "action_index": 52,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 53,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 54,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 55,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 56,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 57,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 58,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 59,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 60,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 61,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 62,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 63,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 64,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 65,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 66,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 67,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 68,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 69,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 70,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 71,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 72,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 73,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 74,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 75,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 76,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 77,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 78,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 79,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 80,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 81,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 82,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 83,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 84,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 85,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 86,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 87,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 88,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 89,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 90,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 91,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 92,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 93,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 94,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 95,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 96,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 97,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 98,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 99,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 100,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 101,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 102,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 103,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 104,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 105,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 106,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 107,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 108,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 109,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 110,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 111,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 112,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 113,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 114,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 115,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 116,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 117,
+          "pickup_events": [
+            "reach"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 118,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 119,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 120,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 121,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 122,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 123,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 124,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 125,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 126,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 127,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 128,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 129,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 130,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 131,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 132,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 133,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 134,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 135,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 136,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 137,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 138,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 139,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 140,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 141,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 142,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 143,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 144,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 145,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 146,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 147,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 148,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 149,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 150,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 151,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 152,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 153,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 154,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 155,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 156,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 157,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 158,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 159,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 160,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 161,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 162,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 163,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 164,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 165,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 166,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 167,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 168,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 169,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 170,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 171,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 172,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 173,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 174,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 175,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 176,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 177,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 178,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 179,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 180,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 181,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 182,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 183,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 184,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 185,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 186,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 187,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 188,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 189,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 190,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 191,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 192,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 193,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 194,
+          "pickup_events": [
+            "first_contact"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 195,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 196,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 197,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 198,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 199,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 200,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 201,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 202,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 203,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 204,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 205,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 206,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 207,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 208,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 209,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 210,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 211,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 212,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 213,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 214,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 215,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 216,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 217,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 218,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 219,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 220,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 221,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 222,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 223,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 224,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 225,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 226,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 227,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 228,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 229,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 230,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 231,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 232,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 233,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 234,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 235,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 236,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 237,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 238,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 239,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 240,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 241,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 242,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 243,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 244,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 245,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 246,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 247,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 248,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 249,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 250,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 251,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 252,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 253,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 254,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 255,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 256,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 257,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 258,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 259,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 260,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 261,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 262,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 263,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 264,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 265,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 266,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 267,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 268,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 269,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 270,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 271,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 272,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 273,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 274,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 275,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 276,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 277,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 278,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 279,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 280,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 281,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 282,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 283,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 284,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 285,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 286,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 287,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 288,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 289,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 290,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 291,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 292,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 293,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 294,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 295,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 296,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 297,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 298,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 299,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 300,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 301,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 302,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 303,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 304,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 305,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 306,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 307,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 308,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 309,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 310,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 311,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 312,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 313,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 314,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 315,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 316,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 317,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 318,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 319,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 320,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 321,
+          "pickup_events": [],
+          "placement_events": [
+            "cube_supported"
+          ]
+        },
+        {
+          "action_index": 322,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 323,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 324,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 325,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 326,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 327,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 328,
+          "pickup_events": [
+            "lift_5mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 329,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 330,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 331,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 332,
+          "pickup_events": [
+            "lift_10mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 333,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 334,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 335,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 336,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 337,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 338,
+          "pickup_events": [
+            "lift_20mm"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 339,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 340,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 341,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 342,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 343,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 344,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 345,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 346,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 347,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 348,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 349,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 350,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 351,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 352,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 353,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 354,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 355,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 356,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 357,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 358,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 359,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 360,
+          "pickup_events": [
+            "bilateral_interior_contact"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 361,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 362,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 363,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 364,
+          "pickup_events": [
+            "strict_grasp_acquired"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 365,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 366,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 367,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 368,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 369,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 370,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 371,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 372,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 373,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 374,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 375,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 376,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 377,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 378,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 379,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 380,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 381,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 382,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 383,
+          "pickup_events": [],
+          "placement_events": [
+            "entered_placement_region"
+          ]
+        },
+        {
+          "action_index": 384,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 385,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 386,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 387,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 388,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 389,
+          "pickup_events": [
+            "success"
+          ],
+          "placement_events": []
+        },
+        {
+          "action_index": 390,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 391,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 392,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 393,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 394,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 395,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 396,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 397,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 398,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 399,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 400,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 401,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 402,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 403,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 404,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 405,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 406,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 407,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 408,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 409,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 410,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 411,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 412,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 413,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 414,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 415,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 416,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 417,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 418,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 419,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 420,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 421,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 422,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 423,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 424,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 425,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 426,
+          "pickup_events": [],
+          "placement_events": [
+            "settled"
+          ]
+        },
+        {
+          "action_index": 427,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 428,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 429,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 430,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 431,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 432,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 433,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 434,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 435,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 436,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 437,
+          "pickup_events": [],
+          "placement_events": [
+            "success"
+          ]
+        },
+        {
+          "action_index": 438,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 439,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 440,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 441,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 442,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 443,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 444,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 445,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 446,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 447,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 448,
+          "pickup_events": [],
+          "placement_events": []
+        },
+        {
+          "action_index": 449,
+          "pickup_events": [],
+          "placement_events": []
+        }
+      ],
+      "final_evaluation": {
+        "actions_evaluated": 438,
+        "events": [
+          "success"
+        ],
+        "invalidated": false,
+        "outcome": "success",
+        "pickup_completed": true,
+        "pickup_events": [],
+        "settled_frames": 21,
+        "success": true,
+        "terminated": true,
+        "truncated": false
+      },
+      "rows": 450,
+      "safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "scenario_id": "nominal",
+      "solve_diagnostics": [
+        {
+          "depth_error_deg": 2.8084281995297355,
+          "normal_error_deg": 0.3544880525547327,
+          "position_error_m": 0.00044137310470398534,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 2.870365207424564,
+          "normal_error_deg": 0.6852331180574873,
+          "position_error_m": 0.0004593458428359783,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.541772057775539,
+          "normal_error_deg": 0.6836874041922715,
+          "position_error_m": 0.0005684930791377789,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.242899479329482,
+          "normal_error_deg": 0.6843042750824425,
+          "position_error_m": 0.0004972685172127376,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.092460502885593,
+          "normal_error_deg": 0.6846831388387323,
+          "position_error_m": 0.0005076861967314286,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 2.267988582682658,
+          "normal_error_deg": 0.34662366842414005,
+          "position_error_m": 0.00034125131623073484,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 3.4854335826905376,
+          "normal_error_deg": 0.36196753035680873,
+          "position_error_m": 0.0005935220055184521,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 17.95041310743349,
+          "normal_error_deg": 17.636633619955315,
+          "position_error_m": 0.0001656788630120984,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 17.72761587716914,
+          "normal_error_deg": 17.38971327663854,
+          "position_error_m": 0.0003686292815339182,
+          "solved": true
+        },
+        {
+          "depth_error_deg": 22.273983339617565,
+          "normal_error_deg": 17.844562551204326,
+          "position_error_m": 0.0002827158490790245,
+          "solved": true
+        }
+      ],
+      "waypoint_boundaries": [
+        0,
+        70,
+        110,
+        145,
+        175,
+        205,
+        255,
+        285,
+        315,
+        350,
+        365,
+        386,
+        403,
+        419,
+        424,
+        450
+      ]
+    }
+  ],
+  "gradient_norms_at_step_1": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.10887832939624786,
+    0.06030813232064247
+  ],
+  "hidden_width": 128,
+  "input_dim": 10,
+  "joint_order": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "loss_trace": [
+    {
+      "normalized_mse": 0.022906338796019554,
+      "step": 1
+    },
+    {
+      "normalized_mse": 0.003470459021627903,
+      "step": 100
+    },
+    {
+      "normalized_mse": 0.0007621771655976772,
+      "step": 200
+    },
+    {
+      "normalized_mse": 0.0005560205318033695,
+      "step": 300
+    },
+    {
+      "normalized_mse": 0.00048381785745732486,
+      "step": 400
+    },
+    {
+      "normalized_mse": 0.00043382614967413247,
+      "step": 500
+    },
+    {
+      "normalized_mse": 0.00040517430170439184,
+      "step": 600
+    },
+    {
+      "normalized_mse": 0.00037765034358017147,
+      "step": 700
+    },
+    {
+      "normalized_mse": 0.0003317517403047532,
+      "step": 800
+    },
+    {
+      "normalized_mse": 0.00030825709109194577,
+      "step": 900
+    },
+    {
+      "normalized_mse": 0.0002721662458498031,
+      "step": 1000
+    },
+    {
+      "normalized_mse": 0.00023139854602050036,
+      "step": 1100
+    },
+    {
+      "normalized_mse": 0.00019191758474335074,
+      "step": 1200
+    },
+    {
+      "normalized_mse": 0.00016687279276084155,
+      "step": 1300
+    },
+    {
+      "normalized_mse": 0.00014810515858698636,
+      "step": 1400
+    },
+    {
+      "normalized_mse": 0.0001152275362983346,
+      "step": 1500
+    },
+    {
+      "normalized_mse": 9.507340291747823e-05,
+      "step": 1600
+    },
+    {
+      "normalized_mse": 7.388682570308447e-05,
+      "step": 1700
+    },
+    {
+      "normalized_mse": 6.725277489749715e-05,
+      "step": 1800
+    },
+    {
+      "normalized_mse": 5.640037124976516e-05,
+      "step": 1900
+    },
+    {
+      "normalized_mse": 3.541913247318007e-05,
+      "step": 2000
+    },
+    {
+      "normalized_mse": 2.7708019842975773e-05,
+      "step": 2100
+    },
+    {
+      "normalized_mse": 2.4163986381608993e-05,
+      "step": 2200
+    },
+    {
+      "normalized_mse": 2.2214226191863418e-05,
+      "step": 2300
+    },
+    {
+      "normalized_mse": 1.8483216990716755e-05,
+      "step": 2400
+    },
+    {
+      "normalized_mse": 1.6803447579150088e-05,
+      "step": 2500
+    },
+    {
+      "normalized_mse": 2.4039285563048907e-05,
+      "step": 2600
+    },
+    {
+      "normalized_mse": 1.781077116902452e-05,
+      "step": 2700
+    },
+    {
+      "normalized_mse": 1.1884684681717772e-05,
+      "step": 2800
+    },
+    {
+      "normalized_mse": 1.4529842701449525e-05,
+      "step": 2900
+    },
+    {
+      "normalized_mse": 1.1700170034600887e-05,
+      "step": 3000
+    },
+    {
+      "normalized_mse": 2.325599234609399e-05,
+      "step": 3100
+    },
+    {
+      "normalized_mse": 1.2505639460869133e-05,
+      "step": 3200
+    },
+    {
+      "normalized_mse": 1.0937762453977484e-05,
+      "step": 3300
+    },
+    {
+      "normalized_mse": 1.05234794318676e-05,
+      "step": 3400
+    },
+    {
+      "normalized_mse": 1.1840747902169824e-05,
+      "step": 3500
+    },
+    {
+      "normalized_mse": 1.1369565072527621e-05,
+      "step": 3600
+    },
+    {
+      "normalized_mse": 7.1180334089149255e-06,
+      "step": 3700
+    },
+    {
+      "normalized_mse": 6.580228273378452e-06,
+      "step": 3800
+    },
+    {
+      "normalized_mse": 8.351414180651773e-06,
+      "step": 3900
+    },
+    {
+      "normalized_mse": 5.144911938259611e-06,
+      "step": 4000
+    },
+    {
+      "normalized_mse": 8.860972229740582e-06,
+      "step": 4100
+    },
+    {
+      "normalized_mse": 8.952933058026247e-06,
+      "step": 4200
+    },
+    {
+      "normalized_mse": 6.2094673012325075e-06,
+      "step": 4300
+    },
+    {
+      "normalized_mse": 5.10428799316287e-06,
+      "step": 4400
+    },
+    {
+      "normalized_mse": 6.108586148911854e-06,
+      "step": 4500
+    },
+    {
+      "normalized_mse": 1.2660948414122686e-05,
+      "step": 4600
+    },
+    {
+      "normalized_mse": 3.500361572150723e-06,
+      "step": 4700
+    },
+    {
+      "normalized_mse": 7.266133252414875e-06,
+      "step": 4800
+    },
+    {
+      "normalized_mse": 1.3659119758813176e-05,
+      "step": 4900
+    },
+    {
+      "normalized_mse": 9.179340850096196e-06,
+      "step": 5000
+    },
+    {
+      "normalized_mse": 6.731873781973263e-06,
+      "step": 5100
+    },
+    {
+      "normalized_mse": 3.973179900640389e-06,
+      "step": 5200
+    },
+    {
+      "normalized_mse": 5.2514110393531155e-06,
+      "step": 5300
+    },
+    {
+      "normalized_mse": 2.8388039936544374e-06,
+      "step": 5400
+    },
+    {
+      "normalized_mse": 4.561796686175512e-06,
+      "step": 5500
+    },
+    {
+      "normalized_mse": 2.9222890134406043e-06,
+      "step": 5600
+    },
+    {
+      "normalized_mse": 4.036804057250265e-06,
+      "step": 5700
+    },
+    {
+      "normalized_mse": 5.800646704301471e-06,
+      "step": 5800
+    },
+    {
+      "normalized_mse": 4.309246833145153e-06,
+      "step": 5900
+    },
+    {
+      "normalized_mse": 4.97653263664688e-06,
+      "step": 6000
+    },
+    {
+      "normalized_mse": 4.770269242726499e-06,
+      "step": 6100
+    },
+    {
+      "normalized_mse": 2.8591821319423616e-06,
+      "step": 6200
+    },
+    {
+      "normalized_mse": 2.950103180410224e-06,
+      "step": 6300
+    },
+    {
+      "normalized_mse": 6.028456027706852e-06,
+      "step": 6400
+    },
+    {
+      "normalized_mse": 8.136767974065151e-06,
+      "step": 6500
+    },
+    {
+      "normalized_mse": 3.6650219499279046e-06,
+      "step": 6600
+    },
+    {
+      "normalized_mse": 2.8449819637899054e-06,
+      "step": 6700
+    },
+    {
+      "normalized_mse": 1.3256744750833604e-06,
+      "step": 6800
+    },
+    {
+      "normalized_mse": 2.868049932658323e-06,
+      "step": 6900
+    },
+    {
+      "normalized_mse": 2.925638682427234e-06,
+      "step": 7000
+    },
+    {
+      "normalized_mse": 2.274064172524959e-06,
+      "step": 7100
+    },
+    {
+      "normalized_mse": 5.4286942940962035e-06,
+      "step": 7200
+    },
+    {
+      "normalized_mse": 2.892619022532017e-06,
+      "step": 7300
+    },
+    {
+      "normalized_mse": 1.057283952832222e-06,
+      "step": 7400
+    },
+    {
+      "normalized_mse": 6.2908111431170255e-06,
+      "step": 7500
+    },
+    {
+      "normalized_mse": 9.945671308742021e-07,
+      "step": 7577
+    }
+  ],
+  "manifest_content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+  "max_act_error": 0.004400968551635742,
+  "model_kind": "phase_state",
+  "normalization": {
+    "extras_mean": [
+      0.013979168608784676,
+      0.29996415972709656,
+      0.016590038314461708
+    ],
+    "extras_std": [
+      0.029719490557909012,
+      0.0007353886612690985,
+      0.009665383957326412
+    ],
+    "std_floor": 1e-06
+  },
+  "normalized_mse": 9.945671308742021e-07,
+  "numerical_gate_passed": true,
+  "optimizer": "adam_full_batch",
+  "passed": true,
+  "row_scenarios": [
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal",
+    "nominal"
+  ],
+  "rows": 32,
+  "run_digest": "2215e6361027023e3b4acfc242aaebe1f5b0144d4b7d6e3f4a335a0c272952c7",
+  "schema_version": 1,
+  "source_rows": 450,
+  "steps": 7577,
+  "target": "executed_act_minus_current_act_divided_by_maximum_act_delta_per_step",
+  "training_row_indices": [
+    0,
+    34,
+    70,
+    89,
+    110,
+    127,
+    145,
+    147,
+    159,
+    175,
+    189,
+    205,
+    229,
+    255,
+    269,
+    285,
+    299,
+    315,
+    332,
+    350,
+    357,
+    365,
+    375,
+    386,
+    394,
+    403,
+    410,
+    419,
+    421,
+    424,
+    436,
+    449
+  ],
+  "training_row_mode": "memorization32",
+  "training_safety_violations": 0,
+  "worst_error": {
+    "absolute_act_error": 0.004400968551635742,
+    "joint": "shoulder_lift",
+    "row": 147,
+    "training_position": 7
+  },
+  "zero_delta_baseline_normalized_mse": 0.023896897211670876
+}

@@ -1,0 +1,40 @@
+{
+  "act_implemented": false,
+  "closed_loop": {
+    "clip_or_limit_frame_rate": 0.9148148148148149,
+    "contact_rate": 0.0,
+    "matched_scenario_checkpoint_pairs": 15,
+    "reach_rate": 0.0,
+    "reversal_ratio": 0.17326669106364398,
+    "rollout_reversal_rate": 0.0006200396825396824,
+    "success_rate": 0.0,
+    "temporal_failure_fraction": 0.0,
+    "validation_demo_reversal_rate_p90": 0.003578527867840049
+  },
+  "content_sha256": "611e42df695d1d5df9d215facbe15fcbc95be5e74b8edbc8ac4c4e61a1555403",
+  "dataset_digest": "bb6ddb0572ee61eecbd21fe0a8f0342a1b81f0cac57a6c40ca64c92bf04028f9",
+  "gates": {
+    "environment_proven": true,
+    "offline_five_percent_every_seed": false,
+    "specific_temporal_failure": false
+  },
+  "offline": {
+    "current_pose_validation_normalized_mse": 0.0004938585334457457,
+    "image_signal_status": "used_not_helpful",
+    "relative_improvement_by_seed": [
+      -0.01855729763655168,
+      -0.005055970204227158,
+      0.030248366860453124
+    ],
+    "selected_model_validation_normalized_mse_by_seed": [
+      0.0005030232132412493,
+      0.0004963554674759507,
+      0.00047892011934891343
+    ]
+  },
+  "recommendation": "investigate target construction, capacity, or demonstration consistency",
+  "schema_version": 1,
+  "selected_simple_model": "state_only",
+  "status": "blocked_offline",
+  "test_evaluated": false
+}

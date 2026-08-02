@@ -1,0 +1,89 @@
+{
+  "aligned_timesteps": {
+    "path": "aligned_timesteps.jsonl",
+    "rows": 450,
+    "sha256": "4adf62d76f6ba80e60170807aaa62d01bfc1c203443c4cd59eb676c79694dd29"
+  },
+  "alignment": "zero-based oracle action_index i equals stored one-based telemetry action i+1; all states are pre-action unless prefixed post_",
+  "claim": "diagnostic_alignment_only_no_training_or_policy_change",
+  "contact_outcome": {
+    "clone_any_contact": {
+      "first": 194,
+      "frames": 204,
+      "last": 449
+    },
+    "clone_bilateral_contact_frames": 0,
+    "clone_maximum_cube_height_gain_m": 0.00015883613549393973,
+    "teacher_any_contact": {
+      "first": 194,
+      "frames": 215,
+      "last": 408
+    },
+    "teacher_bilateral_contact": {
+      "first": 360,
+      "frames": 48,
+      "last": 407
+    },
+    "teacher_maximum_cube_height_gain_m": 0.030747732913671257
+  },
+  "earliest_supported_divergences": {
+    "first_cube_interaction_split": {
+      "action_index": 194,
+      "both_report_any_contact": true,
+      "next_pre_cube_position_l2_m": 2.0857212803093717e-05,
+      "note": "the cube trajectories are identical before contact; they split at the shared first-contact action",
+      "post_cube_position_l2_m": 2.0856819855380262e-05,
+      "stage": "engaged_to_seated"
+    },
+    "first_discrete_task_event_mismatch": {
+      "action_index": 111,
+      "clone_pickup_events": [
+        "reach"
+      ],
+      "note": "clone crosses the reach threshold six actions before the teacher (teacher reach is action 117)",
+      "teacher_pickup_events": []
+    },
+    "first_nonzero_policy_action": {
+      "action_index": 0,
+      "requested_action_max_abs": 0.0031452178955078125
+    }
+  },
+  "fresh_rollout_reproduction": {
+    "events_identical": true,
+    "maximum_current_act_difference": 0.0,
+    "maximum_executed_act_difference": 0.0,
+    "maximum_post_cube_position_difference_m": 0.0,
+    "maximum_requested_act_difference": 0.0
+  },
+  "inputs": {
+    "checkpoint": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/models/phase_state/d5f96d397bd9b915/model.pt",
+      "sha256": "8ba87aae58e8e8e4057fdaae900eff3b453056d13a68b8e17c11e14806ce10eb"
+    },
+    "manifest": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/manifest.json",
+      "sha256": "e47f3d497ed1e354161665b21bad9a5144a8ec7aef4e0fc1a69875a8e2d9d50c"
+    },
+    "mujoco_model": {
+      "path": "simulation_code/model/menagerie_so_arm100/scene_v2.xml",
+      "sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9"
+    },
+    "oracle_arrays": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9164a76699186c34/demonstrations.npz",
+      "sha256": "0c1e78e27abeec5fbd7b2a4d0c77cc1428058d1eb92b9fa507e71f51ce208e24"
+    },
+    "stored_failed_telemetry": {
+      "path": "artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/telemetry/phase_state.seed101.nominal.repeat0.json",
+      "sha256": "54574bb108c1abb7af34d5318e05bfed642b8ae09a9e75e8bbd2f12cde846cc9"
+    }
+  },
+  "schema_version": 1,
+  "threshold_crossings_zero_based": {
+    "cube_position_l2_gt_0.0001_m": 196,
+    "current_act_max_abs_gt_0.005": 31,
+    "current_act_max_abs_gt_0.01": 74,
+    "nearest_training_feature_l2_gt_0.01": 114,
+    "requested_action_max_abs_gt_0.005": 24,
+    "requested_action_max_abs_gt_offline_max_error_gate_0.01": 71
+  }
+}

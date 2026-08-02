@@ -1,0 +1,175 @@
+{
+  "content_sha256": "5efae2575721a03d2166e04261ca041bfb993fcedb3161a6a7af07cc29b3d1f2",
+  "deterministic": true,
+  "environment_proven": true,
+  "interpretation_allowed": true,
+  "provenance": {
+    "checkpoint_sha256": "8ba87aae58e8e8e4057fdaae900eff3b453056d13a68b8e17c11e14806ce10eb",
+    "offline_report_content_sha256": "54b2e4a0242450b0fd685e47777522d60bc85d2047088a689d08a0f511a4b946",
+    "oracle_manifest_content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+    "preflight_report_content_sha256": "0330cc109640ead4c2229b3d326a54815c70872373e506c8a9ffd546aaa9bd9f"
+  },
+  "reward_used": false,
+  "rollouts": [
+    {
+      "actions": 450,
+      "clipping_frames": 0,
+      "entered_placement_region": false,
+      "failure_category": "pickup_incomplete",
+      "final_angular_speed_rad_s": 0.017387646264236487,
+      "final_cube_position": [
+        0.002967675396555026,
+        0.30125679282024365,
+        0.012380549645481444
+      ],
+      "final_gripper_act": 0.19719673693180084,
+      "final_linear_speed_m_s": 0.00044143428108071853,
+      "final_robot_qpos": [
+        -0.007757632527500391,
+        -0.8220551609992981,
+        2.3139636516571045,
+        -1.2374030351638794,
+        -1.5561500787734985,
+        0.048167336732149124
+      ],
+      "final_support_error_m": -0.0011602055901038617,
+      "invalidated": false,
+      "limiting_frames": 0,
+      "maximum_height_gain_m": 0.00015883613549393973,
+      "nonfinite_frames": 0,
+      "overview_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/videos/phase_state.seed101.nominal.repeat0.overview.mp4",
+      "pickup_completed": false,
+      "policy_id": "phase_state.seed101",
+      "released": true,
+      "repeat": 0,
+      "retreated": true,
+      "scenario_id": "nominal",
+      "settled": false,
+      "settled_frames": 0,
+      "success": false,
+      "suite_id": "fixed_pick_place_v3.nominal",
+      "telemetry_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/telemetry/phase_state.seed101.nominal.repeat0.json",
+      "timed_out": true,
+      "unsafe_contact_frames": 0,
+      "wrist_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/videos/phase_state.seed101.nominal.repeat0.wrist.mp4"
+    },
+    {
+      "actions": 450,
+      "clipping_frames": 0,
+      "entered_placement_region": false,
+      "failure_category": "pickup_incomplete",
+      "final_angular_speed_rad_s": 0.017387646264236487,
+      "final_cube_position": [
+        0.002967675396555026,
+        0.30125679282024365,
+        0.012380549645481444
+      ],
+      "final_gripper_act": 0.19719673693180084,
+      "final_linear_speed_m_s": 0.00044143428108071853,
+      "final_robot_qpos": [
+        -0.007757632527500391,
+        -0.8220551609992981,
+        2.3139636516571045,
+        -1.2374030351638794,
+        -1.5561500787734985,
+        0.048167336732149124
+      ],
+      "final_support_error_m": -0.0011602055901038617,
+      "invalidated": false,
+      "limiting_frames": 0,
+      "maximum_height_gain_m": 0.00015883613549393973,
+      "nonfinite_frames": 0,
+      "overview_video_path": null,
+      "pickup_completed": false,
+      "policy_id": "phase_state.seed101",
+      "released": true,
+      "repeat": 1,
+      "retreated": true,
+      "scenario_id": "nominal",
+      "settled": false,
+      "settled_frames": 0,
+      "success": false,
+      "suite_id": "fixed_pick_place_v3.nominal",
+      "telemetry_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/telemetry/phase_state.seed101.nominal.repeat1.json",
+      "timed_out": true,
+      "unsafe_contact_frames": 0,
+      "wrist_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/videos/phase_state.seed101.nominal.repeat1.wrist.mp4"
+    },
+    {
+      "actions": 450,
+      "clipping_frames": 0,
+      "entered_placement_region": false,
+      "failure_category": "pickup_incomplete",
+      "final_angular_speed_rad_s": 0.017387646264236487,
+      "final_cube_position": [
+        0.002967675396555026,
+        0.30125679282024365,
+        0.012380549645481444
+      ],
+      "final_gripper_act": 0.19719673693180084,
+      "final_linear_speed_m_s": 0.00044143428108071853,
+      "final_robot_qpos": [
+        -0.007757632527500391,
+        -0.8220551609992981,
+        2.3139636516571045,
+        -1.2374030351638794,
+        -1.5561500787734985,
+        0.048167336732149124
+      ],
+      "final_support_error_m": -0.0011602055901038617,
+      "invalidated": false,
+      "limiting_frames": 0,
+      "maximum_height_gain_m": 0.00015883613549393973,
+      "nonfinite_frames": 0,
+      "overview_video_path": null,
+      "pickup_completed": false,
+      "policy_id": "phase_state.seed101",
+      "released": true,
+      "repeat": 2,
+      "retreated": true,
+      "scenario_id": "nominal",
+      "settled": false,
+      "settled_frames": 0,
+      "success": false,
+      "suite_id": "fixed_pick_place_v3.nominal",
+      "telemetry_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/telemetry/phase_state.seed101.nominal.repeat2.json",
+      "timed_out": true,
+      "unsafe_contact_frames": 0,
+      "wrist_video_path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/943cf536710e3d84/policies/fixed_pick_place_v3.nominal/videos/phase_state.seed101.nominal.repeat2.wrist.mp4"
+    }
+  ],
+  "schema_version": 1,
+  "suite": {
+    "diagnostic_only": false,
+    "recovery_probe": null,
+    "repeats": 3,
+    "scenarios": [
+      {
+        "cube_position_m": [
+          0.0,
+          0.3,
+          0.0125
+        ],
+        "cube_quaternion_wxyz": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "fixed_appearance": true,
+        "robot_qpos_mujoco": [
+          -0.0010472,
+          -3.31,
+          3.13,
+          1.1599458,
+          -1.5154479,
+          0.0314159
+        ],
+        "scenario_id": "nominal"
+      }
+    ],
+    "schema_version": 1,
+    "suite_id": "fixed_pick_place_v3.nominal",
+    "task_contract": "fixed_cube_pick_place_v3"
+  }
+}

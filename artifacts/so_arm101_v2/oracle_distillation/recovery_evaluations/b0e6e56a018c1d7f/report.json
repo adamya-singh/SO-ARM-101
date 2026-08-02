@@ -1,0 +1,327 @@
+{
+  "checkpoint_report_content_sha256": "54b2e4a0242450b0fd685e47777522d60bc85d2047088a689d08a0f511a4b946",
+  "checkpoint_sha256": "8ba87aae58e8e8e4057fdaae900eff3b453056d13a68b8e17c11e14806ce10eb",
+  "claim": "exact_anchor_handoff_diagnostic_not_random_perturbation_robustness",
+  "content_sha256": "a03dffd831e9c0ff56d4e48bd9004d602f09b9247948e86a422624edb09ee07a",
+  "evaluation_digest": "b0e6e56a018c1d7f38ac8acdd77c6c5036a9f051bc079f3b296d26366cdac4e1",
+  "experiment": "phase_wide_recovery_anchor_evaluation_v1",
+  "model_sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9",
+  "oracle_manifest_content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+  "passed": false,
+  "recovery_manifest_content_sha256": "248379090c54335d03b88190316e35b8b03668e27b0f58829ec08285fc7a9850",
+  "results": [
+    {
+      "action_index": 70,
+      "anchor": "approach",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "strict_grasp_acquired",
+        "timeout",
+        "unsafe_contact"
+      ],
+      "first_student_action": [
+        -0.02051311545073986,
+        0.18627461791038513,
+        1.7572051286697388,
+        -1.4981284141540527,
+        -1.7700883150100708,
+        0.8629541397094727
+      ],
+      "maximum_cube_height_gain_m": 0.02795659412599763,
+      "pickup_completed": false,
+      "student_actions": 380,
+      "student_safety_counts": {
+        "clip": 64,
+        "limit": 41,
+        "nonfinite": 0,
+        "unsafe": 13
+      },
+      "success": false
+    },
+    {
+      "action_index": 195,
+      "anchor": "first_contact",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "strict_grasp_acquired",
+        "timeout",
+        "unsafe_contact"
+      ],
+      "first_student_action": [
+        0.007294532842934132,
+        1.2649388313293457,
+        1.4522329568862915,
+        -2.3369839191436768,
+        -1.7673730850219727,
+        0.861552357673645
+      ],
+      "maximum_cube_height_gain_m": 0.025283570807153898,
+      "pickup_completed": false,
+      "student_actions": 255,
+      "student_safety_counts": {
+        "clip": 64,
+        "limit": 32,
+        "nonfinite": 0,
+        "unsafe": 9
+      },
+      "success": false
+    },
+    {
+      "action_index": 205,
+      "anchor": "seating",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "strict_grasp_acquired",
+        "timeout",
+        "unsafe_contact"
+      ],
+      "first_student_action": [
+        0.012899554334580898,
+        1.2727534770965576,
+        1.449657917022705,
+        -2.349367141723633,
+        -1.766469955444336,
+        0.8623253703117371
+      ],
+      "maximum_cube_height_gain_m": 0.02822974717468317,
+      "pickup_completed": false,
+      "student_actions": 245,
+      "student_safety_counts": {
+        "clip": 47,
+        "limit": 47,
+        "nonfinite": 0,
+        "unsafe": 28
+      },
+      "success": false
+    },
+    {
+      "action_index": 255,
+      "anchor": "closure",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "strict_grasp_acquired",
+        "timeout",
+        "unsafe_contact"
+      ],
+      "first_student_action": [
+        0.009971316903829575,
+        1.269779920578003,
+        1.451029658317566,
+        -2.3444557189941406,
+        -1.7669620513916016,
+        0.1544978767633438
+      ],
+      "maximum_cube_height_gain_m": 0.026625891502187596,
+      "pickup_completed": false,
+      "student_actions": 195,
+      "student_safety_counts": {
+        "clip": 63,
+        "limit": 67,
+        "nonfinite": 0,
+        "unsafe": 28
+      },
+      "success": false
+    },
+    {
+      "action_index": 315,
+      "anchor": "lift",
+      "events": [
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "timeout"
+      ],
+      "first_student_action": [
+        0.01015560608357191,
+        1.2704908847808838,
+        1.4507184028625488,
+        -2.3436427116394043,
+        -1.766865611076355,
+        0.0038641542196273804
+      ],
+      "maximum_cube_height_gain_m": 0.02630357820220229,
+      "pickup_completed": false,
+      "student_actions": 135,
+      "student_safety_counts": {
+        "clip": 109,
+        "limit": 98,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 365,
+      "anchor": "transport",
+      "events": [
+        "bilateral_interior_contact",
+        "cube_supported",
+        "entered_placement_region",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "success"
+      ],
+      "first_student_action": [
+        0.017135826870799065,
+        0.9280367493629456,
+        1.6352611780166626,
+        -2.363647699356079,
+        -1.766660213470459,
+        0.0037426650524139404
+      ],
+      "maximum_cube_height_gain_m": 0.030784014593804566,
+      "pickup_completed": true,
+      "student_actions": 85,
+      "student_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": true
+    },
+    {
+      "action_index": 386,
+      "anchor": "placement",
+      "events": [
+        "bilateral_interior_contact",
+        "cube_supported",
+        "entered_placement_region",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "success"
+      ],
+      "first_student_action": [
+        0.5037132501602173,
+        0.9938901662826538,
+        1.4416817426681519,
+        -2.2540621757507324,
+        -1.7494715452194214,
+        0.0037275999784469604
+      ],
+      "maximum_cube_height_gain_m": 0.03074773490206873,
+      "pickup_completed": true,
+      "student_actions": 64,
+      "student_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": true
+    },
+    {
+      "action_index": 419,
+      "anchor": "release",
+      "events": [
+        "bilateral_interior_contact",
+        "cube_supported",
+        "entered_placement_region",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "success"
+      ],
+      "first_student_action": [
+        0.5066883563995361,
+        1.2154585123062134,
+        1.2951555252075195,
+        -2.061009407043457,
+        -1.7388477325439453,
+        0.8632816076278687
+      ],
+      "maximum_cube_height_gain_m": 0.03074773490206873,
+      "pickup_completed": true,
+      "student_actions": 31,
+      "student_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": true
+    }
+  ],
+  "schema_version": 1,
+  "setup": "validated oracle prefix with one physical perturbation, autonomous student from anchor through action 449"
+}

@@ -1,0 +1,303 @@
+{
+  "checkpoint_report_content_sha256": "cc791f98bd500df6eb88207bc3e159bcbb0ae1e14c27cada2e90463487126bb0",
+  "checkpoint_sha256": "0d87c94e090aae1724516c19b08171b3441a12f07655e5fd378221cf21154435",
+  "claim": "exact_anchor_handoff_diagnostic_not_random_perturbation_robustness",
+  "content_sha256": "123fa2b0c57b731c792223d75c45b75a2be897b9e9f0a1d58131568bff7284b5",
+  "evaluation_digest": "4e5e4f1252d582aeabaf1c4ba8495659c4e687af058f5c5a1742d1ae0ab1a41f",
+  "experiment": "phase_wide_recovery_anchor_evaluation_v1",
+  "model_sha256": "83966df7536774d22530b8fa20c4ca0b05acd822c5ead38a48a5b43311476bb9",
+  "oracle_manifest_content_sha256": "70fff5ec45ef1224fe4a45c89321955db109ab24b4c7051cad072f3718e0c8a0",
+  "passed": false,
+  "recovery_manifest_content_sha256": "248379090c54335d03b88190316e35b8b03668e27b0f58829ec08285fc7a9850",
+  "results": [
+    {
+      "action_index": 70,
+      "anchor": "approach",
+      "events": [
+        "command_bound_violation",
+        "delta_limiter_activated",
+        "first_contact",
+        "reach",
+        "released",
+        "retreated",
+        "timeout"
+      ],
+      "first_student_action": [
+        -0.02025773748755455,
+        0.18586045503616333,
+        1.757529854774475,
+        -1.4977766275405884,
+        -1.7700088024139404,
+        0.8628633618354797
+      ],
+      "maximum_cube_height_gain_m": 0.0019525539104609108,
+      "pickup_completed": false,
+      "student_actions": 380,
+      "student_safety_counts": {
+        "clip": 172,
+        "limit": 82,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 195,
+      "anchor": "first_contact",
+      "events": [
+        "command_bound_violation",
+        "first_contact",
+        "reach",
+        "released",
+        "retreated",
+        "timeout"
+      ],
+      "first_student_action": [
+        0.006262567825615406,
+        1.2659704685211182,
+        1.4520450830459595,
+        -2.3373637199401855,
+        -1.7674685716629028,
+        0.8622835874557495
+      ],
+      "maximum_cube_height_gain_m": 0.001558354885610607,
+      "pickup_completed": false,
+      "student_actions": 255,
+      "student_safety_counts": {
+        "clip": 169,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 205,
+      "anchor": "seating",
+      "events": [
+        "command_bound_violation",
+        "first_contact",
+        "reach",
+        "released",
+        "retreated",
+        "timeout"
+      ],
+      "first_student_action": [
+        0.01199996005743742,
+        1.2688312530517578,
+        1.4519524574279785,
+        -2.345911741256714,
+        -1.766693115234375,
+        0.8629770278930664
+      ],
+      "maximum_cube_height_gain_m": 0.0008388610457989425,
+      "pickup_completed": false,
+      "student_actions": 245,
+      "student_safety_counts": {
+        "clip": 136,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 255,
+      "anchor": "closure",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "strict_grasp_acquired",
+        "timeout",
+        "unsafe_contact"
+      ],
+      "first_student_action": [
+        0.01003769040107727,
+        1.269890546798706,
+        1.4509648084640503,
+        -2.3445255756378174,
+        -1.7669460773468018,
+        0.15458980202674866
+      ],
+      "maximum_cube_height_gain_m": 0.030984713064432068,
+      "pickup_completed": false,
+      "student_actions": 195,
+      "student_safety_counts": {
+        "clip": 90,
+        "limit": 69,
+        "nonfinite": 0,
+        "unsafe": 8
+      },
+      "success": false
+    },
+    {
+      "action_index": 315,
+      "anchor": "lift",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "delta_limiter_activated",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "timeout"
+      ],
+      "first_student_action": [
+        0.009934263303875923,
+        1.2701427936553955,
+        1.450839638710022,
+        -2.343876600265503,
+        -1.7670209407806396,
+        0.003518924117088318
+      ],
+      "maximum_cube_height_gain_m": 0.031164765340102506,
+      "pickup_completed": false,
+      "student_actions": 135,
+      "student_safety_counts": {
+        "clip": 29,
+        "limit": 5,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 365,
+      "anchor": "transport",
+      "events": [
+        "bilateral_interior_contact",
+        "command_bound_violation",
+        "cube_supported",
+        "drop",
+        "entered_placement_region",
+        "first_contact",
+        "grasp_loss",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "timeout"
+      ],
+      "first_student_action": [
+        0.0165192149579525,
+        0.9283303618431091,
+        1.6355066299438477,
+        -2.3630483150482178,
+        -1.766653299331665,
+        0.003968179225921631
+      ],
+      "maximum_cube_height_gain_m": 0.03130398568447379,
+      "pickup_completed": false,
+      "student_actions": 85,
+      "student_safety_counts": {
+        "clip": 4,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 386,
+      "anchor": "placement",
+      "events": [
+        "bilateral_interior_contact",
+        "cube_supported",
+        "entered_placement_region",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "success"
+      ],
+      "first_student_action": [
+        0.505607008934021,
+        0.9948638677597046,
+        1.4399701356887817,
+        -2.2540175914764404,
+        -1.7492610216140747,
+        0.004001230001449585
+      ],
+      "maximum_cube_height_gain_m": 0.03074773490206873,
+      "pickup_completed": true,
+      "student_actions": 64,
+      "student_safety_counts": {
+        "clip": 8,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": false
+    },
+    {
+      "action_index": 419,
+      "anchor": "release",
+      "events": [
+        "bilateral_interior_contact",
+        "cube_supported",
+        "entered_placement_region",
+        "first_contact",
+        "lift_10mm",
+        "lift_20mm",
+        "lift_5mm",
+        "reach",
+        "released",
+        "retreated",
+        "settled",
+        "strict_grasp_acquired",
+        "success"
+      ],
+      "first_student_action": [
+        0.5067287683486938,
+        1.2159322500228882,
+        1.2950409650802612,
+        -2.061091423034668,
+        -1.7387871742248535,
+        0.8630405068397522
+      ],
+      "maximum_cube_height_gain_m": 0.03074773490206873,
+      "pickup_completed": true,
+      "student_actions": 31,
+      "student_safety_counts": {
+        "clip": 0,
+        "limit": 0,
+        "nonfinite": 0,
+        "unsafe": 0
+      },
+      "success": true
+    }
+  ],
+  "schema_version": 1,
+  "setup": "validated oracle prefix with one physical perturbation, autonomous student from anchor through action 449"
+}
