@@ -356,8 +356,146 @@ def evaluate_recovery_anchor_starts(
     return report_path
 
 
+def scan_oracle_clone_commands(
+    oracle_manifest: str | Path,
+    recovery_manifest_path: str | Path,
+    checkpoint: str | Path,
+    output_dir: str | Path,
+    *,
+    samples_per_path: int = 101,
+) -> Path:
+    """Densely screen commands on local feature paths without invoking MuJoCo."""
+    from so_arm101_v2.contracts import evaluate_physical_command
+    from so_arm101_v2.learning.oracle_distillation import build_oracle_features
+    from .clone_policy import OracleCloneCheckpointPolicy
+
+    if samples_per_path < 3:
+        raise ValueError("static scan requires at least three samples per path")
+    source_manifest, source = load_oracle_demonstrations(oracle_manifest)
+    recovery_manifest, recovery = load_oracle_recovery_examples(recovery_manifest_path)
+    if recovery_manifest.get("source_manifest_content_sha256") != source_manifest["content_sha256"]:
+        raise ValueError("recovery and oracle manifests disagree")
+    checkpoint = Path(checkpoint)
+    policy = OracleCloneCheckpointPolicy(checkpoint)
+    if policy.kind.value != "phase_state" or policy.input_dim != 10:
+        raise ValueError("static scan requires the 10-input phase_state clone")
+    nominal_features, _, _ = build_oracle_features(
+        policy.kind, source, extras_mean=policy.extras_mean, extras_std=policy.extras_std,
+    )
+    recovery_features, _, _ = build_oracle_features(
+        policy.kind, recovery, extras_mean=policy.extras_mean, extras_std=policy.extras_std,
+    )
+    nominal_current = np.asarray(source["current_act"], dtype=np.float32)
+    recovery_current = np.asarray(recovery["current_act"], dtype=np.float32)
+    recovery_indices = np.asarray(recovery["action_index"], dtype=np.int64)
+    if nominal_features.shape[0] != 450 or recovery_features.shape[0] != 8:
+        raise ValueError("static scan requires the immutable 450 nominal and 8 recovery rows")
+
+    alphas = np.linspace(0.0, 1.0, samples_per_path, dtype=np.float32)
+    features: list[np.ndarray] = []
+    currents: list[np.ndarray] = []
+    families: list[str] = []
+    paths: list[str] = []
+    for index in range(449):
+        features.append(
+            nominal_features[index][None] * (1.0 - alphas[:, None])
+            + nominal_features[index + 1][None] * alphas[:, None]
+        )
+        currents.append(
+            nominal_current[index][None] * (1.0 - alphas[:, None])
+            + nominal_current[index + 1][None] * alphas[:, None]
+        )
+        families.extend(["consecutive_nominal_segment"] * samples_per_path)
+        paths.extend([f"nominal:{index}->{index + 1}"] * samples_per_path)
+    for recovery_position, nominal_index in enumerate(recovery_indices.tolist()):
+        features.append(
+            nominal_features[nominal_index][None] * (1.0 - alphas[:, None])
+            + recovery_features[recovery_position][None] * alphas[:, None]
+        )
+        currents.append(
+            nominal_current[nominal_index][None] * (1.0 - alphas[:, None])
+            + recovery_current[recovery_position][None] * alphas[:, None]
+        )
+        families.extend(["same_phase_nominal_to_recovery_chord"] * samples_per_path)
+        paths.extend([
+            f"phase:{nominal_index}:{recovery_manifest['records'][recovery_position]['name']}"
+        ] * samples_per_path)
+    feature_batch = np.concatenate(features).astype(np.float32)
+    current_batch = np.concatenate(currents).astype(np.float32)
+    with policy.torch.inference_mode():
+        normalized_delta = policy.model(policy.torch.from_numpy(feature_batch)).numpy().astype(np.float32)
+    predicted_batch = current_batch + normalized_delta * policy.maximum_delta
+
+    counts = {
+        "samples_with_any_violation": 0,
+        "act_clip_components": 0,
+        "mujoco_clip_components": 0,
+        "physical_clip_components": 0,
+        "relative_limit_components": 0,
+        "nonfinite_samples": int(np.count_nonzero(~np.all(np.isfinite(predicted_batch), axis=1))),
+    }
+    family_counts: dict[str, dict[str, int]] = {}
+    first_violation: dict[str, Any] | None = None
+    for sample_index, (current, predicted) in enumerate(zip(current_batch, predicted_batch, strict=True)):
+        family = families[sample_index]
+        summary = family_counts.setdefault(family, {"samples": 0, "samples_with_any_violation": 0})
+        summary["samples"] += 1
+        evaluation = evaluate_physical_command(current, predicted)
+        components = {
+            "act_clip_components": int(np.count_nonzero(evaluation.act_clip_mask)),
+            "mujoco_clip_components": int(np.count_nonzero(evaluation.mujoco_clip_mask)),
+            "physical_clip_components": int(np.count_nonzero(evaluation.physical_clip_mask)),
+            "relative_limit_components": int(np.count_nonzero(evaluation.relative_limit_mask)),
+        }
+        violated = any(components.values()) or not np.all(np.isfinite(predicted))
+        counts["samples_with_any_violation"] += int(violated)
+        summary["samples_with_any_violation"] += int(violated)
+        for key, value in components.items():
+            counts[key] += value
+        if violated and first_violation is None:
+            first_violation = {
+                "sample_index": sample_index,
+                "family": family,
+                "path": paths[sample_index],
+                "current_act": current.tolist(),
+                "predicted_act": predicted.tolist(),
+                **components,
+            }
+
+    identity = {
+        "schema_version": 1,
+        "experiment": "local_phase_consistent_static_command_scan_v1",
+        "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+        "checkpoint_report_content_sha256": policy.report_content_sha256,
+        "oracle_manifest_content_sha256": source_manifest["content_sha256"],
+        "recovery_manifest_content_sha256": recovery_manifest["content_sha256"],
+        "samples_per_path": samples_per_path,
+    }
+    digest = content_sha256(identity)
+    report = {
+        **identity,
+        "scan_digest": digest,
+        "passed": counts["samples_with_any_violation"] == 0 and counts["nonfinite_samples"] == 0,
+        "paths": {"consecutive_nominal_segments": 449, "same_phase_recovery_chords": 8},
+        "total_samples": int(feature_batch.shape[0]),
+        "counts": counts,
+        "family_counts": family_counts,
+        "first_violation": first_violation,
+        "maximum_absolute_normalized_delta": float(np.max(np.abs(normalized_delta))),
+        "scope": {
+            "arbitrary_cross_phase_mixtures": False,
+            "mujoco_used": False,
+            "interpretation": "cheap necessary static screen, not proof of physical safety",
+        },
+    }
+    report["content_sha256"] = content_sha256(report)
+    report_path = Path(output_dir) / "static_command_scans" / digest[:16] / "report.json"
+    write_immutable_json(report_path, report)
+    return report_path
+
+
 __all__ = [
     "OracleRecoveryCollection", "PHASE_WIDE_RECOVERY_ANCHORS", "RecoveryAnchor",
     "capture_phase_wide_recovery_examples", "load_oracle_recovery_examples",
-    "evaluate_recovery_anchor_starts",
+    "evaluate_recovery_anchor_starts", "scan_oracle_clone_commands",
 ]

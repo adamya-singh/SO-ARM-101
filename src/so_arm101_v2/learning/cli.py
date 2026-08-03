@@ -76,7 +76,14 @@ def _parser() -> argparse.ArgumentParser:
     decide.add_argument("--output", type=Path, default=Path("artifacts/so_arm101_v2/act_gate.json"))
     oracle = commands.add_parser("distill-oracle")
     oracle.add_argument("--manifest", type=Path, required=True)
-    oracle.add_argument("--model-kind", choices=("phase_state", "feedback_state"), required=True)
+    oracle.add_argument(
+        "--model-kind",
+        choices=(
+            "phase_state", "feedback_state", "phase_dynamics",
+            "phase_dynamics_contact", "phase_dynamics_contact_history2",
+        ),
+        required=True,
+    )
     oracle.add_argument("--seed", type=int, default=101)
     oracle.add_argument("--max-steps", type=int, default=10_000)
     oracle.add_argument("--hidden-width", type=int, choices=(128, 256), default=128)
@@ -93,6 +100,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     oracle.add_argument("--prefix-parity-report", type=Path)
     oracle.add_argument("--recovery-manifest", type=Path)
+    oracle.add_argument("--observability-manifest", type=Path)
+    oracle.add_argument("--recovery-loss-weight", type=float, default=1.0)
     oracle.add_argument(
         "--output-dir", type=Path,
         default=Path("artifacts/so_arm101_v2/oracle_distillation"),
@@ -119,9 +128,11 @@ def main(argv: list[str] | None = None) -> int:
                     hidden_width=args.hidden_width,
                     training_rows=args.training_rows,
                     lr_schedule=args.lr_schedule,
+                    recovery_loss_weight=args.recovery_loss_weight,
                 ),
                 prefix_parity_report=args.prefix_parity_report,
                 recovery_manifest_path=args.recovery_manifest,
+                observability_manifest_path=args.observability_manifest,
             )
             print(result.report_json)
             print(

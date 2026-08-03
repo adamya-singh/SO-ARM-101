@@ -307,11 +307,29 @@ c3ca76dc2c0fa42d/`, `clone_evaluations/e67ba4433d3aa98c/`, and
 
 Established conclusion: eight isolated equal-weight anchors are insufficient
 and can destabilize off-table predictions despite excellent finite-table fit.
-Hypotheses about hidden contact-state aliasing remain unproven. The next
-controlled test is to reuse the same immutable rows at relative recovery-loss
-weights `0.10`, `0.25`, and `0.50`, reject saturation using a dense pre-rollout
-command-bound scan, and require nominal `3/3` with zero safety events before
-broader evaluation. No larger model, new feature, vision, ACT, RL, or physical
-deployment is authorized by these results.
+Hypotheses about hidden contact-state aliasing remain unproven. The subsequent
+controlled weights `0.10`, `0.25`, and `0.50` were all rejected: `0.10` passed
+offline at step 26,846 and failed nominal MuJoCo `0/3`; `0.25` missed the
+nominal-only offline MSE gate at 30,000 steps; and `0.50` passed offline at step
+26,052 and failed nominal MuJoCo `0/3`. Both physical failures had
+clipping/limiting regressions, so no broader rollout or anchor evaluation was
+run. The strict static scan remains telemetry because the known weight-0
+control also fails it. Immutable summary: `artifacts/so_arm101_v2/
+oracle_distillation/recovery_weight_ablations/187b171bdf0fd39e/report.json`.
+No larger model, new feature, vision, ACT, RL, or physical deployment is
+authorized by these results.
 
-The complete source suite after this follow-up passes 114 tests.
+The bounded observability follow-up then added a causal, content-addressed
+annotation path for robot/cube dynamics, pre-action contact/grasp flags, and
+two-frame history. With all non-input variables fixed, all three authorized
+schemas passed offline but failed nominal MuJoCo `0/3`; all clipped commands,
+and the dynamics-only candidate also produced unsafe contact. All eight anchor
+pairs had identical contact flags and preceding pre-action history; dynamics
+separated the perturbed states but still failed feedback control. The immutable
+gate status is `closed_loop_not_resolved`, so the next step is complete oracle
+correction trajectories rather than another feature variant:
+`artifacts/so_arm101_v2/oracle_distillation/observability_gates/
+3cdb2c3d2c467a5b/report.json`. Detailed record:
+`notes/bounded-observability-gate.md`.
+
+The complete source suite after this follow-up passes 119 tests.

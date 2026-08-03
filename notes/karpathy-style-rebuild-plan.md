@@ -198,10 +198,11 @@ reasonable and what observation motivated it.
   64-row fixed failure and a scheduled full pass near step 28,800, but only the
   content-addressed reports above are evidence for promotion decisions.
 - The source suite passed 112 tests at the original closed-loop checkpoint.
-  After adding recovery capture, augmentation, evaluation, and hash-validation
-  tests, the complete suite passes 114 tests.
+  After adding recovery and bounded-observability capture, feature, checkpoint,
+  branching, evaluation, and hash-validation tests, the complete suite passes
+  119 tests.
 
-## Current takeaway and next controlled gate
+## Current takeaway and next controlled step
 
 The diagnostic branch is complete. Established facts are: the original clone's
 teacher-state action sequence works; feedback deviations compound at contact;
@@ -217,15 +218,41 @@ caused this failure” remains a hypothesis, not an established fact. Likewise,
 this one negative data design does not prove that all recovery-state training
 or this architecture must fail.
 
-The exact next controlled experiment is a recovery-loss-weight ablation using
-the same immutable eight rows at relative weights `0.10`, `0.25`, and `0.50`.
-Keep architecture, features, optimizer, schedule, nominal data, and safety path
-fixed. Before any MuJoCo rollout, scan command bounds densely along the nominal
-trajectory and linear feature interpolants to every recovery row; reject a
-checkpoint that saturates. Require nominal `3/3` with zero safety events before
-running all five starts and the eight anchor handoffs. If no weight passes that
-nominal safety gate, stop sparse-anchor distillation and run a deliberate
-feature-alias/contact-state observability audit before adding inputs. Width
+The recovery-loss-weight ablation is complete. It reused the immutable eight
+rows at weights `0.10`, `0.25`, and `0.50` while holding architecture, inputs,
+normalization, seed, optimizer, schedule, nominal data, labels, simulator, and
+safety path fixed. Weight `0.10` passed the nominal-only offline gate at step
+26,846, then failed nominal MuJoCo `0/3` with 119 clipped, 36 limited, and 3
+unsafe-contact frames in each repeat. Weight `0.25` stopped at 30,000 steps
+with nominal MSE `1.025243023e-6`. Weight `0.50` passed offline at step 26,052,
+then failed nominal MuJoCo `0/3` with 178 clipped and 175 limited frames per
+repeat. The weight-0 control also fails the strict interpolated command-bound
+scan, so that scan is nonblocking telemetry rather than a valid safety gate;
+nominal MuJoCo `3/3` remains the first physically meaningful one. No candidate
+reached the five-start or anchor-handoff gates. Immutable summary:
+`artifacts/so_arm101_v2/oracle_distillation/recovery_weight_ablations/
+187b171bdf0fd39e/report.json`.
+
+All three authorized weights are rejected. Sparse-anchor distillation stops
+here. The subsequent bounded observability audit is also complete. It replayed
+causal pre-action contact and two-frame history annotations against the same
+immutable 450 nominal and eight recovery rows, then tested exactly three
+width-256 schemas in order: phase plus dynamics, phase plus dynamics/contact,
+and phase plus dynamics/contact/two-frame history. All three passed the
+unchanged nominal offline gate (`9.9602e-7`, `9.8383e-7`, and `9.9969e-7` MSE)
+but failed deterministic nominal MuJoCo `0/3`. Every candidate introduced
+clipping; dynamics also introduced unsafe contact. Contact flags and preceding
+pre-action history were identical for every nominal/recovery anchor pair, so
+those inputs did not distinguish the eight isolated corrections; dynamics did
+separate the perturbed states but remained insufficient. The immutable decision is
+`closed_loop_not_resolved`:
+`artifacts/so_arm101_v2/oracle_distillation/observability_gates/
+3cdb2c3d2c467a5b/report.json`.
+Detailed record: `notes/bounded-observability-gate.md`.
+
+The observability-only branch therefore stops without a fourth schema or any
+hyperparameter tuning. The next controlled step is complete oracle correction
+trajectories collected from policy-induced states (DAgger-style), while width
 512, vision, ACT, RL, and physical deployment remain unauthorized.
 
 ---

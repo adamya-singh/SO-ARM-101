@@ -19,12 +19,20 @@ from so_arm101_v2.learning import (
     count_oracle_command_safety_violations,
     oracle_training_row_indices,
     oracle_learning_rate,
+    oracle_recovery_weighted_loss,
+    oracle_feature_schema,
 )
-from so_arm101_v2.simulation import MujocoTaskAdapter, PrivilegedStateSnapshot, load_simulation_suite
+from so_arm101_v2.simulation import (
+    MujocoTaskAdapter, PrivilegedStateSnapshot, load_simulation_suite,
+)
 from so_arm101_v2.simulation.oracle import load_oracle_demonstrations
 from so_arm101_v2.simulation.recovery import (
     PHASE_WIDE_RECOVERY_ANCHORS,
     load_oracle_recovery_examples,
+)
+from so_arm101_v2.simulation.observability import (
+    load_observability_annotations,
+    resolve_bounded_observability_status,
 )
 from so_arm101_v2.simulation.clone_policy import OracleCloneCheckpointPolicy
 from so_arm101_v2.data._serialization import content_sha256
@@ -43,6 +51,26 @@ def _arrays(rows: int = 4) -> dict[str, np.ndarray]:
         "cube_linear_velocity": np.zeros((rows, 3), dtype=np.float32),
         "cube_angular_velocity": np.zeros((rows, 3), dtype=np.float32),
         "progress": np.linspace(0, 1, rows, dtype=np.float32),
+    }
+
+
+def _observability(arrays: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    rows = arrays["current_act"].shape[0]
+    previous_indices = np.maximum(np.arange(rows) - 1, 0)
+    contacts = np.zeros((rows, 3), dtype=np.float32)
+    if rows > 1:
+        contacts[1, 0] = 1.0
+    return {
+        "contact_flags": contacts,
+        "previous_contact_flags": contacts[previous_indices],
+        **{
+            f"previous_{name}": arrays[name][previous_indices]
+            for name in (
+                "current_act", "robot_qvel", "cube_position",
+                "cube_quaternion_wxyz", "cube_linear_velocity",
+                "cube_angular_velocity",
+            )
+        },
     }
 
 
@@ -79,6 +107,18 @@ def test_oracle_config_restricts_capacity_and_row_modes() -> None:
         )
     with pytest.raises(ValueError, match="schedule"):
         OracleDistillationConfig(lr_schedule="cosine")
+    with pytest.raises(ValueError, match="recovery_loss_weight"):
+        OracleDistillationConfig(recovery_loss_weight=1.01)
+
+
+def test_recovery_weighted_loss_uses_fixed_row_denominator() -> None:
+    prediction = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    targets = torch.zeros_like(prediction)
+    loss = oracle_recovery_weighted_loss(
+        prediction, targets, nominal_rows=2, recovery_loss_weight=0.25,
+    )
+    expected = ((1 + 4 + 9 + 16) + 0.25 * (25 + 36)) / (2 + 0.25)
+    assert float(loss) == pytest.approx(expected)
 
 
 def test_fixed_oracle_memorization_rows_and_full_selection() -> None:
@@ -302,6 +342,40 @@ def test_oracle_feature_schemas_and_normalization_replay() -> None:
     assert not np.array_equal(subset_direct, replay)
 
 
+def test_observability_feature_schemas_are_fixed_causal_and_binary() -> None:
+    arrays = _arrays()
+    arrays["current_act"] = np.arange(24, dtype=np.float32).reshape(4, 6) * 0.001
+    obs = _observability(arrays)
+    dynamics, mean, std = build_oracle_features(OracleCloneKind.PHASE_DYNAMICS, arrays)
+    contact, _, _ = build_oracle_features(
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT, arrays,
+        observability=obs, extras_mean=mean, extras_std=std,
+    )
+    history, _, _ = build_oracle_features(
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2, arrays,
+        observability=obs, extras_mean=mean, extras_std=std,
+    )
+    assert dynamics.shape == (4, 26)
+    assert contact.shape == (4, 29)
+    assert history.shape == (4, 57)
+    np.testing.assert_array_equal(contact[:, 25:28], obs["contact_flags"])
+    np.testing.assert_array_equal(history[:, 25:28], obs["contact_flags"])
+    np.testing.assert_array_equal(history[:, 53:56], obs["previous_contact_flags"])
+    # Row zero repeats current; row one's previous block is row zero, never row two.
+    np.testing.assert_array_equal(history[0, :28], history[0, 28:56])
+    np.testing.assert_array_equal(history[1, 28:56], history[0, :28])
+    assert len(oracle_feature_schema("phase_dynamics")) == 7
+    assert len(oracle_feature_schema("phase_dynamics_contact")) == 8
+    assert len(oracle_feature_schema("phase_dynamics_contact_history2")) == 15
+    broken = dict(obs)
+    broken["contact_flags"] = obs["contact_flags"].copy()
+    broken["contact_flags"][0, 0] = 0.5
+    with pytest.raises(ValueError, match="binary"):
+        build_oracle_features(
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT, arrays, observability=broken,
+        )
+
+
 def test_phase_wide_recovery_anchor_contract_is_small_and_spans_task() -> None:
     assert [item.name for item in PHASE_WIDE_RECOVERY_ANCHORS] == [
         "approach", "first_contact", "seating", "closure",
@@ -345,6 +419,70 @@ def test_recovery_manifest_and_arrays_are_hash_validated(tmp_path: Path) -> None
     arrays_path.write_bytes(raw + b"tamper")
     with pytest.raises(ValueError, match="arrays hash mismatch"):
         load_oracle_recovery_examples(manifest_path)
+
+
+def test_observability_manifest_and_aligned_arrays_are_hash_validated(tmp_path: Path) -> None:
+    fields = (
+        ("contact_flags", (3,)),
+        ("previous_contact_flags", (3,)),
+        ("previous_current_act", (6,)),
+        ("previous_robot_qvel", (6,)),
+        ("previous_cube_position", (3,)),
+        ("previous_cube_quaternion_wxyz", (4,)),
+        ("previous_cube_linear_velocity", (3,)),
+        ("previous_cube_angular_velocity", (3,)),
+    )
+    arrays = {
+        f"{prefix}__{name}": np.zeros((rows, *shape), dtype=np.float32)
+        for prefix, rows in (("nominal", 450), ("recovery", 8))
+        for name, shape in fields
+    }
+    stream = io.BytesIO()
+    np.savez_compressed(stream, **arrays)
+    raw = stream.getvalue()
+    arrays_path = tmp_path / "annotations.npz"
+    arrays_path.write_bytes(raw)
+    manifest = {
+        "arrays": {"path": arrays_path.name, "sha256": hashlib.sha256(raw).hexdigest()},
+    }
+    manifest["content_sha256"] = content_sha256(manifest)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _, nominal, recovery = load_observability_annotations(manifest_path)
+    assert nominal["contact_flags"].shape == (450, 3)
+    assert recovery["previous_current_act"].shape == (8, 6)
+    arrays_path.write_bytes(raw + b"tamper")
+    with pytest.raises(ValueError, match="arrays hash mismatch"):
+        load_observability_annotations(manifest_path)
+
+
+def test_bounded_observability_branching_skips_eval_and_stops_after_first_pass() -> None:
+    offline_failed = {
+        "model_kind": "phase_dynamics", "state": "offline_failed", "evaluation": None,
+    }
+    nominal_passed = {
+        "model_kind": "phase_dynamics_contact", "state": "nominal_passed",
+        "evaluation": {"passed": True},
+    }
+    skipped = {
+        "model_kind": "phase_dynamics_contact_history2",
+        "state": "skipped_after_first_pass",
+    }
+    assert resolve_bounded_observability_status(
+        [offline_failed, nominal_passed, skipped]
+    ) == "passed_phase_dynamics_contact"
+    assert resolve_bounded_observability_status([
+        offline_failed,
+        {**offline_failed, "model_kind": "phase_dynamics_contact"},
+        {**offline_failed, "model_kind": "phase_dynamics_contact_history2"},
+    ]) == "blocked_offline"
+    with pytest.raises(ValueError, match="after the first"):
+        resolve_bounded_observability_status([
+            nominal_passed,
+            {"model_kind": "phase_dynamics_contact_history2", "state": "nominal_failed",
+             "evaluation": {"passed": False}},
+            skipped,
+        ])
 
 
 class _FakeAdapter:
@@ -414,6 +552,67 @@ def _write_checkpoint_pair(
     return checkpoint
 
 
+def _write_contact_checkpoint_pair(directory: Path, *, disagree: bool = False) -> Path:
+    kind = OracleCloneKind.PHASE_DYNAMICS_CONTACT
+    model = build_oracle_clone_model(29, 256)
+    rows = list(range(450))
+    observability = {
+        "manifest_content_sha256": "c" * 64,
+        "collection_digest": "d" * 64,
+        "contact_fields": [
+            "any_contact", "bilateral_interior_contact", "strict_bilateral_grasp",
+        ],
+        "history_length": 2,
+        "history_padding": "repeat_current_at_episode_reset",
+    }
+    report = {
+        "schema_version": 1,
+        "model_kind": kind.value,
+        "passed": True,
+        "closed_loop_eligible": True,
+        "training_row_mode": "full",
+        "training_row_indices": rows,
+        "hidden_width": 256,
+        "manifest_content_sha256": "a" * 64,
+        "learning_rate_schedule": "fixed",
+        "prefix_parity": {"required": False, "applicable": True, "passed": None},
+        "feature_schema": list(oracle_feature_schema(kind)),
+        "history_length": 1,
+        "history_padding": None,
+        "contact_timing": "pre_action_before_current_command_selection",
+        "observability_annotations": observability,
+    }
+    report["content_sha256"] = content_sha256(report)
+    checkpoint_observability = dict(observability)
+    if disagree:
+        checkpoint_observability["manifest_content_sha256"] = "e" * 64
+    checkpoint = directory / "model.pt"
+    torch.save({
+        "schema_version": 1,
+        "model_kind": kind.value,
+        "input_dim": 29,
+        "hidden_width": 256,
+        "extras_mean": torch.zeros(19),
+        "extras_std": torch.ones(19),
+        "maximum_act_delta_per_step": torch.ones(6),
+        "teacher_horizon": 450,
+        "manifest_content_sha256": "a" * 64,
+        "report_content_sha256": report["content_sha256"],
+        "training_row_mode": "full",
+        "training_row_indices": rows,
+        "closed_loop_eligible": True,
+        "config": {"seed": 101},
+        "feature_schema": list(oracle_feature_schema(kind)),
+        "history_length": 1,
+        "history_padding": None,
+        "contact_timing": "pre_action_before_current_command_selection",
+        "observability_annotations": checkpoint_observability,
+        "state_dict": model.state_dict(),
+    }, checkpoint)
+    (directory / "report.json").write_text(json.dumps(report), encoding="utf-8")
+    return checkpoint
+
+
 @pytest.mark.parametrize("hidden_width", [128, 256])
 def test_phase_checkpoint_reset_and_off_by_one(tmp_path: Path, hidden_width: int) -> None:
     checkpoint = _write_checkpoint_pair(tmp_path, hidden_width=hidden_width)
@@ -457,6 +656,19 @@ def test_checkpoint_rejects_tampered_report(tmp_path: Path) -> None:
         OracleCloneCheckpointPolicy(checkpoint)
 
 
+def test_contact_checkpoint_requires_matching_causal_observability_metadata(
+    tmp_path: Path,
+) -> None:
+    valid = tmp_path / "valid"
+    valid.mkdir()
+    policy = OracleCloneCheckpointPolicy(_write_contact_checkpoint_pair(valid))
+    assert policy.input_dim == 29 and policy.history_length == 1
+    broken = tmp_path / "broken"
+    broken.mkdir()
+    with pytest.raises(ValueError, match="observability metadata"):
+        OracleCloneCheckpointPolicy(_write_contact_checkpoint_pair(broken, disagree=True))
+
+
 def test_oracle_safety_count_covers_safe_and_failed_predictions() -> None:
     reset = load_simulation_suite("fixed_pick_place_v3").scenarios[0].robot_qpos_mujoco
     current = np.repeat(mujoco_qpos_to_act(reset)[None], 2, axis=0)
@@ -482,6 +694,21 @@ def test_privileged_snapshot_is_finite_named_state() -> None:
         assert snapshot.cube_quaternion_wxyz[0] >= 0
         for value in snapshot.__dict__.values():
             assert np.all(np.isfinite(value))
+        contact = adapter.privileged_contact_state()
+        assert contact.as_array().shape == (3,)
+        np.testing.assert_array_equal(
+            adapter.previous_privileged_state().current_act, snapshot.current_act,
+        )
+        before = adapter.privileged_state()
+        before_contact = adapter.privileged_contact_state().as_array()
+        adapter.apply_policy_command(before.current_act)
+        adapter.advance_control_period()
+        np.testing.assert_array_equal(
+            adapter.previous_privileged_state().current_act, before.current_act,
+        )
+        np.testing.assert_array_equal(
+            adapter.previous_privileged_contact_state().as_array(), before_contact,
+        )
     finally:
         adapter.close()
 

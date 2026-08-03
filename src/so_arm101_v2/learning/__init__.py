@@ -37,6 +37,8 @@ from .oracle_distillation import (
     count_oracle_command_safety_violations,
     distill_oracle_policy,
     oracle_learning_rate,
+    oracle_feature_schema,
+    oracle_recovery_weighted_loss,
     oracle_training_row_indices,
 )
 __all__ = [
@@ -66,6 +68,8 @@ __all__ = [
     "count_oracle_command_safety_violations",
     "oracle_training_row_indices",
     "oracle_learning_rate",
+    "oracle_feature_schema",
+    "oracle_recovery_weighted_loss",
     "classify_image_signal",
     "cross_episode_image_indices",
     "evaluate_baselines",

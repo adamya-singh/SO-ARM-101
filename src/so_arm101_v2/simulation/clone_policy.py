@@ -14,6 +14,7 @@ from so_arm101_v2.learning.oracle_distillation import (
     OracleCloneKind,
     build_oracle_clone_model,
     build_oracle_features,
+    oracle_feature_schema,
 )
 
 
@@ -29,9 +30,22 @@ class OracleCloneCheckpointPolicy:
             raise ValueError("unsupported oracle clone checkpoint schema")
         self.kind = OracleCloneKind(payload["model_kind"])
         self.input_dim = int(payload["input_dim"])
+        expected_input_dim = {
+            OracleCloneKind.PHASE_STATE: 10,
+            OracleCloneKind.FEEDBACK_STATE: 25,
+            OracleCloneKind.PHASE_DYNAMICS: 26,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT: 29,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2: 57,
+        }[self.kind]
+        if self.input_dim != expected_input_dim:
+            raise ValueError("oracle clone input dimension does not match feature schema")
         self.hidden_width = int(payload.get("hidden_width", 128))
         self.extras_mean = np.asarray(payload["extras_mean"], dtype=np.float32)
         self.extras_std = np.asarray(payload["extras_std"], dtype=np.float32)
+        self.feature_schema = tuple(payload.get("feature_schema", oracle_feature_schema(self.kind)))
+        if self.feature_schema != oracle_feature_schema(self.kind):
+            raise ValueError("oracle clone feature schema metadata is malformed")
+        self.history_length = int(payload.get("history_length", 1))
         self.maximum_delta = np.asarray(payload["maximum_act_delta_per_step"], dtype=np.float32)
         self.teacher_horizon = int(payload["teacher_horizon"])
         if (
@@ -68,6 +82,17 @@ class OracleCloneCheckpointPolicy:
                         and report.get("prefix_parity", {}).get("applicable") is False
                         and isinstance(report.get("prefix_parity", {}).get("reference_content_sha256"), str)
                     )
+                    and not (
+                        self.kind in (
+                            OracleCloneKind.PHASE_DYNAMICS,
+                            OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+                            OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+                        )
+                        and report.get("recovery_augmentation") is not None
+                        and report.get("prefix_parity", {}).get("required") is False
+                        and report.get("prefix_parity", {}).get("applicable") is False
+                        and report.get("prefix_parity", {}).get("reference_content_sha256") is None
+                    )
                 )
             )
         ):
@@ -76,8 +101,37 @@ class OracleCloneCheckpointPolicy:
             int(report.get("hidden_width", 128)) != self.hidden_width
             or report.get("manifest_content_sha256") != payload.get("manifest_content_sha256")
             or report.get("training_row_indices") != payload.get("training_row_indices")
+            or tuple(report.get("feature_schema", oracle_feature_schema(self.kind))) != self.feature_schema
+            or int(report.get("history_length", 1)) != self.history_length
         ):
             raise ValueError("oracle clone checkpoint and report metadata disagree")
+        contact_kinds = (
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+        )
+        if self.kind in contact_kinds:
+            report_observability = report.get("observability_annotations")
+            checkpoint_observability = payload.get("observability_annotations")
+            if (
+                not isinstance(report_observability, dict)
+                or not isinstance(checkpoint_observability, dict)
+                or not isinstance(report_observability.get("manifest_content_sha256"), str)
+                or report_observability != checkpoint_observability
+                or report.get("contact_timing") != "pre_action_before_current_command_selection"
+                or payload.get("contact_timing") != report.get("contact_timing")
+            ):
+                raise ValueError("oracle clone observability metadata disagree")
+        expected_history = (
+            2 if self.kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2 else 1
+        )
+        if self.history_length != expected_history or (
+            expected_history == 2
+            and (
+                report.get("history_padding") != "repeat_current_at_episode_reset"
+                or payload.get("history_padding") != report.get("history_padding")
+            )
+        ):
+            raise ValueError("oracle clone history metadata disagree")
         self.report_content_sha256 = stated
         self.manifest_content_sha256 = payload["manifest_content_sha256"]
         self.model = build_oracle_clone_model(self.input_dim, self.hidden_width)
@@ -113,8 +167,26 @@ class OracleCloneCheckpointPolicy:
                 min(self.action_index, self.teacher_horizon - 1) / (self.teacher_horizon - 1)
             ], dtype=np.float32),
         }
+        observability: dict[str, np.ndarray] | None = None
+        if self.kind in (
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+        ):
+            observability = {
+                "contact_flags": adapter.privileged_contact_state().as_array()[None],
+            }
+        if self.kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2:
+            assert observability is not None
+            previous = adapter.previous_privileged_state()
+            for name in previous.__dataclass_fields__:
+                observability[f"previous_{name}"] = np.asarray(
+                    getattr(previous, name), dtype=np.float32,
+                )[None]
+            observability["previous_contact_flags"] = (
+                adapter.previous_privileged_contact_state().as_array()[None]
+            )
         features, _, _ = build_oracle_features(
-            self.kind, arrays,
+            self.kind, arrays, observability=observability,
             extras_mean=self.extras_mean, extras_std=self.extras_std,
         )
         if features.shape != (1, self.input_dim):

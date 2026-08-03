@@ -22,7 +22,15 @@ from .rollout import (
     run_simulation_preflight,
 )
 from .oracle import capture_oracle_demonstrations
-from .recovery import capture_phase_wide_recovery_examples, evaluate_recovery_anchor_starts
+from .observability import (
+    capture_observability_annotations,
+    run_bounded_observability_gate,
+)
+from .recovery import (
+    capture_phase_wide_recovery_examples,
+    evaluate_recovery_anchor_starts,
+    scan_oracle_clone_commands,
+)
 from .clone_policy import OracleCloneCheckpointPolicy
 from .suites import load_simulation_suite
 
@@ -59,12 +67,36 @@ def _parser() -> argparse.ArgumentParser:
     recovery.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
     recovery.add_argument("--oracle-manifest", type=Path, required=True)
+    observability = commands.add_parser("capture-observability")
+    observability.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    observability.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    observability.add_argument("--oracle-manifest", type=Path, required=True)
+    observability.add_argument("--recovery-manifest", type=Path, required=True)
+    gate = commands.add_parser("run-observability-gate")
+    gate.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    gate.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    gate.add_argument("--oracle-manifest", type=Path, required=True)
+    gate.add_argument("--recovery-manifest", type=Path, required=True)
+    gate.add_argument("--observability-manifest", type=Path, required=True)
+    gate.add_argument("--baseline-checkpoint", type=Path, required=True)
+    gate.add_argument("--baseline-evaluation", type=Path, required=True)
+    gate.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    gate.add_argument("--no-video", action="store_true")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
     recovery_eval.add_argument("--oracle-manifest", type=Path, required=True)
     recovery_eval.add_argument("--recovery-manifest", type=Path, required=True)
     recovery_eval.add_argument("--checkpoint", type=Path, required=True)
+    static_scan = commands.add_parser("scan-clone-static")
+    static_scan.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    static_scan.add_argument("--oracle-manifest", type=Path, required=True)
+    static_scan.add_argument("--recovery-manifest", type=Path, required=True)
+    static_scan.add_argument("--checkpoint", type=Path, required=True)
+    static_scan.add_argument("--samples-per-path", type=int, default=101)
     clone = commands.add_parser("evaluate-clone")
     clone.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     clone.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -82,6 +114,32 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "run-observability-gate":
+            result = run_bounded_observability_gate(
+                args.mujoco_model, args.oracle_manifest, args.recovery_manifest,
+                args.observability_manifest, args.baseline_checkpoint,
+                args.baseline_evaluation, args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+            )
+            print(result.report_json)
+            print(f"status={result.status}")
+            return 0 if result.status.startswith("passed_") else 2
+        if args.command == "capture-observability":
+            result = capture_observability_annotations(
+                args.mujoco_model, args.oracle_manifest, args.recovery_manifest,
+                args.output_dir,
+            )
+            print(result.manifest)
+            return 0
+        if args.command == "scan-clone-static":
+            report = scan_oracle_clone_commands(
+                args.oracle_manifest, args.recovery_manifest, args.checkpoint,
+                args.output_dir, samples_per_path=args.samples_per_path,
+            )
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            print(report)
+            print(f"passed={str(bool(payload['passed'])).lower()} samples={payload['total_samples']}")
+            return 0 if payload["passed"] else 2
         if args.command == "evaluate-recovery-starts":
             report = evaluate_recovery_anchor_starts(
                 args.mujoco_model, args.oracle_manifest, args.recovery_manifest,

@@ -55,6 +55,25 @@ class PrivilegedStateSnapshot:
     cube_angular_velocity: np.ndarray
 
 
+@dataclass(frozen=True)
+class PrivilegedContactSnapshot:
+    """Causal pre-action contact state exposed only to diagnostic policies."""
+
+    any_contact: bool
+    bilateral_interior_contact: bool
+    strict_bilateral_grasp: bool
+
+    def as_array(self) -> np.ndarray:
+        return np.asarray(
+            (
+                self.any_contact,
+                self.bilateral_interior_contact,
+                self.strict_bilateral_grasp,
+            ),
+            dtype=np.float32,
+        )
+
+
 class MujocoTaskAdapter:
     """Own one MuJoCo model/data pair without importing the legacy environment."""
 
@@ -91,6 +110,8 @@ class MujocoTaskAdapter:
         self.initial_cube_height = 0.0
         self.control_origin_time = 0.0
         self.control_actions = 0
+        self._previous_privileged_snapshot: PrivilegedStateSnapshot | None = None
+        self._previous_contact_snapshot: PrivilegedContactSnapshot | None = None
 
     def close(self) -> None:
         self.renderer.close()
@@ -119,6 +140,11 @@ class MujocoTaskAdapter:
         self.initial_cube_height = float(self.data.body("red_block").xpos[2])
         self.control_origin_time = float(self.data.time)
         self.control_actions = 0
+        # A two-frame policy repeats the reset observation at action zero.  Each
+        # subsequent command application replaces these with the actual
+        # preceding pre-action state, including during oracle-controlled prefixes.
+        self._previous_privileged_snapshot = self.privileged_state()
+        self._previous_contact_snapshot = self.privileged_contact_state()
 
     def mujoco_qpos(self) -> np.ndarray:
         return np.asarray([self.data.qpos[address] for address in self._joint_qpos], dtype=np.float32)
@@ -147,6 +173,30 @@ class MujocoTaskAdapter:
             raise RuntimeError("privileged state contains nonfinite values")
         return snapshot
 
+    def privileged_contact_state(self) -> PrivilegedContactSnapshot:
+        """Measure contact at the current state without applying or advancing a command."""
+        strict, _, diagnostics = check_block_face_gripped(self.model, self.data)
+        return PrivilegedContactSnapshot(
+            any_contact=self._any_cube_robot_contact(),
+            bilateral_interior_contact=bool(diagnostics["bilateral_interior_face_contact"]),
+            strict_bilateral_grasp=bool(strict),
+        )
+
+    def previous_privileged_state(self) -> PrivilegedStateSnapshot:
+        if self._previous_privileged_snapshot is None:
+            raise RuntimeError("adapter has not been reset")
+        return self._previous_privileged_snapshot
+
+    def previous_privileged_contact_state(self) -> PrivilegedContactSnapshot:
+        if self._previous_contact_snapshot is None:
+            raise RuntimeError("adapter has not been reset")
+        return self._previous_contact_snapshot
+
+    def rebase_observation_history(self) -> None:
+        """Repeat the current state as history after diagnostic setup mutates derived state."""
+        self._previous_privileged_snapshot = self.privileged_state()
+        self._previous_contact_snapshot = self.privileged_contact_state()
+
     def render(self, camera: str = "wrist_camera") -> np.ndarray:
         self.renderer.update_scene(self.data, camera=camera)
         image = np.asarray(self.renderer.render(), dtype=np.uint8)
@@ -159,6 +209,10 @@ class MujocoTaskAdapter:
         return raw, preprocess_wrist_image(raw), self.current_act()
 
     def apply_policy_command(self, requested_act: Any) -> CommandApplication:
+        # Capture before changing actuator controls.  After the physics period
+        # advances, this is exactly the previous pre-action observation.
+        self._previous_privileged_snapshot = self.privileged_state()
+        self._previous_contact_snapshot = self.privileged_contact_state()
         current = self.current_act()
         requested = np.asarray(requested_act, dtype=np.float32)
         nonfinite = requested.shape != (6,) or not np.all(np.isfinite(requested))
@@ -297,4 +351,7 @@ class MujocoTaskAdapter:
         return measurement, diagnostics
 
 
-__all__ = ["CommandApplication", "MujocoTaskAdapter", "PrivilegedStateSnapshot"]
+__all__ = [
+    "CommandApplication", "MujocoTaskAdapter", "PrivilegedContactSnapshot",
+    "PrivilegedStateSnapshot",
+]

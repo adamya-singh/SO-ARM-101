@@ -33,7 +33,7 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 | Sim demonstration data | 50 randomized-block episodes + 50 fixed-block episodes |
 | Experiment scale | 129 local `wandb` run summaries tracked in this repo |
 | Strongest supported later PPO summary | `reward/batch_avg = -8.49` at 21,650 episodes, with `contact_rate = 12.8%`, `sustained_contact_rate = 6.9%`, and `grasp_rate = 2.6%` |
-| Active rebuild status | Simulator/oracle proven; offline and fixed-action replay pass, but both the original and phase-wide recovery clones fail autonomous control |
+| Active rebuild status | Simulator/oracle proven; offline and fixed-action replay pass, but the original, recovery, and bounded richer-observation clones fail autonomous control |
 | Main limitation | The system clearly improved shaped behavior and contact/grasp emergence, but did not yet reach robust task completion |
 
 **Status:** the privileged controller solves the fixed full pick-and-place task.
@@ -152,13 +152,31 @@ for the old clone to `1/8` for the augmented clone. Evidence:
 
 Established conclusion: eight isolated, equal-weight recovery anchors do not
 produce safe feedback recovery and can warp off-table interpolation despite an
-excellent finite-table fit. This does not establish that all recovery training
-or the current feature set must fail. The next controlled experiment is a
-recovery-row loss-weight ablation (`0.10`, `0.25`, `0.50`) using the same eight
-immutable rows, preceded by a dense command-bound scan and requiring nominal
-`3/3` with zero safety events before broader evaluation. Full reasoning and
-stop rules are recorded in
-[`notes/karpathy-style-rebuild-plan.md`](notes/karpathy-style-rebuild-plan.md).
+excellent finite-table fit. The completed recovery-row loss-weight ablation
+then reused the same rows at weights `0.10`, `0.25`, and `0.50`. Weight `0.10`
+passed offline at step 26,846 but failed nominal MuJoCo `0/3`; weight `0.25`
+missed the nominal MSE gate at 30,000 steps; and weight `0.50` passed offline at
+step 26,052 but failed nominal MuJoCo `0/3`. Both physical failures introduced
+clipping/limiting regressions, so no candidate reached the five-start or
+anchor-handoff gates. The strict static scan is telemetry only because the
+known weight-0 control also fails it; nominal MuJoCo `3/3` is the first
+physically meaningful safety gate. Evidence: [immutable ablation summary](artifacts/so_arm101_v2/oracle_distillation/recovery_weight_ablations/187b171bdf0fd39e/report.json).
+The subsequent bounded observability gate changed only the input schema while
+holding the 450+8 rows, equal recovery weight, width 256, seed, optimizer,
+schedule, targets, and safety path fixed. Dynamics, dynamics plus causal
+contact, and dynamics plus contact plus two-frame history all passed the
+unchanged offline gate, but each failed nominal MuJoCo `0/3`. Their repeated
+nominal safety counts were respectively `385` clipped / `5` limited / `1`
+unsafe, `85` clipped / `0` limited / `0` unsafe, and `74` clipped / `25`
+limited / `0` unsafe frames. The terminal status is therefore
+`closed_loop_not_resolved`: richer privileged observability alone is not a
+sufficient fix, and the predefined next step is complete oracle correction
+trajectories rather than another tiny-policy feature or hyperparameter pass.
+At all eight anchors, contact flags and the preceding pre-action history were
+identical to the same-phase nominal values; dynamics separated the perturbed
+states but still did not produce safe feedback. Evidence:
+[detailed observability report](notes/bounded-observability-gate.md) and
+[immutable decision](artifacts/so_arm101_v2/oracle_distillation/observability_gates/3cdb2c3d2c467a5b/report.json).
 The older small-model decision was also regenerated against the passing
 simulator: it now reports `environment_proven: true` but remains
 `blocked_offline` (0 reach/contact/success and a 91.5% clip-or-limit frame rate),
@@ -579,19 +597,29 @@ If you only look at a few parts of this repo, I would start here:
 - **Training stack:** [`simulation_code/train_reinflow.py`](simulation_code/train_reinflow.py), [`simulation_code/reinflow_smolvla.py`](simulation_code/reinflow_smolvla.py)
 - **Hyperparameter and experiment record:** [`hyperparameter_notes.md`](hyperparameter_notes.md)
 - **Highest-signal debugging notes:** [`notes/kl-divergence-bug-fix.md`](notes/kl-divergence-bug-fix.md), [`notes/sigma-scaling-bug-fix.md`](notes/sigma-scaling-bug-fix.md), [`notes/smolvla-coordinate-fix.md`](notes/smolvla-coordinate-fix.md), [`notes/parallel-gae-trajectory-identity-fix.md`](notes/parallel-gae-trajectory-identity-fix.md), [`notes/reinflow-inference-sampler-fix.md`](notes/reinflow-inference-sampler-fix.md)
+- **Active diagnostics-first result:** [`notes/karpathy-style-rebuild-plan.md`](notes/karpathy-style-rebuild-plan.md), [`notes/bounded-observability-gate.md`](notes/bounded-observability-gate.md)
 - **Physical data collection:** [`imitation-learning/record_single_arm.py`](imitation-learning/record_single_arm.py), [`imitation-learning/datasets/so101_pickplace_v1/meta/info.json`](imitation-learning/datasets/so101_pickplace_v1/meta/info.json)
 - **Physical inference path:** [`imitation-learning/run_smolvla_physical_arm.py`](imitation-learning/run_smolvla_physical_arm.py)
 
 ## Next Steps
 
-If I continued this project, the next experiments I would prioritize are:
+The active next tranche is deliberately data-centric:
 
-1. **Retrain with the corrected coordinate offsets as the clean baseline.** The coordinate-frame fix removes a systematic handicap and should be treated as the starting point for new comparison runs.
-2. **Introduce a curriculum or staged task decomposition.** Start with reaching / alignment, then contact, then grasp, then lift, rather than forcing the entire task through one reward landscape from the beginning.
-3. **Build a stronger evaluation protocol.** Track lift success, grasp persistence, recovery behavior, and robustness across randomized block positions and multiple seeds.
-4. **Run targeted ablations instead of broad tuning.** Compare reward components, trainable-parameter subsets, denoising-step counts, and rollout lengths with a fixed evaluation protocol.
-5. **Improve long-run PPO stability.** The best later run in this repo still had high clip fraction and KL drift; that needs to be treated as a first-class research problem.
-6. **Curate the visual evidence.** A public-facing version of this repo should include selected rollout videos, wrist-camera clips, and `wandb` graphs that directly show the progression documented above.
+1. **Collect complete oracle corrections from policy-induced states.** Preserve
+   approach through post-contact recovery sequences instead of adding more
+   isolated anchor rows.
+2. **Version the correction trajectories separately.** Keep the canonical
+   450-row source and all provenance immutable so old-only versus combined
+   training remains comparable.
+3. **Retrain one fixed supervised control.** Hold inputs, width, optimizer,
+   schedule, targets, and safety gates unchanged to isolate the value of
+   continuous correction coverage.
+4. **Require nominal MuJoCo `3/3` before expanding.** Wider starts, anchor
+   handoffs, vision, ACT, RL, and physical deployment remain blocked until the
+   smallest closed-loop gate passes safely.
+
+The legacy PPO curriculum, reward, and stability ideas above remain useful
+research history, but they are not the active next step of the rebuild.
 
 ## Setup / Running the Code
 

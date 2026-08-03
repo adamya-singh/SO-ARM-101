@@ -24,6 +24,9 @@ from .tiny_model import normalize_act
 class OracleCloneKind(str, Enum):
     PHASE_STATE = "phase_state"
     FEEDBACK_STATE = "feedback_state"
+    PHASE_DYNAMICS = "phase_dynamics"
+    PHASE_DYNAMICS_CONTACT = "phase_dynamics_contact"
+    PHASE_DYNAMICS_CONTACT_HISTORY2 = "phase_dynamics_contact_history2"
 
 
 class OracleTrainingRows(str, Enum):
@@ -56,10 +59,13 @@ class OracleDistillationConfig:
     hidden_width: int = 128
     training_rows: str = OracleTrainingRows.FULL.value
     lr_schedule: str = OracleLearningRateSchedule.FIXED.value
+    recovery_loss_weight: float = 1.0
 
     def __post_init__(self) -> None:
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
             raise ValueError("invalid oracle distillation configuration")
+        if not np.isfinite(self.recovery_loss_weight) or not 0.0 <= self.recovery_loss_weight <= 1.0:
+            raise ValueError("recovery_loss_weight must be finite and between 0 and 1")
         if self.hidden_width not in (128, 256):
             raise ValueError("oracle clone hidden_width must be 128 or 256")
         try:
@@ -189,22 +195,45 @@ def count_oracle_command_safety_violations(
     return violations
 
 
+_DYNAMIC_EXTRA_FIELDS = (
+    "robot_qvel", "cube_position", "cube_quaternion_wxyz",
+    "cube_linear_velocity", "cube_angular_velocity",
+)
+
+
 def _raw_extras(kind: OracleCloneKind, arrays: Mapping[str, np.ndarray]) -> np.ndarray:
     if kind is OracleCloneKind.PHASE_STATE:
         return np.asarray(arrays["cube_position"], dtype=np.float32)
-    return np.concatenate((
-        arrays["robot_qvel"],
-        arrays["cube_position"],
-        arrays["cube_quaternion_wxyz"],
-        arrays["cube_linear_velocity"],
-        arrays["cube_angular_velocity"],
-    ), axis=1).astype(np.float32)
+    return np.concatenate(
+        tuple(np.asarray(arrays[name], dtype=np.float32) for name in _DYNAMIC_EXTRA_FIELDS),
+        axis=1,
+    ).astype(np.float32)
+
+
+def oracle_feature_schema(kind: OracleCloneKind | str) -> tuple[str, ...]:
+    kind = OracleCloneKind(kind)
+    if kind is OracleCloneKind.PHASE_STATE:
+        return ("current_act[6]", "cube_position[3]", "progress[1]")
+    dynamics = (
+        "current_act[6]", "robot_qvel[6]", "cube_position[3]",
+        "cube_quaternion_wxyz[4]", "cube_linear_velocity[3]",
+        "cube_angular_velocity[3]",
+    )
+    if kind is OracleCloneKind.FEEDBACK_STATE:
+        return dynamics
+    current = dynamics + ("contact_flags[3]",)
+    if kind is OracleCloneKind.PHASE_DYNAMICS:
+        return dynamics + ("progress[1]",)
+    if kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT:
+        return current + ("progress[1]",)
+    return current + tuple(f"previous_{name}" for name in current) + ("progress[1]",)
 
 
 def build_oracle_features(
     kind: OracleCloneKind | str,
     arrays: Mapping[str, np.ndarray],
     *,
+    observability: Mapping[str, np.ndarray] | None = None,
     extras_mean: np.ndarray | None = None,
     extras_std: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -220,6 +249,42 @@ def build_oracle_features(
     normalized_extras = (extras - mean) / std
     parts = [current, normalized_extras]
     if kind is OracleCloneKind.PHASE_STATE:
+        parts.append(np.asarray(arrays["progress"], dtype=np.float32).reshape(-1, 1))
+    elif kind in (
+        OracleCloneKind.PHASE_DYNAMICS,
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+    ):
+        if kind is not OracleCloneKind.PHASE_DYNAMICS:
+            if observability is None or "contact_flags" not in observability:
+                raise ValueError(f"{kind.value} requires aligned observability annotations")
+            contacts = np.asarray(observability["contact_flags"], dtype=np.float32)
+            if contacts.shape != (current.shape[0], 3) or not np.all(np.isin(contacts, (0.0, 1.0))):
+                raise ValueError("contact flags must be binary [N, 3]")
+            parts.append(contacts)
+        if kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2:
+            assert observability is not None
+            previous_current = normalize_act(
+                np.asarray(observability["previous_current_act"], dtype=np.float32)
+            )
+            previous_extras = np.concatenate(
+                tuple(
+                    np.asarray(observability[f"previous_{name}"], dtype=np.float32)
+                    for name in _DYNAMIC_EXTRA_FIELDS
+                ),
+                axis=1,
+            ).astype(np.float32)
+            if previous_current.shape != current.shape or previous_extras.shape != extras.shape:
+                raise ValueError("two-frame observability shape mismatch")
+            previous_contacts = np.asarray(
+                observability["previous_contact_flags"], dtype=np.float32
+            )
+            if (
+                previous_contacts.shape != (current.shape[0], 3)
+                or not np.all(np.isin(previous_contacts, (0.0, 1.0)))
+            ):
+                raise ValueError("previous contact flags must be binary [N, 3]")
+            parts.extend((previous_current, (previous_extras - mean) / std, previous_contacts))
         parts.append(np.asarray(arrays["progress"], dtype=np.float32).reshape(-1, 1))
     features = np.concatenate(parts, axis=1).astype(np.float32)
     if not np.all(np.isfinite(features)):
@@ -386,6 +451,32 @@ def oracle_learning_rate(schedule: OracleLearningRateSchedule | str, step: int) 
     return 1e-5
 
 
+def oracle_recovery_weighted_loss(
+    prediction: Any,
+    targets: Any,
+    *,
+    nominal_rows: int,
+    recovery_loss_weight: float,
+) -> Any:
+    """Apply the fixed row-weighted recovery objective to scalar element losses."""
+    if prediction.shape != targets.shape or len(prediction.shape) != 2:
+        raise ValueError("weighted recovery loss requires matching rank-two tensors")
+    total_rows = int(prediction.shape[0])
+    recovery_rows = total_rows - nominal_rows
+    if nominal_rows <= 0 or recovery_rows < 0:
+        raise ValueError("invalid nominal row boundary")
+    if not np.isfinite(recovery_loss_weight) or recovery_loss_weight < 0:
+        raise ValueError("recovery loss weight must be finite and nonnegative")
+    squared_error = (prediction - targets).square()
+    if recovery_rows == 0:
+        # Keep the established nominal-only optimizer trajectory byte-for-byte.
+        return squared_error.mean()
+    return (
+        squared_error[:nominal_rows].sum()
+        + recovery_loss_weight * squared_error[nominal_rows:].sum()
+    ) / (nominal_rows + recovery_loss_weight * recovery_rows)
+
+
 def distill_oracle_policy(
     manifest_path: str | Path,
     output_dir: str | Path,
@@ -394,6 +485,7 @@ def distill_oracle_policy(
     config: OracleDistillationConfig | None = None,
     prefix_parity_report: str | Path | None = None,
     recovery_manifest_path: str | Path | None = None,
+    observability_manifest_path: str | Path | None = None,
 ) -> OracleDistillationResult:
     config = config or OracleDistillationConfig()
     kind = OracleCloneKind(kind)
@@ -403,26 +495,66 @@ def distill_oracle_policy(
     schedule = OracleLearningRateSchedule(config.lr_schedule)
     recovery_manifest: dict[str, Any] | None = None
     recovery_arrays: dict[str, np.ndarray] | None = None
+    observability_manifest: dict[str, Any] | None = None
+    nominal_observability: dict[str, np.ndarray] | None = None
+    recovery_observability: dict[str, np.ndarray] | None = None
+    observability_kinds = {
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+        OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+    }
+    if observability_manifest_path is not None:
+        from so_arm101_v2.simulation.observability import load_observability_annotations
+
+        observability_manifest, nominal_observability, recovery_observability = (
+            load_observability_annotations(observability_manifest_path)
+        )
+        if observability_manifest.get("oracle_manifest_content_sha256") != manifest["content_sha256"]:
+            raise ValueError("observability and oracle manifests disagree")
+    elif kind in observability_kinds:
+        raise ValueError(f"{kind.value} requires an observability manifest")
+    if observability_manifest is not None and kind not in observability_kinds:
+        raise ValueError("observability manifests are only valid for contact/history clone kinds")
     if recovery_manifest_path is not None:
-        if kind is not OracleCloneKind.PHASE_STATE or config.training_rows != OracleTrainingRows.FULL.value:
-            raise ValueError("recovery augmentation requires phase_state with all nominal rows")
+        recovery_kinds = {
+            OracleCloneKind.PHASE_STATE,
+            OracleCloneKind.PHASE_DYNAMICS,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT,
+            OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2,
+        }
+        if kind not in recovery_kinds or config.training_rows != OracleTrainingRows.FULL.value:
+            raise ValueError("recovery augmentation requires a phase-aware model with all nominal rows")
         recovery_manifest, recovery_arrays = load_oracle_recovery_examples(recovery_manifest_path)
         if recovery_manifest.get("source_manifest_content_sha256") != manifest["content_sha256"]:
             raise ValueError("recovery examples do not derive from the nominal oracle manifest")
+        if (
+            observability_manifest is not None
+            and observability_manifest.get("recovery_manifest_content_sha256")
+            != recovery_manifest["content_sha256"]
+        ):
+            raise ValueError("observability and recovery manifests disagree")
     prefix_reference: dict[str, Any] | None = None
     if schedule is OracleLearningRateSchedule.DECAY_10K_20K:
         if prefix_parity_report is None:
-            raise ValueError("decay_10k_20k requires --prefix-parity-report")
-        prefix_reference = _validate_prefix_reference(
-            prefix_parity_report,
-            manifest=manifest,
-            kind=kind,
-            config=config,
-            source_rows=source_rows,
-            row_indices=row_indices,
-        )
+            if recovery_manifest is None or kind in (
+                OracleCloneKind.PHASE_STATE, OracleCloneKind.FEEDBACK_STATE,
+            ):
+                raise ValueError("decay_10k_20k requires --prefix-parity-report")
+        else:
+            prefix_reference = _validate_prefix_reference(
+                prefix_parity_report,
+                manifest=manifest,
+                kind=kind,
+                config=config,
+                source_rows=source_rows,
+                row_indices=row_indices,
+            )
     elif prefix_parity_report is not None:
         raise ValueError("prefix parity reports are only valid with decay_10k_20k")
+    config_identity = asdict(config)
+    # Preserve the identities of the established nominal and implicit equal-weight
+    # controls. New ablation weights are explicit, content-addressed identities.
+    if recovery_manifest is None or config.recovery_loss_weight == 1.0:
+        config_identity.pop("recovery_loss_weight")
     identity = {
         "manifest_content_sha256": manifest["content_sha256"],
         "collection_digest": manifest["collection_digest"],
@@ -430,7 +562,7 @@ def distill_oracle_policy(
         "optimizer": "adam_full_batch",
         "source_rows": source_rows,
         "training_row_indices": row_indices.tolist(),
-        "config": asdict(config),
+        "config": config_identity,
         "prefix_reference_content_sha256": (
             prefix_reference["content_sha256"] if prefix_reference is not None else None
         ),
@@ -442,6 +574,14 @@ def distill_oracle_policy(
         ),
         "recovery_rows": (
             int(recovery_manifest["arrays"]["rows"]) if recovery_manifest is not None else 0
+        ),
+        "observability_manifest_content_sha256": (
+            observability_manifest["content_sha256"]
+            if observability_manifest is not None else None
+        ),
+        "observability_collection_digest": (
+            observability_manifest["collection_digest"]
+            if observability_manifest is not None else None
         ),
     }
     run_digest = content_sha256(identity)
@@ -458,7 +598,9 @@ def distill_oracle_policy(
             raise FileNotFoundError(f"immutable oracle run is missing sidecars: {directory}")
         return _result(directory, existing_report)
 
-    nominal_features, extras_mean, extras_std = build_oracle_features(kind, arrays)
+    nominal_features, extras_mean, extras_std = build_oracle_features(
+        kind, arrays, observability=nominal_observability,
+    )
     if int(nominal_features.shape[0]) != source_rows:
         raise ValueError("oracle feature and action row counts disagree")
     features_parts = [nominal_features[row_indices]]
@@ -471,7 +613,8 @@ def distill_oracle_policy(
     delta_parts = [np.asarray(arrays["executed_delta_act"], dtype=np.float32)[row_indices]]
     if recovery_arrays is not None:
         recovery_features, _, _ = build_oracle_features(
-            kind, recovery_arrays, extras_mean=extras_mean, extras_std=extras_std,
+            kind, recovery_arrays, observability=recovery_observability,
+            extras_mean=extras_mean, extras_std=extras_std,
         )
         features_parts.append(recovery_features)
         current_parts.append(np.asarray(recovery_arrays["current_act"], dtype=np.float32))
@@ -495,7 +638,6 @@ def distill_oracle_policy(
     if not np.array_equal(initial_output, np.zeros_like(initial_output)):
         raise RuntimeError("oracle residual head did not initialize to hold")
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    criterion = torch.nn.MSELoss()
     loss_trace: list[dict[str, float | int]] = []
     normalized_mse = float("inf")
     max_act_error = float("inf")
@@ -506,6 +648,19 @@ def distill_oracle_policy(
     steps = 0
     first_gradient_norms: list[float] = []
     prefix_parity_passed: bool | None = None
+    nominal_rows = len(row_indices)
+    recovery_rows = 0 if recovery_arrays is None else int(recovery_features.shape[0])
+    recovery_weight = float(config.recovery_loss_weight if recovery_rows else 0.0)
+    nominal_mse = float("inf")
+    nominal_max_act_error = float("inf")
+    recovery_mse: float | None = None
+    recovery_max_act_error: float | None = None
+    weighted_objective = float("inf")
+    nominal_baseline_mse = float(np.mean(np.square(target_delta_normalized[:nominal_rows])))
+    recovery_baseline_mse = (
+        None if not recovery_rows
+        else float(np.mean(np.square(target_delta_normalized[nominal_rows:])))
+    )
     best_observed = {
         "step": 0,
         "normalized_mse": float("inf"),
@@ -517,7 +672,10 @@ def distill_oracle_policy(
             group["lr"] = active_learning_rate
         optimizer.zero_grad(set_to_none=True)
         prediction = model(features)
-        loss = criterion(prediction, targets)
+        loss = oracle_recovery_weighted_loss(
+            prediction, targets, nominal_rows=nominal_rows,
+            recovery_loss_weight=recovery_weight,
+        )
         if not torch.isfinite(loss):
             raise RuntimeError("oracle distillation loss became nonfinite")
         loss.backward()
@@ -529,9 +687,29 @@ def distill_oracle_policy(
         optimizer.step()
         with torch.inference_mode():
             predictions_delta = model(features).numpy().astype(np.float32)
-        normalized_mse = float(np.mean(np.square(predictions_delta - target_delta_normalized)))
+        residual = predictions_delta - target_delta_normalized
+        nominal_mse = float(np.mean(np.square(residual[:nominal_rows])))
+        recovery_mse = (
+            None if not recovery_rows else float(np.mean(np.square(residual[nominal_rows:])))
+        )
+        weighted_objective = (
+            float(np.mean(np.square(residual))) if not recovery_rows else float(
+                (np.square(residual[:nominal_rows]).sum(dtype=np.float64)
+                 + recovery_weight * np.square(residual[nominal_rows:]).sum(dtype=np.float64))
+                / (nominal_rows + recovery_weight * recovery_rows)
+            )
+        )
+        normalized_mse = nominal_mse
         predictions_act = current_act + predictions_delta * maximum_delta
-        max_act_error = float(np.max(np.abs(predictions_act - targets_act)))
+        nominal_max_act_error = float(
+            np.max(np.abs(predictions_act[:nominal_rows] - targets_act[:nominal_rows]))
+        )
+        recovery_max_act_error = (
+            None if not recovery_rows else float(
+                np.max(np.abs(predictions_act[nominal_rows:] - targets_act[nominal_rows:]))
+            )
+        )
+        max_act_error = nominal_max_act_error
         steps = step
         if normalized_mse < best_observed["normalized_mse"]:
             best_observed = {
@@ -552,10 +730,12 @@ def distill_oracle_policy(
         numerical_gate_passed = bool(
             normalized_mse <= config.normalized_mse_threshold
             and max_act_error <= config.max_act_error_threshold
-            and normalized_mse <= baseline_mse / config.baseline_improvement_factor
+            and normalized_mse <= nominal_baseline_mse / config.baseline_improvement_factor
         )
         if numerical_gate_passed:
-            safety_violations = count_oracle_command_safety_violations(current_act, predictions_act)
+            safety_violations = count_oracle_command_safety_violations(
+                current_act[:nominal_rows], predictions_act[:nominal_rows]
+            )
             passed = bool(
                 safety_violations == 0
                 and first_gradient_norms
@@ -569,11 +749,13 @@ def distill_oracle_policy(
         loss_trace.append({"step": steps, "normalized_mse": normalized_mse})
 
     # Always evaluate final predicted commands, even when the numerical gate failed.
-    safety_violations = count_oracle_command_safety_violations(current_act, predictions_act)
+    safety_violations = count_oracle_command_safety_violations(
+        current_act[:nominal_rows], predictions_act[:nominal_rows]
+    )
     numerical_gate_passed = bool(
         normalized_mse <= config.normalized_mse_threshold
         and max_act_error <= config.max_act_error_threshold
-        and normalized_mse <= baseline_mse / config.baseline_improvement_factor
+        and normalized_mse <= nominal_baseline_mse / config.baseline_improvement_factor
     )
     passed = bool(
         numerical_gate_passed
@@ -636,6 +818,18 @@ def distill_oracle_policy(
             f"linear_{config.hidden_width}_{config.hidden_width}", "relu",
             f"linear_{config.hidden_width}_6_zero_init",
         ],
+        "feature_schema": list(oracle_feature_schema(kind)),
+        "history_length": (
+            2 if kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2 else 1
+        ),
+        "history_padding": (
+            "repeat_current_at_episode_reset"
+            if kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2 else None
+        ),
+        "contact_timing": (
+            "pre_action_before_current_command_selection"
+            if kind in observability_kinds else None
+        ),
         "target": "executed_act_minus_current_act_divided_by_maximum_act_delta_per_step",
         "normalization": {
             "extras_mean": extras_mean.tolist(),
@@ -660,6 +854,27 @@ def distill_oracle_policy(
             "absolute_act_error": float(absolute_error[worst_row, worst_joint]),
         },
         "zero_delta_baseline_normalized_mse": baseline_mse,
+        "nominal_metrics": {
+            "rows": nominal_rows,
+            "unweighted_normalized_mse": nominal_mse,
+            "maximum_act_error": nominal_max_act_error,
+            "zero_delta_baseline_normalized_mse": nominal_baseline_mse,
+            "zero_delta_improvement_factor": nominal_baseline_mse / nominal_mse,
+            "predicted_command_safety_violations": safety_violations,
+        },
+        "recovery_metrics": None if not recovery_rows else {
+            "rows": recovery_rows,
+            "loss_weight": recovery_weight,
+            "unweighted_normalized_mse": recovery_mse,
+            "maximum_act_error": recovery_max_act_error,
+            "zero_delta_baseline_normalized_mse": recovery_baseline_mse,
+        },
+        "weighted_objective": {
+            "value": weighted_objective,
+            "formula": "(sum_nominal_element_squared_errors + w * sum_recovery_element_squared_errors) / (450 + 8w)",
+            "recovery_loss_weight": recovery_weight,
+            "denominator": nominal_rows + recovery_weight * recovery_rows,
+        },
         "training_safety_violations": safety_violations,
         "gradient_norms_at_step_1": first_gradient_norms,
         "loss_trace": loss_trace,
@@ -671,6 +886,13 @@ def distill_oracle_policy(
             "rows": int(recovery_manifest["arrays"]["rows"]),
             "anchors": [item["name"] for item in recovery_manifest["records"]],
             "normalization": "unchanged_nominal_statistics",
+        },
+        "observability_annotations": None if observability_manifest is None else {
+            "manifest_content_sha256": observability_manifest["content_sha256"],
+            "collection_digest": observability_manifest["collection_digest"],
+            "contact_fields": observability_manifest["contact_fields"],
+            "history_length": observability_manifest["history_length"],
+            "history_padding": observability_manifest["history_padding"],
         },
         "joint_order": list(JOINT_NAMES),
         "claim": "privileged_pipeline_memorization_only_not_closed_loop_success",
@@ -692,6 +914,11 @@ def distill_oracle_policy(
         "state_dict": model.state_dict(),
         "report_content_sha256": report["content_sha256"],
         "recovery_augmentation": report["recovery_augmentation"],
+        "feature_schema": report["feature_schema"],
+        "history_length": report["history_length"],
+        "history_padding": report["history_padding"],
+        "contact_timing": report["contact_timing"],
+        "observability_annotations": report["observability_annotations"],
     }
     checkpoint_buffer = io.BytesIO()
     torch.save(checkpoint_payload, checkpoint_buffer)
@@ -956,9 +1183,11 @@ __all__ = [
     "OracleResidualAnalysisResult",
     "build_oracle_clone_model",
     "build_oracle_features",
+    "oracle_feature_schema",
     "count_oracle_command_safety_violations",
     "oracle_training_row_indices",
     "oracle_learning_rate",
+    "oracle_recovery_weighted_loss",
     "distill_oracle_policy",
     "analyze_oracle_residuals",
 ]
