@@ -292,6 +292,54 @@ every post-contact phase), but the single authorized fixed-capacity retrain
 terminated `blocked_offline` at a `1.1e-4` nominal MSE floor against the
 unchanged `1e-6` gate, so no correction-augmented policy ever reached
 closed-loop evaluation (`notes/dagger-correction-gate.md`).
+**Broader-evaluation tranche (2026-08-04): `starts_not_resolved`, and the
+memorizer-to-generalizer trade is measured.** Under the pinned environment
+(promotion re-established by gate `46de62c4f6d1b78f`), the promoted policy
+showed the exact pre-registered memorization signature: nominal 3/3 perfect
+on razor margins (0.0007 ACT envelope headroom, 74% peak delta usage), all
+±1.5 mm starts failing with 43-734 safety frames. The automatic single-retry
+branch captured the five-scenario oracle dataset (2,250 rows — the oracle
+solves every start) and retrained the frozen recipe. The retrained policy
+fails everywhere too, but oppositely: strict grasp, full lift ladder
+(42-45 mm), carry, and release in **all five scenarios**, 7/8 anchor
+handoffs (sole failure `lift`, one clipped frame), worst-case 18 safety
+frames — it misses only the 30-frame strict-hold window and a few envelope
+frames. Offline telemetry pins the cause as underfit at the frozen budget:
+`1.94e-5` MSE at 30k steps on 5x data versus `2.37e-6` for the memorizer.
+Report: `broader_evaluations/68c56c66d2dd3bb9`; record:
+`notes/broader-evaluation-proposal.md`. Next proposal: scale the
+optimization budget (steps, and/or the now-earned width increase) to the
+multi-scenario dataset — one change, same gates. The complete suite passes
+180 tests.
+
+**Cross-cutting lessons the rebuild has now validated** (recorded here
+because they should govern every later rung):
+
+1. *Prove the environment before trusting any learning signal.* The
+   privileged preflight exposed a geometrically impossible grasp that had
+   silently invalidated seven months of RL.
+2. *Gate on the deliverable, not a proxy.* Near-exact offline memorization
+   was neither achievable with useful data nor predictive of closed-loop
+   behavior — in the final gate, the candidate with the best offline fit was
+   not the one that passed. Closed-loop evaluation with explicit safety
+   counts is the only promotion signal that has ever mattered here.
+3. *Architecture beat data for the diagnosed failure mode.* Feedback
+   compounding was fixed by chunking (fewer decisions per episode), not by
+   any of four data-side interventions; correction data that helped a
+   reactive policy actively hurt a chunked one (label conflict scales with
+   the prediction horizon).
+4. *Soft regularization beat a hard architectural guarantee.* The
+   feasibility-constrained decoder eliminated exactly the violations it
+   promised to and still lost — to servo-lag limiter trips outside its
+   control and to its own optimization distortion. The noise-augmented
+   penalty shaped the same behavior without constraining the optimizer.
+5. *Factorial attribution is worth its compute.* Run-all-candidates turned
+   one pass/fail bit into five, including the negative results (corrections
+   at chunk scale, decoder lag) that now steer the roadmap.
+6. *Pre-registration kept every one of these findings publishable-honest*:
+   each gate's candidates, thresholds, promotion rule, and stop conditions
+   were immutable before the first training step.
+
 
 ---
 

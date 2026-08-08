@@ -391,3 +391,19 @@ re-captured as `recovery/d52b460b4ab3a683`, and the saturation gate re-run as
 byte-identical promoted checkpoint. This addendum records the relocation and
 re-establishment; the pre-registered text above is unchanged. Details:
 `notes/parallel-execution-infrastructure.md`.
+
+### Broader evaluation: memorizer confirmed, generalizer emerges (2026-08-04)
+
+Per `notes/broader-evaluation-proposal.md` the tranche ran under the pinned
+environment (`broader_evaluations/68c56c66d2dd3bb9`, workers 10). The
+promoted nominal policy exhibited the pre-registered memorization signature
+(perfect nominal on 0.0007 ACT envelope headroom; every ±1.5 mm start failed
+with 43-734 safety frames). The automatic single retry captured the
+five-scenario oracle dataset (2,250 rows) and retrained the frozen recipe:
+the retrained policy achieves strict grasp, the full lift ladder, carry, and
+release in all five scenarios and completes 7/8 anchor handoffs, missing only
+the strict-hold window and single-digit envelope frames — a measured
+underfit at the frozen 30k-step budget (`1.94e-5` MSE versus the memorizer's
+`2.37e-6`). Terminal status `starts_not_resolved`; retry budget spent; next
+proposal scales the optimization budget to the multi-scenario dataset. The
+complete suite passes 180 tests.

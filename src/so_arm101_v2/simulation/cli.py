@@ -32,7 +32,9 @@ from .recovery import (
     scan_oracle_clone_commands,
 )
 from .clone_policy import OracleCloneCheckpointPolicy
+from .broader import run_broader_evaluation
 from .chunked import run_chunked_gate, run_saturation_gate
+from .margins import analyze_pick_place_margins
 from .correction import (
     capture_dagger_corrections,
     run_correction_gate,
@@ -150,6 +152,26 @@ def _parser() -> argparse.ArgumentParser:
     saturation.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     saturation.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     saturation.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    broader = commands.add_parser("run-broader-evaluation")
+    broader.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    broader.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    broader.add_argument("--checkpoint", type=Path, required=True)
+    broader.add_argument("--gate-report", type=Path, required=True)
+    broader.add_argument("--oracle-manifest", type=Path, required=True)
+    broader.add_argument("--recovery-manifest", type=Path, required=True)
+    broader.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    broader.add_argument("--no-video", action="store_true")
+    broader.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    broader.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    broader.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    broader.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    margins_parser = commands.add_parser("analyze-margins")
+    margins_parser.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    margins_parser.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    margins_parser.add_argument("--evaluation-report", type=Path, required=True)
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -294,6 +316,25 @@ def main(argv: list[str] | None = None) -> int:
             print(saturation_result.report_json)
             print(f"status={saturation_result.status}")
             return 0 if saturation_result.status.startswith("promoted_") else 2
+        if args.command == "run-broader-evaluation":
+            broader_result = run_broader_evaluation(
+                args.mujoco_model, args.checkpoint, args.gate_report,
+                args.oracle_manifest, args.recovery_manifest,
+                args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(broader_result.report_json)
+            print(f"status={broader_result.status}")
+            return 0 if broader_result.status.endswith("_robust") else 2
+        if args.command == "analyze-margins":
+            margins_path = analyze_pick_place_margins(
+                args.evaluation_report, args.output_dir,
+                mujoco_model_path=args.mujoco_model,
+            )
+            print(margins_path)
+            return 0
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,
