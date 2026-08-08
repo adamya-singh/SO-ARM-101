@@ -2002,3 +2002,17 @@ the residual grazing is a structural teacher-horizon boundary. Terminal
 next action: the teacher-horizon alignment proposal (train the final chunk
 instead of extrapolating it). Reports:
 `precision_gates/{f0a6169e8c0f05e7,0cb6ded4f78a0a68,6d2c95a8f577c95b}`.
+
+**Horizon-alignment tranche (2026-08-06): `horizon_not_resolved` — the
+extrapolation theory was half right.** The teacher was extended to hold still
+through action 480 (exact fall-through hold; an explicit retreat→retreat
+stage was tried and rejected after the invariant test caught a one-ulp
+minimum-jerk wobble on identical endpoints), the tail was physically captured
+safe and bit-constant (`oracle/.../9f54b9e66c884855`, 2,400 rows), and three
+seeds retrained under the established cosine recipe. Past-horizon violations
+vanished in every seed — but Stage A landed 9/9/12 of 15: the remaining
+gripper grazing is in-distribution **over-squeeze below the gripper floor
+bound** during `set_down`/`traverse`: the teacher commands the gripper at
+~0.0005 (floor) for grip force and imitation overshoot dives to −0.002…−0.02.
+Next proposal: gripper floor overshoot (e.g. gripper-channel output clamp). Reports: `horizon_gates/704b7a9574e559db`,
+analyses `notes/horizon-seed{101,202,303}-failure-analysis.md`.

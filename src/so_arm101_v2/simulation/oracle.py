@@ -119,6 +119,7 @@ def capture_oracle_demonstrations(
     *,
     scenario: str = "nominal",
     record_video: bool = True,
+    teacher_horizon: int = 450,
 ) -> OracleDemonstrationCollection:
     """Capture one deterministic full-horizon teacher episode per scenario."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
@@ -149,7 +150,10 @@ def capture_oracle_demonstrations(
         "preflight_content_sha256": preflight["content_sha256"],
         "git": provenance,
         "controller": controller_config,
-        "teacher_horizon": 450,
+        # Keyword-parameterized since the horizon-alignment tranche; the
+        # default keeps every legacy capture identity (and hence collection
+        # digest) byte-identical.
+        "teacher_horizon": teacher_horizon,
     }
 
     arrays: dict[str, list[np.ndarray | float | int | bool]] = {
@@ -250,8 +254,15 @@ def capture_oracle_demonstrations(
                 wrist.close()
                 overview.close()
                 adapter.close()
-            if evaluation is None or not evaluation.success or len(event_rows) != 450:
-                raise RuntimeError(f"oracle scenario {item.scenario_id} did not pass v3 within 450 actions")
+            if (
+                evaluation is None
+                or not evaluation.success
+                or len(event_rows) != identity["teacher_horizon"]
+            ):
+                raise RuntimeError(
+                    f"oracle scenario {item.scenario_id} did not pass v3 within "
+                    f"{identity['teacher_horizon']} actions"
+                )
             if any(safety_counts.values()):
                 raise RuntimeError(f"oracle scenario {item.scenario_id} used the safety layer")
             episode_records.append({

@@ -292,6 +292,16 @@ class PrivilegedStagedController:
             # imitate (worst-error row of the failed offline gate). The
             # gripper release keeps >=16 actions: opening faster trips the
             # delta limiter through servo lag (requested-vs-current gap).
+            # The hold tail past action 450 is the stage-loop FALL-THROUGH in
+            # predict(): it returns the clamped retreat pose bit-exactly on
+            # every call, which is the pre-registered hold invariant
+            # (notes/horizon-alignment-proposal.md).  An explicit
+            # retreat->retreat stage was tried and rejected: minimum-jerk
+            # interpolation of identical endpoints wobbles the output by one
+            # ulp, and the same wobble is baked into the RECORDED hold stages
+            # (closed-closed, lift-lift, released-released), so predict()
+            # cannot special-case identical endpoints without forking legacy
+            # capture bits.
             self.boundaries = (
                 0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
                 386, 403, 419, 424, 450,

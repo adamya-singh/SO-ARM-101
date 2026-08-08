@@ -1,0 +1,122 @@
+{
+  "tool": "analyze_safety_frames",
+  "matplotlib": "3.10.9",
+  "evaluation": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/horizon_stage_a_evaluations/872c6484287b6fe2/policies/fixed_pick_place_v3.horizon_seed101/evaluation.json",
+  "evaluation_content_sha256": "336bf00fb88eb54edbd91df1b3f1047536ca647359c79acc48034c908d1149a6",
+  "chunk_horizon": 90,
+  "teacher_horizon": 480,
+  "rollouts": [
+    {
+      "scenario_id": "nominal",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "16a8cc68c493c61e3a7458a83fcad5e681fe18b779c18f1af123231a2b42aa5a",
+      "policy_id": "chunked_h90.seed101.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 398,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0024310590233653784,
+          "signed_excess": 0.002903006476117298,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 37,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 399,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.005007726140320301,
+          "signed_excess": 0.005479673593072221,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 38,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 400,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.007139259949326515,
+          "signed_excess": 0.007611207402078435,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 39,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 401,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.010126507841050625,
+          "signed_excess": 0.010598455293802544,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 40,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 402,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.013881314545869827,
+          "signed_excess": 0.014353261998621747,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 41,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 403,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.014864295721054077,
+          "signed_excess": 0.015336243173805997,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 42,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 404,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.006970549002289772,
+          "signed_excess": 0.007442496455041692,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 43,
+          "past_teacher_horizon": false
+        }
+      ]
+    },
+    {
+      "scenario_id": "cube_y_minus_1p5mm",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "674b23305fa21b67db8123191fc9a63557c4f68a3902be3de1519807af2a992d",
+      "policy_id": "chunked_h90.seed101.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 395,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0007564127445220947,
+          "signed_excess": 0.0012283601972740144,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 34,
+          "past_teacher_horizon": false
+        }
+      ]
+    }
+  ]
+}

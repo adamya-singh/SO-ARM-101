@@ -35,6 +35,7 @@ from .clone_policy import OracleCloneCheckpointPolicy
 from .broader import run_broader_evaluation
 from .scaling import run_scaling_gate
 from .precision import run_precision_stage
+from .horizon import run_horizon_gate
 from .chunked import run_chunked_gate, run_saturation_gate
 from .margins import analyze_pick_place_margins
 from .correction import (
@@ -74,6 +75,7 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
     )
     capture.add_argument("--no-video", action="store_true")
+    capture.add_argument("--teacher-horizon", type=int, choices=(450, 480), default=450)
     recovery = commands.add_parser("capture-recovery")
     recovery.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -207,6 +209,22 @@ def _parser() -> argparse.ArgumentParser:
     precision.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
     precision.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     precision.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    horizon = commands.add_parser("run-horizon-gate")
+    horizon.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    horizon.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    horizon.add_argument("--capture-manifest", type=Path, required=True)
+    horizon.add_argument("--oracle-manifest", type=Path, required=True)
+    horizon.add_argument("--recovery-manifest", type=Path, required=True)
+    horizon.add_argument("--precision-report", type=Path, required=True)
+    horizon.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    horizon.add_argument("--no-video", action="store_true")
+    horizon.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    horizon.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    horizon.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    horizon.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -403,6 +421,19 @@ def main(argv: list[str] | None = None) -> int:
                 or precision_result.status == "seeds_robust"
             )
             return 0 if passing else 2
+        if args.command == "run-horizon-gate":
+            horizon_result = run_horizon_gate(
+                args.mujoco_model, args.capture_manifest,
+                args.oracle_manifest, args.recovery_manifest,
+                args.preflight_report, args.precision_report,
+                args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(horizon_result.report_json)
+            print(f"status={horizon_result.status}")
+            return 0 if horizon_result.status == "horizon_promoted_robust" else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,
@@ -474,6 +505,7 @@ def main(argv: list[str] | None = None) -> int:
             result = capture_oracle_demonstrations(
                 args.mujoco_model, args.suite, args.preflight_report, args.output_dir,
                 scenario=args.scenario, record_video=not args.no_video,
+                teacher_horizon=args.teacher_horizon,
             )
             print(result.manifest)
             print(f"rows={result.rows} scenarios={','.join(result.scenario_ids)}")

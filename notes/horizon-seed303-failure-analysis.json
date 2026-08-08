@@ -1,0 +1,143 @@
+{
+  "tool": "analyze_safety_frames",
+  "matplotlib": "3.10.9",
+  "evaluation": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/horizon_stage_a_evaluations/98241384e86b69a7/policies/fixed_pick_place_v3.horizon_seed303/evaluation.json",
+  "evaluation_content_sha256": "829cb6938204219845c2bfdbd72672d26d43b80e34ac918d61f20e0e8ec6c7c4",
+  "chunk_horizon": 90,
+  "teacher_horizon": 480,
+  "rollouts": [
+    {
+      "scenario_id": "cube_y_minus_1p5mm",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "5a013d00ec2b58a1b5eba5af4688c5eac14eaa61fa2234145afcec1513bc1d70",
+      "policy_id": "chunked_h90.seed303.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 381,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 0.0002497732639312744,
+          "signed_excess": 0.0002221741888206452,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 20,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 382,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.00045607687206938863,
+          "signed_excess": 0.0009280243248213083,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 21,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 383,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0007918775081634521,
+          "signed_excess": 0.0012638249609153718,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 22,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 384,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0007577300420962274,
+          "signed_excess": 0.001229677494848147,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 23,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 385,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0003038823779206723,
+          "signed_excess": 0.0007758298306725919,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 24,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 386,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 0.00018315017223358154,
+          "signed_excess": 0.0002887972805183381,
+          "stage": "traverse",
+          "chunk_index": 4,
+          "chunk_offset": 25,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 387,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 0.00034355223760940135,
+          "signed_excess": 0.00012839521514251828,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 26,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 388,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 5.101859642309137e-05,
+          "signed_excess": 0.00042092885632882826,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 27,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 413,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.6886650323867798,
+          "signed_excess": 0.02064401268959043,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 52,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 414,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.8018385171890259,
+          "signed_excess": 0.034808251857757544,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 53,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 415,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.886624276638031,
+          "signed_excess": 0.01806190967559812,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 54,
+          "past_teacher_horizon": false
+        }
+      ]
+    }
+  ]
+}
