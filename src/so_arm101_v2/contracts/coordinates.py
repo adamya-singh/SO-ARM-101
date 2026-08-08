@@ -172,6 +172,29 @@ def clip_mujoco_qpos(values: Any) -> tuple[np.ndarray, np.ndarray]:
     return clipped, np.not_equal(clipped, source)
 
 
+def effective_safe_act_bounds() -> tuple[np.ndarray, np.ndarray]:
+    """Per-joint ACT box whose commands raise no act or mujoco clip masks.
+
+    The intersection of the ACT dataset box with the pullback of the MuJoCo
+    joint envelope through :func:`mujoco_qpos_to_act`.  Joint 0's conversion
+    sign is negative, so the pulled-back endpoints are sorted per joint before
+    intersecting.  The physical-normalized clip is the exact affine image of
+    the ACT box and adds no constraint.
+    """
+    pullback = np.sort(
+        np.stack([
+            mujoco_qpos_to_act(MUJOCO_JOINT_LOW),
+            mujoco_qpos_to_act(MUJOCO_JOINT_HIGH),
+        ]),
+        axis=0,
+    )
+    low = np.maximum(ACT_DATASET_LOW, pullback[0]).astype(np.float32)
+    high = np.minimum(ACT_DATASET_HIGH, pullback[1]).astype(np.float32)
+    if np.any(low >= high):
+        raise RuntimeError("effective safe act box is empty")
+    return low, high
+
+
 __all__ = [
     "ACT_DATASET_HIGH",
     "ACT_DATASET_LOW",
@@ -184,5 +207,6 @@ __all__ = [
     "MUJOCO_JOINT_LOW",
     "act_to_mujoco_qpos",
     "clip_mujoco_qpos",
+    "effective_safe_act_bounds",
     "mujoco_qpos_to_act",
 ]

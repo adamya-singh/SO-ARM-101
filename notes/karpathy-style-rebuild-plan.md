@@ -223,6 +223,19 @@ reasonable and what observation motivated it.
   faf13e95b8caa2e8/report.json`; record: `notes/dagger-correction-gate.md`.
   The complete suite passes 130 tests.
 
+- **Phase-8 promotion experiments (2026-08-03): FIRST LEARNED STRICT GRASP.**
+  Under the pre-registered promotion proposal
+  (`notes/chunked-promotion-proposal.md`) the tiny lane closed with a
+  non-promoting probe of the blocked correction checkpoint
+  (`behavior_moved`: 18.5 mm lift, 116x baseline, with a flagged safety
+  regression), and the chunk-horizon ladder (H = 10/30/90, nominal rows
+  only) returned `closed_loop_not_resolved` — but its H=90 candidate
+  produced the repository's first learned strict bilateral grasp and a
+  60.7 mm lift through every lift milestone before `safety_invalidation`
+  from command saturation. Probes and gates:
+  `correction_probes/63e2717b530a2cf0`, `chunked_gates/591f0686e94d27fd`.
+  The complete suite passes 138 tests.
+
 ## Current takeaway and next controlled step
 
 The diagnostic branch is complete. Established facts are: the original clone's
@@ -1852,6 +1865,34 @@ Before implementing or launching something substantial, ask:
 If those questions have clear answers, proceed. If they do not, the next step
 is usually to inspect, simplify, or instrument the system—not to launch a
 larger training run.
+
+Established across the four rejected branches: near-exact nominal fit at
+width 256 is incompatible with any data addition tried so far, and data
+additions that pass offline have not fixed feedback control.
+
+**Decision (2026-08-03): the tiny-model lane is closed and the project
+promotes to the Phase-8 chunked-action rung**, per the pre-registered
+proposal in `notes/chunked-promotion-proposal.md`: one non-promoting
+diagnostic probe of the blocked correction checkpoint to close the lane with
+an answer, then an ascending chunk-horizon ladder (H = 10/30/90, nominal
+data only, unchanged features and optimizer) gated solely by deterministic
+nominal MuJoCo 3/3 with zero safety frames. The near-exact `1e-6` offline
+memorization gate is retired as proven non-predictive; offline metrics
+become telemetry. Vision, physical deployment, and RL remain unauthorized.
+
+**Both experiments completed the same day.** The probe returned
+`behavior_moved` with `safety_regressed`: the blocked correction clone lifts
+the cube `18.5 mm` (116x the baseline) with `cube_supported`/`lift_10mm`
+milestones, at 326 clipped and 27 unsafe frames per rollout
+(`correction_probes/63e2717b530a2cf0`). The chunked ladder returned
+`closed_loop_not_resolved`: H=90 produced the repository's **first learned
+strict bilateral grasp** and a `60.7 mm` lift through every lift milestone,
+but all three horizons failed on `safety_invalidation` from command
+saturation (`chunked_gates/591f0686e94d27fd`). Task behavior now responds
+strongly to both levers; the binding constraint is saturated commands. The
+next proposal targets that directly (correction-augmented chunks, saturation-
+aware training, or temporal ensembling), per the pre-registered stop.
+
 
 ## Addendum (2026-08-04): mujoco environment standardization
 

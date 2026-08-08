@@ -350,6 +350,18 @@ oracle_distillation/correction_gates/faf13e95b8caa2e8/report.json`; detailed
 record: `notes/dagger-correction-gate.md`. The complete suite passes 130
 tests.
 
+### Tiny-lane closure and chunked promotion (2026-08-03)
+
+Per `notes/chunked-promotion-proposal.md` the tiny lane closed and the
+Phase-8 chunked rung ran. The non-promoting probe of the blocked correction
+checkpoint returned `behavior_moved` (18.5 mm lift, safety regression
+flagged; `correction_probes/63e2717b530a2cf0`). The chunk-horizon ladder
+(H = 10/30/90, nominal rows only) returned `closed_loop_not_resolved`, with
+the H=90 candidate achieving the first learned strict bilateral grasp and a
+60.7 mm lift before `safety_invalidation` from command saturation
+(`chunked_gates/591f0686e94d27fd`). Command saturation is now the binding
+constraint for the next proposal. The complete suite passes 138 tests.
+
 ## Addendum (2026-08-04): mujoco environment standardization
 
 Some artifacts cited above were produced between 2026-08-02 19:03 and

@@ -22,8 +22,10 @@ from so_arm101_v2.simulation.clone_policy import OracleCloneCheckpointPolicy
 from so_arm101_v2.simulation.correction import (
     DAGGER_CORRECTION_SITES,
     CorrectionSite,
+    NonPromotableDiagnosticClonePolicy,
     load_oracle_corrections,
     resolve_correction_gate_status,
+    resolve_correction_probe_status,
     run_correction_gate,
 )
 from so_arm101_v2.simulation.privileged import (
@@ -444,6 +446,79 @@ def test_correction_gate_rejects_mismatched_baseline_or_inducing_checkpoint(
             tmp_path / "missing-evaluation.json", tmp_path / "missing-parity.json",
             preflight_path, tmp_path / "gate",
         )
+
+
+def test_correction_probe_resolver_applies_preregistered_rule() -> None:
+    baseline = [
+        {"milestones": ["reach", "first_contact", "released", "retreated"],
+         "maximum_cube_height_gain_m": 0.000159,
+         "safety_counts": {"clipping_frames": 0, "limiting_frames": 0,
+                           "nonfinite_frames": 0, "unsafe_contact_frames": 0}},
+    ] * 3
+    unchanged = [
+        {"milestones": ["reach", "first_contact"],
+         "maximum_cube_height_gain_m": 0.002,
+         "safety_counts": {"clipping_frames": 0, "limiting_frames": 0,
+                           "nonfinite_frames": 0, "unsafe_contact_frames": 0}},
+    ] * 3
+    resolution = resolve_correction_probe_status(unchanged, baseline)
+    assert resolution["status"] == "behavior_unchanged"
+    assert resolution["new_milestones"] == []
+    assert resolution["safety_regressed"] is False
+
+    moved_by_milestone = [dict(unchanged[0], milestones=["reach", "lift_5mm"])] * 3
+    resolution = resolve_correction_probe_status(moved_by_milestone, baseline)
+    assert resolution["status"] == "behavior_moved"
+    assert resolution["new_milestones"] == ["lift_5mm"]
+
+    moved_by_height = [dict(unchanged[0], maximum_cube_height_gain_m=0.0062)] * 3
+    assert resolve_correction_probe_status(moved_by_height, baseline)["status"] == "behavior_moved"
+
+    regressed = [dict(
+        unchanged[0],
+        safety_counts={"clipping_frames": 2, "limiting_frames": 0,
+                       "nonfinite_frames": 0, "unsafe_contact_frames": 0},
+    )] * 3
+    assert resolve_correction_probe_status(regressed, baseline)["safety_regressed"] is True
+    with pytest.raises(ValueError, match="requires probe and baseline"):
+        resolve_correction_probe_status([], baseline)
+
+
+def test_diagnostic_probe_policy_loads_blocked_correction_checkpoint_only(
+    tmp_path: Path,
+) -> None:
+    augmentation = {
+        "manifest_content_sha256": "d" * 64,
+        "collection_digest": "e" * 64,
+        "rows": 4818,
+        "sites": [{"name": "release", "action_index": 419, "rows": 438}],
+        "progress_rule": "deployment_clock_saturating",
+        "normalization": "unchanged_nominal_statistics",
+    }
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    checkpoint = _write_scheduled_checkpoint_pair(
+        blocked, correction_augmentation=augmentation,
+        passed=False, eligible=False,
+    )
+    with pytest.raises(ValueError, match="eligible"):
+        OracleCloneCheckpointPolicy(checkpoint)
+    probe = NonPromotableDiagnosticClonePolicy(checkpoint)
+    assert probe.policy_id == "phase_state_corrections.diagnostic"
+    assert probe.input_dim == 10 and probe.teacher_horizon == 450
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    uncorrected = _write_scheduled_checkpoint_pair(plain, passed=False, eligible=False)
+    with pytest.raises(ValueError, match="correction-augmented"):
+        NonPromotableDiagnosticClonePolicy(uncorrected)
+
+    report_path = blocked / "report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["passed"] = True
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        NonPromotableDiagnosticClonePolicy(checkpoint)
 
 
 def test_checkpoint_promotion_gate_accepts_correction_augmented_scheduled_run(

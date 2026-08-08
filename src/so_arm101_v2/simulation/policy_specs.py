@@ -71,10 +71,22 @@ def _build_torch_checkpoint(spec: PolicySpec) -> Any:
     )
 
 
+def _build_chunked_clone(spec: PolicySpec) -> Any:
+    from so_arm101_v2.simulation.chunked import ChunkedClonePolicy
+
+    return ChunkedClonePolicy(_required_checkpoint(spec))
+
+
 def _build_oracle_clone(spec: PolicySpec) -> Any:
     from so_arm101_v2.simulation.clone_policy import OracleCloneCheckpointPolicy
 
     return OracleCloneCheckpointPolicy(_required_checkpoint(spec))
+
+
+def _build_diagnostic_clone(spec: PolicySpec) -> Any:
+    from so_arm101_v2.simulation.correction import NonPromotableDiagnosticClonePolicy
+
+    return NonPromotableDiagnosticClonePolicy(_required_checkpoint(spec))
 
 
 _POLICY_BUILDERS: dict[str, Callable[[PolicySpec], Any]] = {
@@ -82,7 +94,9 @@ _POLICY_BUILDERS: dict[str, Callable[[PolicySpec], Any]] = {
     "current_pose": _build_current_pose,
     "constant_pose": _build_constant_pose,
     "torch_checkpoint": _build_torch_checkpoint,
+    "chunked_clone": _build_chunked_clone,
     "oracle_clone": _build_oracle_clone,
+    "diagnostic_clone": _build_diagnostic_clone,
 }
 
 

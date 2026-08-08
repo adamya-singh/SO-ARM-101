@@ -99,3 +99,20 @@ def test_crash_during_publish_leaves_no_partial_artifact(tmp_path: Path, monkeyp
         write_immutable_bytes(target, b"payload")
     assert not target.exists()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_delegating_wrappers_preserve_message_prefixes(tmp_path: Path) -> None:
+    from so_arm101_v2.learning.chunked import _write_immutable_bytes as chunked_write
+    from so_arm101_v2.simulation.correction import _write_immutable_bytes as correction_write
+    from so_arm101_v2.simulation.recovery import _write_immutable_bytes as recovery_write
+
+    for writer, prefix in (
+        (chunked_write, "immutable chunked artifact differs"),
+        (correction_write, "immutable correction artifact differs"),
+        (recovery_write, "immutable recovery artifact differs"),
+    ):
+        target = tmp_path / f"{prefix.split()[1]}.bin"
+        writer(target, b"one")
+        writer(target, b"one")
+        with pytest.raises(FileExistsError, match=prefix):
+            writer(target, b"two")

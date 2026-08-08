@@ -489,6 +489,249 @@ def load_oracle_corrections(path: str | Path) -> tuple[dict[str, Any], dict[str,
     return manifest, arrays
 
 
+class NonPromotableDiagnosticClonePolicy:
+    """Load a correction-augmented checkpoint for diagnosis only.
+
+    Validates hash integrity and correction provenance exactly like the
+    promotion path, but deliberately does not require ``passed`` or
+    ``closed_loop_eligible``: the pre-registered probe evaluates a blocked
+    checkpoint to measure behavioral movement, never to promote it.
+    """
+
+    requires_pixels = False
+
+    def __init__(self, checkpoint: str | Path) -> None:
+        try:
+            import torch
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("oracle clone inference requires the 'learn' extra") from exc
+        from so_arm101_v2.learning.oracle_distillation import (
+            OracleCloneKind,
+            build_oracle_clone_model,
+        )
+
+        checkpoint_path = Path(checkpoint)
+        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if payload.get("schema_version") != 1:
+            raise ValueError("unsupported oracle clone checkpoint schema")
+        if OracleCloneKind(payload["model_kind"]) is not OracleCloneKind.PHASE_STATE:
+            raise ValueError("diagnostic probe requires a phase_state checkpoint")
+        self.input_dim = int(payload["input_dim"])
+        self.hidden_width = int(payload.get("hidden_width", 128))
+        if self.input_dim != 10:
+            raise ValueError("diagnostic probe requires the 10-input phase_state schema")
+        report = _load_hashed_json(
+            checkpoint_path.with_name("report.json"), label="diagnostic clone report"
+        )
+        if report["content_sha256"] != payload.get("report_content_sha256"):
+            raise ValueError("diagnostic clone report content hash mismatch")
+        report_correction = report.get("correction_augmentation")
+        if (
+            not isinstance(report_correction, dict)
+            or report_correction != payload.get("correction_augmentation")
+            or report.get("manifest_content_sha256") != payload.get("manifest_content_sha256")
+        ):
+            raise ValueError("diagnostic probe requires a correction-augmented checkpoint")
+        self.kind = OracleCloneKind.PHASE_STATE
+        self.extras_mean = np.asarray(payload["extras_mean"], dtype=np.float32)
+        self.extras_std = np.asarray(payload["extras_std"], dtype=np.float32)
+        self.maximum_delta = np.asarray(payload["maximum_act_delta_per_step"], dtype=np.float32)
+        self.teacher_horizon = int(payload["teacher_horizon"])
+        if self.maximum_delta.shape != (6,) or self.teacher_horizon not in (450, 480):
+            raise ValueError("diagnostic clone checkpoint metadata is malformed")
+        self.report_content_sha256 = report["content_sha256"]
+        self.manifest_content_sha256 = payload["manifest_content_sha256"]
+        self.model = build_oracle_clone_model(self.input_dim, self.hidden_width)
+        self.model.load_state_dict(payload["state_dict"])
+        self.model.eval()
+        self.torch = torch
+        self.action_index = 0
+
+    @property
+    def policy_id(self) -> str:
+        return "phase_state_corrections.diagnostic"
+
+    def reset(self, adapter: Any | None = None) -> None:
+        del adapter
+        self.action_index = 0
+
+    def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
+        del image
+        from so_arm101_v2.learning.oracle_distillation import build_oracle_features
+
+        if adapter is None:
+            raise ValueError("diagnostic clone policy requires a MuJoCo adapter")
+        snapshot = adapter.privileged_state()
+        if np.max(np.abs(snapshot.current_act - np.asarray(current_act, dtype=np.float32))) > 1e-5:
+            raise RuntimeError("adapter state changed during diagnostic clone observation")
+        arrays = {
+            "current_act": snapshot.current_act[None],
+            "cube_position": snapshot.cube_position[None],
+            "progress": np.asarray([
+                min(self.action_index, self.teacher_horizon - 1) / (self.teacher_horizon - 1)
+            ], dtype=np.float32),
+        }
+        features, _, _ = build_oracle_features(
+            self.kind, arrays, extras_mean=self.extras_mean, extras_std=self.extras_std,
+        )
+        with self.torch.inference_mode():
+            normalized_delta = self.model(self.torch.from_numpy(features)).numpy()[0]
+        self.action_index += 1
+        return np.asarray(
+            snapshot.current_act + normalized_delta.astype(np.float32) * self.maximum_delta,
+            dtype=np.float32,
+        )
+
+
+def resolve_correction_probe_status(
+    probe_rollouts: list[Mapping[str, Any]],
+    baseline_rollouts: list[Mapping[str, Any]],
+    *,
+    height_margin_m: float = 0.005,
+) -> dict[str, Any]:
+    """Apply the pre-registered probe decision rule to rollout summaries."""
+    if not probe_rollouts or not baseline_rollouts:
+        raise ValueError("probe resolution requires probe and baseline rollouts")
+    baseline_frontier: set[str] = set()
+    for item in baseline_rollouts:
+        baseline_frontier.update(item["milestones"])
+    probe_milestones: set[str] = set()
+    for item in probe_rollouts:
+        probe_milestones.update(item["milestones"])
+    new_milestones = sorted(probe_milestones - baseline_frontier)
+    baseline_height = max(float(item["maximum_cube_height_gain_m"]) for item in baseline_rollouts)
+    probe_height = max(float(item["maximum_cube_height_gain_m"]) for item in probe_rollouts)
+    behavior_moved = bool(new_milestones) or probe_height >= baseline_height + height_margin_m
+    safety_regressed = any(
+        any(int(value) for value in item["safety_counts"].values()) for item in probe_rollouts
+    )
+    return {
+        "status": "behavior_moved" if behavior_moved else "behavior_unchanged",
+        "new_milestones": new_milestones,
+        "baseline_milestone_frontier": sorted(baseline_frontier),
+        "baseline_max_height_gain_m": baseline_height,
+        "probe_max_height_gain_m": probe_height,
+        "height_margin_m": height_margin_m,
+        "safety_regressed": safety_regressed,
+    }
+
+
+def run_correction_probe(
+    model_path: str | Path,
+    checkpoint: str | Path,
+    baseline_evaluation_path: str | Path,
+    preflight_report_path: str | Path,
+    output_dir: str | Path,
+    *,
+    record_video: bool = True,
+    workers: int | None = None,
+) -> CorrectionGateResult:
+    """Run the pre-registered non-promoting probe of a blocked correction clone."""
+    from .observability import _rollout_summary
+    from .rollout import evaluate_closed_loop
+
+    model_path = Path(model_path).resolve()
+    checkpoint = Path(checkpoint).resolve()
+    output_dir = Path(output_dir)
+    probe_policy = NonPromotableDiagnosticClonePolicy(checkpoint)
+    checkpoint_sha = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    preflight = _load_hashed_json(preflight_report_path, label="preflight report")
+    if (
+        preflight.get("environment_proven") is not True
+        or preflight.get("deterministic") is not True
+        or preflight.get("suite", {}).get("suite_id") != "fixed_pick_place_v3"
+    ):
+        raise ValueError("correction probe requires the passing deterministic v3 preflight")
+    baseline_evaluation = _load_hashed_json(
+        baseline_evaluation_path, label="baseline evaluation"
+    )
+    if (
+        baseline_evaluation.get("environment_proven") is not True
+        or baseline_evaluation.get("deterministic") is not True
+    ):
+        raise ValueError("baseline evaluation provenance mismatch")
+    baseline_nominal = [
+        item for item in baseline_evaluation.get("rollouts", [])
+        if item.get("scenario_id") == "nominal"
+    ]
+    if len(baseline_nominal) != 3:
+        raise ValueError("correction probe requires exactly three baseline nominal repeats")
+
+    identity = {
+        "schema_version": 1,
+        "experiment": "dagger_correction_probe_v1",
+        "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+        "checkpoint_sha256": checkpoint_sha,
+        "training_report_content_sha256": probe_policy.report_content_sha256,
+        "baseline_evaluation_content_sha256": baseline_evaluation["content_sha256"],
+        "preflight_report_content_sha256": preflight["content_sha256"],
+        "decision_rule": {
+            "behavior_moved": (
+                "any probe milestone outside the baseline frontier, or probe maximum "
+                "cube height gain at least 0.005 m above the baseline maximum"
+            ),
+            "height_margin_m": 0.005,
+            "safety_regressed": "any clip/limit/nonfinite/unsafe frame",
+        },
+        "non_promoting": True,
+    }
+    probe_digest = content_sha256(identity)
+    directory = output_dir / "correction_probes" / probe_digest[:16]
+    report_path = directory / "report.json"
+    if report_path.exists():
+        existing = _load_hashed_json(report_path, label="correction probe report")
+        if any(existing.get(name) != value for name, value in identity.items()):
+            raise FileExistsError(f"immutable correction probe differs: {directory}")
+        return CorrectionGateResult(directory, report_path, str(existing["status"]))
+
+    suite = load_simulation_suite("fixed_pick_place_v3")
+    nominal_suite = replace(
+        suite,
+        suite_id="fixed_pick_place_v3.nominal_correction_probe",
+        scenarios=tuple(item for item in suite.scenarios if item.scenario_id == "nominal"),
+        repeats=3,
+    )
+    evaluation = evaluate_closed_loop(
+        model_path,
+        nominal_suite,
+        {probe_policy.policy_id: PolicySpec(kind="diagnostic_clone", checkpoint=str(checkpoint.resolve()))},
+        directory / "evaluation",
+        environment_proven=True,
+        record_video=record_video,
+        workers=workers,
+        provenance={
+            "probe_digest": probe_digest,
+            "checkpoint_sha256": checkpoint_sha,
+            "offline_report_content_sha256": probe_policy.report_content_sha256,
+            "baseline_evaluation_content_sha256": baseline_evaluation["content_sha256"],
+            "preflight_report_content_sha256": preflight["content_sha256"],
+            "non_promoting": True,
+        },
+    )
+    evaluation_report = _load_hashed_json(evaluation.report_json, label="probe evaluation report")
+    probe_rollouts = [_rollout_summary(item) for item in evaluation_report["rollouts"]]
+    baseline_rollouts = [_rollout_summary(item) for item in baseline_nominal]
+    resolution = resolve_correction_probe_status(probe_rollouts, baseline_rollouts)
+    report = {
+        **identity,
+        "probe_digest": probe_digest,
+        "status": resolution["status"],
+        "resolution": resolution,
+        "probe_evaluation_content_sha256": evaluation_report["content_sha256"],
+        "probe_rollouts": probe_rollouts,
+        "baseline_rollouts": baseline_rollouts,
+        "promotion_effect": "none_this_probe_cannot_promote_any_checkpoint",
+        "pre_registered_use": {
+            "behavior_moved": "authorizes correction data in a future chunked-policy data rung",
+            "behavior_unchanged": "defers correction data pending a label-competition redesign",
+        },
+        "claim": "non_promoting_behavioral_diagnostic_of_a_blocked_checkpoint",
+    }
+    report["content_sha256"] = content_sha256(report)
+    write_immutable_json(report_path, report)
+    return CorrectionGateResult(directory, report_path, resolution["status"])
+
+
 def resolve_correction_gate_status(candidate: Mapping[str, Any]) -> str:
     """Validate the single-candidate branch trace and derive the terminal status."""
     state = candidate.get("state")
@@ -749,7 +992,8 @@ def run_correction_gate(
 
 __all__ = [
     "CorrectionGateResult", "CorrectionSite", "DAGGER_CORRECTION_SITES",
-    "OracleCorrectionCollection",
+    "NonPromotableDiagnosticClonePolicy", "OracleCorrectionCollection",
     "capture_dagger_corrections", "load_oracle_corrections",
-    "resolve_correction_gate_status", "run_correction_gate",
+    "resolve_correction_gate_status", "resolve_correction_probe_status",
+    "run_correction_gate", "run_correction_probe",
 ]

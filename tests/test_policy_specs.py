@@ -25,7 +25,7 @@ def test_unknown_kind_raises() -> None:
 
 
 def test_checkpoint_kinds_require_checkpoint() -> None:
-    for kind in ("torch_checkpoint", "oracle_clone"):
+    for kind in ("torch_checkpoint", "chunked_clone", "oracle_clone", "diagnostic_clone"):
         with pytest.raises(ValueError, match="requires a checkpoint path"):
             PolicySpec(kind=kind).build()
 
@@ -48,6 +48,18 @@ def test_pixel_free_builders_construct_and_mark_requires_pixels() -> None:
 
     privileged = build_policy(PolicySpec(kind="privileged_staged"))
     assert privileged.requires_pixels is False
+
+
+def test_policy_classes_declare_requires_pixels() -> None:
+    from so_arm101_v2.simulation.chunked import ChunkedClonePolicy
+    from so_arm101_v2.simulation.clone_policy import OracleCloneCheckpointPolicy
+    from so_arm101_v2.simulation.correction import NonPromotableDiagnosticClonePolicy
+    from so_arm101_v2.simulation.privileged import PrivilegedStagedController
+
+    assert ChunkedClonePolicy.requires_pixels is False
+    assert OracleCloneCheckpointPolicy.requires_pixels is False
+    assert NonPromotableDiagnosticClonePolicy.requires_pixels is False
+    assert PrivilegedStagedController.requires_pixels is False
 
 
 def test_torch_checkpoint_requires_pixels_depends_on_kind(tmp_path) -> None:

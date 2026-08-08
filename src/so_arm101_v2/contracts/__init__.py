@@ -12,6 +12,7 @@ from .coordinates import (
     MUJOCO_JOINT_LOW,
     act_to_mujoco_qpos,
     clip_mujoco_qpos,
+    effective_safe_act_bounds,
     mujoco_qpos_to_act,
 )
 from .task import (
@@ -72,6 +73,7 @@ __all__ = [
     "act_to_mujoco_qpos",
     "act_to_physical_normalized",
     "clip_mujoco_qpos",
+    "effective_safe_act_bounds",
     "evaluate_task_step",
     "evaluate_physical_command",
     "evaluate_pick_place_step",

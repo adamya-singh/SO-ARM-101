@@ -357,6 +357,130 @@ def evaluate_recovery_anchor_starts(
     return report_path
 
 
+def evaluate_policy_anchor_starts(
+    model_path: str | Path,
+    oracle_manifest: str | Path,
+    recovery_manifest_path: str | Path,
+    checkpoint: str | Path,
+    output_dir: str | Path,
+) -> Path:
+    """Anchor-handoff evaluation for a chunked clone checkpoint.
+
+    Same protocol as :func:`evaluate_recovery_anchor_starts` (validated oracle
+    prefix with one physical perturbation, autonomous student from the anchor
+    onward), generalized to the chunked policy family and with the nominal
+    episode selected explicitly by ``scenario_index`` rather than row order.
+    """
+    from .chunked import ChunkedClonePolicy
+
+    source_manifest, source = load_oracle_demonstrations(oracle_manifest)
+    recovery_manifest, _ = load_oracle_recovery_examples(recovery_manifest_path)
+    if recovery_manifest.get("source_manifest_content_sha256") != source_manifest["content_sha256"]:
+        raise ValueError("recovery and oracle manifests disagree")
+    nominal_mask = np.asarray(source["scenario_index"], dtype=np.int64) == 0
+    nominal_executed = np.asarray(source["executed_act"], dtype=np.float32)[nominal_mask]
+    if nominal_executed.shape[0] != 450:
+        raise ValueError("anchor handoffs require a 450-row nominal episode")
+    checkpoint = Path(checkpoint)
+    model_path = Path(model_path).resolve()
+    policy_probe = ChunkedClonePolicy(checkpoint)
+    identity = {
+        "schema_version": 1,
+        "experiment": "policy_anchor_handoff_evaluation_v1",
+        "policy_kind": "chunked_clone",
+        "policy_id": policy_probe.policy_id,
+        "chunk_horizon": int(policy_probe.chunk_horizon),
+        "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+        "checkpoint_report_content_sha256": policy_probe.report_content_sha256,
+        "oracle_manifest_content_sha256": source_manifest["content_sha256"],
+        "recovery_manifest_content_sha256": recovery_manifest["content_sha256"],
+        "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+    }
+    digest = content_sha256(identity)
+    directory = Path(output_dir) / "policy_anchor_evaluations" / digest[:16]
+    report_path = directory / "report.json"
+    if report_path.exists():
+        existing = json.loads(report_path.read_text(encoding="utf-8"))
+        stated = existing.get("content_sha256")
+        body = dict(existing)
+        body.pop("content_sha256", None)
+        if stated != content_sha256(body) or any(existing.get(k) != v for k, v in identity.items()):
+            raise FileExistsError(f"immutable policy anchor evaluation differs: {directory}")
+        return report_path
+
+    suite = load_simulation_suite("fixed_pick_place_v3")
+    scenario = next(item for item in suite.scenarios if item.scenario_id == "nominal")
+    contract = load_pick_place_contract(suite.task_contract)
+    results: list[dict[str, Any]] = []
+    for anchor in PHASE_WIDE_RECOVERY_ANCHORS:
+        adapter = MujocoTaskAdapter(model_path)
+        policy = ChunkedClonePolicy(checkpoint)
+        state = PickPlaceEvaluationState()
+        evaluation = None
+        counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
+        events: set[str] = set()
+        maximum_height = 0.0
+        first_student_action = None
+        try:
+            adapter.reset(scenario)
+            policy.action_index = anchor.action_index
+            for action_index in range(450):
+                if action_index < anchor.action_index:
+                    requested = np.asarray(nominal_executed[action_index], dtype=np.float32).copy()
+                    if action_index == anchor.action_index - 1:
+                        requested += np.asarray(anchor.perturbation_act, dtype=np.float32)
+                else:
+                    requested = policy.predict(
+                        np.empty((0,), dtype=np.uint8), adapter.current_act(), adapter,
+                    )
+                    if first_student_action is None:
+                        first_student_action = requested.tolist()
+                command = adapter.apply_policy_command(requested)
+                adapter.advance_control_period()
+                measurement, _ = adapter.pick_place_measurement(
+                    command,
+                    footprint_edge_margin_m=contract.placement.footprint_edge_margin_m,
+                )
+                maximum_height = max(maximum_height, measurement.pickup.cube_height_gain_m)
+                if not state.completed:
+                    state, evaluation = evaluate_pick_place_step(contract, measurement, state)
+                    events.update(event.value for event in evaluation.pickup_events)
+                    events.update(event.value for event in evaluation.events)
+                if action_index >= anchor.action_index:
+                    counts["clip"] += int(measurement.pickup.command_bound_violation)
+                    counts["limit"] += int(measurement.pickup.delta_limiter_activated)
+                    counts["nonfinite"] += int(measurement.pickup.nonfinite_command)
+                    counts["unsafe"] += int(measurement.pickup.unsafe_contact)
+        finally:
+            adapter.close()
+        assert evaluation is not None and first_student_action is not None
+        results.append({
+            "anchor": anchor.name,
+            "action_index": anchor.action_index,
+            "student_actions": 450 - anchor.action_index,
+            "success": bool(evaluation.success),
+            "pickup_completed": "success" in events,
+            "events": sorted(events),
+            "maximum_cube_height_gain_m": maximum_height,
+            "student_safety_counts": counts,
+            "first_student_action": first_student_action,
+        })
+    report = {
+        **identity,
+        "evaluation_digest": digest,
+        "results": results,
+        "passed": all(item["success"] and not any(item["student_safety_counts"].values()) for item in results),
+        "setup": (
+            "validated nominal oracle prefix with one physical perturbation, "
+            "autonomous chunked student from anchor through action 449"
+        ),
+        "claim": "exact_anchor_handoff_diagnostic_not_random_perturbation_robustness",
+    }
+    report["content_sha256"] = content_sha256(report)
+    write_immutable_json(report_path, report)
+    return report_path
+
+
 def scan_oracle_clone_commands(
     oracle_manifest: str | Path,
     recovery_manifest_path: str | Path,
@@ -498,5 +622,6 @@ def scan_oracle_clone_commands(
 __all__ = [
     "OracleRecoveryCollection", "PHASE_WIDE_RECOVERY_ANCHORS", "RecoveryAnchor",
     "capture_phase_wide_recovery_examples", "load_oracle_recovery_examples",
-    "evaluate_recovery_anchor_starts", "scan_oracle_clone_commands",
+    "evaluate_recovery_anchor_starts", "evaluate_policy_anchor_starts",
+    "scan_oracle_clone_commands",
 ]

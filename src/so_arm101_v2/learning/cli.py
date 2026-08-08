@@ -142,6 +142,28 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("artifacts/so_arm101_v2/oracle_distillation"),
     )
     _numerics_flags(oracle)
+    chunked = commands.add_parser("train-chunked")
+    chunked.add_argument("--manifest", type=Path, required=True)
+    chunked.add_argument("--correction-manifest", type=Path)
+    chunked.add_argument("--chunk-horizon", type=int, required=True)
+    chunked.add_argument("--seed", type=int, default=101)
+    chunked.add_argument("--hidden-width", type=int, choices=(128, 256, 512, 1024), default=256)
+    chunked.add_argument("--learning-rate", type=float, default=1e-3)
+    chunked.add_argument("--max-steps", type=int, default=30_000)
+    chunked.add_argument(
+        "--saturation-mode",
+        choices=("none", "feasible_chain_v1", "noise_penalty_v1"),
+        default="none",
+    )
+    chunked.add_argument("--decoder-eta", type=float)
+    chunked.add_argument("--margin-act", type=float)
+    chunked.add_argument("--noise-sigma", type=float)
+    chunked.add_argument("--penalty-weight", type=float)
+    chunked.add_argument(
+        "--output-dir", type=Path,
+        default=Path("artifacts/so_arm101_v2/oracle_distillation"),
+    )
+    _numerics_flags(chunked)
     analysis = commands.add_parser("analyze-oracle")
     analysis.add_argument("--manifest", type=Path, required=True)
     analysis.add_argument("--checkpoint", type=Path, required=True)
@@ -156,6 +178,32 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         _require_pinned_torch()
+        if args.command == "train-chunked":
+            from .chunked import ChunkedCloneConfig, train_chunked_clone
+
+            result = train_chunked_clone(
+                args.manifest, args.output_dir,
+                config=ChunkedCloneConfig(
+                    chunk_horizon=args.chunk_horizon,
+                    seed=args.seed,
+                    hidden_width=args.hidden_width,
+                    learning_rate=args.learning_rate,
+                    max_steps=args.max_steps,
+                    saturation_mode=args.saturation_mode,
+                    decoder_eta=args.decoder_eta,
+                    margin_act=args.margin_act,
+                    noise_sigma=args.noise_sigma,
+                    penalty_weight=args.penalty_weight,
+                ),
+                correction_manifest_path=args.correction_manifest,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(result.report_json)
+            print(
+                f"steps={result.steps} normalized_mse={result.normalized_mse:.10g} "
+                f"max_act_error={result.max_act_error:.10g}"
+            )
+            return 0
         if args.command == "distill-oracle":
             result = distill_oracle_policy(
                 args.manifest, args.output_dir, kind=args.model_kind,
