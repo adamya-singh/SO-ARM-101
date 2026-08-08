@@ -1893,6 +1893,23 @@ strongly to both levers; the binding constraint is saturated commands. The
 next proposal targets that directly (correction-augmented chunks, saturation-
 aware training, or temporal ensembling), per the pre-registered stop.
 
+**Saturation-attribution gate (2026-08-03): FIRST PROMOTED POLICY.** The
+five-candidate factorial (`notes/saturation-attribution-proposal.md`, all
+run to completion, no early stop) ended **`promoted_noise_penalty_only`**:
+the H=90 chunked clone trained on the 450 nominal rows with a
+noise-augmented feasibility hinge (sigma 0.05, weight 1.0, converged penalty
+0.0) **passes the promotion gate — deterministic nominal MuJoCo 3/3,
+full pick-and-place through settle and retreat, zero safety frames** (32.4 mm
+peak lift). Attribution: the soft penalty alone suffices; the hard feasible
+decoder eliminated clipping as designed but failed via measured-pose limiter
+lag plus degraded fit (its pre-registered residual risk); and correction
+data actively hurt chunked training in all three arms (chunk-scale label
+conflict, offline max errors 0.86-1.08). Promoted checkpoint:
+`models/chunked_h90/2b6195d619ab531b`; gate:
+`saturation_gates/1a78ec8affead704`. Authorized next step: broader
+evaluation of the promoted policy only (five-scenario suite, then anchor
+handoffs). The complete suite passes 149 tests.
+
 
 ## Addendum (2026-08-04): mujoco environment standardization
 

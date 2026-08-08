@@ -32,7 +32,7 @@ from .recovery import (
     scan_oracle_clone_commands,
 )
 from .clone_policy import OracleCloneCheckpointPolicy
-from .chunked import run_chunked_gate
+from .chunked import run_chunked_gate, run_saturation_gate
 from .correction import (
     capture_dagger_corrections,
     run_correction_gate,
@@ -136,6 +136,20 @@ def _parser() -> argparse.ArgumentParser:
     )
     probe.add_argument("--no-video", action="store_true")
     probe.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    saturation = commands.add_parser("run-saturation-gate")
+    saturation.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    saturation.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    saturation.add_argument("--oracle-manifest", type=Path, required=True)
+    saturation.add_argument("--correction-manifest", type=Path, required=True)
+    saturation.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    saturation.add_argument("--no-video", action="store_true")
+    saturation.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    saturation.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    saturation.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    saturation.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -269,6 +283,17 @@ def main(argv: list[str] | None = None) -> int:
             print(probe_result.report_json)
             print(f"status={probe_result.status}")
             return 0
+        if args.command == "run-saturation-gate":
+            saturation_result = run_saturation_gate(
+                args.mujoco_model, args.oracle_manifest, args.correction_manifest,
+                args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(saturation_result.report_json)
+            print(f"status={saturation_result.status}")
+            return 0 if saturation_result.status.startswith("promoted_") else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,

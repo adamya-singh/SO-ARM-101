@@ -345,3 +345,337 @@ def run_chunked_gate(
     report["content_sha256"] = content_sha256(report)
     write_immutable_json(report_path, report)
     return ChunkedGateResult(directory, report_path, status)
+
+
+# Promotion-preference order for the saturation-attribution gate: the
+# decoder family first (hard feasibility guarantee), then the penalty family
+# (soft), then unmitigated corrections; within a family, single-ingredient
+# before combined.  All candidates run; the earliest passer promotes.
+SATURATION_CANDIDATE_ORDER = (
+    "feasible_decoder_only",
+    "corrections_and_feasible_decoder",
+    "noise_penalty_only",
+    "corrections_and_noise_penalty",
+    "corrections_only",
+)
+_SATURATION_CANDIDATE_SPECS = {
+    "feasible_decoder_only": ("feasible_chain_v1", False),
+    "corrections_and_feasible_decoder": ("feasible_chain_v1", True),
+    "noise_penalty_only": ("noise_penalty_v1", False),
+    "corrections_and_noise_penalty": ("noise_penalty_v1", True),
+    "corrections_only": ("none", True),
+}
+_SATURATION_FIXED = {
+    "chunk_horizon": 90,
+    "seed": 101,
+    "hidden_width": 256,
+    "learning_rate": 1e-3,
+    "max_steps": 30_000,
+    "decoder_eta": 0.9,
+    "margin_act": 0.002,
+    "noise_sigma": 0.05,
+    "penalty_weight": 1.0,
+}
+
+
+def _saturation_candidate_config(mode: str) -> Any:
+    from so_arm101_v2.learning.chunked import ChunkedCloneConfig
+
+    fixed = _SATURATION_FIXED
+    base = {
+        "chunk_horizon": fixed["chunk_horizon"],
+        "seed": fixed["seed"],
+        "hidden_width": fixed["hidden_width"],
+        "learning_rate": fixed["learning_rate"],
+        "max_steps": fixed["max_steps"],
+    }
+    if mode == "none":
+        return ChunkedCloneConfig(**base)
+    base.update({
+        "saturation_mode": mode,
+        "decoder_eta": fixed["decoder_eta"],
+        "margin_act": fixed["margin_act"],
+    })
+    if mode == "noise_penalty_v1":
+        base.update({
+            "noise_sigma": fixed["noise_sigma"],
+            "penalty_weight": fixed["penalty_weight"],
+        })
+    return ChunkedCloneConfig(**base)
+
+
+def resolve_saturation_gate_status(candidates: list[Mapping[str, Any]]) -> str:
+    """Validate the all-candidates branch trace and derive the status."""
+    if len(candidates) != len(SATURATION_CANDIDATE_ORDER):
+        raise ValueError("saturation gate requires one record per candidate")
+    promoted: str | None = None
+    for candidate, expected_id in zip(candidates, SATURATION_CANDIDATE_ORDER):
+        if candidate.get("candidate_id") != expected_id:
+            raise ValueError("saturation candidate order does not match the registry")
+        state = candidate.get("state")
+        if state not in ("nominal_passed", "nominal_failed"):
+            raise ValueError(f"invalid saturation candidate state {state!r}")
+        if candidate.get("evaluation") is None:
+            raise ValueError("saturation candidate lacks evaluation evidence")
+        if state == "nominal_passed" and promoted is None:
+            promoted = expected_id
+    if promoted is not None:
+        return f"promoted_{promoted}"
+    return "closed_loop_not_resolved"
+
+
+@dataclass(frozen=True)
+class _SaturationCandidateTask:
+    candidate_id: str
+    model_path: str
+    oracle_manifest_path: str
+    correction_manifest_path: str
+    output_dir: str
+    gate_digest: str
+    oracle_manifest_content_sha256: str
+    correction_manifest_content_sha256: str
+    preflight_content_sha256: str
+    record_video: bool
+    eval_workers: int
+    legacy_numerics: bool = False
+
+
+def _saturation_nominal_suite() -> Any:
+    suite = load_simulation_suite("fixed_pick_place_v3")
+    return replace(
+        suite,
+        suite_id="fixed_pick_place_v3.nominal_saturation_gate",
+        scenarios=tuple(item for item in suite.scenarios if item.scenario_id == "nominal"),
+        repeats=3,
+    )
+
+
+def _run_saturation_candidate(task: _SaturationCandidateTask) -> dict[str, Any]:
+    """Train and evaluate one saturation candidate; safe to run in a worker process.
+
+    ``train_chunked_clone`` seeds and pins torch to one thread per call, and all
+    artifacts land in digest-keyed directories, so results are byte-identical
+    whether this runs in-process or in a spawn worker.
+    """
+    from so_arm101_v2.learning.chunked import train_chunked_clone
+
+    from .rollout import evaluate_closed_loop
+
+    output_dir = Path(task.output_dir)
+    mode, use_corrections = _SATURATION_CANDIDATE_SPECS[task.candidate_id]
+    nominal_suite = _saturation_nominal_suite()
+    training = train_chunked_clone(
+        task.oracle_manifest_path,
+        output_dir,
+        config=_saturation_candidate_config(mode),
+        correction_manifest_path=(
+            task.correction_manifest_path if use_corrections else None
+        ),
+        numerics=None if task.legacy_numerics else AUTO,
+    )
+    training_report = _load_hashed_json(
+        training.report_json, label="saturation training report"
+    )
+    probe = ChunkedClonePolicy(training.checkpoint)
+    checkpoint_sha = hashlib.sha256(training.checkpoint.read_bytes()).hexdigest()
+    evaluation_identity = content_sha256({
+        "gate_digest": task.gate_digest,
+        "candidate_id": task.candidate_id,
+        "checkpoint_sha256": checkpoint_sha,
+        "training_report_content_sha256": training_report["content_sha256"],
+        "preflight_report_content_sha256": task.preflight_content_sha256,
+    })
+    evaluation = evaluate_closed_loop(
+        task.model_path,
+        nominal_suite,
+        {probe.policy_id: PolicySpec(kind="chunked_clone", checkpoint=str(training.checkpoint.resolve()))},
+        output_dir / "saturation_gate_evaluations" / evaluation_identity[:16],
+        environment_proven=True,
+        record_video=task.record_video,
+        workers=task.eval_workers,
+        provenance={
+            "gate_digest": task.gate_digest,
+            "candidate_id": task.candidate_id,
+            "checkpoint_sha256": checkpoint_sha,
+            "offline_report_content_sha256": training_report["content_sha256"],
+            "oracle_manifest_content_sha256": task.oracle_manifest_content_sha256,
+            "correction_manifest_content_sha256": task.correction_manifest_content_sha256,
+            "preflight_report_content_sha256": task.preflight_content_sha256,
+        },
+    )
+    evaluation_report = _load_hashed_json(
+        evaluation.report_json, label="saturation evaluation report"
+    )
+    passed = _evaluation_passed(evaluation_report)
+    return {
+        "candidate_id": task.candidate_id,
+        "saturation_mode": mode,
+        "corrections": use_corrections,
+        "state": "nominal_passed" if passed else "nominal_failed",
+        "checkpoint_sha256": checkpoint_sha,
+        "training_report": str(training.report_json.resolve()),
+        "training_report_content_sha256": training_report["content_sha256"],
+        "offline_telemetry": {
+            "normalized_mse": float(training.normalized_mse),
+            "max_act_error": float(training.max_act_error),
+            "steps": int(training.steps),
+            "saturation": training_report.get("saturation"),
+        },
+        "evaluation": {
+            "report": str(evaluation.report_json.resolve()),
+            "content_sha256": evaluation_report["content_sha256"],
+            "passed": passed,
+            "deterministic": bool(evaluation_report["deterministic"]),
+            "rollouts": [_rollout_summary(item) for item in evaluation_report["rollouts"]],
+        },
+    }
+
+
+def run_saturation_gate(
+    model_path: str | Path,
+    oracle_manifest_path: str | Path,
+    correction_manifest_path: str | Path,
+    preflight_report_path: str | Path,
+    output_dir: str | Path,
+    *,
+    record_video: bool = True,
+    workers: int | None = None,
+    numerics: NumericsSpec | None | str = AUTO,
+) -> ChunkedGateResult:
+    """Train and evaluate all five saturation-attribution candidates."""
+    from .correction import load_oracle_corrections
+
+    if isinstance(numerics, str):
+        if numerics != AUTO:
+            raise ValueError(f"unknown numerics request {numerics!r}")
+        numerics = resolve_default_numerics()
+
+    model_path = Path(model_path).resolve()
+    output_dir = Path(output_dir)
+    oracle_manifest, _ = load_oracle_demonstrations(oracle_manifest_path)
+    if (
+        oracle_manifest.get("scenario_ids") != ["nominal"]
+        or int(oracle_manifest.get("teacher_horizon", 0)) != 450
+    ):
+        raise ValueError("saturation gate requires the canonical nominal 450-row oracle capture")
+    correction_manifest, _ = load_oracle_corrections(correction_manifest_path)
+    if (
+        correction_manifest.get("source_manifest_content_sha256")
+        != oracle_manifest["content_sha256"]
+    ):
+        raise ValueError("saturation gate manifests disagree")
+    preflight = _load_hashed_json(preflight_report_path, label="preflight report")
+    if (
+        preflight.get("environment_proven") is not True
+        or preflight.get("deterministic") is not True
+        or preflight.get("suite", {}).get("suite_id") != "fixed_pick_place_v3"
+    ):
+        raise ValueError("saturation gate requires the passing deterministic v3 preflight")
+
+    identity = {
+        "schema_version": 1,
+        "experiment": "chunked_saturation_attribution_gate_v1",
+        "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+        "oracle_manifest_content_sha256": oracle_manifest["content_sha256"],
+        "correction_manifest_content_sha256": correction_manifest["content_sha256"],
+        "preflight_report_content_sha256": preflight["content_sha256"],
+        "candidate_order": list(SATURATION_CANDIDATE_ORDER),
+        "fixed_training_config": dict(_SATURATION_FIXED),
+        "promotion_rule": (
+            "all candidates run; promote the earliest passer in candidate_order "
+            "(decoder family first, then penalty family, then unmitigated "
+            "corrections; single-ingredient before combined within a family)"
+        ),
+        "early_stop": "none_all_candidates_required_for_attribution",
+        "offline_role": "telemetry_only_promotion_by_closed_loop",
+        "pass_rule": "three deterministic nominal successes with zero safety counts",
+    }
+    if numerics is not None:
+        identity["numerics"] = numerics_identity(numerics)
+    gate_digest = content_sha256(identity)
+    directory = output_dir / "saturation_gates" / gate_digest[:16]
+    report_path = directory / "report.json"
+    if report_path.exists():
+        existing = _load_hashed_json(report_path, label="saturation gate report")
+        if any(existing.get(name) != value for name, value in identity.items()):
+            raise FileExistsError(f"immutable saturation gate differs: {directory}")
+        return ChunkedGateResult(directory, report_path, str(existing["status"]))
+
+    if workers is None:
+        workers = 10 if record_video else 15
+    if numerics is not None:
+        # GPU regime: run candidates sequentially in-process (one CUDA
+        # context, one warm inductor cache — trainings are minutes each) and
+        # spend the whole budget on each candidate's CPU eval rollouts.
+        candidate_workers = 1
+        eval_workers = max(1, workers)
+    else:
+        candidate_workers = min(len(SATURATION_CANDIDATE_ORDER), max(1, workers))
+        eval_workers = max(1, workers // candidate_workers) if workers > 1 else 1
+    tasks = [
+        _SaturationCandidateTask(
+            candidate_id=candidate_id,
+            model_path=str(model_path),
+            oracle_manifest_path=str(oracle_manifest_path),
+            correction_manifest_path=str(correction_manifest_path),
+            output_dir=str(output_dir),
+            gate_digest=gate_digest,
+            oracle_manifest_content_sha256=oracle_manifest["content_sha256"],
+            correction_manifest_content_sha256=correction_manifest["content_sha256"],
+            preflight_content_sha256=preflight["content_sha256"],
+            record_video=record_video,
+            eval_workers=eval_workers,
+            legacy_numerics=numerics is None,
+        )
+        for candidate_id in SATURATION_CANDIDATE_ORDER
+    ]
+    if candidate_workers <= 1:
+        candidates = [_run_saturation_candidate(task) for task in tasks]
+    else:
+        pool = ProcessPoolExecutor(
+            max_workers=candidate_workers,
+            mp_context=multiprocessing.get_context("spawn"),
+        )
+        try:
+            futures = [pool.submit(_run_saturation_candidate, task) for task in tasks]
+            # Collect in SATURATION_CANDIDATE_ORDER so the report is
+            # byte-identical to the sequential gate.
+            candidates = [future.result() for future in futures]
+        finally:
+            pool.shutdown(wait=True, cancel_futures=True)
+
+    status = resolve_saturation_gate_status(candidates)
+    report = {
+        **identity,
+        "gate_digest": gate_digest,
+        "status": status,
+        "next_action": (
+            "broader_evaluation_of_promoted_policy_only"
+            if status.startswith("promoted_")
+            else "stop_and_write_new_proposal_replanning_cadence_or_smaller_final_chunk"
+        ),
+        "attribution": {
+            item["candidate_id"]: item["state"] == "nominal_passed" for item in candidates
+        },
+        "candidates": candidates,
+        "training_runs_started": len(candidates),
+        "nominal_evaluations_started": len(candidates),
+        "partial_milestones_are_non_promoting": True,
+        "broader_evaluation_run": False,
+        "claim": "saturation_attribution_decision_not_deployment_success",
+    }
+    report["content_sha256"] = content_sha256(report)
+    write_immutable_json(report_path, report)
+    return ChunkedGateResult(directory, report_path, status)
+
+
+__all__ = [
+    "CHUNK_HORIZON_LADDER",
+    "ChunkedClonePolicy",
+    "ChunkedGateResult",
+    "SATURATION_CANDIDATE_ORDER",
+    "resolve_chunked_gate_status",
+    "resolve_saturation_gate_status",
+    "run_chunked_gate",
+    "run_saturation_gate",
+]

@@ -361,6 +361,18 @@ the H=90 candidate achieving the first learned strict bilateral grasp and a
 60.7 mm lift before `safety_invalidation` from command saturation
 (`chunked_gates/591f0686e94d27fd`). Command saturation is now the binding
 constraint for the next proposal. The complete suite passes 138 tests.
+### Saturation-attribution gate: first promoted policy (2026-08-03)
+
+The five-candidate factorial (`notes/saturation-attribution-proposal.md`)
+ended **`promoted_noise_penalty_only`**: the H=90 chunked clone with a
+noise-augmented feasibility hinge passes deterministic nominal MuJoCo 3/3 —
+full pick-and-place through settle and retreat with zero safety frames, the
+first learned policy promotion in this repository. The hard feasible decoder
+failed via measured-pose limiter lag; correction data hurt chunked training
+in every arm. Checkpoint `models/chunked_h90/2b6195d619ab531b`; gate
+`saturation_gates/1a78ec8affead704`. Next: broader evaluation of the
+promoted policy only. The complete suite passes 149 tests.
+
 
 ## Addendum (2026-08-04): mujoco environment standardization
 
