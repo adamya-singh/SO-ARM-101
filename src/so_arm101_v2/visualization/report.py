@@ -24,7 +24,11 @@ from so_arm101_v2.contracts import (
     load_physical_calibration,
 )
 from so_arm101_v2.data import FutureStateSample
-from so_arm101_v2.data._serialization import canonical_json_bytes, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    canonical_json_bytes,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 
 
 @dataclass(frozen=True)
@@ -45,12 +49,9 @@ def _png_data_uri(image: np.ndarray) -> str:
 
 
 def _write_immutable(path: Path, content: bytes) -> None:
-    if path.exists():
-        if path.read_bytes() != content:
-            raise FileExistsError(f"immutable report already differs: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
+    write_immutable_bytes(
+        path, content, conflict_message=f"immutable report already differs: {path}"
+    )
 
 
 def _trajectory_svg(values: np.ndarray, width: int = 230, height: int = 54) -> str:

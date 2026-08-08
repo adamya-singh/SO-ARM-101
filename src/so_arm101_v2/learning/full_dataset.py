@@ -23,6 +23,7 @@ from so_arm101_v2.contracts import ACT_DATASET_HIGH, ACT_DATASET_LOW, JOINT_NAME
 from so_arm101_v2.data._serialization import (
     canonical_json_bytes,
     content_sha256,
+    write_immutable_bytes,
     write_immutable_json,
 )
 from so_arm101_v2.data.samples import _episode_video_offsets
@@ -643,7 +644,11 @@ def _train_one(
     }
     buffer = io.BytesIO()
     torch.save(checkpoint, buffer)
-    (directory / "model.pt").write_bytes(buffer.getvalue())
+    write_immutable_bytes(
+        directory / "model.pt",
+        buffer.getvalue(),
+        conflict_message=f"immutable small-model checkpoint differs: {directory / 'model.pt'}",
+    )
     report: dict[str, Any] = {
         "schema_version": 1,
         "claim": "lead3_train_and_validation_only_no_test_evaluation",
@@ -752,9 +757,9 @@ def train_small_models(
     write_immutable_json(directory / "comparison.json", report)
     html = _comparison_html(report).encode("utf-8")
     html_path = directory / "comparison.html"
-    if html_path.exists() and html_path.read_bytes() != html:
-        raise FileExistsError(f"immutable comparison HTML differs: {html_path}")
-    html_path.write_bytes(html)
+    write_immutable_bytes(
+        html_path, html, conflict_message=f"immutable comparison HTML differs: {html_path}"
+    )
     return SmallModelComparison(directory, directory / "comparison.json", html_path, runs, cache.dataset_digest)
 
 
@@ -935,9 +940,9 @@ def evaluate_image_ablation(
         f"<pre>{json.dumps(evidence, indent=2, sort_keys=True)}</pre></body></html>"
     ).encode("utf-8")
     html_path = destination.with_suffix(".html")
-    if html_path.exists() and html_path.read_bytes() != html:
-        raise FileExistsError(f"immutable image-ablation HTML differs: {html_path}")
-    html_path.write_bytes(html)
+    write_immutable_bytes(
+        html_path, html, conflict_message=f"immutable image-ablation HTML differs: {html_path}"
+    )
     return report
 
 

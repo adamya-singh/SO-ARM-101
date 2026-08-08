@@ -18,7 +18,11 @@ from so_arm101_v2.contracts import (
     evaluate_pick_place_step,
     load_pick_place_contract,
 )
-from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    content_sha256,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 from so_arm101_v2.data.resources import read_resource_bytes
 
 from .adapter import MujocoTaskAdapter
@@ -102,12 +106,9 @@ def _select_scenarios(suite: SimulationSuite, selection: str) -> tuple[Simulatio
 
 
 def _write_immutable_bytes(path: Path, data: bytes) -> None:
-    if path.exists():
-        if path.read_bytes() != data:
-            raise FileExistsError(f"immutable oracle artifact differs: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    write_immutable_bytes(
+        path, data, conflict_message=f"immutable oracle artifact differs: {path}"
+    )
 
 
 def capture_oracle_demonstrations(

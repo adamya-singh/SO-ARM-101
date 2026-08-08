@@ -17,7 +17,11 @@ from so_arm101_v2.contracts import (
     load_pick_place_contract,
     load_task_contract,
 )
-from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    content_sha256,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 
 from .adapter import MujocoTaskAdapter
 from .privileged import PrivilegedStagedController
@@ -523,9 +527,9 @@ def _write_evaluation_html(path: Path, payload: Mapping[str, Any]) -> None:
         "<table><tr><th>policy</th><th>scenario</th><th>repeat</th><th>success</th><th>failure</th></tr>"
         + rows + "</table></body></html>"
     ).encode("utf-8")
-    if path.exists() and path.read_bytes() != html:
-        raise FileExistsError(f"immutable evaluation HTML differs: {path}")
-    path.write_bytes(html)
+    write_immutable_bytes(
+        path, html, conflict_message=f"immutable evaluation HTML differs: {path}"
+    )
 
 
 def evaluate_closed_loop(

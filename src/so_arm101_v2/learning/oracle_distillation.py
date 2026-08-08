@@ -14,7 +14,11 @@ from typing import Any, Mapping
 import numpy as np
 
 from so_arm101_v2.contracts import JOINT_NAMES, evaluate_physical_command, load_task_contract
-from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    content_sha256,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 from so_arm101_v2.simulation.oracle import load_oracle_demonstrations
 from so_arm101_v2.simulation.recovery import load_oracle_recovery_examples
 
@@ -293,12 +297,9 @@ def build_oracle_features(
 
 
 def _write_immutable_bytes(path: Path, data: bytes) -> None:
-    if path.exists():
-        if path.read_bytes() != data:
-            raise FileExistsError(f"immutable oracle model artifact differs: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    write_immutable_bytes(
+        path, data, conflict_message=f"immutable oracle model artifact differs: {path}"
+    )
 
 
 def _svg_series(target: np.ndarray, prediction: np.ndarray, boundaries: list[int]) -> str:

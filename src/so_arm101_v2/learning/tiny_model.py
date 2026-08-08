@@ -14,7 +14,11 @@ import numpy as np
 
 from so_arm101_v2.contracts import ACT_DATASET_HIGH, ACT_DATASET_LOW, JOINT_NAMES
 from so_arm101_v2.data import SampleReference, load_future_state_samples
-from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    content_sha256,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 
 if TYPE_CHECKING:
     from so_arm101_v2.data import DatasetInventory, FutureStateSample
@@ -146,12 +150,9 @@ def _build_model(torch: Any, output_bias: np.ndarray) -> Any:
 
 
 def _write_immutable(path: Path, data: bytes) -> None:
-    if path.exists():
-        if path.read_bytes() != data:
-            raise FileExistsError(f"immutable tiny-model artifact differs: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    write_immutable_bytes(
+        path, data, conflict_message=f"immutable tiny-model artifact differs: {path}"
+    )
 
 
 def _image_uri(sample: "FutureStateSample") -> str:

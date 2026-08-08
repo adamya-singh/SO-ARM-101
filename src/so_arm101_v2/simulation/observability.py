@@ -11,7 +11,11 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
+from so_arm101_v2.data._serialization import (
+    content_sha256,
+    write_immutable_bytes,
+    write_immutable_json,
+)
 
 from .adapter import MujocoTaskAdapter, PrivilegedStateSnapshot
 from .oracle import load_oracle_demonstrations
@@ -59,12 +63,9 @@ class ObservabilityGateResult:
 
 
 def _write_immutable_bytes(path: Path, data: bytes) -> None:
-    if path.exists():
-        if path.read_bytes() != data:
-            raise FileExistsError(f"immutable observability artifact differs: {path}")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    write_immutable_bytes(
+        path, data, conflict_message=f"immutable observability artifact differs: {path}"
+    )
 
 
 def _snapshot_arrays(snapshot: PrivilegedStateSnapshot) -> dict[str, np.ndarray]:
