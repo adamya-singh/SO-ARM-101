@@ -8,7 +8,6 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -34,11 +33,11 @@ from .recovery import (
 from .clone_policy import OracleCloneCheckpointPolicy
 from .broader import run_broader_evaluation
 from .scaling import run_scaling_gate
-from .precision import run_precision_stage
-from .horizon import run_horizon_gate
-from .clamp import run_clamp_gate
 from .chunked import run_chunked_gate, run_saturation_gate
 from .margins import analyze_pick_place_margins
+from .clamp import run_clamp_gate
+from .horizon import run_horizon_gate
+from .precision import run_precision_stage
 from .correction import (
     capture_dagger_corrections,
     run_correction_gate,
@@ -136,31 +135,6 @@ def _parser() -> argparse.ArgumentParser:
     chunked.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     chunked.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     chunked.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
-    probe = commands.add_parser("run-correction-probe")
-    probe.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
-    probe.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
-    probe.add_argument("--checkpoint", type=Path, required=True)
-    probe.add_argument("--baseline-evaluation", type=Path, required=True)
-    probe.add_argument(
-        "--preflight-report", type=Path,
-        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
-    )
-    probe.add_argument("--no-video", action="store_true")
-    probe.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
-    saturation = commands.add_parser("run-saturation-gate")
-    saturation.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
-    saturation.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
-    saturation.add_argument("--oracle-manifest", type=Path, required=True)
-    saturation.add_argument("--correction-manifest", type=Path, required=True)
-    saturation.add_argument(
-        "--preflight-report", type=Path,
-        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
-    )
-    saturation.add_argument("--no-video", action="store_true")
-    saturation.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
-    saturation.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
-    saturation.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
-    saturation.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     broader = commands.add_parser("run-broader-evaluation")
     broader.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     broader.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -177,10 +151,6 @@ def _parser() -> argparse.ArgumentParser:
     broader.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     broader.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     broader.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
-    margins_parser = commands.add_parser("analyze-margins")
-    margins_parser.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
-    margins_parser.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
-    margins_parser.add_argument("--evaluation-report", type=Path, required=True)
     scaling = commands.add_parser("run-scaling-gate")
     scaling.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     scaling.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -243,6 +213,35 @@ def _parser() -> argparse.ArgumentParser:
     clamp.add_argument("--no-video", action="store_true")
     clamp.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     scaling.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    margins_parser = commands.add_parser("analyze-margins")
+    margins_parser.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    margins_parser.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    margins_parser.add_argument("--evaluation-report", type=Path, required=True)
+    saturation = commands.add_parser("run-saturation-gate")
+    saturation.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    saturation.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    saturation.add_argument("--oracle-manifest", type=Path, required=True)
+    saturation.add_argument("--correction-manifest", type=Path, required=True)
+    saturation.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    saturation.add_argument("--no-video", action="store_true")
+    saturation.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    saturation.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    saturation.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    saturation.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    probe = commands.add_parser("run-correction-probe")
+    probe.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    probe.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    probe.add_argument("--checkpoint", type=Path, required=True)
+    probe.add_argument("--baseline-evaluation", type=Path, required=True)
+    probe.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    probe.add_argument("--no-video", action="store_true")
+    probe.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -356,37 +355,6 @@ def main(argv: list[str] | None = None) -> int:
             print(gate_result.report_json)
             print(f"status={gate_result.status}")
             return 0 if gate_result.status == "passed" else 2
-        if args.command == "run-chunked-gate":
-            chunked_result = run_chunked_gate(
-                args.mujoco_model, args.oracle_manifest, args.preflight_report,
-                args.output_dir, record_video=not args.no_video,
-                workers=args.workers,
-                numerics=_resolve_cli_numerics(args),
-            )
-            print(chunked_result.report_json)
-            print(f"status={chunked_result.status}")
-            return 0 if chunked_result.status.startswith("passed_") else 2
-        if args.command == "run-correction-probe":
-            probe_result = run_correction_probe(
-                args.mujoco_model, args.checkpoint, args.baseline_evaluation,
-                args.preflight_report, args.output_dir,
-                record_video=not args.no_video,
-                workers=args.workers,
-            )
-            print(probe_result.report_json)
-            print(f"status={probe_result.status}")
-            return 0
-        if args.command == "run-saturation-gate":
-            saturation_result = run_saturation_gate(
-                args.mujoco_model, args.oracle_manifest, args.correction_manifest,
-                args.preflight_report, args.output_dir,
-                record_video=not args.no_video,
-                workers=args.workers,
-                numerics=_resolve_cli_numerics(args),
-            )
-            print(saturation_result.report_json)
-            print(f"status={saturation_result.status}")
-            return 0 if saturation_result.status.startswith("promoted_") else 2
         if args.command == "run-broader-evaluation":
             broader_result = run_broader_evaluation(
                 args.mujoco_model, args.checkpoint, args.gate_report,
@@ -399,13 +367,6 @@ def main(argv: list[str] | None = None) -> int:
             print(broader_result.report_json)
             print(f"status={broader_result.status}")
             return 0 if broader_result.status.endswith("_robust") else 2
-        if args.command == "analyze-margins":
-            margins_path = analyze_pick_place_margins(
-                args.evaluation_report, args.output_dir,
-                mujoco_model_path=args.mujoco_model,
-            )
-            print(margins_path)
-            return 0
         if args.command == "run-scaling-gate":
             scaling_result = run_scaling_gate(
                 args.mujoco_model, args.capture_manifest,
@@ -463,6 +424,44 @@ def main(argv: list[str] | None = None) -> int:
             print(clamp_result.report_json)
             print(f"status={clamp_result.status}")
             return 0 if clamp_result.status == "clamp_promoted_robust" else 2
+        if args.command == "analyze-margins":
+            margins_path = analyze_pick_place_margins(
+                args.evaluation_report, args.output_dir,
+                mujoco_model_path=args.mujoco_model,
+            )
+            print(margins_path)
+            return 0
+        if args.command == "run-saturation-gate":
+            saturation_result = run_saturation_gate(
+                args.mujoco_model, args.oracle_manifest, args.correction_manifest,
+                args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(saturation_result.report_json)
+            print(f"status={saturation_result.status}")
+            return 0 if saturation_result.status.startswith("promoted_") else 2
+        if args.command == "run-chunked-gate":
+            chunked_result = run_chunked_gate(
+                args.mujoco_model, args.oracle_manifest, args.preflight_report,
+                args.output_dir, record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(chunked_result.report_json)
+            print(f"status={chunked_result.status}")
+            return 0 if chunked_result.status.startswith("passed_") else 2
+        if args.command == "run-correction-probe":
+            probe_result = run_correction_probe(
+                args.mujoco_model, args.checkpoint, args.baseline_evaluation,
+                args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+            )
+            print(probe_result.report_json)
+            print(f"status={probe_result.status}")
+            return 0
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,

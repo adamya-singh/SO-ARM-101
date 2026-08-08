@@ -201,7 +201,6 @@ reasonable and what observation motivated it.
   After adding recovery and bounded-observability capture, feature, checkpoint,
   branching, evaluation, and hash-validation tests, the complete suite passes
   119 tests.
-
 - **DAgger correction tranche (2026-08-02/03): CAPTURE PROVEN, GATE
   `blocked_offline`.** The planned timeline-compressed corrections were
   physically infeasible at all 11 sites (the nominal oracle itself acquires
@@ -222,7 +221,6 @@ reasonable and what observation motivated it.
   `artifacts/so_arm101_v2/oracle_distillation/correction_gates/
   faf13e95b8caa2e8/report.json`; record: `notes/dagger-correction-gate.md`.
   The complete suite passes 130 tests.
-
 - **Phase-8 promotion experiments (2026-08-03): FIRST LEARNED STRICT GRASP.**
   Under the pre-registered promotion proposal
   (`notes/chunked-promotion-proposal.md`) the tiny lane closed with a
@@ -292,6 +290,51 @@ every post-contact phase), but the single authorized fixed-capacity retrain
 terminated `blocked_offline` at a `1.1e-4` nominal MSE floor against the
 unchanged `1e-6` gate, so no correction-augmented policy ever reached
 closed-loop evaluation (`notes/dagger-correction-gate.md`).
+
+Established across the four rejected branches: near-exact nominal fit at
+width 256 is incompatible with any data addition tried so far, and data
+additions that pass offline have not fixed feedback control.
+
+**Decision (2026-08-03): the tiny-model lane is closed and the project
+promotes to the Phase-8 chunked-action rung**, per the pre-registered
+proposal in `notes/chunked-promotion-proposal.md`: one non-promoting
+diagnostic probe of the blocked correction checkpoint to close the lane with
+an answer, then an ascending chunk-horizon ladder (H = 10/30/90, nominal
+data only, unchanged features and optimizer) gated solely by deterministic
+nominal MuJoCo 3/3 with zero safety frames. The near-exact `1e-6` offline
+memorization gate is retired as proven non-predictive; offline metrics
+become telemetry. Vision, physical deployment, and RL remain unauthorized.
+
+**Both experiments completed the same day.** The probe returned
+`behavior_moved` with `safety_regressed`: the blocked correction clone lifts
+the cube `18.5 mm` (116x the baseline) with `cube_supported`/`lift_10mm`
+milestones, at 326 clipped and 27 unsafe frames per rollout
+(`correction_probes/63e2717b530a2cf0`). The chunked ladder returned
+`closed_loop_not_resolved`: H=90 produced the repository's **first learned
+strict bilateral grasp** and a `60.7 mm` lift through every lift milestone,
+but all three horizons failed on `safety_invalidation` from command
+saturation (`chunked_gates/591f0686e94d27fd`). Task behavior now responds
+strongly to both levers; the binding constraint is saturated commands. The
+next proposal targets that directly (correction-augmented chunks, saturation-
+aware training, or temporal ensembling), per the pre-registered stop.
+
+**Saturation-attribution gate (2026-08-03): FIRST PROMOTED POLICY.** The
+five-candidate factorial (`notes/saturation-attribution-proposal.md`, all
+run to completion, no early stop) ended **`promoted_noise_penalty_only`**:
+the H=90 chunked clone trained on the 450 nominal rows with a
+noise-augmented feasibility hinge (sigma 0.05, weight 1.0, converged penalty
+0.0) **passes the promotion gate — deterministic nominal MuJoCo 3/3,
+full pick-and-place through settle and retreat, zero safety frames** (32.4 mm
+peak lift). Attribution: the soft penalty alone suffices; the hard feasible
+decoder eliminated clipping as designed but failed via measured-pose limiter
+lag plus degraded fit (its pre-registered residual risk); and correction
+data actively hurt chunked training in all three arms (chunk-scale label
+conflict, offline max errors 0.86-1.08). Promoted checkpoint:
+`models/chunked_h90/2b6195d619ab531b`; gate:
+`saturation_gates/1a78ec8affead704`. Authorized next step: broader
+evaluation of the promoted policy only (five-scenario suite, then anchor
+handoffs). The complete suite passes 149 tests.
+
 **Broader-evaluation tranche (2026-08-04): `starts_not_resolved`, and the
 memorizer-to-generalizer trade is measured.** Under the pinned environment
 (promotion re-established by gate `46de62c4f6d1b78f`), the promoted policy
@@ -339,7 +382,6 @@ because they should govern every later rung):
 6. *Pre-registration kept every one of these findings publishable-honest*:
    each gate's candidates, thresholds, promotion rule, and stop conditions
    were immutable before the first training step.
-
 
 ---
 
@@ -1913,50 +1955,6 @@ Before implementing or launching something substantial, ask:
 If those questions have clear answers, proceed. If they do not, the next step
 is usually to inspect, simplify, or instrument the system—not to launch a
 larger training run.
-
-Established across the four rejected branches: near-exact nominal fit at
-width 256 is incompatible with any data addition tried so far, and data
-additions that pass offline have not fixed feedback control.
-
-**Decision (2026-08-03): the tiny-model lane is closed and the project
-promotes to the Phase-8 chunked-action rung**, per the pre-registered
-proposal in `notes/chunked-promotion-proposal.md`: one non-promoting
-diagnostic probe of the blocked correction checkpoint to close the lane with
-an answer, then an ascending chunk-horizon ladder (H = 10/30/90, nominal
-data only, unchanged features and optimizer) gated solely by deterministic
-nominal MuJoCo 3/3 with zero safety frames. The near-exact `1e-6` offline
-memorization gate is retired as proven non-predictive; offline metrics
-become telemetry. Vision, physical deployment, and RL remain unauthorized.
-
-**Both experiments completed the same day.** The probe returned
-`behavior_moved` with `safety_regressed`: the blocked correction clone lifts
-the cube `18.5 mm` (116x the baseline) with `cube_supported`/`lift_10mm`
-milestones, at 326 clipped and 27 unsafe frames per rollout
-(`correction_probes/63e2717b530a2cf0`). The chunked ladder returned
-`closed_loop_not_resolved`: H=90 produced the repository's **first learned
-strict bilateral grasp** and a `60.7 mm` lift through every lift milestone,
-but all three horizons failed on `safety_invalidation` from command
-saturation (`chunked_gates/591f0686e94d27fd`). Task behavior now responds
-strongly to both levers; the binding constraint is saturated commands. The
-next proposal targets that directly (correction-augmented chunks, saturation-
-aware training, or temporal ensembling), per the pre-registered stop.
-
-**Saturation-attribution gate (2026-08-03): FIRST PROMOTED POLICY.** The
-five-candidate factorial (`notes/saturation-attribution-proposal.md`, all
-run to completion, no early stop) ended **`promoted_noise_penalty_only`**:
-the H=90 chunked clone trained on the 450 nominal rows with a
-noise-augmented feasibility hinge (sigma 0.05, weight 1.0, converged penalty
-0.0) **passes the promotion gate — deterministic nominal MuJoCo 3/3,
-full pick-and-place through settle and retreat, zero safety frames** (32.4 mm
-peak lift). Attribution: the soft penalty alone suffices; the hard feasible
-decoder eliminated clipping as designed but failed via measured-pose limiter
-lag plus degraded fit (its pre-registered residual risk); and correction
-data actively hurt chunked training in all three arms (chunk-scale label
-conflict, offline max errors 0.86-1.08). Promoted checkpoint:
-`models/chunked_h90/2b6195d619ab531b`; gate:
-`saturation_gates/1a78ec8affead704`. Authorized next step: broader
-evaluation of the promoted policy only (five-scenario suite, then anchor
-handoffs). The complete suite passes 149 tests.
 
 
 ## Addendum (2026-08-04): mujoco environment standardization

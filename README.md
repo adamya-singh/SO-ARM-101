@@ -33,15 +33,25 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 | Sim demonstration data | 50 randomized-block episodes + 50 fixed-block episodes |
 | Experiment scale | 129 local `wandb` run summaries tracked in this repo |
 | Strongest supported later PPO summary | `reward/batch_avg = -8.49` at 21,650 episodes, with `contact_rate = 12.8%`, `sustained_contact_rate = 6.9%`, and `grasp_rate = 2.6%` |
-| Active rebuild status | Simulator/oracle proven; offline and fixed-action replay pass, but the original, recovery, and bounded richer-observation clones fail autonomous control |
-| Main limitation | The system clearly improved shaped behavior and contact/grasp emergence, but did not yet reach robust task completion |
+| Active rebuild status | The horizon-alignment tranche completed (2026-08-06, `horizon_gates/704b7a9574e559db`, `horizon_not_resolved`): the 480-action hold-tail teacher **eliminated past-horizon violations in all three seeds** (and physically proved the tail safe), but seeds land 9/9/12 of 15 — the remaining gripper envelope-grazing is **in-distribution over-squeeze** (22/35 findings in `set_down`, 6 in `traverse`: the teacher commands the gripper at its floor bound ~0.0005 for grip force, and imitation overshoot dives to −0.002…−0.02, below the floor). The gripper-clamp gate (`clamp_gates/f63104b1f82cadfc`, eval-only) then delivered the **first 15/15 zero-safety Stage A passes** (seeds 101 and 202); seed 303 retains exactly its three pre-identified release-speed delta frames (`clamp_not_resolved` under the strict all-seeds rule). Per pre-registration the **vision rung now begins**, carrying the validated gripper clamp |
+| Vision + randomization (exploratory lane, 2026-08-06) | Vision v0 validated the pixels pipeline end to end (frames-sidecar capture, minibatched conv training, live-frame closed-loop eval) with deliberately-bad results (0–3/15; black-image ablation shows partial pixel use). The scenario-randomization engine then produced the project's **first held-out generalization measurement**: state+clamp trained on 25 full-episode-screened random cube poses scores **18/30 on a held-out suite from a different generator seed** — perfectly bimodal (6 scenarios 3/3 with zero safety frames, 4 scenarios 0/3 deterministic; the two nearest-y poses fail). Vision on the same data: 0/30. Notes: `notes/vision-rung-notebook.md`; evals under `randomized_v1/randomized_explorations/{fd18a476910d7732,6ecb2a418dfe405e}` |
+| Data-scaling curve (exploratory lane, 2026-08-07) | Overnight sweep over training-set size (50/100/200/400 full-episode-screened episodes, frozen held-out benchmark of 30 rollouts): **state+clamp reaches 30/30 with zero safety frames at 400 episodes** — the first perfect held-out generalization score — after plateauing at 27/30 through 50–200 (data coverage, no recipe change). Vision at fixed 20k steps is non-monotone (6/14/9/18 of 30); a compute probe (same n200 data, 60k steps) isolates the confound: **24/30** — vision was compute-starved, so training steps must scale with data. Undertrained vision is also unsafe vision (642 safety frames at n400/20k vs 9 at matched epochs). Capture publish for >RAM frames sidecars now streams (`write_immutable_file`). Results: `notes/vision-rung-notebook.md`, `artifacts/so_arm101_v2/randomized_scaling/SWEEP_LOG.txt` |
+| Physical smoke path (prepped) | `tools/replay_physical_trajectory.py` replays a sim capture on the SO101Follower with every command double-gated by `evaluate_physical_command` (offline full-trajectory + per-step pre-send; dry-run default, `--enable-motion` + confirmation for motion). Runbook: `notes/physical-smoke-runbook.md`. Bench execution pending (arm not attached) |
+| Main limitation | Generalization numbers are exploratory-lane (no pre-registered gate yet): state+clamp 30/30 and vision+clamp 24/30 held-out are sim-only, conditioned on teacher-solvable poses, and physical transfer is unproven |
 
-**Status:** the privileged controller solves the fixed full pick-and-place task.
-The width-256 phase-state clone passed the immutable offline gate, and its fixed
-450 predicted commands complete pick-and-place when inferred on teacher states.
-Autonomous feedback still fails. An eight-anchor recovery-data experiment also
-passed offline but failed all 15 standard rollouts and introduced pervasive
-command clipping. This repo does **not** claim learned pick-and-place success.
+**Status:** a learned policy now completes the full pick-and-place task
+autonomously in simulation: the promoted H=90 chunked clone (privileged
+state + progress inputs, noise-augmented feasibility training) passes the
+deterministic nominal MuJoCo gate 3/3 with zero safety frames
+(`saturation_gates/46de62c4f6d1b78f`, under the pinned mujoco 3.9.0
+environment; the earlier identical decision `1a78ec8affead704` ran under a
+shadowed mujoco 3.11.0 and is quarantined — see
+`notes/parallel-execution-infrastructure.md`). Scope of that claim is
+deliberate and narrow: one nominal scenario, privileged simulator state (not
+vision), in simulation. Broader-scenario robustness, vision inputs, and
+physical deployment remain unproven and gated. All simulation evidence now
+runs with `PYTHONNOUSERSITE=1` so the env's mujoco 3.9.0 pin wins; the
+`so-arm101-v2-sim` CLI refuses any other version.
 
 ## Legacy RL Stack Status
 
@@ -177,6 +187,48 @@ identical to the same-phase nominal values; dynamics separated the perturbed
 states but still did not produce safe feedback. Evidence:
 [detailed observability report](notes/bounded-observability-gate.md) and
 [immutable decision](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/observability_gates/3cdb2c3d2c467a5b/report.json).
+The pre-registered DAgger correction tranche then executed the observability
+gate's next action. Timeline-compressed corrections proved physically
+infeasible at every site — the nominal oracle itself certifies its grasp only
+at action 364 against the immutable 450-action pickup deadline, and the jaw
+squeeze consolidates over ~160 actions of physics that cannot be sped up —
+so, with an explicit design amendment, corrections were captured as
+nominal-speed privileged replans validated as fresh sub-episodes under the
+unchanged v3 contract, with deployment-clock progress labels saturating at
+1.0. All 11 predefined sites (the eight anchor phases plus the documented
+divergence onsets 31/74/194) yielded bitwise-repeatable, contract-certified
+438-action corrections with zero safety events:
+[correction dataset](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/corrections/7feed472071fd725/manifest.json)
+(4,818 rows). The single authorized retrain — architecture, width 256, seed,
+optimizer, schedule, normalization, and thresholds all unchanged; only rows
+450 → 5,268 — terminated **`blocked_offline`** at a nominal-only floor of
+`1.106e-4` MSE and `0.192` maximum ACT error against the unchanged `1e-6` /
+`0.01` gates, with the worst error at nominal row 31, wrist_flex — the first
+correction site, where policy-induced states nearly alias nominal features
+with different labels. Per the gate's pre-registered stop policy no
+closed-loop evaluation ran and no gate, capacity, or optimizer compensation
+was applied. Evidence:
+[immutable gate decision](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/correction_gates/faf13e95b8caa2e8/report.json),
+[training report](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/9e1bb18f724aa989/report.json), and
+[notes/dagger-correction-gate.md](notes/dagger-correction-gate.md).
+The tiny-model lane was then closed by a pre-registered promotion
+([notes/chunked-promotion-proposal.md](notes/chunked-promotion-proposal.md)):
+the near-exact offline memorization gate is retired as proven non-predictive,
+and promotion is decided by deterministic nominal MuJoCo 3/3 with zero safety
+frames. Two experiments ran under that proposal on 2026-08-03. A
+non-promoting diagnostic probe of the blocked correction checkpoint returned
+`behavior_moved`: 18.5 mm of lift (116x baseline) with new
+`cube_supported`/`lift_10mm` milestones, but heavy safety regression
+([probe report](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/correction_probes/63e2717b530a2cf0/report.json)).
+An ascending chunk-horizon ladder (H = 10/30/90, nominal data only) returned
+`closed_loop_not_resolved` — yet its H=90 candidate achieved the repository's
+**first learned strict bilateral grasp** and a 60.7 mm lift through every
+lift milestone before failing on `safety_invalidation` from command
+saturation
+([gate report](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/chunked_gates/591f0686e94d27fd/report.json)).
+Task behavior now responds strongly to both correction data and action
+chunking; saturated commands are the binding constraint for the next
+pre-registered proposal.
 The older small-model decision was also regenerated against the passing
 simulator: it now reports `environment_proven: true` but remains
 `blocked_offline` (0 reach/contact/success and a 91.5% clip-or-limit frame rate),
@@ -603,20 +655,58 @@ If you only look at a few parts of this repo, I would start here:
 
 ## Next Steps
 
-The active next tranche is deliberately data-centric:
+**The nominal closed-loop gate is passed.** The saturation-attribution
+tranche (`notes/saturation-attribution-proposal.md`) promoted its
+`noise_penalty_only` candidate: an H=90 chunked clone trained on the 450
+nominal oracle rows with a noise-augmented feasibility hinge completes the
+full pick-and-place deterministically 3/3 with zero safety frames — the
+first learned policy in this repository to pass promotion
+(`saturation_gates/46de62c4f6d1b78f` under pinned mujoco 3.9.0 — identical
+attribution and the same checkpoint as the quarantined 3.11-regime gate
+`1a78ec8affead704` — checkpoint `models/chunked_h90/2b6195d619ab531b`). The attribution also established
+that the hard feasibility decoder fails via measured-pose limiter lag and
+that correction data hurts chunked training (chunk-scale label conflict).
 
-1. **Collect complete oracle corrections from policy-induced states.** Preserve
-   approach through post-contact recovery sequences instead of adding more
-   isolated anchor rows.
-2. **Version the correction trajectories separately.** Keep the canonical
-   450-row source and all provenance immutable so old-only versus combined
-   training remains comparable.
-3. **Retrain one fixed supervised control.** Hold inputs, width, optimizer,
-   schedule, targets, and safety gates unchanged to isolate the value of
-   continuous correction coverage.
-4. **Require nominal MuJoCo `3/3` before expanding.** Wider starts, anchor
-   handoffs, vision, ACT, RL, and physical deployment remain blocked until the
-   smallest closed-loop gate passes safely.
+**The broader evaluation then ran (2026-08-04) and resolved the memorization
+question** (`notes/broader-evaluation-proposal.md`,
+`broader_evaluations/68c56c66d2dd3bb9`): the promoted policy is a trajectory
+memorizer — nominal-perfect on razor margins, failing every ±1.5 mm start
+with heavy saturation. The pre-registered automatic retry captured the
+five-scenario oracle dataset (2,250 rows) and retrained the identical
+recipe: the retrained policy grasps, lifts 42-45 mm, carries, and releases
+in **all five scenarios** and completes 7/8 mid-task anchor handoffs,
+missing only the strict-hold window and a handful of envelope frames —
+a measured underfit at the frozen 30k-step budget, not a concept failure.
+
+The pre-registered ladder from here:
+
+1. **Scale the optimization budget to the multi-scenario dataset.** One
+   change (training steps, and/or the now-earned width increase), same
+   recipe, same gates — the next tranche proposal. *[Executed 2026-08-06
+   under numerics regime v2 (`scaling_gates/b672196e85a945aa`, ~35 min):
+   `scaling_not_resolved`, but budget scales cleanly — steps90k 3/15,
+   width512 3/15, width512+90k **9/15**, every failure a last-mile
+   `safety_invalidation` with full milestone chains. Per pre-registration
+   the retry budget is spent; the next proposal targets the remaining
+   safety-frame gap. See the result addendum in
+   `notes/optimization-scaling-proposal.md`. The precision tranche
+   (`notes/precision-tranche-proposal.md`) then established `cosine_floor_v1`
+   (12/15, past-horizon spike eliminated) and terminated `seeds_not_resolved`
+   with decisive dispersion evidence — the pre-registered next proposal is
+   **teacher-horizon alignment** (450 vs 480 actions).]*
+2. **Then the deferred model-class rungs.** Vision (requires an oracle
+   re-capture with rendering), ACT-style temporal ensembling, and only then
+   physical deployment — each behind its own pre-registered gate, with the
+   compute/determinism policy (CPU bitwise vs GPU tolerance-based) decided
+   explicitly at the vision rung. *[Amended 2026-08-06: the compute policy
+   was decided early, at the scaling rung, because 90k-step arms made CPU
+   economics binding — numerics regime v2 (GPU + torch.compile by default,
+   fingerprinted training identities, legacy cpu-eager preserved for
+   byte-exact reproduction) was adopted through its own pre-registered
+   validation ladder: bitwise GPU determinism proven and the saturation
+   promotion re-validated with identical attribution
+   (`saturation_gates/32f8972f7996b5f6`). See `notes/numerics-regime-v2.md`.
+   The vision rung inherits a validated GPU lane.]*
 
 The legacy PPO curriculum, reward, and stability ideas above remain useful
 research history, but they are not the active next step of the rebuild.

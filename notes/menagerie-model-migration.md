@@ -361,6 +361,7 @@ the H=90 candidate achieving the first learned strict bilateral grasp and a
 60.7 mm lift before `safety_invalidation` from command saturation
 (`chunked_gates/591f0686e94d27fd`). Command saturation is now the binding
 constraint for the next proposal. The complete suite passes 138 tests.
+
 ### Saturation-attribution gate: first promoted policy (2026-08-03)
 
 The five-candidate factorial (`notes/saturation-attribution-proposal.md`)
