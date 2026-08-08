@@ -17,12 +17,46 @@ from .full_dataset import (
     load_small_model_comparison,
     train_small_models,
 )
+from .numerics import resolve_numerics
 from .tiny_model import TinyModelConfig, run_tiny_overfit
 from .oracle_distillation import (
     OracleDistillationConfig,
     analyze_oracle_residuals,
     distill_oracle_policy,
 )
+
+
+def _numerics_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--device", choices=("auto", "cpu", "cuda"), default="auto",
+        help="training numerics device (auto = pinned GPU regime when CUDA is live)",
+    )
+    parser.add_argument("--no-compile", action="store_true",
+                        help="disable torch.compile in the numerics regime")
+    parser.add_argument(
+        "--legacy-numerics", action="store_true",
+        help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte",
+    )
+
+
+def _resolve_cli_numerics(args: argparse.Namespace):
+    if args.legacy_numerics:
+        return None
+    return resolve_numerics(args.device, compile=not args.no_compile)
+
+
+def _require_pinned_torch() -> None:
+    """Guard parity with the simulation CLI's mujoco pin: the learn lane's
+    evidence is pinned to the torch series recorded in pyproject."""
+    try:
+        import torch
+    except ImportError:
+        return
+    if not torch.__version__.startswith("2.7."):
+        raise RuntimeError(
+            f"torch {torch.__version__} does not match the pinned 2.7.x series; "
+            "run inside the lerobot env with PYTHONNOUSERSITE=1"
+        )
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -106,6 +140,7 @@ def _parser() -> argparse.ArgumentParser:
         "--output-dir", type=Path,
         default=Path("artifacts/so_arm101_v2/oracle_distillation"),
     )
+    _numerics_flags(oracle)
     analysis = commands.add_parser("analyze-oracle")
     analysis.add_argument("--manifest", type=Path, required=True)
     analysis.add_argument("--checkpoint", type=Path, required=True)
@@ -119,6 +154,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        _require_pinned_torch()
         if args.command == "distill-oracle":
             result = distill_oracle_policy(
                 args.manifest, args.output_dir, kind=args.model_kind,
@@ -133,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
                 prefix_parity_report=args.prefix_parity_report,
                 recovery_manifest_path=args.recovery_manifest,
                 observability_manifest_path=args.observability_manifest,
+                numerics=_resolve_cli_numerics(args),
             )
             print(result.report_json)
             print(

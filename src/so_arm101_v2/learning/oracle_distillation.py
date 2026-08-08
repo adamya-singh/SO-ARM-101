@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 import hashlib
 import html
+import math
 import io
 import json
 from pathlib import Path
@@ -22,6 +23,14 @@ from so_arm101_v2.data._serialization import (
 from so_arm101_v2.simulation.oracle import load_oracle_demonstrations
 from so_arm101_v2.simulation.recovery import load_oracle_recovery_examples
 
+from .numerics import (
+    AUTO,
+    NumericsSpec,
+    apply_numerics,
+    cpu_state_dict,
+    numerics_identity,
+    resolve_default_numerics,
+)
 from .tiny_model import normalize_act
 
 
@@ -406,8 +415,15 @@ def _validate_prefix_reference(
     config: OracleDistillationConfig,
     source_rows: int,
     row_indices: np.ndarray,
+    numerics: "NumericsSpec | None" = None,
 ) -> dict[str, Any]:
     report = _load_hashed_report(report_path)
+    # Exact-float prefix parity only holds within one numerics regime: a
+    # legacy reference (no "numerics" key) can only anchor legacy runs, and a
+    # regime-v2 decay run needs a reference produced under the same regime.
+    expected_numerics = numerics_identity(numerics) if numerics is not None else None
+    if report.get("numerics") != expected_numerics:
+        raise ValueError("prefix reference numerics regime mismatch")
     reference_config = report.get("config", {})
     expected = {
         "manifest_content_sha256": manifest["content_sha256"],
@@ -466,7 +482,9 @@ def oracle_recovery_weighted_loss(
     recovery_rows = total_rows - nominal_rows
     if nominal_rows <= 0 or recovery_rows < 0:
         raise ValueError("invalid nominal row boundary")
-    if not np.isfinite(recovery_loss_weight) or recovery_loss_weight < 0:
+    # math.isfinite (not np) so torch.compile can constant-fold this scalar
+    # validation instead of treating it as data-dependent branching.
+    if not math.isfinite(recovery_loss_weight) or recovery_loss_weight < 0:
         raise ValueError("recovery loss weight must be finite and nonnegative")
     squared_error = (prediction - targets).square()
     if recovery_rows == 0:
@@ -478,6 +496,17 @@ def oracle_recovery_weighted_loss(
     ) / (nominal_rows + recovery_loss_weight * recovery_rows)
 
 
+def _oracle_step_loss(
+    model: Any, features: Any, targets: Any, nominal_rows: int, auxiliary_weight: float
+) -> Any:
+    """One training step's loss as a pure tensor function (compiled in v2)."""
+    prediction = model(features)
+    return oracle_recovery_weighted_loss(
+        prediction, targets, nominal_rows=nominal_rows,
+        recovery_loss_weight=auxiliary_weight,
+    )
+
+
 def distill_oracle_policy(
     manifest_path: str | Path,
     output_dir: str | Path,
@@ -487,7 +516,12 @@ def distill_oracle_policy(
     prefix_parity_report: str | Path | None = None,
     recovery_manifest_path: str | Path | None = None,
     observability_manifest_path: str | Path | None = None,
+    numerics: NumericsSpec | None | str = AUTO,
 ) -> OracleDistillationResult:
+    if isinstance(numerics, str):
+        if numerics != AUTO:
+            raise ValueError(f"unknown numerics request {numerics!r}")
+        numerics = resolve_default_numerics()
     config = config or OracleDistillationConfig()
     kind = OracleCloneKind(kind)
     manifest, arrays = load_oracle_demonstrations(manifest_path)
@@ -548,6 +582,7 @@ def distill_oracle_policy(
                 config=config,
                 source_rows=source_rows,
                 row_indices=row_indices,
+                numerics=numerics,
             )
     elif prefix_parity_report is not None:
         raise ValueError("prefix parity reports are only valid with decay_10k_20k")
@@ -585,6 +620,8 @@ def distill_oracle_policy(
             if observability_manifest is not None else None
         ),
     }
+    if numerics is not None:
+        identity["numerics"] = numerics_identity(numerics)
     run_digest = content_sha256(identity)
     directory = Path(output_dir) / "models" / kind.value / run_digest[:16]
     existing = directory / "report.json"
@@ -628,14 +665,12 @@ def distill_oracle_policy(
     baseline_mse = float(np.mean(np.square(target_delta_normalized)))
 
     torch = _torch()
-    torch.manual_seed(config.seed)
-    torch.set_num_threads(1)
-    np.random.seed(config.seed)
-    features = torch.from_numpy(features_np)
-    targets = torch.from_numpy(target_delta_normalized)
-    model = build_oracle_clone_model(features_np.shape[1], config.hidden_width)
+    device = apply_numerics(torch, numerics, seed=config.seed)
+    features = torch.from_numpy(features_np).to(device)
+    targets = torch.from_numpy(target_delta_normalized).to(device)
+    model = build_oracle_clone_model(features_np.shape[1], config.hidden_width).to(device)
     with torch.inference_mode():
-        initial_output = model(features).numpy()
+        initial_output = model(features).cpu().numpy()
     if not np.array_equal(initial_output, np.zeros_like(initial_output)):
         raise RuntimeError("oracle residual head did not initialize to hold")
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -667,16 +702,25 @@ def distill_oracle_policy(
         "normalized_mse": float("inf"),
         "max_act_error": float("inf"),
     }
+    step_loss = _oracle_step_loss
+    if numerics is not None and numerics.compile == "inductor":
+        step_loss = torch.compile(
+            _oracle_step_loss, mode=numerics.compile_mode,
+            fullgraph=True, dynamic=False,
+        )
     for step in range(1, config.max_steps + 1):
         active_learning_rate = oracle_learning_rate(schedule, step)
         for group in optimizer.param_groups:
             group["lr"] = active_learning_rate
         optimizer.zero_grad(set_to_none=True)
-        prediction = model(features)
-        loss = oracle_recovery_weighted_loss(
-            prediction, targets, nominal_rows=nominal_rows,
-            recovery_loss_weight=recovery_weight,
-        )
+        if numerics is None:
+            prediction = model(features)
+            loss = oracle_recovery_weighted_loss(
+                prediction, targets, nominal_rows=nominal_rows,
+                recovery_loss_weight=recovery_weight,
+            )
+        else:
+            loss = step_loss(model, features, targets, nominal_rows, recovery_weight)
         if not torch.isfinite(loss):
             raise RuntimeError("oracle distillation loss became nonfinite")
         loss.backward()
@@ -687,7 +731,7 @@ def distill_oracle_policy(
             ]
         optimizer.step()
         with torch.inference_mode():
-            predictions_delta = model(features).numpy().astype(np.float32)
+            predictions_delta = model(features).cpu().numpy().astype(np.float32)
         residual = predictions_delta - target_delta_normalized
         nominal_mse = float(np.mean(np.square(residual[:nominal_rows])))
         recovery_mse = (
@@ -912,7 +956,7 @@ def distill_oracle_policy(
         "extras_std": torch.from_numpy(extras_std.copy()),
         "maximum_act_delta_per_step": torch.from_numpy(maximum_delta.copy()),
         "teacher_horizon": int(manifest["teacher_horizon"]),
-        "state_dict": model.state_dict(),
+        "state_dict": cpu_state_dict(model) if numerics is not None else model.state_dict(),
         "report_content_sha256": report["content_sha256"],
         "recovery_augmentation": report["recovery_augmentation"],
         "feature_schema": report["feature_schema"],
