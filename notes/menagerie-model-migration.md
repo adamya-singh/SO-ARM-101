@@ -333,3 +333,21 @@ correction trajectories rather than another feature variant:
 `notes/bounded-observability-gate.md`.
 
 The complete source suite after this follow-up passes 119 tests.
+
+## Addendum (2026-08-04): mujoco environment standardization
+
+Some artifacts cited above were produced between 2026-08-02 19:03 and
+2026-08-03 13:41, when a `pip --user` mujoco 3.11.0 silently shadowed the
+env's pinned 3.9.0 and forked simulation numerics. The project standardized
+on mujoco 3.9.0 (`PYTHONNOUSERSITE=1`, enforced by a conda activation hook
+and a version guard in `so-arm101-v2-sim`); the affected artifacts were moved
+unmodified to `artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/` (same
+relative paths, every report still self-verifies). Where a decision needed to
+stay active it was re-established under 3.9.0: corrections re-captured as
+`corrections/53ad45590cfb60c0` (4,818 rows, all 11 sites accepted), recovery
+re-captured as `recovery/d52b460b4ab3a683`, and the saturation gate re-run as
+`saturation_gates/46de62c4f6d1b78f` — identical attribution
+(`promoted_noise_penalty_only`, all evaluations deterministic) and the
+byte-identical promoted checkpoint. This addendum records the relocation and
+re-establishment; the pre-registered text above is unchanged. Details:
+`notes/parallel-execution-infrastructure.md`.

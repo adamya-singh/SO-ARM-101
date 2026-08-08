@@ -112,9 +112,28 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+# The evidence lineage is pinned to this exact MuJoCo build.  A shadowed
+# install (e.g. pip --user mujoco 3.11.0, 2026-08-02) silently forks physics
+# numerics; run with PYTHONNOUSERSITE=1 so the conda env's pin wins.  See
+# notes/parallel-execution-infrastructure.md.
+EXPECTED_MUJOCO_VERSION = "3.9.0"
+
+
+def _require_pinned_mujoco() -> None:
+    import mujoco
+
+    if mujoco.__version__ != EXPECTED_MUJOCO_VERSION:
+        raise RuntimeError(
+            f"mujoco {mujoco.__version__} (from {mujoco.__file__}) does not match "
+            f"the pinned evidence version {EXPECTED_MUJOCO_VERSION}; "
+            "run with PYTHONNOUSERSITE=1 (the lerobot conda activate hook sets it)"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        _require_pinned_mujoco()
         if args.command == "run-observability-gate":
             result = run_bounded_observability_gate(
                 args.mujoco_model, args.oracle_manifest, args.recovery_manifest,

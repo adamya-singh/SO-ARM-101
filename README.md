@@ -145,10 +145,10 @@ the 458-row model passed offline at step 24,691 (`9.99977e-7` MSE,
 standard rollouts. Nominal repeats produced 291 clipped frames and 13 unsafe
 contact frames each. Exact anchor handoffs also regressed from `3/8` success
 for the old clone to `1/8` for the augmented clone. Evidence:
-[`recovery data`](artifacts/so_arm101_v2/oracle_distillation/recovery/0570ec8c0d37002f/manifest.json),
+[`recovery data`](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/recovery/0570ec8c0d37002f/manifest.json),
 [`augmented model`](artifacts/so_arm101_v2/oracle_distillation/models/phase_state/c3ca76dc2c0fa42d/report.json),
-[`standard evaluation`](artifacts/so_arm101_v2/oracle_distillation/clone_evaluations/e67ba4433d3aa98c/policies/fixed_pick_place_v3/evaluation.json), and
-[`anchor evaluation`](artifacts/so_arm101_v2/oracle_distillation/recovery_evaluations/4e5e4f1252d582ae/report.json).
+[`standard evaluation`](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/clone_evaluations/e67ba4433d3aa98c/policies/fixed_pick_place_v3/evaluation.json), and
+[`anchor evaluation`](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/recovery_evaluations/4e5e4f1252d582ae/report.json).
 
 Established conclusion: eight isolated, equal-weight recovery anchors do not
 produce safe feedback recovery and can warp off-table interpolation despite an
@@ -160,7 +160,7 @@ step 26,052 but failed nominal MuJoCo `0/3`. Both physical failures introduced
 clipping/limiting regressions, so no candidate reached the five-start or
 anchor-handoff gates. The strict static scan is telemetry only because the
 known weight-0 control also fails it; nominal MuJoCo `3/3` is the first
-physically meaningful safety gate. Evidence: [immutable ablation summary](artifacts/so_arm101_v2/oracle_distillation/recovery_weight_ablations/187b171bdf0fd39e/report.json).
+physically meaningful safety gate. Evidence: [immutable ablation summary](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/recovery_weight_ablations/187b171bdf0fd39e/report.json).
 The subsequent bounded observability gate changed only the input schema while
 holding the 450+8 rows, equal recovery weight, width 256, seed, optimizer,
 schedule, targets, and safety path fixed. Dynamics, dynamics plus causal
@@ -176,7 +176,7 @@ At all eight anchors, contact flags and the preceding pre-action history were
 identical to the same-phase nominal values; dynamics separated the perturbed
 states but still did not produce safe feedback. Evidence:
 [detailed observability report](notes/bounded-observability-gate.md) and
-[immutable decision](artifacts/so_arm101_v2/oracle_distillation/observability_gates/3cdb2c3d2c467a5b/report.json).
+[immutable decision](artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/observability_gates/3cdb2c3d2c467a5b/report.json).
 The older small-model decision was also regenerated against the passing
 simulator: it now reports `environment_proven: true` but remains
 `blocked_offline` (0 reach/contact/success and a 91.5% clip-or-limit frame rate),
