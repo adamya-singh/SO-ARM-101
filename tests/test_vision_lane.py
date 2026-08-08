@@ -148,3 +148,44 @@ def test_on_loss_observer_is_digest_neutral(tmp_path: Path, monkeypatch) -> None
     )
     assert observed.directory.name == silent.directory.name  # same run digest
     assert observed.normalized_mse == silent.normalized_mse
+
+
+def test_sorted_gather_read_matches_fancy_index() -> None:
+    from so_arm101_v2.learning.vision import _read_frame_rows
+
+    rng = np.random.default_rng(0)
+    frames = rng.integers(0, 256, size=(20, 4, 4, 3), dtype=np.uint8)
+    for index_array in (
+        np.array([3, 0, 19, 7], dtype=np.int64),
+        np.array([5, 5, 1, 5], dtype=np.int64),  # duplicates
+        np.arange(20, dtype=np.int64)[::-1].copy(),
+        np.array([0], dtype=np.int64),
+    ):
+        np.testing.assert_array_equal(
+            _read_frame_rows(frames, index_array), frames[index_array]
+        )
+
+
+def test_prefetch_is_bitwise_identical_to_synchronous(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SO_ARM101_V2_NUMERICS", "legacy")
+    manifest_path = _write_tiny_frames_manifest(tmp_path, rows=12)
+    config = VisionChunkedConfig(chunk_horizon=2, max_steps=25, batch_size=4)
+
+    monkeypatch.setenv("SO_ARM101_V2_PREFETCH", "1")
+    prefetched = train_vision_chunked(
+        manifest_path, tmp_path / "prefetched", config=config, numerics=None,
+    )
+    monkeypatch.setenv("SO_ARM101_V2_PREFETCH", "0")
+    synchronous = train_vision_chunked(
+        manifest_path, tmp_path / "synchronous", config=config, numerics=None,
+    )
+    assert prefetched.directory.name == synchronous.directory.name  # same run digest
+    assert prefetched.normalized_mse == synchronous.normalized_mse
+    first = json.loads(prefetched.report_json.read_text(encoding="utf-8"))
+    second = json.loads(synchronous.report_json.read_text(encoding="utf-8"))
+    assert first["loss_trace"] == second["loss_trace"]  # whole stream matched
+    checkpoint_shas = [
+        hashlib.sha256(result.checkpoint.read_bytes()).hexdigest()
+        for result in (prefetched, synchronous)
+    ]
+    assert checkpoint_shas[0] == checkpoint_shas[1]

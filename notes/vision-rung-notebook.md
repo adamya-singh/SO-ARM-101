@@ -166,3 +166,36 @@ approaches state's 30/30, the deployable-inputs policy is real; (b) the
 state+clamp 30/30 is a promotion-shaped claim: if we want it on record, it
 gets a pre-registered gate (exploratory numbers stay exploratory);
 (c) physical smoke replay unchanged, awaiting bench.
+
+### Vision n400 @120k, 3 seeds (2026-08-08): deployable inputs reach a perfect held-out score
+
+Epoch-matched compute on the n400 capture (120k steps ≈ the 60k/n200
+probe's ~40 epochs), seeds 101/202/303, frozen held-out benchmark, clamp
+carried. wandb project `so-arm101-v2-scaling`, group
+`vision-n400-120k-20260807`.
+
+| Seed | Held-out | Safety frames | Failure mix | Train MSE |
+| ---: | ---: | ---: | --- | ---: |
+| 101 | 24/30 | **0** | 6 pickup_incomplete | 2.03e-6 |
+| 202 | **30/30** | **0** | — | 2.18e-6 |
+| 303 | 24/30 | 3 | 3 pickup_incomplete, 3 safety_invalidation | 2.21e-6 |
+
+Mean 26/30 (87%), and **seed 202 is the first perfect held-out score from
+the deployable-inputs policy** — wrist pixels + proprioception + clock,
+no privileged state. The rung's core question (can pixels replace the
+privileged cube position?) is answered yes at n400 scale with matched
+compute. Seed spread (24-30) says the recipe is not yet seed-robust — a
+promotion-grade claim needs either more data/compute or a robustness pass;
+this stays exploratory.
+
+Infra shipped mid-sweep — **deterministic prefetching** (`vision.py`
+`_read_frame_rows` + reader pool): the 38 GB n400 sidecar exceeds this
+machine's 32 GB RAM, so per-step random reads were disk-bound (GPU 20%
+utilized, ~11k steps/h). Reader threads now do only the raw uint8 memmap
+reads (sorted-gather, 6 workers, 8 batches ahead); index draws and all
+float ops stay on the main thread in step order → **bitwise identical**
+(pinned: same digest, loss trace, and checkpoint sha with
+`SO_ARM101_V2_PREFETCH=0`). Measured **3.2×** (35.3k steps/h, GPU 44%).
+Seed 101 ran pre-fix (~11 h); seeds 202/303 ran ~3.5 h each. Known gap
+noted for later: training is not resumable mid-run (checkpoint only at
+completion); worth a scratch-checkpoint mechanism before longer runs.

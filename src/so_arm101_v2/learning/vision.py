@@ -12,10 +12,13 @@ digests to preserve and no pre-registration per run.
 
 from __future__ import annotations
 
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable
 
@@ -120,6 +123,20 @@ def build_vision_chunked_model(hidden_width: int, chunk_horizon: int) -> Any:
     return VisionChunkedNetwork()
 
 
+def _read_frame_rows(frames: Any, index_array: "np.ndarray") -> "np.ndarray":
+    """Read ``frames[index_array]`` as raw uint8, via a sorted gather.
+
+    Sorting improves disk locality on a memmap; the inverse permutation
+    restores the exact requested order, so the result is bitwise identical
+    to direct fancy indexing.
+    """
+    order = np.argsort(index_array, kind="stable")
+    block = np.asarray(frames[index_array[order]])
+    result = np.empty_like(block)
+    result[order] = block
+    return result
+
+
 def load_vision_frames(manifest_path: str | Path) -> tuple[dict[str, Any], np.ndarray, dict[str, np.ndarray]]:
     """Manifest + memmapped frames + demonstration arrays for a frames capture."""
     manifest_path = Path(manifest_path)
@@ -220,28 +237,76 @@ def train_vision_chunked(
         block = np.asarray(frames[indices.numpy()], dtype=np.float32) / np.float32(255.0)
         return torch.from_numpy(np.transpose(block, (0, 3, 1, 2))).to(device)
 
+    def to_device_images(uint8_block: "np.ndarray") -> Any:
+        # Identical float path to batch_images, applied to a pre-read block.
+        block = np.asarray(uint8_block, dtype=np.float32) / np.float32(255.0)
+        return torch.from_numpy(np.transpose(block, (0, 3, 1, 2))).to(device)
+
+    # Deterministic prefetching (see notes/vision-rung-notebook.md): the
+    # per-step minibatch read is the only disk I/O in the loop and dominates
+    # wall time once the frames sidecar outgrows the page cache.  Reader
+    # threads perform ONLY the raw uint8 memmap reads, many steps ahead and
+    # concurrently (higher effective disk queue depth); index draws stay on
+    # this thread in step order, so the seeded RNG stream, every float op,
+    # and the op order are unchanged — results are bitwise identical to the
+    # synchronous path (pinned by test).  Identity/digests unaffected.
+    prefetch_enabled = os.environ.get("SO_ARM101_V2_PREFETCH", "1") != "0"
+    prefetch_depth = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_DEPTH", "8")))
+    prefetch_workers = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_WORKERS", "6")))
+
     loss_trace: list[dict[str, float | int]] = []
     batch = min(config.batch_size, rows)
-    for step in range(1, config.max_steps + 1):
-        if config.lr_schedule != "fixed":
-            lr_value = chunked_learning_rate(
-                config.lr_schedule, step, config.max_steps, config.learning_rate
+    executor = None
+    pending: "deque[tuple[Any, Any]]" = deque()
+    drawn = 0
+
+    def draw_indices() -> Any:
+        return torch.randperm(rows, generator=generator)[:batch]
+
+    if prefetch_enabled:
+        executor = ThreadPoolExecutor(max_workers=prefetch_workers)
+
+    def next_batch() -> "tuple[Any, Any]":
+        nonlocal drawn
+        if executor is None:
+            indices = draw_indices()
+            return indices, None
+        while drawn < config.max_steps and len(pending) < prefetch_depth:
+            indices = draw_indices()
+            drawn += 1
+            future = executor.submit(_read_frame_rows, frames, indices.numpy())
+            pending.append((indices, future))
+        indices, future = pending.popleft()
+        return indices, future.result()
+
+    try:
+        for step in range(1, config.max_steps + 1):
+            if config.lr_schedule != "fixed":
+                lr_value = chunked_learning_rate(
+                    config.lr_schedule, step, config.max_steps, config.learning_rate
+                )
+                for group in optimizer.param_groups:
+                    group["lr"] = lr_value
+            indices, uint8_block = next_batch()
+            optimizer.zero_grad(set_to_none=True)
+            images = (
+                batch_images(indices) if uint8_block is None
+                else to_device_images(uint8_block)
             )
-            for group in optimizer.param_groups:
-                group["lr"] = lr_value
-        indices = torch.randperm(rows, generator=generator)[:batch]
-        optimizer.zero_grad(set_to_none=True)
-        prediction = model(batch_images(indices), state[indices.to(device)])
-        loss = (prediction - targets[indices.to(device)]).square().mean()
-        if not torch.isfinite(loss):
-            raise RuntimeError("vision distillation loss became nonfinite")
-        loss.backward()
-        optimizer.step()
-        if step == 1 or step % 100 == 0 or step == config.max_steps:
-            loss_value = float(loss.item())
-            loss_trace.append({"step": step, "batch_normalized_mse": loss_value})
-            if on_loss is not None:
-                on_loss(step, loss_value)
+            prediction = model(images, state[indices.to(device)])
+            loss = (prediction - targets[indices.to(device)]).square().mean()
+            if not torch.isfinite(loss):
+                raise RuntimeError("vision distillation loss became nonfinite")
+            loss.backward()
+            optimizer.step()
+            if step == 1 or step % 100 == 0 or step == config.max_steps:
+                loss_value = float(loss.item())
+                loss_trace.append({"step": step, "batch_normalized_mse": loss_value})
+                if on_loss is not None:
+                    on_loss(step, loss_value)
+    finally:
+        if executor is not None:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     # Final full-data evaluation in minibatches.
     model.eval()
