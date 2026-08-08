@@ -120,3 +120,49 @@ is still far from lift-off — consistent with v0; pixels need much more data
 and the clamp carried into `VisionChunkedPolicy`. Obvious v2 levers:
 (1) scale capture to 100+ episodes (engine is proven, ~25 min/25 eps),
 (2) clamp in the vision policy, (3) denser near-edge sampling.
+
+### Data-scaling curve (2026-08-07): coverage solves state; vision needs compute scaled with data
+
+One sweep (`simulation_code/queue_scaling_curve_20260807.sh` + n400 retry),
+~15 h: per tier, generate a full-episode-screened suite (seeds 9-12),
+preflight, capture with frames, train both families, evaluate on the
+**frozen held-out benchmark** (`…seed8_n10_9d8c330a`, 30 rollouts —
+identical across all tiers, tuned on never). Vision now carries the gripper
+clamp (`VisionChunkedPolicy(clamp_channels=(5,))`, id suffix
+`.gripper_clamp_v1`). State recipe fixed (w512/90k/cosine); vision fixed at
+20k steps except the probe. SWEEP_LOG at
+`artifacts/so_arm101_v2/randomized_scaling/SWEEP_LOG.txt`.
+
+| Train episodes | state+clamp | vision+clamp (20k) | safety frames (state / vision) |
+| ---: | ---: | ---: | --- |
+| 25 (v1, 2026-08-06) | 18/30 | 0/30 (unclamped) | 57 / 848 |
+| 50 | 27/30 | 6/30 | **0** / 396 |
+| 100 | 27/30 | 14/30 | 9 / 31 |
+| 200 | 27/30 | 9/30 | 6 / 9 |
+| 400 | **30/30** | 18/30 | **0** / 642 |
+| 200 @ 60k steps (probe) | — | **24/30** | — / 51 |
+
+Readings:
+1. **State: data coverage was the whole story.** 18 → 27 (plateau through
+   50-200, three different single-scenario failures) → **30/30 with zero
+   safety frames at 400 episodes** — the first perfect held-out score in
+   the project. No recipe change, no new mechanism; just more teacher data.
+2. **Vision: steps must scale with data.** At fixed 20k steps the curve is
+   non-monotone (0→6→14→9→18) because epochs shrink as data grows — a
+   classic compute/data confound. The probe isolates it: same n200 data,
+   3× steps → 9/30 becomes **24/30** (train MSE 2.0e-5 → 2.9e-6). The
+   fixed-steps column understates vision badly; the recipe rule going
+   forward is compute scaled with data (next: 60-120k steps on n400).
+3. **Undertrained vision is unsafe vision.** Vision safety frames collapse
+   with data at matched epochs (848→396→31→9) but blow back up when
+   undertrained (642 at n400/20k). The clamp caps the gripper floor only;
+   the rest of safety comes from actually fitting the teacher.
+4. Infra: frames sidecars past RAM size broke the publish
+   (`MemoryError` at 38 GB); fixed with `write_immutable_file` (streaming
+   atomic publish, same conflict semantics; `test_serialization_atomic.py`).
+
+Candidate next moves: (a) vision at scaled compute on n400 — if it
+approaches state's 30/30, the deployable-inputs policy is real; (b) the
+state+clamp 30/30 is a promotion-shaped claim: if we want it on record, it
+gets a pre-registered gate (exploratory numbers stay exploratory);
+(c) physical smoke replay unchanged, awaiting bench.
