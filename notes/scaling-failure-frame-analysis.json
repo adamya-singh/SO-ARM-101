@@ -1,0 +1,397 @@
+{
+  "tool": "analyze_safety_frames",
+  "matplotlib": "3.10.9",
+  "evaluation": "artifacts/so_arm101_v2/oracle_distillation/scaling_stage_a_evaluations/59286035eef0f008/policies/fixed_pick_place_v3.scaling_width512_steps90k/evaluation.json",
+  "evaluation_content_sha256": "c0dbf693ee27961b313fec3f740a64db80ffc9ea5f42404cfc26e0e8e2e01714",
+  "chunk_horizon": 90,
+  "teacher_horizon": 450,
+  "rollouts": [
+    {
+      "scenario_id": "cube_y_minus_1p5mm",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "d5cdbcabb1a205277167722504617a6b4baaa4547bd58cabb14510156f033ba8",
+      "policy_id": "chunked_h90.seed101.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 451,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.7131167650222778,
+          "signed_excess": 0.013116717338562012,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 0,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 451,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.7131167650222778,
+          "signed_excess": 0.5010080075263976,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 0,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 452,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.8735301494598389,
+          "signed_excess": 0.17353010177612305,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 1,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 452,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.8735301494598389,
+          "signed_excess": 0.47819450855255125,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 1,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 453,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.9745491743087769,
+          "signed_excess": 0.27454912662506104,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 2,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 453,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.9745491743087769,
+          "signed_excess": 0.42059275865554807,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 2,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 454,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.9916383028030396,
+          "signed_excess": 0.29163825511932373,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 3,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 454,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.9916383028030396,
+          "signed_excess": 0.33615914344787595,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 3,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 455,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.9216337203979492,
+          "signed_excess": 0.2216336727142334,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 4,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 455,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.9216337203979492,
+          "signed_excess": 0.23004010677337644,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 4,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 456,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.7550899982452393,
+          "signed_excess": 0.05508995056152344,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 5,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 456,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.7550899982452393,
+          "signed_excess": 0.12150779724121091,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 5,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 459,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.0412648916244507,
+          "signed_excess": 0.09405854701995847,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 8,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 460,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.8420315384864807,
+          "signed_excess": 0.3055443501472473,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 9,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 461,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.7339749336242676,
+          "signed_excess": 0.3924975728988647,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 10,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 462,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.7131050229072571,
+          "signed_excess": 0.35745796918869016,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 11,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 463,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.7431201934814453,
+          "signed_excess": 0.24432877063751218,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 12,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 464,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.778764009475708,
+          "signed_excess": 0.10289898872375486,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 13,
+          "past_teacher_horizon": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "cube_y_plus_1p5mm",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "693d7b3b698a33f8c54900c4bb7c513341ae5af8400d119fc059c9a41e292b8d",
+      "policy_id": "chunked_h90.seed101.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 417,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.957970380783081,
+          "signed_excess": 0.024635527133941626,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 56,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 418,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.173184871673584,
+          "signed_excess": 0.17783096790313718,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 57,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 419,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.3786823749542236,
+          "signed_excess": 0.2876596188545227,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 58,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 420,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.494113802909851,
+          "signed_excess": 0.2960242366790771,
+          "stage": "released_hold",
+          "chunk_index": 4,
+          "chunk_offset": 59,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 421,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.503743290901184,
+          "signed_excess": 0.2031033372879028,
+          "stage": "released_hold",
+          "chunk_index": 4,
+          "chunk_offset": 60,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 422,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.4614337682724,
+          "signed_excess": 0.051316056251525854,
+          "stage": "released_hold",
+          "chunk_index": 4,
+          "chunk_offset": 61,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 470,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.4660711288452148,
+          "signed_excess": 0.01208201408386228,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 19,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 471,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.6230298280715942,
+          "signed_excess": 0.11077741146087644,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 20,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 472,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.723276138305664,
+          "signed_excess": 0.023276090621948242,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 21,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 472,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.723276138305664,
+          "signed_excess": 0.10278764724731443,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 21,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 473,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.7590484619140625,
+          "signed_excess": 0.05904841423034668,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 22,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 474,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.747872233390808,
+          "signed_excess": 0.047872185707092285,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 23,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 475,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": 1.7016661167144775,
+          "signed_excess": 0.0016660690307617188,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 24,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 479,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.1742023229599,
+          "signed_excess": 0.08174649238586423,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 28,
+          "past_teacher_horizon": true
+        },
+        {
+          "action": 480,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 1.0439887046813965,
+          "signed_excess": 0.1372623777389526,
+          "stage": "past_teacher_horizon",
+          "chunk_index": 5,
+          "chunk_offset": 29,
+          "past_teacher_horizon": true
+        }
+      ]
+    }
+  ]
+}
