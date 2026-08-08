@@ -95,6 +95,13 @@ class OracleCloneCheckpointPolicy:
                         and report.get("prefix_parity", {}).get("applicable") is False
                         and report.get("prefix_parity", {}).get("reference_content_sha256") is None
                     )
+                    and not (
+                        report.get("correction_augmentation") is not None
+                        and report.get("prefix_parity", {}).get("applicable") is False
+                        and isinstance(
+                            report.get("prefix_parity", {}).get("reference_content_sha256"), str
+                        )
+                    )
                 )
             )
         ):
@@ -123,6 +130,15 @@ class OracleCloneCheckpointPolicy:
                 or payload.get("contact_timing") != report.get("contact_timing")
             ):
                 raise ValueError("oracle clone observability metadata disagree")
+        report_correction = report.get("correction_augmentation")
+        checkpoint_correction = payload.get("correction_augmentation")
+        if report_correction is not None or checkpoint_correction is not None:
+            if (
+                not isinstance(report_correction, dict)
+                or report_correction != checkpoint_correction
+                or not isinstance(report_correction.get("manifest_content_sha256"), str)
+            ):
+                raise ValueError("oracle clone correction metadata disagree")
         expected_history = (
             2 if self.kind is OracleCloneKind.PHASE_DYNAMICS_CONTACT_HISTORY2 else 1
         )

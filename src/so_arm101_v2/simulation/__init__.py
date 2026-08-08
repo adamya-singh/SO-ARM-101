@@ -5,7 +5,17 @@ from .adapter import (
     PrivilegedStateSnapshot,
 )
 from .contact import check_block_face_gripped, evaluate_face_grasp_contacts
-from .privileged import PrivilegedStagedController
+from .correction import (
+    CorrectionGateResult,
+    CorrectionSite,
+    DAGGER_CORRECTION_SITES,
+    OracleCorrectionCollection,
+    capture_dagger_corrections,
+    load_oracle_corrections,
+    resolve_correction_gate_status,
+    run_correction_gate,
+)
+from .privileged import PrivilegedStagedController, compress_boundaries
 from .oracle import (
     OracleDemonstrationCollection,
     capture_oracle_demonstrations,
@@ -64,4 +74,8 @@ __all__ = [
     "capture_phase_wide_recovery_examples", "load_oracle_recovery_examples",
     "evaluate_recovery_anchor_starts",
     "scan_oracle_clone_commands",
+    "CorrectionGateResult", "CorrectionSite", "DAGGER_CORRECTION_SITES",
+    "OracleCorrectionCollection", "capture_dagger_corrections",
+    "compress_boundaries", "load_oracle_corrections",
+    "resolve_correction_gate_status", "run_correction_gate",
 ]

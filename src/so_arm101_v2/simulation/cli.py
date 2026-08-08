@@ -30,6 +30,10 @@ from .recovery import (
     scan_oracle_clone_commands,
 )
 from .clone_policy import OracleCloneCheckpointPolicy
+from .correction import (
+    capture_dagger_corrections,
+    run_correction_gate,
+)
 from .suites import load_simulation_suite
 
 
@@ -85,6 +89,25 @@ def _parser() -> argparse.ArgumentParser:
     )
     gate.add_argument("--no-video", action="store_true")
     gate.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    corrections = commands.add_parser("capture-corrections")
+    corrections.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    corrections.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    corrections.add_argument("--oracle-manifest", type=Path, required=True)
+    corrections.add_argument("--checkpoint", type=Path, required=True)
+    correction_gate = commands.add_parser("run-correction-gate")
+    correction_gate.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    correction_gate.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    correction_gate.add_argument("--oracle-manifest", type=Path, required=True)
+    correction_gate.add_argument("--correction-manifest", type=Path, required=True)
+    correction_gate.add_argument("--baseline-checkpoint", type=Path, required=True)
+    correction_gate.add_argument("--baseline-evaluation", type=Path, required=True)
+    correction_gate.add_argument("--prefix-parity-report", type=Path, required=True)
+    correction_gate.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    correction_gate.add_argument("--no-video", action="store_true")
+    correction_gate.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -170,6 +193,28 @@ def main(argv: list[str] | None = None) -> int:
             print(report)
             print(f"passed={str(bool(payload['passed'])).lower()} anchors={len(payload['results'])}")
             return 0 if payload["passed"] else 2
+        if args.command == "capture-corrections":
+            result = capture_dagger_corrections(
+                args.mujoco_model, args.oracle_manifest, args.checkpoint, args.output_dir,
+            )
+            print(result.manifest)
+            print(
+                f"rows={result.rows} "
+                f"accepted_sites={','.join(result.accepted_sites)} "
+                f"rejected_sites={','.join(result.rejected_sites) or 'none'}"
+            )
+            return 0
+        if args.command == "run-correction-gate":
+            gate_result = run_correction_gate(
+                args.mujoco_model, args.oracle_manifest, args.correction_manifest,
+                args.baseline_checkpoint, args.baseline_evaluation,
+                args.prefix_parity_report, args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+            )
+            print(gate_result.report_json)
+            print(f"status={gate_result.status}")
+            return 0 if gate_result.status == "passed" else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,

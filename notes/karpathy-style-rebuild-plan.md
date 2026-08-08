@@ -21,7 +21,7 @@ specification. We should revise it when experiments teach us something. When we
 depart from it, the important requirement is to record why the change is
 reasonable and what observation motivated it.
 
-## Progress status (updated 2026-08-02)
+## Progress status (updated 2026-08-03)
 
 - Phases 1-3 (task/eval contract, data understanding, coordinate/timing
   contracts): implemented in `src/so_arm101_v2/` with pinned resources and
@@ -202,6 +202,27 @@ reasonable and what observation motivated it.
   branching, evaluation, and hash-validation tests, the complete suite passes
   119 tests.
 
+- **DAgger correction tranche (2026-08-02/03): CAPTURE PROVEN, GATE
+  `blocked_offline`.** The planned timeline-compressed corrections were
+  physically infeasible at all 11 sites (the nominal oracle itself acquires
+  strict grasp only at action 364 against the immutable 450-action pickup
+  deadline; grasp consolidation does not compress). With user approval the
+  capture was amended to nominal-speed replans validated as fresh v3
+  sub-episodes with deployment-clock (saturating) progress labels. All 11
+  sites — the 8 anchor phases plus divergence onsets 31/74/194 — produced
+  438-action contract-certified corrections with zero safety events, twice,
+  bitwise (`corrections/7feed472071fd725`, 4,818 rows). The single authorized
+  width-256 retrain (unchanged everything, rows 450 -> 5,268) stopped at a
+  nominal-only floor of `1.1059e-4` MSE / `0.1921` max ACT error versus the
+  unchanged `1e-6` / `0.01` gates; worst error sits at nominal row 31,
+  wrist_flex — the first correction site, where induced states nearly alias
+  nominal features with different labels. Per the pre-registered
+  `blocked_offline_policy` the tranche stops with the floor documented; no
+  closed-loop evaluation ran. Gate:
+  `artifacts/so_arm101_v2/oracle_distillation/correction_gates/
+  faf13e95b8caa2e8/report.json`; record: `notes/dagger-correction-gate.md`.
+  The complete suite passes 130 tests.
+
 ## Current takeaway and next controlled step
 
 The diagnostic branch is complete. Established facts are: the original clone's
@@ -251,9 +272,13 @@ separate the perturbed states but remained insufficient. The immutable decision 
 Detailed record: `notes/bounded-observability-gate.md`.
 
 The observability-only branch therefore stops without a fourth schema or any
-hyperparameter tuning. The next controlled step is complete oracle correction
-trajectories collected from policy-induced states (DAgger-style), while width
-512, vision, ACT, RL, and physical deployment remain unauthorized.
+hyperparameter tuning. The subsequent DAgger correction tranche then executed
+that predefined step: the capture method is proven (11/11 contract-certified,
+safety-clean correction sub-episodes from policy-induced states, including
+every post-contact phase), but the single authorized fixed-capacity retrain
+terminated `blocked_offline` at a `1.1e-4` nominal MSE floor against the
+unchanged `1e-6` gate, so no correction-augmented policy ever reached
+closed-loop evaluation (`notes/dagger-correction-gate.md`).
 
 ---
 

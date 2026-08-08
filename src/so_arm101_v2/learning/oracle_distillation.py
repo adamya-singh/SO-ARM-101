@@ -354,6 +354,15 @@ def _diagnostic_html(report: Mapping[str, Any], targets: np.ndarray, predictions
     augmentation = report.get("recovery_augmentation")
     if augmentation is not None:
         source_indices.extend(f"recovery:{name}" for name in augmentation["anchors"])
+    correction = report.get("correction_augmentation")
+    if correction is not None:
+        source_indices.extend(
+            f"correction:{site['name']}:{index}"
+            for site in correction["sites"]
+            for index in range(
+                int(site["action_index"]), int(site["action_index"]) + int(site["rows"])
+            )
+        )
     if full_trajectory:
         diagnostic_indices = sorted({0, len(targets) - 1, *(min(value, len(targets) - 1) for value in boundaries)})
         plot_note = "Vertical lines are teacher stage boundaries and are not model inputs."
@@ -516,6 +525,7 @@ def distill_oracle_policy(
     prefix_parity_report: str | Path | None = None,
     recovery_manifest_path: str | Path | None = None,
     observability_manifest_path: str | Path | None = None,
+    correction_manifest_path: str | Path | None = None,
     numerics: NumericsSpec | None | str = AUTO,
 ) -> OracleDistillationResult:
     if isinstance(numerics, str):
@@ -524,6 +534,8 @@ def distill_oracle_policy(
         numerics = resolve_default_numerics()
     config = config or OracleDistillationConfig()
     kind = OracleCloneKind(kind)
+    if recovery_manifest_path is not None and correction_manifest_path is not None:
+        raise ValueError("recovery and correction augmentation are mutually exclusive")
     manifest, arrays = load_oracle_demonstrations(manifest_path)
     source_rows = int(np.asarray(arrays["action_index"]).shape[0])
     row_indices = oracle_training_row_indices(config.training_rows, source_rows)
@@ -567,10 +579,27 @@ def distill_oracle_policy(
             != recovery_manifest["content_sha256"]
         ):
             raise ValueError("observability and recovery manifests disagree")
+    correction_manifest: dict[str, Any] | None = None
+    correction_arrays: dict[str, np.ndarray] | None = None
+    if correction_manifest_path is not None:
+        from so_arm101_v2.simulation.correction import load_oracle_corrections
+
+        if observability_manifest_path is not None:
+            raise ValueError("correction augmentation does not support observability annotations")
+        if kind not in (
+            OracleCloneKind.PHASE_STATE, OracleCloneKind.PHASE_DYNAMICS,
+        ) or config.training_rows != OracleTrainingRows.FULL.value:
+            raise ValueError("correction augmentation requires a phase-aware model with all nominal rows")
+        if config.recovery_loss_weight != 1.0:
+            raise ValueError("correction augmentation requires equal per-row loss weight 1.0")
+        correction_manifest, correction_arrays = load_oracle_corrections(correction_manifest_path)
+        if correction_manifest.get("source_manifest_content_sha256") != manifest["content_sha256"]:
+            raise ValueError("correction trajectories do not derive from the nominal oracle manifest")
+    augmented = recovery_manifest is not None or correction_manifest is not None
     prefix_reference: dict[str, Any] | None = None
     if schedule is OracleLearningRateSchedule.DECAY_10K_20K:
         if prefix_parity_report is None:
-            if recovery_manifest is None or kind in (
+            if not augmented or kind in (
                 OracleCloneKind.PHASE_STATE, OracleCloneKind.FEEDBACK_STATE,
             ):
                 raise ValueError("decay_10k_20k requires --prefix-parity-report")
@@ -620,6 +649,12 @@ def distill_oracle_policy(
             if observability_manifest is not None else None
         ),
     }
+    # Correction keys enter the identity only when supplied so that every
+    # legacy nominal and recovery run digest stays byte-identical.
+    if correction_manifest is not None:
+        identity["correction_manifest_content_sha256"] = correction_manifest["content_sha256"]
+        identity["correction_collection_digest"] = correction_manifest["collection_digest"]
+        identity["correction_rows"] = int(correction_manifest["arrays"]["rows"])
     if numerics is not None:
         identity["numerics"] = numerics_identity(numerics)
     run_digest = content_sha256(identity)
@@ -649,15 +684,17 @@ def distill_oracle_policy(
         dtype=np.float32,
     )
     delta_parts = [np.asarray(arrays["executed_delta_act"], dtype=np.float32)[row_indices]]
-    if recovery_arrays is not None:
-        recovery_features, _, _ = build_oracle_features(
-            kind, recovery_arrays, observability=recovery_observability,
+    auxiliary_arrays = recovery_arrays if recovery_arrays is not None else correction_arrays
+    auxiliary_features: np.ndarray | None = None
+    if auxiliary_arrays is not None:
+        auxiliary_features, _, _ = build_oracle_features(
+            kind, auxiliary_arrays, observability=recovery_observability,
             extras_mean=extras_mean, extras_std=extras_std,
         )
-        features_parts.append(recovery_features)
-        current_parts.append(np.asarray(recovery_arrays["current_act"], dtype=np.float32))
-        target_parts.append(np.asarray(recovery_arrays["executed_act"], dtype=np.float32))
-        delta_parts.append(np.asarray(recovery_arrays["executed_delta_act"], dtype=np.float32))
+        features_parts.append(auxiliary_features)
+        current_parts.append(np.asarray(auxiliary_arrays["current_act"], dtype=np.float32))
+        target_parts.append(np.asarray(auxiliary_arrays["executed_act"], dtype=np.float32))
+        delta_parts.append(np.asarray(auxiliary_arrays["executed_delta_act"], dtype=np.float32))
     features_np = np.concatenate(features_parts, axis=0)
     current_act = np.concatenate(current_parts, axis=0)
     targets_act = np.concatenate(target_parts, axis=0)
@@ -685,16 +722,16 @@ def distill_oracle_policy(
     first_gradient_norms: list[float] = []
     prefix_parity_passed: bool | None = None
     nominal_rows = len(row_indices)
-    recovery_rows = 0 if recovery_arrays is None else int(recovery_features.shape[0])
-    recovery_weight = float(config.recovery_loss_weight if recovery_rows else 0.0)
+    auxiliary_rows = 0 if auxiliary_features is None else int(auxiliary_features.shape[0])
+    auxiliary_weight = float(config.recovery_loss_weight if auxiliary_rows else 0.0)
     nominal_mse = float("inf")
     nominal_max_act_error = float("inf")
-    recovery_mse: float | None = None
-    recovery_max_act_error: float | None = None
+    auxiliary_mse: float | None = None
+    auxiliary_max_act_error: float | None = None
     weighted_objective = float("inf")
     nominal_baseline_mse = float(np.mean(np.square(target_delta_normalized[:nominal_rows])))
-    recovery_baseline_mse = (
-        None if not recovery_rows
+    auxiliary_baseline_mse = (
+        None if not auxiliary_rows
         else float(np.mean(np.square(target_delta_normalized[nominal_rows:])))
     )
     best_observed = {
@@ -717,10 +754,10 @@ def distill_oracle_policy(
             prediction = model(features)
             loss = oracle_recovery_weighted_loss(
                 prediction, targets, nominal_rows=nominal_rows,
-                recovery_loss_weight=recovery_weight,
+                recovery_loss_weight=auxiliary_weight,
             )
         else:
-            loss = step_loss(model, features, targets, nominal_rows, recovery_weight)
+            loss = step_loss(model, features, targets, nominal_rows, auxiliary_weight)
         if not torch.isfinite(loss):
             raise RuntimeError("oracle distillation loss became nonfinite")
         loss.backward()
@@ -734,14 +771,14 @@ def distill_oracle_policy(
             predictions_delta = model(features).cpu().numpy().astype(np.float32)
         residual = predictions_delta - target_delta_normalized
         nominal_mse = float(np.mean(np.square(residual[:nominal_rows])))
-        recovery_mse = (
-            None if not recovery_rows else float(np.mean(np.square(residual[nominal_rows:])))
+        auxiliary_mse = (
+            None if not auxiliary_rows else float(np.mean(np.square(residual[nominal_rows:])))
         )
         weighted_objective = (
-            float(np.mean(np.square(residual))) if not recovery_rows else float(
+            float(np.mean(np.square(residual))) if not auxiliary_rows else float(
                 (np.square(residual[:nominal_rows]).sum(dtype=np.float64)
-                 + recovery_weight * np.square(residual[nominal_rows:]).sum(dtype=np.float64))
-                / (nominal_rows + recovery_weight * recovery_rows)
+                 + auxiliary_weight * np.square(residual[nominal_rows:]).sum(dtype=np.float64))
+                / (nominal_rows + auxiliary_weight * auxiliary_rows)
             )
         )
         normalized_mse = nominal_mse
@@ -749,8 +786,8 @@ def distill_oracle_policy(
         nominal_max_act_error = float(
             np.max(np.abs(predictions_act[:nominal_rows] - targets_act[:nominal_rows]))
         )
-        recovery_max_act_error = (
-            None if not recovery_rows else float(
+        auxiliary_max_act_error = (
+            None if not auxiliary_rows else float(
                 np.max(np.abs(predictions_act[nominal_rows:] - targets_act[nominal_rows:]))
             )
         )
@@ -764,7 +801,7 @@ def distill_oracle_policy(
             }
         if step == 1 or step % 100 == 0:
             loss_trace.append({"step": step, "normalized_mse": normalized_mse})
-        if step == 10_000 and prefix_reference is not None and recovery_manifest is None:
+        if step == 10_000 and prefix_reference is not None and not augmented:
             prefix_parity_passed = bool(
                 loss_trace == prefix_reference["loss_trace"]
                 and normalized_mse == prefix_reference["normalized_mse"]
@@ -786,7 +823,7 @@ def distill_oracle_policy(
                 and first_gradient_norms
                 and all(np.isfinite(first_gradient_norms))
                 and np.all(np.isfinite(predictions_delta))
-                and (prefix_reference is None or recovery_manifest is not None or prefix_parity_passed is True)
+                and (prefix_reference is None or augmented or prefix_parity_passed is True)
             )
             if passed:
                 break
@@ -808,21 +845,31 @@ def distill_oracle_policy(
         and first_gradient_norms
         and all(np.isfinite(first_gradient_norms))
         and np.all(np.isfinite(predictions_delta))
-        and (prefix_reference is None or recovery_manifest is not None or prefix_parity_passed is True)
+        and (prefix_reference is None or augmented or prefix_parity_passed is True)
     )
 
     selected_scenario_indices = np.asarray(arrays["scenario_index"], dtype=np.int64)[row_indices]
     row_scenarios = [manifest["episodes"][int(index)]["scenario_id"] for index in selected_scenario_indices]
     if recovery_manifest is not None:
         row_scenarios.extend(f"recovery:{item['name']}" for item in recovery_manifest["records"])
+    if correction_manifest is not None:
+        for episode in correction_manifest["episodes"]:
+            if episode["accepted"]:
+                start = int(episode["action_index"])
+                row_scenarios.extend(
+                    f"correction:{episode['name']}:{index}"
+                    for index in range(start, start + int(episode["rows"]))
+                )
     absolute_error = np.abs(predictions_act - targets_act)
     worst_flat = int(np.argmax(absolute_error))
     worst_row, worst_joint = np.unravel_index(worst_flat, absolute_error.shape)
     if worst_row < len(row_indices):
         worst_source: int | str = int(row_indices[worst_row])
-    else:
-        assert recovery_manifest is not None
+    elif recovery_manifest is not None:
         worst_source = f"recovery:{recovery_manifest['records'][worst_row - len(row_indices)]['name']}"
+    else:
+        assert correction_manifest is not None
+        worst_source = str(row_scenarios[int(worst_row)])
     report: dict[str, Any] = {
         "schema_version": 1,
         **identity,
@@ -846,8 +893,8 @@ def distill_oracle_policy(
         "active_learning_rate_at_end": oracle_learning_rate(schedule, steps),
         "best_observed": best_observed,
         "prefix_parity": {
-            "required": prefix_reference is not None and recovery_manifest is None,
-            "applicable": recovery_manifest is None,
+            "required": prefix_reference is not None and not augmented,
+            "applicable": not augmented,
             "passed": prefix_parity_passed,
             "reference_content_sha256": (
                 prefix_reference["content_sha256"] if prefix_reference is not None else None
@@ -855,7 +902,9 @@ def distill_oracle_policy(
             "validated_step": 10_000 if prefix_parity_passed is True else None,
             "reason": (
                 "not comparable because the recovery rows intentionally change the training objective"
-                if recovery_manifest is not None else None
+                if recovery_manifest is not None
+                else "not comparable because the correction rows intentionally change the training objective"
+                if correction_manifest is not None else None
             ),
         },
         "architecture": [
@@ -886,7 +935,7 @@ def distill_oracle_policy(
         "closed_loop_eligible": bool(
             passed
             and config.training_rows == OracleTrainingRows.FULL.value
-            and (prefix_reference is None or recovery_manifest is not None or prefix_parity_passed is True)
+            and (prefix_reference is None or augmented or prefix_parity_passed is True)
         ),
         "numerical_gate_passed": numerical_gate_passed,
         "normalized_mse": normalized_mse,
@@ -907,18 +956,23 @@ def distill_oracle_policy(
             "zero_delta_improvement_factor": nominal_baseline_mse / nominal_mse,
             "predicted_command_safety_violations": safety_violations,
         },
-        "recovery_metrics": None if not recovery_rows else {
-            "rows": recovery_rows,
-            "loss_weight": recovery_weight,
-            "unweighted_normalized_mse": recovery_mse,
-            "maximum_act_error": recovery_max_act_error,
-            "zero_delta_baseline_normalized_mse": recovery_baseline_mse,
+        "recovery_metrics": None if recovery_manifest is None or not auxiliary_rows else {
+            "rows": auxiliary_rows,
+            "loss_weight": auxiliary_weight,
+            "unweighted_normalized_mse": auxiliary_mse,
+            "maximum_act_error": auxiliary_max_act_error,
+            "zero_delta_baseline_normalized_mse": auxiliary_baseline_mse,
         },
         "weighted_objective": {
             "value": weighted_objective,
-            "formula": "(sum_nominal_element_squared_errors + w * sum_recovery_element_squared_errors) / (450 + 8w)",
-            "recovery_loss_weight": recovery_weight,
-            "denominator": nominal_rows + recovery_weight * recovery_rows,
+            "formula": (
+                "(sum_nominal_element_squared_errors + w * sum_correction_element_squared_errors)"
+                " / (nominal_rows + w * correction_rows)"
+                if correction_manifest is not None else
+                "(sum_nominal_element_squared_errors + w * sum_recovery_element_squared_errors) / (450 + 8w)"
+            ),
+            "recovery_loss_weight": auxiliary_weight,
+            "denominator": nominal_rows + auxiliary_weight * auxiliary_rows,
         },
         "training_safety_violations": safety_violations,
         "gradient_norms_at_step_1": first_gradient_norms,
@@ -942,6 +996,31 @@ def distill_oracle_policy(
         "joint_order": list(JOINT_NAMES),
         "claim": "privileged_pipeline_memorization_only_not_closed_loop_success",
     }
+    # Correction keys appear only on correction-augmented runs so that new
+    # nominal and recovery reports keep their established schema.
+    if correction_manifest is not None:
+        report["correction_augmentation"] = {
+            "manifest_content_sha256": correction_manifest["content_sha256"],
+            "collection_digest": correction_manifest["collection_digest"],
+            "rows": int(correction_manifest["arrays"]["rows"]),
+            "sites": [
+                {
+                    "name": item["name"],
+                    "action_index": int(item["action_index"]),
+                    "rows": int(item["rows"]),
+                }
+                for item in correction_manifest["episodes"] if item["accepted"]
+            ],
+            "progress_rule": correction_manifest["progress_rule"],
+            "normalization": "unchanged_nominal_statistics",
+        }
+        report["correction_metrics"] = {
+            "rows": auxiliary_rows,
+            "loss_weight": auxiliary_weight,
+            "unweighted_normalized_mse": auxiliary_mse,
+            "maximum_act_error": auxiliary_max_act_error,
+            "zero_delta_baseline_normalized_mse": auxiliary_baseline_mse,
+        }
     report["content_sha256"] = content_sha256(report)
     checkpoint_payload = {
         "schema_version": 1,
@@ -965,6 +1044,8 @@ def distill_oracle_policy(
         "contact_timing": report["contact_timing"],
         "observability_annotations": report["observability_annotations"],
     }
+    if correction_manifest is not None:
+        checkpoint_payload["correction_augmentation"] = report["correction_augmentation"]
     checkpoint_buffer = io.BytesIO()
     torch.save(checkpoint_payload, checkpoint_buffer)
     _write_immutable_bytes(directory / "model.pt", checkpoint_buffer.getvalue())

@@ -29,6 +29,34 @@ def _minimum_jerk(value: float) -> float:
     return 10.0 * x**3 - 15.0 * x**4 + 6.0 * x**5
 
 
+def compress_boundaries(
+    boundaries: tuple[int, ...], start_index: int, horizon: int | None = None
+) -> tuple[int, ...]:
+    """Rescale a full-horizon stage schedule into the remaining action budget.
+
+    Each boundary maps to ``start_index + round((horizon - start_index) * b /
+    horizon)``, so ``start_index == 0`` is exactly the identity map and the
+    compressed schedule always ends at ``horizon``.  Raises when the remaining
+    budget cannot host every stage as at least one action.
+    """
+    if horizon is None:
+        horizon = boundaries[-1] if boundaries else 0
+    if not boundaries or boundaries[0] != 0 or boundaries[-1] != horizon:
+        raise ValueError("boundaries must start at 0 and end at the horizon")
+    if not 0 <= start_index < horizon:
+        raise ValueError("start_index must lie inside the horizon")
+    remaining = horizon - start_index
+    compressed = tuple(
+        start_index + int(round(remaining * boundary / horizon)) for boundary in boundaries
+    )
+    if any(later <= earlier for earlier, later in zip(compressed, compressed[1:])):
+        raise RuntimeError(
+            f"insufficient remaining correction budget: {remaining} actions cannot "
+            f"host {len(boundaries) - 1} stages"
+        )
+    return compressed
+
+
 # Grasp pocket of the Menagerie gripper in the "gripper" body frame: the
 # fixed_jaw_pad_4 / moving_jaw_pad_4 pair is exactly parallel with a 25.2 mm
 # gap at gripper qpos ~0.0, centered at this point (fixed pad face at local
@@ -269,6 +297,25 @@ class PrivilegedStagedController:
                 386, 403, 419, 424, 450,
             )
 
+    def reset_from_state(self, adapter: Any, start_index: int, horizon: int | None = None) -> None:
+        """Replan from the live simulator state onto the remaining action budget.
+
+        The full stage plan is rebuilt from the current arm and cube state
+        (exactly as :meth:`reset`), then the stage schedule is compressed into
+        ``[start_index, horizon]`` so that action indices — and therefore the
+        ``progress`` feature — continue the deployment clock instead of
+        restarting at zero.
+        """
+        self.reset(adapter)
+        if horizon is None:
+            horizon = self.boundaries[-1]
+        if not 0 <= start_index < horizon:
+            raise ValueError("start_index must lie inside the horizon")
+        if self.boundaries[-1] != horizon:
+            raise RuntimeError("privileged stage schedule does not span the requested horizon")
+        self.boundaries = compress_boundaries(self.boundaries, start_index, horizon)
+        self.action_index = start_index
+
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
         del image, current_act, adapter
         boundaries = self.boundaries
@@ -291,4 +338,4 @@ class PrivilegedStagedController:
         ).astype(np.float32)
 
 
-__all__ = ["PrivilegedStagedController"]
+__all__ = ["PrivilegedStagedController", "compress_boundaries"]

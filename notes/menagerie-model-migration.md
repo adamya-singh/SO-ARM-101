@@ -334,6 +334,22 @@ correction trajectories rather than another feature variant:
 
 The complete source suite after this follow-up passes 119 tests.
 
+### DAgger correction tranche (2026-08-02/03)
+
+The predefined correction step ran next. Timeline-compressed corrections were
+physically infeasible at every site (the nominal oracle certifies its strict
+grasp only at action 364 against the immutable 450-action pickup deadline);
+the amended capture — nominal-speed privileged replans validated as fresh v3
+sub-episodes with deployment-clock progress saturating at 1.0 — produced
+contract-certified, safety-clean corrections at all 11 sites
+(`corrections/7feed472071fd725`, 4,818 rows, bitwise-repeatable). The single
+authorized width-256 retrain stopped **`blocked_offline`** at a `1.106e-4`
+nominal MSE floor versus the unchanged `1e-6` gate, so no closed-loop
+evaluation ran. Immutable decision: `artifacts/so_arm101_v2/
+oracle_distillation/correction_gates/faf13e95b8caa2e8/report.json`; detailed
+record: `notes/dagger-correction-gate.md`. The complete suite passes 130
+tests.
+
 ## Addendum (2026-08-04): mujoco environment standardization
 
 Some artifacts cited above were produced between 2026-08-02 19:03 and

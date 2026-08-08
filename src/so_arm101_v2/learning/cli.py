@@ -135,6 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     oracle.add_argument("--prefix-parity-report", type=Path)
     oracle.add_argument("--recovery-manifest", type=Path)
     oracle.add_argument("--observability-manifest", type=Path)
+    oracle.add_argument("--correction-manifest", type=Path)
     oracle.add_argument("--recovery-loss-weight", type=float, default=1.0)
     oracle.add_argument(
         "--output-dir", type=Path,
@@ -169,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
                 prefix_parity_report=args.prefix_parity_report,
                 recovery_manifest_path=args.recovery_manifest,
                 observability_manifest_path=args.observability_manifest,
+                correction_manifest_path=args.correction_manifest,
                 numerics=_resolve_cli_numerics(args),
             )
             print(result.report_json)
