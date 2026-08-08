@@ -407,3 +407,16 @@ underfit at the frozen 30k-step budget (`1.94e-5` MSE versus the memorizer's
 `2.37e-6`). Terminal status `starts_not_resolved`; retry budget spent; next
 proposal scales the optimization budget to the multi-scenario dataset. The
 complete suite passes 180 tests.
+
+**Numerics regime v2 + optimization-scaling tranche (2026-08-06).** Training
+moved to GPU (RTX 3090) + torch.compile by default under fingerprinted
+identities — validated by bitwise cross-process GPU determinism and a
+behavioral re-validation of the saturation promotion
+(`saturation_gates/32f8972f7996b5f6`, identical attribution); legacy
+cpu-eager digests remain reproducible via `--legacy-numerics`
+(`notes/numerics-regime-v2.md`). The scaling tranche then executed in ~35 min
+(`scaling_gates/b672196e85a945aa`): `scaling_not_resolved`, but clean
+five-scenario successes scale monotonically to **9/15** at width 512 / 90k
+steps with all residual failures last-mile safety frames. Next: a new
+proposal for the safety-frame gap, with training cost no longer a constraint
+(90k steps ≈ 7 min).

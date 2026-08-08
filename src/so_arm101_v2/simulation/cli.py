@@ -33,6 +33,7 @@ from .recovery import (
 )
 from .clone_policy import OracleCloneCheckpointPolicy
 from .broader import run_broader_evaluation
+from .scaling import run_scaling_gate
 from .chunked import run_chunked_gate, run_saturation_gate
 from .margins import analyze_pick_place_margins
 from .correction import (
@@ -172,6 +173,21 @@ def _parser() -> argparse.ArgumentParser:
     margins_parser.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     margins_parser.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
     margins_parser.add_argument("--evaluation-report", type=Path, required=True)
+    scaling = commands.add_parser("run-scaling-gate")
+    scaling.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    scaling.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    scaling.add_argument("--capture-manifest", type=Path, required=True)
+    scaling.add_argument("--oracle-manifest", type=Path, required=True)
+    scaling.add_argument("--recovery-manifest", type=Path, required=True)
+    scaling.add_argument("--baseline-tranche-report", type=Path, required=True)
+    scaling.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    scaling.add_argument("--no-video", action="store_true")
+    scaling.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    scaling.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    scaling.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -335,6 +351,19 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(margins_path)
             return 0
+        if args.command == "run-scaling-gate":
+            scaling_result = run_scaling_gate(
+                args.mujoco_model, args.capture_manifest,
+                args.oracle_manifest, args.recovery_manifest,
+                args.preflight_report, args.baseline_tranche_report,
+                args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(scaling_result.report_json)
+            print(f"status={scaling_result.status}")
+            return 0 if scaling_result.status.endswith("_robust") else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,
