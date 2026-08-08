@@ -1,0 +1,66 @@
+{
+  "tool": "analyze_safety_frames",
+  "matplotlib": "3.10.9",
+  "evaluation": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/precision_stage_a_evaluations/eb73b9159a9fc41c/policies/fixed_pick_place_v3.precision_schedule_cosine_w512_90k/evaluation.json",
+  "evaluation_content_sha256": "b93d442d317b09fefa903c1e5095780b9431328ec6bca5587f51676e006e6b40",
+  "chunk_horizon": 90,
+  "teacher_horizon": 450,
+  "rollouts": [
+    {
+      "scenario_id": "nominal",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "e57c6b4dee0011c5216af6c55864f25dee59a6ca08c593238fe608f16f351ee8",
+      "policy_id": "chunked_h90.seed101.noise_penalty_v1",
+      "findings": [
+        {
+          "action": 401,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0005166709306649864,
+          "signed_excess": 0.000988618383416906,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 40,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 402,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.004184436984360218,
+          "signed_excess": 0.004656384437112138,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 41,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 403,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.005324882455170155,
+          "signed_excess": 0.005796829907922074,
+          "stage": "set_down",
+          "chunk_index": 4,
+          "chunk_offset": 42,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 404,
+          "joint": "gripper",
+          "kind": "envelope_clip",
+          "requested": -0.0006032050005160272,
+          "signed_excess": 0.0010751524532679468,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 43,
+          "past_teacher_horizon": false
+        }
+      ]
+    }
+  ]
+}

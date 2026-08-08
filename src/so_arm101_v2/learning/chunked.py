@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 import functools
 import io
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -46,8 +47,34 @@ from .oracle_distillation import OracleCloneKind, build_oracle_features
 from .tiny_model import normalize_act
 
 SATURATION_MODES = ("none", "feasible_chain_v1", "noise_penalty_v1")
+CHUNKED_LR_SCHEDULES = ("fixed", "cosine_floor_v1")
+CHUNKED_LR_FLOOR = 1e-5
 
 
+def chunked_learning_rate(
+    schedule: str, step: int, max_steps: int, base_learning_rate: float
+) -> float:
+    """Immutable per-step learning rate for the chunked lane (one-based step).
+
+    ``cosine_floor_v1`` anneals from ``base_learning_rate`` (exactly, at step
+    1) to ``CHUNKED_LR_FLOOR`` (exactly, at ``max_steps``), relative to the
+    budget — unlike the oracle lane's absolute 10k/20k boundaries, so one
+    schedule serves every step budget.
+    """
+    if schedule not in CHUNKED_LR_SCHEDULES:
+        raise ValueError(f"unknown chunked lr schedule {schedule!r}")
+    if not 1 <= step <= max_steps:
+        raise ValueError("optimizer step must lie in [1, max_steps]")
+    if schedule == "fixed":
+        return base_learning_rate
+    if base_learning_rate <= CHUNKED_LR_FLOOR:
+        raise ValueError("cosine_floor_v1 requires base_learning_rate above the floor")
+    if max_steps == 1:
+        return base_learning_rate
+    progress = (step - 1) / (max_steps - 1)
+    return CHUNKED_LR_FLOOR + 0.5 * (base_learning_rate - CHUNKED_LR_FLOOR) * (
+        1.0 + math.cos(math.pi * progress)
+    )
 # The oracle's own closest approach to the effective envelope is ~0.0035 ACT
 # (gripper floor); the decoder margin must stay below it so every training
 # target remains strictly inside the shrunk box.
@@ -66,8 +93,11 @@ class ChunkedCloneConfig:
     margin_act: float | None = None
     noise_sigma: float | None = None
     penalty_weight: float | None = None
+    lr_schedule: str = "fixed"
 
     def __post_init__(self) -> None:
+        if self.lr_schedule not in CHUNKED_LR_SCHEDULES:
+            raise ValueError("unsupported lr_schedule")
         if not 1 <= self.chunk_horizon <= 480:
             raise ValueError("chunk_horizon must lie in [1, 480]")
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
@@ -377,6 +407,10 @@ def train_chunked_clone(
             "noise_sigma", "penalty_weight",
         ):
             config_identity.pop(name)
+    # Independent of the saturation condition: the default schedule leaves
+    # every legacy AND regime-v2 digest byte-identical.
+    if config.lr_schedule == "fixed":
+        config_identity.pop("lr_schedule")
     identity = {
         "manifest_content_sha256": manifest["content_sha256"],
         "collection_digest": manifest["collection_digest"],
@@ -454,6 +488,12 @@ def train_chunked_clone(
         # Legacy CPU-eager loop, byte-for-byte: global-RNG noise, per-step
         # penalty sync, eager dispatch.  This lane pins every stored digest.
         for step in range(1, config.max_steps + 1):
+            if config.lr_schedule != "fixed":
+                lr_value = chunked_learning_rate(
+                    config.lr_schedule, step, config.max_steps, config.learning_rate
+                )
+                for group in optimizer.param_groups:
+                    group["lr"] = lr_value
             optimizer.zero_grad(set_to_none=True)
             loss = (forward_residual() - targets).square().mean()
             if penalty_mode:
@@ -500,6 +540,12 @@ def train_chunked_clone(
         noise_source = noise_generator(torch, config.seed) if penalty_mode else None
         penalty = None
         for step in range(1, config.max_steps + 1):
+            if config.lr_schedule != "fixed":
+                lr_value = chunked_learning_rate(
+                    config.lr_schedule, step, config.max_steps, config.learning_rate
+                )
+                for group in optimizer.param_groups:
+                    group["lr"] = lr_value
             optimizer.zero_grad(set_to_none=True)
             noisy = None
             if penalty_mode:
@@ -589,6 +635,16 @@ def train_chunked_clone(
             "effective_act_high": high_act.tolist(),
             "final_penalty_value": penalty_value,
             "decoder_telemetry": decoder_telemetry,
+        }
+    if config.lr_schedule != "fixed":
+        report["learning_rate_schedule"] = {
+            "schedule": config.lr_schedule,
+            "base_learning_rate": config.learning_rate,
+            "floor": CHUNKED_LR_FLOOR,
+            "final_learning_rate": chunked_learning_rate(
+                config.lr_schedule, config.max_steps, config.max_steps,
+                config.learning_rate,
+            ),
         }
     if correction_manifest is not None:
         report["correction_augmentation"] = {

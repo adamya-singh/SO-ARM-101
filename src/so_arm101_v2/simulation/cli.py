@@ -34,6 +34,7 @@ from .recovery import (
 from .clone_policy import OracleCloneCheckpointPolicy
 from .broader import run_broader_evaluation
 from .scaling import run_scaling_gate
+from .precision import run_precision_stage
 from .chunked import run_chunked_gate, run_saturation_gate
 from .margins import analyze_pick_place_margins
 from .correction import (
@@ -188,6 +189,24 @@ def _parser() -> argparse.ArgumentParser:
     scaling.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
     scaling.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     scaling.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    precision = commands.add_parser("run-precision-stage")
+    precision.add_argument("--stage", choices=("schedule", "budget", "seeds"), required=True)
+    precision.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    precision.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    precision.add_argument("--capture-manifest", type=Path, required=True)
+    precision.add_argument("--oracle-manifest", type=Path, required=True)
+    precision.add_argument("--recovery-manifest", type=Path, required=True)
+    precision.add_argument("--scaling-gate-report", type=Path, required=True)
+    precision.add_argument("--prior-stage-report", type=Path)
+    precision.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    precision.add_argument("--no-video", action="store_true")
+    precision.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    precision.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
+    precision.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
+    precision.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -364,6 +383,26 @@ def main(argv: list[str] | None = None) -> int:
             print(scaling_result.report_json)
             print(f"status={scaling_result.status}")
             return 0 if scaling_result.status.endswith("_robust") else 2
+        if args.command == "run-precision-stage":
+            precision_result = run_precision_stage(
+                args.stage,
+                args.mujoco_model, args.capture_manifest,
+                args.oracle_manifest, args.recovery_manifest,
+                args.preflight_report, args.scaling_gate_report,
+                args.output_dir,
+                prior_stage_report_path=args.prior_stage_report,
+                record_video=not args.no_video,
+                workers=args.workers,
+                numerics=_resolve_cli_numerics(args),
+            )
+            print(precision_result.report_json)
+            print(f"status={precision_result.status}")
+            passing = (
+                precision_result.status == "schedule_selected_cosine_floor_v1_stage_a_passed"
+                or precision_result.status.startswith("budget_promoted_")
+                or precision_result.status == "seeds_robust"
+            )
+            return 0 if passing else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,

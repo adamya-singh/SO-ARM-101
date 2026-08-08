@@ -148,6 +148,7 @@ def _parser() -> argparse.ArgumentParser:
     chunked.add_argument("--chunk-horizon", type=int, required=True)
     chunked.add_argument("--seed", type=int, default=101)
     chunked.add_argument("--hidden-width", type=int, choices=(128, 256, 512, 1024), default=256)
+    chunked.add_argument("--lr-schedule", choices=("fixed", "cosine_floor_v1"), default="fixed")
     chunked.add_argument("--learning-rate", type=float, default=1e-3)
     chunked.add_argument("--max-steps", type=int, default=30_000)
     chunked.add_argument(
@@ -194,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
                     margin_act=args.margin_act,
                     noise_sigma=args.noise_sigma,
                     penalty_weight=args.penalty_weight,
+                    lr_schedule=args.lr_schedule,
                 ),
                 correction_manifest_path=args.correction_manifest,
                 numerics=_resolve_cli_numerics(args),

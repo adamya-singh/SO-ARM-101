@@ -420,3 +420,16 @@ five-scenario successes scale monotonically to **9/15** at width 512 / 90k
 steps with all residual failures last-mile safety frames. Next: a new
 proposal for the safety-frame gap, with training cost no longer a constraint
 (90k steps ≈ 7 min).
+
+**Precision tranche (2026-08-06): `seeds_not_resolved`, and the mechanism is
+now clear.** Frame-level failure analysis (`notes/scaling-failure-frame-analysis.md`)
+localized every scaling-gate violation to gripper envelope spikes past the
+450-action teacher horizon. A pre-registered three-stage tranche
+(`notes/precision-tranche-proposal.md`) then showed: cosine LR decay
+(`cosine_floor_v1`) removes the extrapolation spike and cuts violation mass
+~17x (12/15 vs 9/15); larger budgets bend the wrong way (150k/300k/width1024
+all worse than 90k-cosine); and seeds disperse hard (12/15, 12/15, 3/15) —
+the residual grazing is a structural teacher-horizon boundary. Terminal
+next action: the teacher-horizon alignment proposal (train the final chunk
+instead of extrapolating it). Reports:
+`precision_gates/{f0a6169e8c0f05e7,0cb6ded4f78a0a68,6d2c95a8f577c95b}`.
