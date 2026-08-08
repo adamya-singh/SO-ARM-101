@@ -44,7 +44,7 @@ from .correction import (
     run_correction_gate,
     run_correction_probe,
 )
-from .suites import load_simulation_suite
+from .suites import load_simulation_suite, load_suite_from_path
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -66,6 +66,7 @@ def _parser() -> argparse.ArgumentParser:
         choices=("fixed_pickup_contract_v1", "fixed_pick_place_v3"),
         default="fixed_pickup_contract_v1",
     )
+    preflight.add_argument("--suite-path", type=Path, help="generated suite JSON (overrides --suite)")
     capture = commands.add_parser("capture-oracle")
     capture.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     capture.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -78,6 +79,8 @@ def _parser() -> argparse.ArgumentParser:
     capture.add_argument("--no-video", action="store_true")
     capture.add_argument("--teacher-horizon", type=int, choices=(450, 480), default=450)
     capture.add_argument("--store-frames", action="store_true", help="store per-step 256x256 wrist frames as an images.npy sidecar (vision lane)")
+    capture.add_argument("--suite-path", type=Path, help="generated suite JSON (overrides --suite)")
+    capture.add_argument("--skip-failed-scenarios", action="store_true", help="skip (and record) scenarios the teacher cannot solve instead of aborting")
     recovery = commands.add_parser("capture-recovery")
     recovery.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -528,18 +531,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"passed={str(passed).lower()} rollouts={len(result.rollouts)}")
             return 0 if passed else 2
         if args.command == "capture-oracle":
+            capture_suite = (
+                load_suite_from_path(args.suite_path)
+                if getattr(args, "suite_path", None) else args.suite
+            )
             result = capture_oracle_demonstrations(
-                args.mujoco_model, args.suite, args.preflight_report, args.output_dir,
+                args.mujoco_model, capture_suite, args.preflight_report, args.output_dir,
                 scenario=args.scenario, record_video=not args.no_video,
                 teacher_horizon=args.teacher_horizon,
                 store_frames=args.store_frames,
+                skip_failed_scenarios=args.skip_failed_scenarios,
             )
             print(result.manifest)
             print(f"rows={result.rows} scenarios={','.join(result.scenario_ids)}")
             return 0
         if args.command == "preflight":
+            preflight_suite = (
+                load_suite_from_path(args.suite_path)
+                if getattr(args, "suite_path", None) else args.suite
+            )
             result = run_simulation_preflight(
-                args.mujoco_model, args.output_dir, suite=args.suite,
+                args.mujoco_model, args.output_dir, suite=preflight_suite,
                 record_video=not args.no_video,
                 workers=args.workers,
             )

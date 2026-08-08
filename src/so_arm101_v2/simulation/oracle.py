@@ -24,12 +24,12 @@ from so_arm101_v2.data._serialization import (
     write_immutable_file,
     write_immutable_json,
 )
-from so_arm101_v2.data.resources import read_resource_bytes
+from so_arm101_v2.data.resources import RESOURCE_NAMES, read_resource_bytes
 
 from .adapter import MujocoTaskAdapter
 from .privileged import PrivilegedStagedController
 from .rollout import _VideoWriter
-from .suites import SimulationScenario, SimulationSuite, load_simulation_suite
+from .suites import SimulationScenario, SimulationSuite, load_simulation_suite, suite_payload
 
 
 @dataclass(frozen=True)
@@ -90,10 +90,13 @@ def _validated_preflight(path: Path, suite: SimulationSuite) -> dict[str, Any]:
         payload.get("environment_proven") is not True
         or payload.get("deterministic") is not True
         or payload.get("suite", {}).get("suite_id") != suite.suite_id
-        or len(rollouts) != 15
+        or len(rollouts) != len(suite.scenarios) * suite.repeats
         or not all(item.get("success") for item in rollouts)
     ):
-        raise ValueError("capture requires a passing 15/15 v3 preflight report")
+        raise ValueError(
+            "capture requires a passing full-coverage preflight report "
+            f"({len(suite.scenarios) * suite.repeats} rollouts)"
+        )
     return payload
 
 
@@ -122,6 +125,7 @@ def capture_oracle_demonstrations(
     record_video: bool = True,
     teacher_horizon: int = 450,
     store_frames: bool = False,
+    skip_failed_scenarios: bool = False,
 ) -> OracleDemonstrationCollection:
     """Capture one deterministic full-horizon teacher episode per scenario."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
@@ -140,9 +144,13 @@ def capture_oracle_demonstrations(
         "suite_id": suite.suite_id,
         "scenario_ids": [item.scenario_id for item in selected],
         "model_sha256": _sha256_file(model_path),
-        "suite_resource_sha256": hashlib.sha256(
-            read_resource_bytes(f"{suite.suite_id}.json")
-        ).hexdigest(),
+        "suite_resource_sha256": (
+            hashlib.sha256(read_resource_bytes(f"{suite.suite_id}.json")).hexdigest()
+            if f"{suite.suite_id}.json" in RESOURCE_NAMES
+            # Generated suites are not packaged resources; hash their
+            # canonical payload instead (same collision-resistance role).
+            else content_sha256(suite_payload(suite))
+        ),
         "task_resource_sha256": hashlib.sha256(
             read_resource_bytes(f"{suite.task_contract}.json")
         ).hexdigest(),
@@ -178,6 +186,7 @@ def capture_oracle_demonstrations(
         )
     }
     episode_records: list[dict[str, Any]] = []
+    skipped_records: list[dict[str, Any]] = []
 
     frames_sha256: str | None = None
     with tempfile.TemporaryDirectory(prefix="so_arm101_oracle_") as temporary:
@@ -202,6 +211,8 @@ def capture_oracle_demonstrations(
             event_rows: list[dict[str, Any]] = []
             evaluation = None
             safety_counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
+            rows_before = len(arrays["action_index"])
+            episode_error: str | None = None
             try:
                 adapter.reset(item)
                 controller.reset(adapter)
@@ -209,6 +220,8 @@ def capture_oracle_demonstrations(
                     snapshot = adapter.privileged_state()
                     raw = adapter.render("wrist_camera")
                     if frames is not None:
+                        # Running row counter: stays dense when scenarios are
+                        # skipped (skip_failed_scenarios).
                         frames[len(arrays["action_index"])] = raw
                     wrist.add(raw)
                     overview.add(adapter.render("camera_side"))
@@ -270,21 +283,39 @@ def capture_oracle_demonstrations(
                         "pickup_events": pickup_events,
                         "placement_events": placement_events,
                     })
+            except RuntimeError as exc:
+                if not skip_failed_scenarios:
+                    raise
+                episode_error = str(exc)
             finally:
                 wrist.close()
                 overview.close()
                 adapter.close()
-            if (
+            if episode_error is None and (
                 evaluation is None
                 or not evaluation.success
                 or len(event_rows) != identity["teacher_horizon"]
             ):
-                raise RuntimeError(
+                episode_error = (
                     f"oracle scenario {item.scenario_id} did not pass v3 within "
                     f"{identity['teacher_horizon']} actions"
                 )
-            if any(safety_counts.values()):
-                raise RuntimeError(f"oracle scenario {item.scenario_id} used the safety layer")
+                if not skip_failed_scenarios:
+                    raise RuntimeError(episode_error)
+            if episode_error is None and any(safety_counts.values()):
+                episode_error = f"oracle scenario {item.scenario_id} used the safety layer"
+                if not skip_failed_scenarios:
+                    raise RuntimeError(episode_error)
+            if episode_error is not None:
+                # Roll the arrays back to the episode boundary and record the
+                # skip; frames stay dense via the running row counter.
+                for name in arrays:
+                    del arrays[name][rows_before:]
+                skipped_records.append({
+                    "scenario_id": item.scenario_id,
+                    "reason": episode_error,
+                })
+                continue
             episode_records.append({
                 "scenario_id": item.scenario_id,
                 "rows": identity["teacher_horizon"],
@@ -307,6 +338,11 @@ def capture_oracle_demonstrations(
         digest_inputs: dict[str, Any] = {**identity, "arrays_sha256": arrays_sha256}
         if frames is not None:
             frames.flush()
+            kept_rows = int(materialized["action_index"].shape[0])
+            if kept_rows < frames.shape[0]:
+                truncated_path = temporary_path / "images.trunc.npy"
+                np.save(truncated_path, np.asarray(frames[:kept_rows]))
+                frames_temp = truncated_path
             digest = hashlib.sha256()
             with open(frames_temp, "rb") as handle:
                 for block in iter(lambda: handle.read(1 << 22), b""):
@@ -354,6 +390,8 @@ def capture_oracle_demonstrations(
         "videos": videos,
         "claim": "privileged_simulation_demonstrations_only_not_deployment_data",
     }
+    if skipped_records:
+        manifest_payload["skipped_scenarios"] = skipped_records
     if frames_sha256 is not None:
         manifest_payload["frames"] = {
             "path": "images.npy",
