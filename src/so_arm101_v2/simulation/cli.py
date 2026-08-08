@@ -77,6 +77,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     capture.add_argument("--no-video", action="store_true")
     capture.add_argument("--teacher-horizon", type=int, choices=(450, 480), default=450)
+    capture.add_argument("--store-frames", action="store_true", help="store per-step 256x256 wrist frames as an images.npy sidecar (vision lane)")
     recovery = commands.add_parser("capture-recovery")
     recovery.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -531,6 +532,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.mujoco_model, args.suite, args.preflight_report, args.output_dir,
                 scenario=args.scenario, record_video=not args.no_video,
                 teacher_horizon=args.teacher_horizon,
+                store_frames=args.store_frames,
             )
             print(result.manifest)
             print(f"rows={result.rows} scenarios={','.join(result.scenario_ids)}")

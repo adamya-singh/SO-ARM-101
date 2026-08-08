@@ -21,6 +21,7 @@ from so_arm101_v2.contracts import (
 from so_arm101_v2.data._serialization import (
     content_sha256,
     write_immutable_bytes,
+    write_immutable_file,
     write_immutable_json,
 )
 from so_arm101_v2.data.resources import read_resource_bytes
@@ -120,6 +121,7 @@ def capture_oracle_demonstrations(
     scenario: str = "nominal",
     record_video: bool = True,
     teacher_horizon: int = 450,
+    store_frames: bool = False,
 ) -> OracleDemonstrationCollection:
     """Capture one deterministic full-horizon teacher episode per scenario."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
@@ -155,6 +157,13 @@ def capture_oracle_demonstrations(
         # digest) byte-identical.
         "teacher_horizon": teacher_horizon,
     }
+    if store_frames:
+        # Conditionally-present so every legacy capture identity (and hence
+        # collection digest) stays byte-identical when frames are off.
+        identity["frame_store"] = {
+            "format": "npy_memmap_uint8_v1",
+            "frame_shape": [256, 256, 3],
+        }
 
     arrays: dict[str, list[np.ndarray | float | int | bool]] = {
         name: [] for name in (
@@ -170,9 +179,18 @@ def capture_oracle_demonstrations(
     }
     episode_records: list[dict[str, Any]] = []
 
+    frames_sha256: str | None = None
     with tempfile.TemporaryDirectory(prefix="so_arm101_oracle_") as temporary:
         temporary_path = Path(temporary)
         staged_videos: list[tuple[Path, str]] = []
+        frames = None
+        frames_temp = temporary_path / "images.npy"
+        if store_frames:
+            total_rows = len(selected) * int(identity["teacher_horizon"])
+            frames = np.lib.format.open_memmap(
+                frames_temp, mode="w+", dtype=np.uint8,
+                shape=(total_rows, 256, 256, 3),
+            )
         for scenario_index, item in enumerate(selected):
             adapter = MujocoTaskAdapter(model_path)
             controller = PrivilegedStagedController()
@@ -190,6 +208,8 @@ def capture_oracle_demonstrations(
                 for action_index in range(identity["teacher_horizon"]):
                     snapshot = adapter.privileged_state()
                     raw = adapter.render("wrist_camera")
+                    if frames is not None:
+                        frames[len(arrays["action_index"])] = raw
                     wrist.add(raw)
                     overview.add(adapter.render("camera_side"))
                     requested = controller.predict(raw, snapshot.current_act, adapter)
@@ -284,10 +304,24 @@ def capture_oracle_demonstrations(
         np.savez_compressed(buffer, **materialized)
         arrays_bytes = buffer.getvalue()
         arrays_sha256 = hashlib.sha256(arrays_bytes).hexdigest()
-        collection_digest = content_sha256({**identity, "arrays_sha256": arrays_sha256})
+        digest_inputs: dict[str, Any] = {**identity, "arrays_sha256": arrays_sha256}
+        if frames is not None:
+            frames.flush()
+            digest = hashlib.sha256()
+            with open(frames_temp, "rb") as handle:
+                for block in iter(lambda: handle.read(1 << 22), b""):
+                    digest.update(block)
+            frames_sha256 = digest.hexdigest()
+            digest_inputs["frames_sha256"] = frames_sha256
+        collection_digest = content_sha256(digest_inputs)
         destination = Path(output_dir) / "oracle" / suite.suite_id / collection_digest[:16]
         arrays_path = destination / "demonstrations.npz"
         _write_immutable_bytes(arrays_path, arrays_bytes)
+        if frames is not None:
+            write_immutable_file(
+                destination / "images.npy", frames_temp,
+                conflict_message=f"immutable oracle artifact differs: {destination / 'images.npy'}",
+            )
 
         videos: list[dict[str, Any]] = []
         for temporary_video, name in staged_videos:
@@ -320,6 +354,15 @@ def capture_oracle_demonstrations(
         "videos": videos,
         "claim": "privileged_simulation_demonstrations_only_not_deployment_data",
     }
+    if frames_sha256 is not None:
+        manifest_payload["frames"] = {
+            "path": "images.npy",
+            "sha256": frames_sha256,
+            "rows": int(materialized["action_index"].shape[0]),
+            "dtype": "uint8",
+            "frame_shape": [256, 256, 3],
+            "convention": "raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image",
+        }
     manifest_payload["content_sha256"] = content_sha256(manifest_payload)
     manifest_path = destination / "manifest.json"
     write_immutable_json(manifest_path, manifest_payload)

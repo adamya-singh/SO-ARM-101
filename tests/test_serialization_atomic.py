@@ -116,3 +116,24 @@ def test_delegating_wrappers_preserve_message_prefixes(tmp_path: Path) -> None:
         writer(target, b"one")
         with pytest.raises(FileExistsError, match=prefix):
             writer(target, b"two")
+
+
+def test_write_immutable_file_streams_and_rejects_conflicts(tmp_path) -> None:
+    from so_arm101_v2.data._serialization import write_immutable_file
+
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"x" * (2 << 20))
+    destination = tmp_path / "out" / "images.npy"
+    write_immutable_file(destination, source)
+    assert destination.read_bytes() == source.read_bytes()
+    write_immutable_file(destination, source)  # identical re-publish accepted
+    divergent = tmp_path / "divergent.bin"
+    divergent.write_bytes(b"y" * (2 << 20))
+    with pytest.raises(FileExistsError, match="different content"):
+        write_immutable_file(destination, divergent)
+    # same size, different bytes: streamed comparison must still catch it
+    shifted = tmp_path / "shifted.bin"
+    shifted.write_bytes(b"x" * ((2 << 20) - 1) + b"z")
+    with pytest.raises(FileExistsError, match="different content"):
+        write_immutable_file(destination, shifted)
+    assert not list(destination.parent.glob(".*.tmp"))

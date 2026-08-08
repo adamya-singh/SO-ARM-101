@@ -86,6 +86,16 @@ def _build_oracle_clone(spec: PolicySpec) -> Any:
     return OracleCloneCheckpointPolicy(_required_checkpoint(spec))
 
 
+def _build_vision_chunked(spec: PolicySpec) -> Any:
+    from so_arm101_v2.simulation.vision_policy import VisionChunkedPolicy
+
+    return VisionChunkedPolicy(
+        _required_checkpoint(spec),
+        black_image=bool(spec.option("black_image", False)),
+        clamp_channels=tuple(spec.option("clamp_channels", ())),
+    )
+
+
 def _build_diagnostic_clone(spec: PolicySpec) -> Any:
     from so_arm101_v2.simulation.correction import NonPromotableDiagnosticClonePolicy
 
@@ -98,6 +108,7 @@ _POLICY_BUILDERS: dict[str, Callable[[PolicySpec], Any]] = {
     "constant_pose": _build_constant_pose,
     "torch_checkpoint": _build_torch_checkpoint,
     "chunked_clone": _build_chunked_clone,
+    "vision_chunked": _build_vision_chunked,
     "oracle_clone": _build_oracle_clone,
     "diagnostic_clone": _build_diagnostic_clone,
 }
