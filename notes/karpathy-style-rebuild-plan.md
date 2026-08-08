@@ -2014,3 +2014,80 @@ bound** during `set_down`/`traverse`: the teacher commands the gripper at
 ~0.0005 (floor) for grip force and imitation overshoot dives to −0.002…−0.02.
 Next proposal: gripper floor overshoot (e.g. gripper-channel output clamp). Reports: `horizon_gates/704b7a9574e559db`,
 analyses `notes/horizon-seed{101,202,303}-failure-analysis.md`.
+
+**Gripper-clamp gate (2026-08-06): `clamp_not_resolved`, but rung 3's first
+clean policies.** The floor-overshoot diagnosis above pointed at a
+zero-training-cost fix: clamp the gripper channel to its exact effective
+bounds at the policy output. Legality was proven first (the strict-inequality
+envelope test makes exact-bound values legal on the gripper; the other five
+channels trip float32 round-off, so the registered scope is gripper-only),
+then the three existing checkpoints were re-evaluated unchanged. Seeds 101
+and 202 returned the project's **first 15/15 Stage A passes with zero safety
+frames**; seed 303 kept exactly the three release-speed delta frames named as
+the at-risk cell in the pre-registration, so the all-seeds rule reports
+`clamp_not_resolved`. Per pre-registration this closed rung 3 either way.
+Report: `clamp_gates/f63104b1f82cadfc`, analysis
+`notes/clamp-seed303-failure-analysis.md`.
+
+**Vision rung opens in exploratory mode (2026-08-06).** Methodology
+recalibration on record: content-addressing, immutability, and numerics
+fingerprints stay on automatically, but individual experiments in a new rung
+need no pre-registration — gates are reserved for promotion claims. v0 was
+built to be measured, not to win: a conv trunk on the wrist frame plus
+deployable-only state (normalized `current_act` + progress clock, never
+`cube_position`), scoring 0-3/15. The black-image ablation is the rung's
+standing check that a vision result is actually pixel-driven. Capture grew a
+frames sidecar whose absence keeps every legacy identity byte-stable.
+Running notes: `notes/vision-rung-notebook.md`.
+
+**Randomization data engine (2026-08-06): first held-out generalization.**
+Scenario generation, hash-verified path-loaded suites, and per-episode
+failure tolerance turned the fixed five-scenario world into a data engine.
+The admission rule took two failures to get right: unscreened sampling fails
+preflight on IK, and IK-only screening still fails preflight on *execution* —
+plan solvability is not task success. The rule is now a full-episode teacher
+screen (480 actions, contract success, zero safety events), which is exactly
+what preflight and capture demand. First measurement, training on 25 screened
+poses and evaluating on a held-out suite from a different generator seed:
+state+clamp 18/30, perfectly bimodal; vision 0/30. Consequence worth keeping
+in view: the engine's distribution is "poses the teacher can solve", so
+generalization is conditioned on teacher competence.
+
+**Data-scaling curve (2026-08-07): the constraint was data, then compute.**
+An overnight sweep at 50/100/200/400 screened episodes against a frozen
+30-rollout held-out benchmark. State+clamp climbed 18 → 27 and held there
+through 50-200 before reaching **30/30 with zero safety frames at 400** — a
+perfect held-out score from coverage alone, no recipe change. Vision at a
+fixed 20k steps was non-monotone (6/14/9/18), which a compute probe explained:
+the same n200 data at 60k steps scored 24/30, so vision was compute-starved
+and training steps must scale with data. Undertrained vision is also unsafe
+vision (642 safety frames at n400/20k against 9 at matched epochs). One
+infrastructure failure and fix: publishing a 38 GB frames sidecar read the
+whole file into RAM and died, so immutable publication now streams
+(`write_immutable_file`, same atomic create-exclusive semantics).
+
+**Vision at matched compute (2026-08-08): deployable inputs reach 30/30.**
+Three seeds at 120k steps on the n400 capture, evaluated on the same frozen
+benchmark: 24/30, 30/30, 24/30, with seeds 101 and 202 taking zero safety
+frames. **Seed 202 is the first perfect held-out score from the
+deployable-inputs policy** — wrist pixels, proprioception, and the progress
+clock, with no privileged simulator state anywhere in the input. That
+answers the vision rung's founding question. It does not yet answer the
+robustness question: the 24-30 spread says the recipe is not seed-robust, so
+no promotion claim is made and the numbers stay exploratory. Mid-sweep the
+frames sidecar outgrew RAM (38 GB against 32 GB) and made training
+disk-bound, so frame reads were moved to a deterministic prefetcher — reader
+threads perform only the raw uint8 memmap reads while index draws and every
+float operation stay on the training thread in step order, which the
+equivalence test pins to the same digest, loss trace, and checkpoint sha.
+Measured 3.2x. Runs are charted in the wandb project
+`so-arm101-v2-scaling`; results in `notes/vision-rung-notebook.md`.
+
+**Where the ladder stands.** Simulation evidence is saturating: the
+privileged-state policy is perfect on held-out poses, the vision policy
+matches it on its best seed, the data engine turns the crank on demand, and
+training is no longer I/O-bound. The two open sim questions are vision
+seed-robustness and whether any of this deserves a pre-registered promotion
+gate. The larger point is that further sim work has falling information
+value — the physical smoke replay is prepped, gated, and waiting on the arm,
+and the real world is the actual held-out set.
