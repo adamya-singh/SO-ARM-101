@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from so_arm101_v2.contracts.coordinates import effective_safe_act_bounds
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
 from so_arm101_v2.learning.numerics import (
     AUTO,
@@ -40,7 +41,9 @@ class ChunkedClonePolicy:
 
     requires_pixels = False
 
-    def __init__(self, checkpoint: str | Path) -> None:
+    def __init__(
+        self, checkpoint: str | Path, *, clamp_channels: tuple[int, ...] = ()
+    ) -> None:
         try:
             import torch
         except ImportError as exc:  # pragma: no cover
@@ -92,12 +95,29 @@ class ChunkedClonePolicy:
         self._denormalize_act = denormalize_act
         self.action_index = 0
         self._buffer: list[np.ndarray] = []
+        # Gripper-clamp variant (notes/gripper-clamp-proposal.md): clip the
+        # listed channels to the exact effective envelope at the policy
+        # output.  Gripper-only is the registered scope — the strict-
+        # inequality envelope test makes exact-bound values legal there,
+        # while other channels trip float32 round-off at the raw bounds.
+        self.clamp_channels = tuple(int(channel) for channel in clamp_channels)
+        if any(not 0 <= channel < 6 for channel in self.clamp_channels):
+            raise ValueError("clamp_channels must be joint indices in [0, 6)")
+        if self.clamp_channels:
+            low, high = effective_safe_act_bounds()
+            self._clamp_low = low
+            self._clamp_high = high
 
     @property
     def policy_id(self) -> str:
         base = f"chunked_h{self.chunk_horizon}.seed{self.config_seed}"
         if self._has_saturation_key:
             base = f"{base}.{self.saturation_mode}"
+        if self.clamp_channels == (5,):
+            return f"{base}.gripper_clamp_v1"
+        if self.clamp_channels:
+            channels = "_".join(str(channel) for channel in self.clamp_channels)
+            return f"{base}.clamp{channels}_v1"
         return base
 
     def reset(self, adapter: Any | None = None) -> None:
@@ -149,6 +169,10 @@ class ChunkedClonePolicy:
             self._buffer = [np.asarray(row, dtype=np.float32) for row in commands]
         self.action_index += 1
         command = self._buffer.pop(0)
+        for channel in self.clamp_channels:
+            command[channel] = np.clip(
+                command[channel], self._clamp_low[channel], self._clamp_high[channel]
+            )
         return command
 
 

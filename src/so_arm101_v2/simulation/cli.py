@@ -36,6 +36,7 @@ from .broader import run_broader_evaluation
 from .scaling import run_scaling_gate
 from .precision import run_precision_stage
 from .horizon import run_horizon_gate
+from .clamp import run_clamp_gate
 from .chunked import run_chunked_gate, run_saturation_gate
 from .margins import analyze_pick_place_margins
 from .correction import (
@@ -225,6 +226,19 @@ def _parser() -> argparse.ArgumentParser:
     horizon.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="training numerics device (auto = pinned GPU regime when CUDA is live)")
     horizon.add_argument("--no-compile", action="store_true", help="disable torch.compile in the numerics regime")
     horizon.add_argument("--legacy-numerics", action="store_true", help="exact legacy CPU-eager training lane; reproduces pre-v2 digests byte-for-byte")
+    clamp = commands.add_parser("run-clamp-gate")
+    clamp.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
+    clamp.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
+    clamp.add_argument("--horizon-gate-report", type=Path, required=True)
+    clamp.add_argument("--oracle-manifest", type=Path, required=True)
+    clamp.add_argument("--recovery-manifest", type=Path, required=True)
+    clamp.add_argument(
+        "--preflight-report", type=Path,
+        default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
+    )
+    clamp.add_argument("--no-video", action="store_true")
+    clamp.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
+    scaling.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -434,6 +448,17 @@ def main(argv: list[str] | None = None) -> int:
             print(horizon_result.report_json)
             print(f"status={horizon_result.status}")
             return 0 if horizon_result.status == "horizon_promoted_robust" else 2
+        if args.command == "run-clamp-gate":
+            clamp_result = run_clamp_gate(
+                args.mujoco_model, args.horizon_gate_report,
+                args.oracle_manifest, args.recovery_manifest,
+                args.preflight_report, args.output_dir,
+                record_video=not args.no_video,
+                workers=args.workers,
+            )
+            print(clamp_result.report_json)
+            print(f"status={clamp_result.status}")
+            return 0 if clamp_result.status == "clamp_promoted_robust" else 2
         if args.command == "capture-recovery":
             result = capture_phase_wide_recovery_examples(
                 args.mujoco_model, args.oracle_manifest, args.output_dir,

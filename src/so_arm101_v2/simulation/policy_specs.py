@@ -74,7 +74,10 @@ def _build_torch_checkpoint(spec: PolicySpec) -> Any:
 def _build_chunked_clone(spec: PolicySpec) -> Any:
     from so_arm101_v2.simulation.chunked import ChunkedClonePolicy
 
-    return ChunkedClonePolicy(_required_checkpoint(spec))
+    return ChunkedClonePolicy(
+        _required_checkpoint(spec),
+        clamp_channels=tuple(spec.option("clamp_channels", ())),
+    )
 
 
 def _build_oracle_clone(spec: PolicySpec) -> Any:

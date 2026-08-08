@@ -1,0 +1,55 @@
+{
+  "tool": "analyze_safety_frames",
+  "matplotlib": "3.10.9",
+  "evaluation": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/oracle_distillation/clamp_stage_a_evaluations/dedbd9157b99bef4/policies/fixed_pick_place_v3.clamp_seed303/evaluation.json",
+  "evaluation_content_sha256": "50bc709d7e06b19cbbcd7cd3b99fd3832581ca584d938fec02d0d37711fc73cf",
+  "chunk_horizon": 90,
+  "teacher_horizon": 480,
+  "rollouts": [
+    {
+      "scenario_id": "cube_y_minus_1p5mm",
+      "repeat": 0,
+      "duplicate_repeats": [
+        1,
+        2
+      ],
+      "telemetry_content_sha256": "cf94ff821f3c9de0605609b0576ccd05e16803ae7ac89114f95889d40d8d9ac3",
+      "policy_id": "chunked_h90.seed303.noise_penalty_v1.gripper_clamp_v1",
+      "findings": [
+        {
+          "action": 413,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.6886650323867798,
+          "signed_excess": 0.02064401268959043,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 52,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 414,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.8018385171890259,
+          "signed_excess": 0.034808251857757544,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 53,
+          "past_teacher_horizon": false
+        },
+        {
+          "action": 415,
+          "joint": "gripper",
+          "kind": "delta_limit",
+          "requested": 0.886624276638031,
+          "signed_excess": 0.01806190967559812,
+          "stage": "released",
+          "chunk_index": 4,
+          "chunk_offset": 54,
+          "past_teacher_horizon": false
+        }
+      ]
+    }
+  ]
+}
