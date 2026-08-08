@@ -52,7 +52,10 @@ deliberate and narrow: one nominal scenario, privileged simulator state (not
 vision), in simulation. Broader-scenario robustness, vision inputs, and
 physical deployment remain unproven and gated. All simulation evidence now
 runs with `PYTHONNOUSERSITE=1` so the env's mujoco 3.9.0 pin wins; the
-`so-arm101-v2-sim` CLI refuses any other version.
+`so-arm101-v2-sim` CLI refuses any other version. Every environment switch
+the lane reads — the required ones, the numerics regime override, the vision
+prefetch controls, and experiment tracking — is catalogued in
+`notes/environment-switches.md`.
 
 ## Legacy RL Stack Status
 

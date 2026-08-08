@@ -195,7 +195,8 @@ utilized, ~11k steps/h). Reader threads now do only the raw uint8 memmap
 reads (sorted-gather, 6 workers, 8 batches ahead); index draws and all
 float ops stay on the main thread in step order → **bitwise identical**
 (pinned: same digest, loss trace, and checkpoint sha with
-`SO_ARM101_V2_PREFETCH=0`). Measured **3.2×** (35.3k steps/h, GPU 44%).
+`SO_ARM101_V2_PREFETCH=0`, catalogued with its depth/worker knobs in
+`notes/environment-switches.md`). Measured **3.2×** (35.3k steps/h, GPU 44%).
 Seed 101 ran pre-fix (~11 h); seeds 202/303 ran ~3.5 h each. Known gap
 noted for later: training is not resumable mid-run (checkpoint only at
 completion); worth a scratch-checkpoint mechanism before longer runs.
