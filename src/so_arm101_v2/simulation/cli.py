@@ -14,10 +14,8 @@ import numpy as np
 from so_arm101_v2.learning import load_small_model_comparison
 from so_arm101_v2.data._serialization import content_sha256
 
+from .policy_specs import PolicySpec
 from .rollout import (
-    ConstantPosePolicy,
-    CurrentPosePolicy,
-    TorchCheckpointPolicy,
     evaluate_closed_loop,
     run_simulation_preflight,
 )
@@ -43,6 +41,7 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
         command.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/simulation"))
         command.add_argument("--no-video", action="store_true")
+        command.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     evaluate = commands.choices["evaluate"]
     evaluate.add_argument("--suite", choices=("fixed_pickup_contract_v1", "fixed_pickup_recovery_probe_v1"), default="fixed_pickup_contract_v1")
     evaluate.add_argument("--comparison-report", type=Path, required=True)
@@ -85,6 +84,7 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
     )
     gate.add_argument("--no-video", action="store_true")
+    gate.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     recovery_eval = commands.add_parser("evaluate-recovery-starts")
     recovery_eval.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery_eval.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -108,6 +108,7 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json"),
     )
     clone.add_argument("--no-video", action="store_true")
+    clone.add_argument("--workers", type=int, default=None, help="process-level parallelism for independent rollouts (default: auto = min(rollouts, 10 with video, cores-2 without); pass 1 to force sequential)")
     return parser
 
 
@@ -120,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.observability_manifest, args.baseline_checkpoint,
                 args.baseline_evaluation, args.preflight_report, args.output_dir,
                 record_video=not args.no_video,
+                workers=args.workers,
             )
             print(result.report_json)
             print(f"status={result.status}")
@@ -178,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             checkpoint_sha = hashlib.sha256(args.checkpoint.read_bytes()).hexdigest()
             probe = OracleCloneCheckpointPolicy(args.checkpoint)
-            policies = {probe.policy_id: lambda: OracleCloneCheckpointPolicy(args.checkpoint)}
+            policies = {probe.policy_id: PolicySpec(kind="oracle_clone", checkpoint=str(args.checkpoint.resolve()))}
             evaluation_identity = content_sha256({
                 "checkpoint_sha256": checkpoint_sha,
                 "offline_report_content_sha256": probe.report_content_sha256,
@@ -191,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.output_dir / "clone_evaluations" / evaluation_identity[:16],
                 environment_proven=True,
                 record_video=not args.no_video,
+                workers=args.workers,
                 provenance={
                     "checkpoint_sha256": checkpoint_sha,
                     "offline_report_content_sha256": probe.report_content_sha256,
@@ -227,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             result = run_simulation_preflight(
                 args.mujoco_model, args.output_dir, suite=args.suite,
                 record_video=not args.no_video,
+                workers=args.workers,
             )
             print(result.report_json)
             print(f"environment_proven={str(bool(result.environment_proven)).lower()}")
@@ -235,20 +239,28 @@ def main(argv: list[str] | None = None) -> int:
         offline = json.loads(comparison.report_json.read_text(encoding="utf-8"))
         mean = np.asarray(offline["development_baselines"]["train_mean_target"], dtype=np.float32)
         policies = {
-            "current_pose": CurrentPosePolicy,
-            "train_mean": lambda: ConstantPosePolicy(mean),
+            "current_pose": PolicySpec(kind="current_pose"),
+            "train_mean": PolicySpec(
+                kind="constant_pose",
+                options=(("target_act", tuple(float(value) for value in mean)),),
+            ),
         }
         for run in comparison.runs:
             policy_id = f"{run.kind.value}.seed{run.seed}"
-            checkpoint = run.checkpoint
-            policies[policy_id] = lambda checkpoint=checkpoint: TorchCheckpointPolicy(checkpoint)
+            checkpoint = str(run.checkpoint.resolve())
+            policies[policy_id] = PolicySpec(kind="torch_checkpoint", checkpoint=checkpoint)
             if run.kind.value == "image_state":
-                policies[policy_id + ".black"] = lambda checkpoint=checkpoint: TorchCheckpointPolicy(checkpoint, black_image=True)
+                policies[policy_id + ".black"] = PolicySpec(
+                    kind="torch_checkpoint",
+                    checkpoint=checkpoint,
+                    options=(("black_image", True),),
+                )
         preflight = json.loads(args.preflight_report.read_text(encoding="utf-8"))
         result = evaluate_closed_loop(
             args.mujoco_model, args.suite, policies, args.output_dir,
             environment_proven=bool(preflight.get("environment_proven")),
             record_video=not args.no_video,
+            workers=args.workers,
         )
         print(result.report_json)
         return 0

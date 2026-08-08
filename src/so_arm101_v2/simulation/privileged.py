@@ -56,6 +56,7 @@ class PrivilegedStagedController:
     fully closed so squeeze force comes from the position controller.
     """
 
+    requires_pixels = False
     damping: float = 1e-3
     maximum_update_rad: float = 0.05
     position_tolerance_m: float = 0.001

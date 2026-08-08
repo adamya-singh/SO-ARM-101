@@ -19,6 +19,8 @@ from so_arm101_v2.learning.oracle_distillation import (
 
 
 class OracleCloneCheckpointPolicy:
+    requires_pixels = False
+
     def __init__(self, checkpoint: str | Path) -> None:
         try:
             import torch

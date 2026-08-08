@@ -86,7 +86,7 @@ class MujocoTaskAdapter:
             raise FileNotFoundError(f"MuJoCo model does not exist: {self.model_path}")
         self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
         self.data = mujoco.MjData(self.model)
-        self.renderer = mujoco.Renderer(self.model, height=256, width=256)
+        self._renderer: Any | None = None
         self._joint_qpos = []
         self._joint_dof = []
         self._actuator_ids = []
@@ -113,8 +113,17 @@ class MujocoTaskAdapter:
         self._previous_privileged_snapshot: PrivilegedStateSnapshot | None = None
         self._previous_contact_snapshot: PrivilegedContactSnapshot | None = None
 
+    @property
+    def renderer(self) -> Any:
+        # Lazy so pixel-free rollouts never create an offscreen GL context.
+        if self._renderer is None:
+            self._renderer = _mujoco().Renderer(self.model, height=256, width=256)
+        return self._renderer
+
     def close(self) -> None:
-        self.renderer.close()
+        if self._renderer is not None:
+            self._renderer.close()
+            self._renderer = None
 
     def reset(self, scenario: SimulationScenario) -> None:
         mujoco = _mujoco()
@@ -204,7 +213,11 @@ class MujocoTaskAdapter:
             raise RuntimeError(f"MuJoCo rendered unexpected image shape {image.shape}")
         return image
 
-    def observation(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def observation(
+        self, *, render_pixels: bool = True
+    ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray]:
+        if not render_pixels:
+            return None, None, self.current_act()
         raw = self.render("wrist_camera")
         return raw, preprocess_wrist_image(raw), self.current_act()
 

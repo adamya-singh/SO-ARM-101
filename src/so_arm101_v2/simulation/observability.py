@@ -19,6 +19,7 @@ from so_arm101_v2.data._serialization import (
 
 from .adapter import MujocoTaskAdapter, PrivilegedStateSnapshot
 from .oracle import load_oracle_demonstrations
+from .policy_specs import PolicySpec
 from .privileged import PrivilegedStagedController
 from .recovery import PHASE_WIDE_RECOVERY_ANCHORS, load_oracle_recovery_examples
 from .suites import load_simulation_suite
@@ -508,6 +509,7 @@ def run_bounded_observability_gate(
     output_dir: str | Path,
     *,
     record_video: bool = True,
+    workers: int | None = None,
 ) -> ObservabilityGateResult:
     """Run at most three fixed candidates and stop at the first safe nominal 3/3."""
     from so_arm101_v2.learning.oracle_distillation import (
@@ -690,10 +692,11 @@ def run_bounded_observability_gate(
         evaluation = evaluate_closed_loop(
             model_path,
             nominal_suite,
-            {probe.policy_id: lambda path=training.checkpoint: OracleCloneCheckpointPolicy(path)},
+            {probe.policy_id: PolicySpec(kind="oracle_clone", checkpoint=str(training.checkpoint.resolve()))},
             output_dir / "observability_gate_evaluations" / evaluation_identity[:16],
             environment_proven=True,
             record_video=record_video,
+            workers=workers,
             provenance={
                 "gate_digest": gate_digest,
                 "checkpoint_sha256": candidate["checkpoint_sha256"],

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 import numpy as np
 
@@ -24,6 +26,8 @@ from so_arm101_v2.data._serialization import (
 )
 
 from .adapter import MujocoTaskAdapter
+from .parallel import resolve_workers
+from .policy_specs import PolicySpec
 from .privileged import PrivilegedStagedController
 from .suites import SimulationScenario, SimulationSuite, load_simulation_suite
 
@@ -107,6 +111,8 @@ class SimulationEvaluation:
 
 
 class CurrentPosePolicy:
+    requires_pixels = False
+
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: MujocoTaskAdapter | None = None) -> np.ndarray:
         del image, adapter
         return current_act.copy()
@@ -115,6 +121,7 @@ class CurrentPosePolicy:
 @dataclass
 class ConstantPosePolicy:
     target_act: np.ndarray
+    requires_pixels = False
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: MujocoTaskAdapter | None = None) -> np.ndarray:
         del image, current_act, adapter
@@ -122,7 +129,7 @@ class ConstantPosePolicy:
 
 
 class TorchCheckpointPolicy:
-    def __init__(self, checkpoint: str | Path, *, black_image: bool = False, device: str = "auto") -> None:
+    def __init__(self, checkpoint: str | Path, *, black_image: bool = False, device: str = "cpu") -> None:
         try:
             import torch
         except ImportError as exc:  # pragma: no cover
@@ -143,6 +150,7 @@ class TorchCheckpointPolicy:
         self.device = torch.device(device)
         self.model.to(self.device).eval()
         self.black_image = bool(black_image)
+        self.requires_pixels = not (self.black_image or self.kind == "state_only")
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: MujocoTaskAdapter | None = None) -> np.ndarray:
         del adapter
@@ -189,6 +197,10 @@ class _VideoWriter:
         for packet in self.stream.encode():
             self.container.mux(packet)
         self.container.close()
+
+
+_BLANK_WRIST_IMAGE = np.zeros((256, 256, 3), dtype=np.uint8)
+_BLANK_WRIST_IMAGE.setflags(write=False)
 
 
 def _failure_category(events: set[str], success: bool, invalidated: bool, max_motion: float) -> str:
@@ -244,6 +256,7 @@ def _run_rollout(
     overview_path = output_dir / "videos" / f"{stem}.overview.mp4" if record_video and repeat == 0 else None
     wrist_writer = _VideoWriter(wrist_path)
     overview_writer = _VideoWriter(overview_path)
+    render_wrist = record_video or bool(getattr(policy, "requires_pixels", True))
     state = TaskEvaluationState()
     rows: list[dict[str, Any]] = []
     all_events: set[str] = set()
@@ -262,7 +275,9 @@ def _run_rollout(
     evaluation = None
     try:
         for action in range(contract.episode.max_actions):
-            raw, _, current = adapter.observation()
+            raw, _, current = adapter.observation(render_pixels=render_wrist)
+            if raw is None:
+                raw = _BLANK_WRIST_IMAGE
             wrist_writer.add(raw)
             if overview_path is not None:
                 overview_writer.add(adapter.render("camera_side"))
@@ -380,6 +395,7 @@ def _run_pick_place_rollout(
     overview_path = output_dir / "videos" / f"{stem}.overview.mp4" if record_video and repeat == 0 else None
     wrist_writer = _VideoWriter(wrist_path)
     overview_writer = _VideoWriter(overview_path)
+    render_wrist = record_video or bool(getattr(policy, "requires_pixels", True))
     state = PickPlaceEvaluationState()
     rows: list[dict[str, Any]] = []
     all_events: set[str] = set()
@@ -388,7 +404,9 @@ def _run_pick_place_rollout(
     evaluation = None
     try:
         for action in range(contract.max_actions):
-            raw, _, current = adapter.observation()
+            raw, _, current = adapter.observation(render_pixels=render_wrist)
+            if raw is None:
+                raw = _BLANK_WRIST_IMAGE
             wrist_writer.add(raw)
             if overview_path is not None:
                 overview_writer.add(adapter.render("camera_side"))
@@ -497,6 +515,90 @@ def _run_pick_place_rollout(
     )
 
 
+@dataclass(frozen=True)
+class _RolloutTask:
+    model_path: str
+    suite: SimulationSuite
+    scenario: SimulationScenario
+    repeat: int
+    policy_id: str
+    spec: PolicySpec
+    output_dir: str
+    record_video: bool
+
+
+def _rollout_worker_init() -> None:
+    # Match the single-threaded torch numerics every gate artifact was
+    # produced under, and keep N workers from oversubscribing the cores.
+    try:
+        import torch
+    except ImportError:
+        return
+    torch.set_num_threads(1)
+
+
+def _run_rollout_task(task: _RolloutTask) -> "RolloutMetrics | PickPlaceRolloutMetrics":
+    runner = (
+        _run_pick_place_rollout
+        if task.suite.task_contract == "fixed_cube_pick_place_v3"
+        else _run_rollout
+    )
+    return runner(
+        Path(task.model_path),
+        task.suite,
+        task.scenario,
+        task.repeat,
+        task.policy_id,
+        task.spec.build,
+        Path(task.output_dir),
+        record_video=task.record_video,
+    )
+
+
+def _execute_rollouts(
+    tasks: Sequence[_RolloutTask], *, workers: int
+) -> list["RolloutMetrics | PickPlaceRolloutMetrics"]:
+    if workers <= 1 or len(tasks) <= 1:
+        return [_run_rollout_task(task) for task in tasks]
+    pool = ProcessPoolExecutor(
+        max_workers=min(workers, len(tasks)),
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=_rollout_worker_init,
+    )
+    try:
+        futures = [pool.submit(_run_rollout_task, task) for task in tasks]
+        # Collect in submission order so reports are byte-identical to the
+        # sequential fan-out regardless of completion order.
+        return [future.result() for future in futures]
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+
+
+def _rollout_tasks(
+    model_path: str | Path,
+    suite: SimulationSuite,
+    policies: Mapping[str, PolicySpec],
+    destination: Path,
+    *,
+    record_video: bool,
+) -> list[_RolloutTask]:
+    return [
+        _RolloutTask(
+            model_path=str(model_path),
+            suite=suite,
+            scenario=scenario,
+            repeat=repeat,
+            policy_id=policy_id,
+            spec=spec,
+            output_dir=str(destination),
+            record_video=record_video,
+        )
+        for policy_id, spec in policies.items()
+        for scenario in suite.scenarios
+        for repeat in range(suite.repeats)
+    ]
+
+
 def _deterministic(rollouts: list[RolloutMetrics | PickPlaceRolloutMetrics]) -> bool:
     groups: dict[tuple[str, str], list[RolloutMetrics | PickPlaceRolloutMetrics]] = {}
     for item in rollouts:
@@ -535,12 +637,13 @@ def _write_evaluation_html(path: Path, payload: Mapping[str, Any]) -> None:
 def evaluate_closed_loop(
     model_path: str | Path,
     suite: SimulationSuite | str,
-    policies: Mapping[str, Callable[[], SimulationPolicy]],
+    policies: "Mapping[str, PolicySpec | Callable[[], SimulationPolicy]]",
     output_dir: str | Path,
     *,
     environment_proven: bool | None = None,
     record_video: bool = True,
     provenance: Mapping[str, Any] | None = None,
+    workers: int | None = None,
 ) -> SimulationEvaluation:
     """Evaluate matched policies without consulting any reward signal."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
@@ -560,13 +663,37 @@ def evaluate_closed_loop(
         write_immutable_json(report_path, report)
         _write_evaluation_html(destination / "evaluation.html", report)
         return SimulationEvaluation(suite, (), report_path, False, True)
-    runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
-    rollouts = [
-        runner(Path(model_path), suite, scenario, repeat, policy_id, factory, destination, record_video=record_video)
-        for policy_id, factory in policies.items()
-        for scenario in suite.scenarios
-        for repeat in range(suite.repeats)
-    ]
+    workers = resolve_workers(
+        workers, record_video=record_video,
+        task_count=len(policies) * len(suite.scenarios) * suite.repeats,
+    )
+    if workers > 1:
+        legacy = [
+            policy_id
+            for policy_id, spec in policies.items()
+            if not isinstance(spec, PolicySpec)
+        ]
+        if legacy:
+            raise ValueError(
+                "parallel evaluation requires PolicySpec policies; "
+                f"got bare callables for: {legacy}"
+            )
+        tasks = _rollout_tasks(
+            model_path, suite, policies, destination, record_video=record_video
+        )
+        rollouts = _execute_rollouts(tasks, workers=workers)
+    else:
+        runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
+        rollouts = [
+            runner(
+                Path(model_path), suite, scenario, repeat, policy_id,
+                spec.build if isinstance(spec, PolicySpec) else spec,
+                destination, record_video=record_video,
+            )
+            for policy_id, spec in policies.items()
+            for scenario in suite.scenarios
+            for repeat in range(suite.repeats)
+        ]
     deterministic = _deterministic(rollouts)
     report: dict[str, Any] = {
         "schema_version": 1, "suite": asdict(suite), "reward_used": False,
@@ -589,22 +716,25 @@ def run_simulation_preflight(
     *,
     suite: SimulationSuite | str = "fixed_pickup_contract_v1",
     record_video: bool = True,
+    workers: int | None = None,
 ) -> SimulationEvaluation:
     """Require the privileged staged controller to prove all fixed scenarios."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
     destination = Path(output_dir) / "preflight" / suite.suite_id
-    runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
-    rollouts = [
-        runner(
-            Path(model_path), suite, scenario, repeat, "privileged_staged",
-            PrivilegedStagedController, destination, record_video=record_video,
-        )
-        for scenario in suite.scenarios
-        for repeat in range(suite.repeats)
-    ]
+    tasks = _rollout_tasks(
+        model_path,
+        suite,
+        {"privileged_staged": PolicySpec(kind="privileged_staged")},
+        destination,
+        record_video=record_video,
+    )
+    rollouts = _execute_rollouts(
+        tasks,
+        workers=resolve_workers(workers, record_video=record_video, task_count=len(tasks)),
+    )
     deterministic = _deterministic(rollouts)
     proven = bool(
-        len(rollouts) == 15
+        len(rollouts) == len(suite.scenarios) * suite.repeats
         and deterministic
         and all(
             item.success and not item.invalidated and item.clipping_frames == 0
