@@ -101,6 +101,9 @@ class PrivilegedStagedController:
     grasp_height_m: float = 0.021
     depth_lead_m: float = 0.006
     lift_command_m: float = 0.031
+    # Bench only: pocket-station height above the cube centre. The legacy
+    # 25 mm pad-4 grasp used 8.5 mm; a tip-station grasp needs less.
+    bench_grasp_offset_m: float = 0.0085
 
     def __post_init__(self) -> None:
         self.action_index = 0
@@ -219,9 +222,11 @@ class PrivilegedStagedController:
         bench = getattr(adapter, "bench", None)
         if bench is not None:
             self.approach_pitch_rad = np.deg2rad(bench.approach_pitch_deg)
+            self.depth_lead_m = bench.depth_lead_m
+            self.bench_grasp_offset_m = bench.grasp_offset_m
             # The physical cube rests on a 1 mm square; retain the teacher's
             # pocket-to-cube-center offset, not its old absolute table height.
-            self.grasp_height_m = float(cube[2]) + 0.0085
+            self.grasp_height_m = float(cube[2]) + self.bench_grasp_offset_m
             if bench.viewing_qpos is None:
                 raise RuntimeError("bench viewing pose has not been verified")
             observation_start = start.copy()

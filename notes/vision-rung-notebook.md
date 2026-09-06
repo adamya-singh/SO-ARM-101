@@ -4,6 +4,10 @@
 
 The [bench runbook](bench-pick-replace-v1.md) records the complete current plan, evidence and remaining implementation work. New task: black 20 mm XYZ cube, 50.8 mm white square, 8.5 inches from the base **front edge**, shoulder floor −92 calibrated units. Stable prepared physical reset captured; scene corrected to Y=0.2805353 m. Latest software regression set: 54 passed. Nominal teacher lifts ~29 mm but fails strict opposing-face grasp; an explicit stage schedule removed the earlier nominal release limiter event. Camera comparison is still pending. **No new dataset capture, training run, W&B URL or watcher exists.** August results below remain historical; they are not bench certification.
 
+## September 6 (later): bench teacher certified at the pad-1 tip station
+
+The strict-grasp failure was geometric, not tuning. The detector's jaw-axis reference (tip-site line, 18.6 mm vertical offset) is 25.4° off the pad normal at joint angle 0 and rotates further as the jaw closes, so a 20 mm cube pinched at pads 2 to 4 can never satisfy the unchanged 25° criterion; pad 1 pinches at +0.055 rad where the reference is 24.0° off. Teacher moved to pad 1 (78°, zero depth lead, zero height offset, all now versioned in `bench_config.json`). Certification: **15/15 complete lift-and-replace episodes, deterministic, zero safety invalidation**. Detector unchanged; the 0.007 cosine margin is recorded as a known fragility in the [bench runbook](bench-pick-replace-v1.md). Camera comparison still pending; still no dataset, training run, or W&B run.
+
 ## Methodology for this rung (recorded 2026-08-06)
 
 The vision rung runs in **exploratory mode**, a deliberate recalibration now

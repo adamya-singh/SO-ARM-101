@@ -189,3 +189,46 @@ def test_bench_verification_requires_hashed_review_images(tmp_path):
     (tmp_path / 'sim.png').write_bytes(b'regenerated')
     with pytest.raises(RuntimeError, match='hash'):
         load_bench_verification(path, scene_hash='scene', reset_evidence_sha256='reset')
+
+
+def test_active_bench_teacher_registers_strict_grasp_and_completes_nominal():
+    """Regression pin for the 20 mm teacher: the tip-station grasp must stay strict."""
+    pytest.importorskip('mujoco')
+    from pathlib import Path
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import bench_suite
+    from so_arm101_v2.simulation.privileged import PrivilegedStagedController
+    from so_arm101_v2.contracts.pick_place import load_pick_place_contract, PickPlaceEvaluationState, evaluate_pick_place_step
+    scene = Path(__file__).resolve().parents[1] / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml'
+    adapter = MujocoTaskAdapter(scene)
+    try:
+        assert adapter.bench.grasp_pad == 1  # pads 2-4 pinch a 20 mm cube past the detector's 25 deg jaw-axis limit
+        adapter.reset(bench_suite(adapter.bench, [(0, 0)], label='test', repeats=1).scenarios[0])
+        controller = PrivilegedStagedController()
+        controller.reset(adapter)
+        assert controller.depth_lead_m == adapter.bench.depth_lead_m
+        contract = load_pick_place_contract('bench_pick_replace_v1', bench_config=adapter.bench)
+        state = PickPlaceEvaluationState()
+        strict = safety = 0
+        for _ in range(contract.max_actions):
+            command = adapter.apply_policy_command(controller.predict(None, adapter.current_act(), adapter))
+            adapter.advance_control_period()
+            measurement, _ = adapter.pick_place_measurement(command)
+            state, result = evaluate_pick_place_step(contract, measurement, state)
+            strict += measurement.pickup.strict_bilateral_grasp
+            safety += (measurement.pickup.unsafe_contact + measurement.pickup.command_bound_violation
+                       + measurement.pickup.delta_limiter_activated + measurement.pickup.nonfinite_command)
+            if result.terminated or result.truncated or result.invalidated:
+                break
+        assert result.success and not result.invalidated
+        assert strict >= 100 and safety == 0
+    finally:
+        adapter.close()
+
+
+def test_bench_config_rejects_unbounded_teacher_offsets():
+    with pytest.raises(ValueError, match='depth_lead_m'):
+        BenchConfig(depth_lead_m=0.05)
+    with pytest.raises(ValueError, match='grasp_offset_m'):
+        BenchConfig(grasp_offset_m=float('nan'))
+    assert BenchConfig(grasp_pad=2).grasp_pad == 2

@@ -30,6 +30,10 @@ class BenchConfig:
     observation_steps: int = 90
     approach_pitch_deg: float = 50.0
     grasp_pad: int = 1
+    # Teacher tuning that changes the captured data, so it is versioned and
+    # hashed here rather than living as code defaults.
+    depth_lead_m: float = 0.006
+    grasp_offset_m: float = 0.0085
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -47,8 +51,12 @@ class BenchConfig:
             raise ValueError("bench observation prefix must align with the first H90 image refresh")
         if not np.isfinite(self.approach_pitch_deg) or not 10 <= self.approach_pitch_deg <= 85:
             raise ValueError("invalid teacher approach pitch")
-        if self.grasp_pad not in (1,4):
+        if self.grasp_pad not in (1, 2, 3, 4):
             raise ValueError("unsupported grasp pad")
+        for name in ("depth_lead_m", "grasp_offset_m"):
+            value = getattr(self, name)
+            if not np.isfinite(value) or not -0.02 <= value <= 0.02:
+                raise ValueError(f"bench {name} must be a finite offset within 20 mm")
         if self.reset_physical is not None:
             p = np.asarray(self.reset_physical, dtype=np.float64)
             if p.shape != (6,) or not np.isfinite(p).all() or p[1] < self.shoulder_floor:

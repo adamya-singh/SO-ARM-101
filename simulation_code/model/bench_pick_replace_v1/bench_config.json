@@ -31,5 +31,7 @@
   ],
   "observation_steps": 90,
   "approach_pitch_deg": 78.0,
-  "grasp_pad": 4
+  "grasp_pad": 1,
+  "depth_lead_m": 0.0,
+  "grasp_offset_m": 0.0
 }
