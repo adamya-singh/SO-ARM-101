@@ -23,6 +23,27 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
+**Bench continuation (September 6):** the [bench runbook](notes/bench-pick-replace-v1.md) records the current working-tree changes, hardware state, evidence, blockers, and resume commands. **No bench training run or watcher has started.** Latest contract/regression tests: **54 passed**; the bench teacher still fails strict grasp, and camera alignment is not verified.
+
+**September 6 bench update (implementation in progress):** the new
+`bench_pick_replace_v1` experiment uses a black, PLA-printed **20 mm XYZ
+calibration cube** on a **2 × 2 inch white square**, centered **8.5 inches
+(215.9 mm) forward of the base’s front edge**, on a black mousepad. The task is to
+lift and replace the cube on the same square. Shoulder lift must never be
+commanded below **−92 calibrated units**. An explicit elbow-only preparation
+step brings the gravity-rest elbow into the validated simulator range before
+the task starts. New training is gated on verified reset/camera alignment and
+a passing oracle preflight; the August results below describe the old task.
+See the [bench runbook](notes/bench-pick-replace-v1.md).
+
+<img src="readme-assets/bench-setup-20260906-annotated.png" alt="Physical SO-101 bench: black cube on white square and mousepad; book used as a spacing guide" width="460">
+
+The book was used as a spacing guide because no ruler was available; the
+user measured the distance as **8.5 inches from the base’s front edge**. The image above is an
+AI-annotated illustration of the supplied photo; the [unaltered original](readme-assets/bench-setup-20260906-original.jpg)
+is preserved as the photographic evidence. The book is not a task prop and
+should be removed from the operating area before trials.
+
 | Item | Details |
 | --- | --- |
 | Problem | Adapt a pretrained flow-matching VLA to a new manipulation task with reinforcement learning and real-world deployment support |

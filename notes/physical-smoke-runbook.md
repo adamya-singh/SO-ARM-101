@@ -1,104 +1,44 @@
 # Physical Smoke Runbook (bench procedure)
 
-Goal: the earliest end-to-end touch of the real SO-101 arm — replay a
-recorded trajectory through the v2 safety contract at 30 Hz. This is a smoke
-test, not a promotion: success = the arm tracks the trajectory with zero
-safety-gate refusals, and the run is logged for the eventual sim-to-real
-comparison.
+Updated 2026-09-06. **Full-task physical replay is not ready or authorized by the current bench preparation approval.** The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
 
-Tool: `tools/replay_physical_trajectory.py`. Dry-run is the default; motion
-requires `--enable-motion` **and** a bare-Enter confirmation at the prompt.
-Every command is checked with `evaluate_physical_command` before sending —
-a fired mask HOLDS the arm (logs the reason) instead of sending. The sim and
-servo coordinate systems are formally the same (pinned by
-`tests/test_calibration_integrity.py`), so no unit conversion beyond the
-contract's own `act_to_physical_normalized` is involved.
+## Current hardware and preparation
 
-## 0. Attach the hardware (WSL2)
+The serial adapter was `/dev/ttyACM0` (CH343, `1a86:55d3`); camera `/dev/video0` (`0c45:6366`) was returned from Windows to WSL after focusing. Device enumeration can change: inspect before connecting. Live calibration is `~/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json`, pinned against `src/so_arm101_v2/data/resources/physical_inference_calibration_20260620.json`. Do not recalibrate automatically.
 
-In Windows PowerShell (admin), with the arm and camera plugged in:
+The user approved and completed a separate elbow-only preparation. Last stable measured shoulder/elbow: −90.8363 / 91.2613 calibrated units. **Elbow torque was left enabled to prevent gravity collapse.** Reconnecting or ending a session does not establish current pose; use fresh read-only measurements. Do not disable torque without support or assume the current pose matches the saved reset.
 
-```
-usbipd list
-usbipd bind --busid <SERIAL_BUSID>     # SO-101 serial adapter: CH343, VID:PID 1A86:55D3
-usbipd attach --wsl --busid <SERIAL_BUSID>
-```
+The elbow staging tool defaults to read-only dry run. Motion requires `--enable-motion`, a new log path and on-site confirmation; it is separate from trajectory replay. See its implementation and the bench runbook for command-floor/feedback-stop details. The shoulder floor remains −92 at every stage.
 
-(The wrist camera is `0C45:6366` — not needed for replay.) Then in WSL,
-verify `/dev/ttyUSB0` exists and is readable (`sudo usermod -aG dialout` +
-re-login if not).
+## Replay modes and required evidence
 
-## 1. Verify calibration
+`tools/replay_physical_trajectory.py` supports offline dry run, read-only preflight and explicit motion. Its hardware paths require the active `--bench-config`; legacy simulation artifacts remain usable offline but are not approved bench trajectories.
 
-The live LeRobot calibration must exist:
-`~/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json`
-(semantically identical to the pinned contract copy
-`src/so_arm101_v2/data/resources/physical_inference_calibration_20260620.json`
-— verified 2026-08-06). If missing, run the LeRobot calibration flow first.
+Before physical execution, complete the bench teacher/camera gates, capture a fresh matching trajectory, finish the outstanding replay review items in the bench runbook, and obtain explicit confirmation for the particular reviewed motion. The replay claims its exclusive log and checks the live calibration against the pinned contract before it opens the bus; a failed connection removes the unused log.
 
-## 2. Dry run (no hardware contact)
+For a future verified capture, substitute its actual path for `<verified-bench-manifest>`:
 
 ```bash
+# Offline only: no hardware connection or motor commands.
 PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/replay_physical_trajectory.py \
-  --capture-manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9f54b9e66c884855/manifest.json \
-  --scenario nominal
-```
+  --capture-manifest <verified-bench-manifest> --scenario nominal \
+  --bench-config simulation_code/model/bench_pick_replace_v1/bench_config.json
 
-Expected: `offline gating: all steps clean` then `DRY RUN complete`. Every
-step of the trajectory is validated against the safety contract offline
-first — a refusal here means do not proceed.
-
-## 3. Preflight (connects, reads one observation, no motion)
-
-```bash
+# Read-only bus connection, calibration/read checks and first-target gating.
 PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/replay_physical_trajectory.py \
-  --capture-manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9f54b9e66c884855/manifest.json \
-  --scenario nominal --preflight-only
+  --capture-manifest <verified-bench-manifest> --scenario nominal \
+  --bench-config simulation_code/model/bench_pick_replace_v1/bench_config.json \
+  --robot-port /dev/ttyACM0 --preflight-only
 ```
 
-Check the printed current pose is sane (all six values finite, inside
-[-π, π] / [0, 1.7]).
+These are templates, not commands with an existing approved bench manifest. Preflight **requires hardware**; offline dry run does not. Read-only connection bypasses motor configuration and does not change torque or calibration. A refused first command means stop and resolve the mismatch; never skip it or widen the limits.
 
-## 4. Stage the bench
+## Motion behavior and exit semantics
 
-- Clear the workspace. First run: **no cube** — replay in the air.
-- Move the arm by hand near the trajectory's start pose (the tool refuses if
-  the start differs by > 0.35 ACT ≈ 20°; the sim start pose is the v3
-  nominal `robot_qpos_mujoco`).
-- Know your abort: **Ctrl-C** stops the loop and disconnects cleanly; the
-  servos hold their last position. Keep a hand near the power switch for the
-  first run.
+Motion requires `--enable-motion`, an exclusive `--log <new.csv>` and explicit interactive confirmation. Each step uses fresh finite feedback, the configured relative limit, the shoulder floor including integer tick conversion, and all existing bounds. A refusal, stale observation or communication failure aborts the trajectory; it does not skip ahead. Logs distinguish measured, requested and actually sent positions.
 
-## 5. Motion run
+Ctrl-C stops issuing subsequent trajectory commands and closes serial while preserving torque. **It does not command a mechanical stop or remove motor power:** the servo may continue toward its last goal. Support the arm before removing power. This replaces earlier inaccurate descriptions of disconnect/hold behavior.
 
-```bash
-PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
-  tools/replay_physical_trajectory.py \
-  --capture-manifest artifacts/so_arm101_v2/oracle_distillation/oracle/fixed_pick_place_v3/9f54b9e66c884855/manifest.json \
-  --scenario nominal --enable-motion \
-  --log imitation-learning/outputs/replay_smoke_$(date +%Y%m%d_%H%M%S).csv
-```
-
-Confirm with a bare Enter. The 480-step replay takes 16 s.
-
-Success criteria: the arm executes the full pick-place motion (reach, close,
-lift, carry, set down, open, retreat, hold), **zero HOLD lines** in the
-output, and the log CSV shows no `hold_reason` entries.
-
-Second run: place a 25 mm cube at the sim-nominal position (x=0, y=0.30 m
-from the base, on the table plane) and repeat — a physical grasp on replay
-would be a genuine (if lucky) first physical pick.
-
-## 6. Record for sim-to-real
-
-Keep: the log CSV, a phone video, and notes on visible divergence (servo
-lag, oscillation, gripper slip). These are the inputs to the eventual
-sim-to-real gap analysis; file them in `imitation-learning/outputs/` and add
-an entry to `notes/vision-rung-notebook.md`.
-
-## Not attached?
-
-`--preflight-only` and the dry run work without hardware (dry run needs no
-device at all). The tool refuses cleanly if `/dev/ttyUSB0` is absent.
+Future physical-test evidence should retain the command CSV, real video, calibration/config/trajectory identities, safety events and observations of lag, slip or other sim-to-real differences. Record results in `notes/vision-rung-notebook.md`; do not infer physical readiness from training loss or old v3 simulation success.

@@ -2,6 +2,10 @@
 
 MuJoCo simulation environment for the SO-ARM-101 robot arm with **SmolVLA (450M)** and **Pi0 (3.3B)** policy inference, teleoperation data collection, and ReinFlow RL training.
 
+## Current bench experiment (September 2026)
+
+The active bench adaptation lives in the repository's `src/so_arm101_v2` stack and `tools/`, using `model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml`. It is not launched by the legacy quick-start training commands below. Read the [bench runbook](../notes/bench-pick-replace-v1.md). The corrected square center is Y=0.2805353 m, derived from 8.5 inches beyond the base front edge. Teacher and camera gates are not complete; no bench training has started. Preserve existing legacy model files and results.
+
 ## Quick Start
 
 ```bash

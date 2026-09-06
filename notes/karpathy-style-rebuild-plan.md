@@ -2,6 +2,8 @@
 
 ## Document status
 
+**2026-09-06 continuation:** the new physical-bench task is in implementation and teacher verification, not complete. Existing successful oracle/learning evidence below concerns legacy tasks. The new 20 mm cube task has not passed its oracle or camera gates; no training has launched. See the [bench runbook](bench-pick-replace-v1.md), which records the current plan, evidence, and open work. That document governs the current experiment while this file remains the broader research framework.
+
 This is a living research and engineering plan for rebuilding the SO-ARM-101
 learning stack from a small, trusted skeleton. It is inspired by the process in
 Andrej Karpathy's *A Recipe for Training Neural Networks*: understand the data,

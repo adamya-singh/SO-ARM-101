@@ -1,5 +1,9 @@
 # Vision Rung Notebook (running log, exploratory lane)
 
+## September 6: bench adaptation in progress
+
+The [bench runbook](bench-pick-replace-v1.md) records the complete current plan, evidence and remaining implementation work. New task: black 20 mm XYZ cube, 50.8 mm white square, 8.5 inches from the base **front edge**, shoulder floor −92 calibrated units. Stable prepared physical reset captured; scene corrected to Y=0.2805353 m. Latest software regression set: 54 passed. Nominal teacher lifts ~29 mm but fails strict opposing-face grasp; an explicit stage schedule removed the earlier nominal release limiter event. Camera comparison is still pending. **No new dataset capture, training run, W&B URL or watcher exists.** August results below remain historical; they are not bench certification.
+
 ## Methodology for this rung (recorded 2026-08-06)
 
 The vision rung runs in **exploratory mode**, a deliberate recalibration now
