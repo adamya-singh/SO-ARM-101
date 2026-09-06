@@ -144,7 +144,8 @@ def check_block_face_gripped(model: Any, data: Any, block_name: str = "red_block
             "normal_local": rotation.T @ np.asarray(contact.frame[:3], dtype=np.float64),
             "force": float(np.linalg.norm(wrench[:3])),
         })
-    return evaluate_face_grasp_contacts(contacts, jaw_axis_local)
+    return evaluate_face_grasp_contacts(contacts, jaw_axis_local,
+        cube_half_extent=float(model.geom("red_block_geom").size[0]))
 
 
 __all__ = ["check_block_face_gripped", "evaluate_face_grasp_contacts"]

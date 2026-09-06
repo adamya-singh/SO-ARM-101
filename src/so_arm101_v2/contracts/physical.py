@@ -169,6 +169,7 @@ def evaluate_physical_command(
     *,
     calibration: PhysicalCalibration | None = None,
     max_relative_target: float = 20.0,
+    shoulder_floor: float | None = None,
 ) -> PhysicalCommandEvaluation:
     """Evaluate hard clipping, relative limiting, and raw ticks without I/O."""
     current = _pose(current_act, "current ACT pose")
@@ -184,10 +185,25 @@ def evaluate_physical_command(
     requested_mujoco = act_to_mujoco_qpos(target)
     clipped_mujoco, mujoco_mask = clip_mujoco_qpos(requested_mujoco)
     requested_physical = act_to_physical_normalized(target)
+    physical_low = PHYSICAL_NORMALIZED_LOW.copy()
+    if shoulder_floor is not None:
+        if not np.isfinite(shoulder_floor) or not -100 <= shoulder_floor <= 100:
+            raise ValueError("invalid shoulder floor")
+        physical_low[1] = max(physical_low[1], shoulder_floor)
     clipped_physical = np.clip(
-        requested_physical, PHYSICAL_NORMALIZED_LOW, PHYSICAL_NORMALIZED_HIGH
+        requested_physical, physical_low, PHYSICAL_NORMALIZED_HIGH
     ).astype(np.float32)
     physical_mask = clipped_physical != requested_physical
+    if shoulder_floor is not None:
+        # LeRobot truncates normalized goals to integer encoder ticks. A
+        # nominally legal boundary target can therefore cross the wire limit.
+        joint = calibration.joints[1]
+        raw = _raw_ticks(requested_physical, calibration)[1]
+        decoded = (raw - joint.range_min) / (joint.range_max - joint.range_min) * 200 - 100
+        if joint.drive_mode:
+            decoded = -decoded
+        if decoded < shoulder_floor:
+            physical_mask[1] = True
     current_physical = np.clip(
         act_to_physical_normalized(current),
         PHYSICAL_NORMALIZED_LOW,

@@ -119,7 +119,12 @@ class PrivilegedStagedController:
     def _pocket_frame(adapter: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         body = adapter.data.body("gripper")
         rotation = np.asarray(body.xmat).reshape(3, 3)
-        pocket = body.xpos + rotation @ POCKET_GRIPPER_FRAME
+        station = POCKET_GRIPPER_FRAME.copy()
+        if getattr(adapter, "bench", None):
+            pad = adapter.model.geom(f"fixed_jaw_pad_{adapter.bench.grasp_pad}")
+            station = np.asarray(pad.pos).copy()
+            station[0] -= float(pad.size[0]) + adapter.bench.cube_edge_m / 2
+        pocket = body.xpos + rotation @ station
         return pocket, rotation @ PAD_NORMAL_LOCAL, rotation @ DEPTH_LOCAL
 
     def _set_arm(self, adapter: Any, qpos: np.ndarray) -> None:
@@ -184,7 +189,8 @@ class PrivilegedStagedController:
                 lhs = jacobian @ jacobian.T + self.damping * np.eye(9)
                 update = jacobian.T @ np.linalg.solve(lhs, residual)
                 update = np.clip(update, -self.maximum_update_rad, self.maximum_update_rad)
-                qpos[:5] = np.clip(qpos[:5] + update, MUJOCO_JOINT_LOW[:5], MUJOCO_JOINT_HIGH[:5])
+                low = adapter.bench.mujoco_low if getattr(adapter, "bench", None) else MUJOCO_JOINT_LOW
+                qpos[:5] = np.clip(qpos[:5] + update, low[:5], MUJOCO_JOINT_HIGH[:5])
             solved = bool(
                 position_error <= self.position_tolerance_m
                 and normal_error <= normal_tolerance
@@ -210,6 +216,17 @@ class PrivilegedStagedController:
         self.solve_diagnostics = []
         start = np.clip(adapter.mujoco_qpos(), MUJOCO_JOINT_LOW, MUJOCO_JOINT_HIGH)
         cube = adapter.data.body("red_block").xpos.copy()
+        bench = getattr(adapter, "bench", None)
+        if bench is not None:
+            self.approach_pitch_rad = np.deg2rad(bench.approach_pitch_deg)
+            # The physical cube rests on a 1 mm square; retain the teacher's
+            # pocket-to-cube-center offset, not its old absolute table height.
+            self.grasp_height_m = float(cube[2]) + 0.0085
+            if bench.viewing_qpos is None:
+                raise RuntimeError("bench viewing pose has not been verified")
+            observation_start = start.copy()
+            start = np.asarray(bench.viewing_qpos, dtype=np.float32)
+            bench.validate_qpos(start)
         # Keep a margin inside the mechanical limit: the calibrated act range
         # overhangs the Menagerie ctrlrange at the closed end, and commanding
         # the exact bound flags a command_bound_violation every step.
@@ -306,6 +323,16 @@ class PrivilegedStagedController:
                 0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
                 386, 403, 419, 424, 450,
             )
+        if bench is not None:
+            # Shared look-up motion precedes any cube-conditioned action.
+            # Move for 60 actions and hold until the first H90 image refresh.
+            # Preserve the 30-action tail; fit the task into 360 actions.
+            self.boundaries = (0, 60) + tuple(
+                bench.observation_steps + b
+                for b in (0, 45, 70, 95, 115, 135, 170, 190, 209,
+                          244, 279, 284, 309, 329, 334, 360))
+            self.waypoints = [observation_start, start.copy()] + self.waypoints
+            self._set_arm(adapter, observation_start)
 
     def reset_from_state(self, adapter: Any, start_index: int, horizon: int | None = None) -> None:
         """Replan from the live simulator state onto the remaining action budget.

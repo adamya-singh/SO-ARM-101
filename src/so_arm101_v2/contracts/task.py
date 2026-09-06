@@ -145,14 +145,15 @@ class TaskContract:
     safety: SafetySpec
 
     def __post_init__(self) -> None:
-        if self.contract_version != 2 or self.task_id != "fixed_cube_pickup_v1":
+        bench = self.task_id == "bench_pickup_v1" and self.contract_version == 3
+        if not bench and (self.contract_version != 2 or self.task_id != "fixed_cube_pickup_v1"):
             raise ValueError("Unsupported fixed-cube task contract version or id")
-        if self.object.kind != "cube" or not math.isclose(self.object.edge_length_m, 0.025):
-            raise ValueError("fixed_cube_pickup_v1 requires a 25 mm cube")
+        if self.object.kind != "cube" or not math.isclose(self.object.edge_length_m, 0.020 if bench else 0.025):
+            raise ValueError(f"{self.task_id} requires a {20 if bench else 25} mm cube")
         cube_position = np.asarray(self.reset.cube_position_m, dtype=np.float64)
         if cube_position.shape != (3,) or not np.isfinite(cube_position).all():
             raise ValueError("cube reset position must contain three finite coordinates")
-        if (
+        if not bench and (
             self.reset.scenario_id != "fixed_front_v1"
             or not np.allclose(cube_position, (0.0, 0.3, 0.0125), atol=1e-9, rtol=0.0)
             or not self.reset.fixed_camera_mount
@@ -240,10 +241,20 @@ class TaskContract:
         ):
             raise ValueError("highest lift diagnostic must equal the success height")
 
+        expected_act_low = ACT_DATASET_LOW
+        expected_mujoco_low = MUJOCO_JOINT_LOW
+        if bench:
+            from .bench import BenchConfig
+            from .physical import physical_normalized_to_act
+            expected_act_low = ACT_DATASET_LOW.copy()
+            expected_act_low[1] = physical_normalized_to_act([0, -92, 0, 0, 0, 0])[1]
+            expected_mujoco_low = BenchConfig().mujoco_low
+            if np.any(reset < expected_mujoco_low):
+                raise ValueError("bench reset exceeds task safety bounds")
         expected_bounds = (
-            (self.safety.act_command_low, ACT_DATASET_LOW),
+            (self.safety.act_command_low, expected_act_low),
             (self.safety.act_command_high, ACT_DATASET_HIGH),
-            (self.safety.mujoco_joint_low, MUJOCO_JOINT_LOW),
+            (self.safety.mujoco_joint_low, expected_mujoco_low),
             (self.safety.mujoco_joint_high, MUJOCO_JOINT_HIGH),
         )
         for configured, expected in expected_bounds:

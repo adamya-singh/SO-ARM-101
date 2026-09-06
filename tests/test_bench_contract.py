@@ -1,0 +1,191 @@
+from dataclasses import replace
+import json
+from unittest.mock import Mock
+import numpy as np
+import pytest
+
+from so_arm101_v2.contracts.bench import BenchConfig, scene_dependency_hash
+from so_arm101_v2.contracts.physical import evaluate_physical_command, physical_normalized_to_act, load_physical_calibration
+from so_arm101_v2.contracts.physical_io import connect_read_only, disconnect_read_only, read_measured_act
+
+
+def test_reset_rejects_natural_elbow_outside_model():
+    with pytest.raises(ValueError, match="bounds"):
+        BenchConfig(reset_physical=(0, -90, 100, 43, -1, 13))
+    with pytest.raises(ValueError, match="shoulder"):
+        BenchConfig(reset_physical=(0, -93, 90, 43, -1, 13))
+    BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13))
+
+
+def test_shoulder_floor_includes_quantization():
+    current = physical_normalized_to_act([0, -90, 90, 43, -1, 13])
+    for shoulder in (-92.1, -92):
+        target = physical_normalized_to_act([0, shoulder, 90, 43, -1, 13])
+        assert evaluate_physical_command(current, target, shoulder_floor=-92).physical_clip_mask[1]
+    cal = load_physical_calibration().joints[1]
+    safe_tick = int(np.ceil(cal.range_min + (8 / 200) * (cal.range_max - cal.range_min)))
+    safe_value = (safe_tick - cal.range_min) / (cal.range_max - cal.range_min) * 200 - 100
+    target = physical_normalized_to_act([0, safe_value + 0.01, 90, 43, -1, 13])
+    assert not evaluate_physical_command(current, target, shoulder_floor=-92).physical_clip_mask[1]
+
+
+def test_read_only_connection_never_configures_or_changes_torque():
+    robot = Mock()
+    robot.bus.is_calibrated = True
+    robot.bus.is_connected = True
+    connect_read_only(robot)
+    disconnect_read_only(robot)
+    robot.configure.assert_not_called()
+    robot.connect.assert_not_called()
+    robot.bus.enable_torque.assert_not_called()
+    robot.bus.disable_torque.assert_not_called()
+    robot.bus.disconnect.assert_called_once_with(disable_torque=False)
+
+
+def test_stale_and_nonfinite_feedback(monkeypatch):
+    import so_arm101_v2.contracts.physical_io as module
+    from so_arm101_v2.contracts.coordinates import JOINT_NAMES
+    robot = Mock()
+    robot.bus.sync_read.return_value = dict.fromkeys(JOINT_NAMES, 0)
+    times = iter([0, 0.2])
+    monkeypatch.setattr(module.time, 'monotonic', lambda: next(times))
+    with pytest.raises(RuntimeError, match='stale'):
+        read_measured_act(robot)
+    monkeypatch.setattr(module.time, 'monotonic', lambda: 0)
+    robot.bus.sync_read.return_value['elbow_flex'] = float('nan')
+    with pytest.raises(RuntimeError, match='nonfinite'):
+        read_measured_act(robot)
+
+
+def test_asset_hash_changes_with_included_mesh(tmp_path):
+    (tmp_path/'asset.stl').write_bytes(b'original')
+    (tmp_path/'arm.xml').write_text('<mujoco><asset><mesh file="asset.stl"/></asset></mujoco>')
+    p=tmp_path/'scene.xml'
+    p.write_text('<mujoco><include file="arm.xml"/></mujoco>')
+    original=scene_dependency_hash(p)
+    (tmp_path/'asset.stl').write_bytes(b'changed')
+    assert scene_dependency_hash(p) != original
+
+
+def test_elbow_preparation_is_inward_only_and_never_relaxes_shoulder():
+    from tools.prepare_physical_elbow import next_elbow_command
+    current=physical_normalized_to_act([0,-90,99.7,43,-1,13])
+    target=next_elbow_command(current,99.7)
+    assert 99.5 < target < 99.7
+    for _ in range(150):
+        target=next_elbow_command(current,99.7,target)
+    assert 89.69 < target < 89.71  # capped ten units ahead of measured state
+    with pytest.raises(RuntimeError,match='shoulder'):
+        next_elbow_command(physical_normalized_to_act([0,-92.1,99.7,43,-1,13]),99.7)
+    with pytest.raises(RuntimeError,match='unexpected'):
+        next_elbow_command(physical_normalized_to_act([0,-90,100,43,-1,13]),98)
+
+
+def test_cube_already_on_square_does_not_count_as_pickup():
+    from so_arm101_v2.contracts.pick_place import load_pick_place_contract, PickPlaceMeasurement, PickPlaceEvaluationState, evaluate_pick_place_step
+    from so_arm101_v2.contracts.task import TaskMeasurement
+    config=BenchConfig(reset_physical=(0,-90,90,43,-1,13))
+    contract=load_pick_place_contract('bench_pick_replace_v1',bench_config=config)
+    assert contract.pickup.object.edge_length_m == .020
+    measurement=PickPlaceMeasurement(TaskMeasurement(.1,False,False,False,0),True,0,0,0,1.2)
+    state=PickPlaceEvaluationState()
+    for _ in range(30):
+        state,result=evaluate_pick_place_step(contract,measurement,state)
+        assert not result.success and not result.pickup_completed and result.settled_frames == 0
+
+
+def test_bench_scene_twenty_mm_footprint_and_support(tmp_path):
+    pytest.importorskip('mujoco')
+    from tools.prepare_bench_scene import prepare
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import bench_suite
+    config=BenchConfig(reset_physical=(0,-90,90,43,-1,13))
+    path=prepare(tmp_path,config)
+    a=MujocoTaskAdapter(path)
+    try:
+        scenario=bench_suite(config,[(.01,0)],label='test',repeats=1).scenarios[0]
+        a.reset(scenario)
+        measurement,_=a.pick_place_measurement()
+        assert measurement.cube_footprint_inside
+        assert abs(measurement.cube_support_error_m)<.001
+        assert a.model.geom('red_block_geom').size.tolist() == [.01]*3
+    finally:a.close()
+
+
+@pytest.mark.parametrize('prefetch', ['0','1'])
+def test_vision_checkpoint_resume_matches_uninterrupted(tmp_path, monkeypatch, prefetch):
+    torch=pytest.importorskip('torch')
+    torch.set_num_threads(1)
+    from test_vision_lane import _write_tiny_frames_manifest
+    from so_arm101_v2.learning.vision import train_vision_chunked, VisionChunkedConfig
+    monkeypatch.setenv('SO_ARM101_V2_PREFETCH',prefetch)
+    manifest=_write_tiny_frames_manifest(tmp_path,rows=8)
+    config=VisionChunkedConfig(chunk_horizon=2,max_steps=7,batch_size=2)
+    full=train_vision_chunked(manifest,tmp_path/'full',config=config,numerics=None)
+    scratch=tmp_path/'scratch.pt'
+    with pytest.raises(InterruptedError):
+        train_vision_chunked(manifest,tmp_path/'resumed',config=config,numerics=None,
+            scratch_checkpoint=scratch,checkpoint_interval=2,stop_after_steps=3)
+    resumed=train_vision_chunked(manifest,tmp_path/'resumed',config=config,numerics=None,
+        scratch_checkpoint=scratch,checkpoint_interval=2)
+    assert full.checkpoint.read_bytes() == resumed.checkpoint.read_bytes()
+    assert json.loads(full.report_json.read_text()) == json.loads(resumed.report_json.read_text())
+
+
+def test_bench_distance_uses_front_edge_not_rotation_origin():
+    config = BenchConfig()
+    assert config.distance_reference == "base_front_edge"
+    assert config.square_center_xy[1] == pytest.approx(
+        config.base_front_edge_y_m + 8.5 * .0254)
+    with pytest.raises(ValueError, match="geometry"):
+        replace(config, square_center_xy=(0., .2159))
+
+
+def test_pinned_calibration_check_refuses_drift():
+    from types import SimpleNamespace
+    from so_arm101_v2.contracts.physical_io import assert_pinned_calibration
+    expected = load_physical_calibration()
+    live = {j.name: SimpleNamespace(id=j.motor_id, drive_mode=j.drive_mode, homing_offset=j.homing_offset,
+                                    range_min=j.range_min, range_max=j.range_max) for j in expected.joints}
+    robot = Mock()
+    robot.calibration = live
+    assert_pinned_calibration(robot)
+    live['shoulder_lift'].range_min += 1
+    with pytest.raises(RuntimeError, match='shoulder_lift'):
+        assert_pinned_calibration(robot)
+    live['shoulder_lift'].range_min -= 1
+    del live['gripper']
+    with pytest.raises(RuntimeError, match='gripper'):
+        assert_pinned_calibration(robot)
+
+
+def test_bench_verification_requires_hashed_review_images(tmp_path):
+    import hashlib
+    from so_arm101_v2.simulation.bench import load_bench_verification
+    (tmp_path / 'phys.png').write_bytes(b'physical')
+    (tmp_path / 'sim.png').write_bytes(b'simulated')
+    review = dict(physical_wrist_image='phys.png', physical_wrist_image_sha256=hashlib.sha256(b'physical').hexdigest(),
+                  simulated_wrist_image='sim.png', simulated_wrist_image_sha256=hashlib.sha256(b'simulated').hexdigest(),
+                  reviewed_at='2026-09-06T18:00:00+00:00', reviewer='bench operator', notes='cube centered in both frames')
+    good = dict(scene_dependencies_sha256='scene', reset_evidence_sha256='reset', camera_review=review)
+    path = tmp_path / 'verification.json'
+    path.write_text(json.dumps(good))
+    assert load_bench_verification(path, scene_hash='scene', reset_evidence_sha256='reset')['camera_review'] == review
+    bad_records = [
+        dict(good, camera_review=None, camera_review_passed=True),          # the old bare boolean
+        dict(good, scene_dependencies_sha256='other'),                        # stale scene
+        dict(good, reset_evidence_sha256='other'),                            # stale reset
+        dict(good, camera_review=dict(review, notes='')),                     # no notes
+        dict(good, camera_review=dict(review, reviewed_at='yesterday')),      # bad timestamp
+        dict(good, camera_review=dict(review, simulated_wrist_image='gone.png')),
+    ]
+    for record in bad_records:
+        path.write_text(json.dumps(record))
+        with pytest.raises(RuntimeError):
+            load_bench_verification(path, scene_hash='scene', reset_evidence_sha256='reset')
+    path.write_text(json.dumps(good))
+    with pytest.raises(RuntimeError, match='active bench config'):
+        load_bench_verification(path, scene_hash='scene', reset_evidence_sha256=None)
+    (tmp_path / 'sim.png').write_bytes(b'regenerated')
+    with pytest.raises(RuntimeError, match='hash'):
+        load_bench_verification(path, scene_hash='scene', reset_evidence_sha256='reset')

@@ -82,6 +82,8 @@ class MujocoTaskAdapter:
             raise ValueError("v2 wrist observations are fixed at 256x256")
         mujoco = _mujoco()
         self.model_path = Path(model_path).resolve()
+        from so_arm101_v2.contracts.bench import scene_bench_config
+        self.bench = scene_bench_config(self.model_path)
         if not self.model_path.is_file():
             raise FileNotFoundError(f"MuJoCo model does not exist: {self.model_path}")
         self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
@@ -126,6 +128,8 @@ class MujocoTaskAdapter:
             self._renderer = None
 
     def reset(self, scenario: SimulationScenario) -> None:
+        if self.bench is not None:
+            self.bench.validate_qpos(scenario.robot_qpos_mujoco)
         mujoco = _mujoco()
         mujoco.mj_resetData(self.model, self.data)
         for address, value, actuator in zip(
@@ -231,8 +235,12 @@ class MujocoTaskAdapter:
         nonfinite = requested.shape != (6,) or not np.all(np.isfinite(requested))
         if nonfinite:
             requested = current.copy()
-        evaluation = evaluate_physical_command(current, requested)
+        evaluation = evaluate_physical_command(current, requested,
+            shoulder_floor=self.bench.shoulder_floor if self.bench else None)
         executed = physical_normalized_to_act(evaluation.relative_limited_physical)
+        if self.bench and (np.any(evaluation.physical_clip_mask) or np.any(evaluation.mujoco_clip_mask)
+                           or np.any(evaluation.act_clip_mask) or np.any(evaluation.relative_limit_mask)):
+            executed = current.copy()
         qpos = act_to_mujoco_qpos(executed)
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
             self.data.ctrl[actuator] = float(value)
@@ -312,7 +320,8 @@ class MujocoTaskAdapter:
             bilateral_interior_contact=bool(diagnostics["bilateral_interior_face_contact"]),
             strict_bilateral_grasp=bool(strict), cube_height_gain_m=height_gain,
             unsafe_contact=self._unsafe_contact(height_gain),
-            command_bound_violation=command.command_bound_violation,
+            command_bound_violation=command.command_bound_violation or bool(
+                self.bench is not None and self.mujoco_qpos()[1] < self.bench.mujoco_low[1]),
             delta_limiter_activated=command.delta_limiter_activated,
             nonfinite_command=command.nonfinite_command,
         )
@@ -333,7 +342,7 @@ class MujocoTaskAdapter:
         cube_body = self.data.body("red_block")
         cube_position = np.asarray(cube_body.xpos, dtype=np.float64)
         cube_rotation = np.asarray(cube_body.xmat, dtype=np.float64).reshape(3, 3)
-        half = 0.0125
+        half = float(self.model.geom("red_block_geom").size[0])
         local_corners = np.asarray(
             [(x, y, z) for x in (-half, half) for y in (-half, half) for z in (-half, half)],
             dtype=np.float64,

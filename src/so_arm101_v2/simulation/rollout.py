@@ -377,7 +377,7 @@ def _run_pick_place_rollout(
 ) -> PickPlaceRolloutMetrics:
     adapter = MujocoTaskAdapter(model_path)
     policy = policy_factory()
-    contract = load_pick_place_contract(suite.task_contract)
+    contract = load_pick_place_contract(suite.task_contract, bench_config=adapter.bench)
     try:
         adapter.reset(scenario)
         reset_method = getattr(policy, "reset", None)
@@ -540,7 +540,7 @@ def _rollout_worker_init() -> None:
 def _run_rollout_task(task: _RolloutTask) -> "RolloutMetrics | PickPlaceRolloutMetrics":
     runner = (
         _run_pick_place_rollout
-        if task.suite.task_contract == "fixed_cube_pick_place_v3"
+        if task.suite.task_contract in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1")
         else _run_rollout
     )
     return runner(
@@ -683,7 +683,7 @@ def evaluate_closed_loop(
         )
         rollouts = _execute_rollouts(tasks, workers=workers)
     else:
-        runner = _run_pick_place_rollout if suite.task_contract == "fixed_cube_pick_place_v3" else _run_rollout
+        runner = _run_pick_place_rollout if suite.task_contract in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1") else _run_rollout
         rollouts = [
             runner(
                 Path(model_path), suite, scenario, repeat, policy_id,
@@ -743,7 +743,7 @@ def run_simulation_preflight(
         )
     )
     payload: dict[str, Any] = {
-        "schema_version": 2 if suite.task_contract == "fixed_cube_pick_place_v3" else 1,
+        "schema_version": 2 if suite.task_contract in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1") else 1,
         "suite": asdict(suite), "reward_used": False,
         "environment_proven": proven, "deterministic": deterministic,
         "rollouts": [asdict(item) for item in rollouts],

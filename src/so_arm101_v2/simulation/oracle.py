@@ -129,9 +129,11 @@ def capture_oracle_demonstrations(
 ) -> OracleDemonstrationCollection:
     """Capture one deterministic full-horizon teacher episode per scenario."""
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
-    if suite.task_contract != "fixed_cube_pick_place_v3":
+    if suite.task_contract not in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1"):
         raise ValueError("oracle demonstrations require the v3 pick-place suite")
-    contract = load_pick_place_contract(suite.task_contract)
+    from so_arm101_v2.contracts.bench import scene_bench_config, scene_dependency_hash
+    bench = scene_bench_config(model_path)
+    contract = load_pick_place_contract(suite.task_contract, bench_config=bench)
     preflight = _validated_preflight(Path(preflight_report), suite)
     selected = _select_scenarios(suite, scenario)
     model_path = Path(model_path).resolve()
@@ -152,7 +154,7 @@ def capture_oracle_demonstrations(
             else content_sha256(suite_payload(suite))
         ),
         "task_resource_sha256": hashlib.sha256(
-            read_resource_bytes(f"{suite.task_contract}.json")
+            (json.dumps(asdict(contract), sort_keys=True, default=str).encode() if bench else read_resource_bytes(f"{suite.task_contract}.json"))
         ).hexdigest(),
         "coordinate_contract_sha256": hashlib.sha256(
             read_resource_bytes("act_coordinate_contract.json")
@@ -165,6 +167,9 @@ def capture_oracle_demonstrations(
         # digest) byte-identical.
         "teacher_horizon": teacher_horizon,
     }
+    if bench is not None:
+        identity["bench_config"] = asdict(bench)
+        identity["scene_dependencies_sha256"] = scene_dependency_hash(model_path)
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.

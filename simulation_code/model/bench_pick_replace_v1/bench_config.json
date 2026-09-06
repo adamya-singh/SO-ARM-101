@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "task_id": "bench_pick_replace_v1",
+  "shoulder_floor": -92.0,
+  "cube_edge_m": 0.02,
+  "square_edge_m": 0.0508,
+  "distance_reference": "base_front_edge",
+  "measured_forward_distance_m": 0.2159,
+  "base_front_edge_y_m": 0.0646353,
+  "square_center_xy": [
+    0,
+    0.2805353
+  ],
+  "square_thickness_m": 0.001,
+  "reset_physical": [
+    0.49315068493149283,
+    -90.83629893238434,
+    91.26126126126127,
+    43.64351245085189,
+    -1.1965811965811923,
+    13.533834586466165
+  ],
+  "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+  "viewing_qpos": [
+    -0.009467720985412598,
+    -3.156188726425171,
+    2.799999952316284,
+    0.7236365079879761,
+    -0.03340867906808853,
+    0.08529800176620483
+  ],
+  "observation_steps": 90,
+  "approach_pitch_deg": 78.0,
+  "grasp_pad": 4
+}

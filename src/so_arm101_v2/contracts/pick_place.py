@@ -54,9 +54,10 @@ class PickPlaceContract:
     placement: PickPlaceSpec
 
     def __post_init__(self) -> None:
-        if self.contract_version != 3 or self.task_id != "fixed_cube_pick_place_v3":
+        bench = self.task_id == "bench_pick_replace_v1" and self.contract_version == 4
+        if not bench and (self.contract_version != 3 or self.task_id != "fixed_cube_pick_place_v3"):
             raise ValueError("unsupported pick-place contract")
-        if self.pickup.task_id != "fixed_cube_pickup_v1":
+        if self.pickup.task_id != ("bench_pickup_v1" if bench else "fixed_cube_pickup_v1"):
             raise ValueError("v3 must extend the fixed pickup contract")
         if self.max_actions != 480 or not math.isclose(self.max_seconds, 16.0):
             raise ValueError("v3 must run for 480 actions at 30 Hz")
@@ -124,7 +125,25 @@ class PickPlaceEvaluation:
     events: tuple[PickPlaceDiagnosticEvent, ...]
 
 
-def load_pick_place_contract(name: str) -> PickPlaceContract:
+def load_pick_place_contract(name: str, *, bench_config=None) -> PickPlaceContract:
+    if name == "bench_pick_replace_v1":
+        from dataclasses import replace
+        from .task import ObjectSpec
+        if bench_config is None:
+            raise ValueError("bench task requires a measured bench configuration")
+        base = load_pick_place_contract("fixed_cube_pick_place_v3")
+        from .physical import physical_normalized_to_act
+        low = list(base.pickup.safety.act_command_low)
+        low[1] = float(physical_normalized_to_act([0, bench_config.shoulder_floor, 0, 0, 0, 0])[1])
+        pickup = replace(base.pickup, contract_version=3, task_id="bench_pickup_v1",
+            description="Strict 20 mm bench cube pickup",
+            object=ObjectSpec("cube", bench_config.cube_edge_m),
+            safety=replace(base.pickup.safety, act_command_low=tuple(low),
+                           mujoco_joint_low=tuple(bench_config.mujoco_low)),
+            reset=replace(base.pickup.reset, scenario_id="bench_nominal",
+                cube_position_m=bench_config.cube_center,
+                robot_qpos_mujoco=tuple(bench_config.reset_qpos)))
+        return replace(base, contract_version=4, task_id=name, pickup=pickup)
     if name != "fixed_cube_pick_place_v3":
         raise ValueError(f"unknown pick-place contract: {name!r}")
     raw = load_json_resource(f"{name}.json")
@@ -185,6 +204,8 @@ def evaluate_pick_place_step(
         and measurement.cube_angular_speed_rad_s <= spec.maximum_angular_speed_rad_s
     )
     settled_frame = measurement.cube_footprint_inside and supported and released and stationary
+    if contract.task_id == "bench_pick_replace_v1":
+        settled_frame = settled_frame and pickup_completed
     settled_frames = state.settled_frames + 1 if settled_frame else 0
     retreated = measurement.pickup.jaw_cube_distance_m >= spec.minimum_jaw_cube_clearance_m
 

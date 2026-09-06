@@ -75,3 +75,94 @@ def test_load_csv_trajectory(tmp_path: Path) -> None:
     assert trajectory.shape == (2, 6)
     with pytest.raises(ValueError, match="lacks"):
         load_csv_trajectory(path, prefix="wrong_")
+
+
+def _fake_lerobot(monkeypatch, robot):
+    import types
+    module = types.ModuleType("lerobot.robots.so_follower")
+    module.SO101Follower = lambda config: robot
+    module.SO101FollowerConfig = lambda **kwargs: kwargs
+    cameras = types.ModuleType("lerobot.cameras.opencv")
+    cameras.OpenCVCameraConfig = object
+    monkeypatch.setitem(sys.modules, "lerobot", types.ModuleType("lerobot"))
+    monkeypatch.setitem(sys.modules, "lerobot.robots", types.ModuleType("lerobot.robots"))
+    monkeypatch.setitem(sys.modules, "lerobot.robots.so_follower", module)
+    monkeypatch.setitem(sys.modules, "lerobot.cameras", types.ModuleType("lerobot.cameras"))
+    monkeypatch.setitem(sys.modules, "lerobot.cameras.opencv", cameras)
+
+
+def _write_trajectory(tmp_path: Path, pose: np.ndarray, rows: int = 3) -> Path:
+    path = tmp_path / "trajectory.csv"
+    with open(path, "w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([f"action_rad_{i}" for i in range(6)])
+        for _ in range(rows):
+            writer.writerow([float(v) for v in pose])
+    return path
+
+
+def test_motion_claims_log_and_checks_calibration_before_hardware(tmp_path: Path, monkeypatch) -> None:
+    """The exclusive log must exist before torque is enabled or any goal is sent."""
+    from unittest.mock import Mock
+    import replay_physical_trajectory as tool
+    from so_arm101_v2.contracts.bench import BenchConfig
+    from so_arm101_v2.contracts.physical import physical_normalized_to_act
+
+    pose = physical_normalized_to_act([0, -90, 90, 43, -1, 13])
+    trajectory = _write_trajectory(tmp_path, pose)
+    bench_path = tmp_path / "bench_config.json"
+    from dataclasses import asdict
+    bench_path.write_text(json.dumps(asdict(BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13)))))
+    log_path = tmp_path / "logs" / "motion.csv"
+
+    events: list[str] = []
+    robot = Mock()
+    robot.bus.enable_torque.side_effect = lambda *a, **k: events.append(
+        "torque" if log_path.exists() else "torque_before_log")
+    robot.bus.sync_write.side_effect = lambda *a, **k: events.append("goal")
+    robot.send_action.side_effect = lambda action: (events.append("send"), action)[1]
+    _fake_lerobot(monkeypatch, robot)
+    monkeypatch.setattr(tool, "assert_pinned_calibration", lambda r: events.append("calibration"))
+    monkeypatch.setattr(tool, "connect_read_only", lambda r: events.append("connect"))
+    monkeypatch.setattr(tool, "disconnect_read_only", lambda r: events.append("disconnect"))
+    monkeypatch.setattr(tool, "read_measured_act", lambda r: pose.copy())
+    monkeypatch.setattr("builtins.input", lambda prompt="": "")
+    monkeypatch.setattr(tool.time, "sleep", lambda s: None)
+
+    code = tool.main(["--csv", str(trajectory), "--bench-config", str(bench_path),
+                      "--enable-motion", "--log", str(log_path), "--robot-port", "/dev/null"])
+    assert code == 0
+    assert events[:3] == ["calibration", "connect", "goal"], events
+    assert "torque_before_log" not in events and events.count("torque") == 1
+    assert events.count("send") == 3 and events[-1] == "disconnect"
+    robot.bus.disable_torque.assert_not_called()
+    with open(log_path, newline="") as handle:
+        rows = list(csv.reader(handle))
+    assert len(rows) == 4 and rows[0][0] == "step" and all(row[-1] == "" for row in rows[1:])
+
+
+def test_failed_connection_removes_unused_log(tmp_path: Path, monkeypatch) -> None:
+    from unittest.mock import Mock
+    import replay_physical_trajectory as tool
+    from so_arm101_v2.contracts.bench import BenchConfig
+    from so_arm101_v2.contracts.physical import physical_normalized_to_act
+    from dataclasses import asdict
+
+    pose = physical_normalized_to_act([0, -90, 90, 43, -1, 13])
+    trajectory = _write_trajectory(tmp_path, pose)
+    bench_path = tmp_path / "bench_config.json"
+    bench_path.write_text(json.dumps(asdict(BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13)))))
+    log_path = tmp_path / "motion.csv"
+    robot = Mock()
+    _fake_lerobot(monkeypatch, robot)
+    monkeypatch.setattr(tool, "assert_pinned_calibration", lambda r: None)
+
+    def refuse(r):
+        raise RuntimeError("motor calibration does not match file")
+    monkeypatch.setattr(tool, "connect_read_only", refuse)
+    with pytest.raises(RuntimeError, match="calibration"):
+        tool.main(["--csv", str(trajectory), "--bench-config", str(bench_path),
+                   "--enable-motion", "--log", str(log_path), "--robot-port", "/dev/null"])
+    assert not log_path.exists()
+    robot.bus.enable_torque.assert_not_called()
+    robot.send_action.assert_not_called()

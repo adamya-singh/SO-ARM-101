@@ -19,6 +19,9 @@ import hashlib
 import io
 import json
 import os
+import random
+import tempfile
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -166,6 +169,9 @@ def train_vision_chunked(
     config: VisionChunkedConfig,
     numerics: NumericsSpec | None | str = AUTO,
     on_loss: "Callable[[int, float], None] | None" = None,
+    scratch_checkpoint: str | Path | None = None,
+    checkpoint_interval: int = 5000,
+    stop_after_steps: int | None = None,
 ) -> VisionChunkedResult:
     """Train one vision-conditioned chunked clone (minibatched).
 
@@ -232,6 +238,24 @@ def train_vision_chunked(
     state = torch.from_numpy(state_np).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     generator = noise_generator(torch, config.seed)
+    if checkpoint_interval <= 0:
+        raise ValueError("checkpoint_interval must be positive")
+    scratch = Path(scratch_checkpoint) if scratch_checkpoint else None
+    resumed = None
+    if scratch is not None and scratch.exists():
+        resumed = torch.load(scratch, map_location="cpu", weights_only=False)
+        if resumed["run_digest"] != run_digest:
+            raise ValueError("scratch checkpoint identity differs from requested training")
+        # cpu_state_dict saves the unwrapped module; load into the same
+        # object so a torch.compile wrapper does not reject the keys.
+        getattr(model, "_orig_mod", model).load_state_dict(resumed["model"])
+        optimizer.load_state_dict(resumed["optimizer"])
+        generator.set_state(resumed["generator"])
+        torch.set_rng_state(resumed["torch_rng"])
+        if torch.cuda.is_available() and resumed["cuda_rng"] is not None:
+            torch.cuda.set_rng_state_all(resumed["cuda_rng"])
+        np.random.set_state(resumed["numpy_rng"])
+        random.setstate(resumed["python_rng"])
 
     def batch_images(indices: Any) -> Any:
         block = np.asarray(frames[indices.numpy()], dtype=np.float32) / np.float32(255.0)
@@ -259,12 +283,44 @@ def train_vision_chunked(
     executor = None
     pending: "deque[tuple[Any, Any]]" = deque()
     drawn = 0
+    start_step = 0
 
     def draw_indices() -> Any:
         return torch.randperm(rows, generator=generator)[:batch]
 
     if prefetch_enabled:
         executor = ThreadPoolExecutor(max_workers=prefetch_workers)
+    if resumed is not None:
+        if resumed["prefetch_enabled"] != prefetch_enabled:
+            raise ValueError("resume requires the same prefetch mode")
+        start_step = resumed["step"]
+        drawn = resumed["drawn"]
+        loss_trace = resumed["loss_trace"]
+        for indices in resumed["pending_indices"]:
+            pending.append((indices, executor.submit(_read_frame_rows, frames, indices.numpy())))
+
+    def save_scratch(step):
+        if scratch is None:
+            return
+        scratch.parent.mkdir(parents=True, exist_ok=True)
+        payload = dict(run_digest=run_digest, step=step, drawn=drawn,
+            model=cpu_state_dict(model), optimizer=optimizer.state_dict(),
+            generator=generator.get_state(), torch_rng=torch.get_rng_state(),
+            cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            numpy_rng=np.random.get_state(), python_rng=random.getstate(),
+            pending_indices=[indices for indices, _ in pending],
+            prefetch_enabled=prefetch_enabled, loss_trace=loss_trace,
+            saved_at=time.time())
+        fd, temp = tempfile.mkstemp(dir=scratch.parent, prefix=".checkpoint-", suffix=".pt")
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                torch.save(payload, handle)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, scratch)
+        finally:
+            if os.path.exists(temp):
+                os.unlink(temp)
 
     def next_batch() -> "tuple[Any, Any]":
         nonlocal drawn
@@ -280,7 +336,7 @@ def train_vision_chunked(
         return indices, future.result()
 
     try:
-        for step in range(1, config.max_steps + 1):
+        for step in range(start_step + 1, config.max_steps + 1):
             if config.lr_schedule != "fixed":
                 lr_value = chunked_learning_rate(
                     config.lr_schedule, step, config.max_steps, config.learning_rate
@@ -304,6 +360,11 @@ def train_vision_chunked(
                 loss_trace.append({"step": step, "batch_normalized_mse": loss_value})
                 if on_loss is not None:
                     on_loss(step, loss_value)
+            if scratch is not None and (step % checkpoint_interval == 0 or step == config.max_steps
+                                        or step == stop_after_steps):
+                save_scratch(step)
+            if step == stop_after_steps:
+                raise InterruptedError(f"requested training interruption at step {step}")
     finally:
         if executor is not None:
             executor.shutdown(wait=False, cancel_futures=True)
