@@ -17,10 +17,11 @@ software and its review fixes are committed as one tranche on `master`
   teacher, the camera view, or any physical execution.
 - **Teacher certification passed 2026-09-06 (gate 2): 15/15 complete
   lift-and-replace episodes, deterministic, zero safety invalidation**, with
-  the grasp moved to the pad-1 tip station (see Active scene and teacher for
-  why pads 2 to 4 cannot register a strict grasp on a 20 mm cube). Report:
-  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/512f897da336467a/preflight/bench_pick_replace_v1_certification_e920b408fb5a/evaluation.json`.
-  The success criterion was not changed.
+  the grasp at the pad-1 tip station and the strict-grasp detector's jaw
+  axis corrected to the pad closing direction (`pad_normals_v2`, see Active
+  scene and teacher). Report:
+  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/512f897da336467a-pad_normals_v2/preflight/bench_pick_replace_v1_certification_e920b408fb5a/evaluation.json`.
+  The legacy 25 mm gate is unchanged under the corrected detector.
 - Camera and viewing pose are unverified. No camera-review approval
   artifact exists.
 - The August results elsewhere in this repository concern the legacy fixed
@@ -182,28 +183,39 @@ depth lead 0 mm, grasp height offset 0 mm** (active since 2026-09-06). The
 builder therefore requires `--bench-config` and must never be run with bare
 defaults.
 
-### Why the grasp moved from pad 4 to pad 1 (2026-09-06)
+### Why the grasp moved from pad 4 to pad 1, and the detector fix (2026-09-06)
 
 The 25 mm legacy grasp closed the pad-4 pocket from a 25.2 mm gap at joint
 angle 0. Measured on the bench scene, the jaw pads pinch a 20 mm cube at these
 joint angles (gripper qpos, rad): pad 4 at −0.152, pad 3 at −0.063, pad 2 at
-−0.003, pad 1 at +0.055. The strict detector's jaw-axis reference is the line
-between the `fixed_jaw_tip` and `moving_jaw_tip` sites, which carries an
-18.6 mm vertical offset, so that line sits 25.4° off the pad normal at joint
-angle 0 and rotates further as the jaw closes (27.3° at −0.06, 30.7° at
-−0.15). Its cosine threshold is cos 25° = 0.906. Consequently a parallel face
-pinch at pads 2 to 4 is rejected by the unchanged detector regardless of
-contact quality, and the earlier pad-4 teacher stalled at qpos −0.067 when
-moving pad 3 reached the cube first, lifting it by edge contacts (the
-"jaw-axis alignment 0.888" symptom). At pad 1 the cube pinches at +0.055
-where the reference is 24.0° off (cosine 0.913), inside the threshold by
-about 1°.
+−0.003, pad 1 at +0.055. The strict detector's jaw-axis reference used to be
+the line between the `fixed_jaw_tip` and `moving_jaw_tip` sites, which
+carries an 18.6 mm vertical offset, so that line sat 25.4° off the pad normal
+at joint angle 0 and rotated further as the jaw closed (27.3° at −0.06, 30.7°
+at −0.15) against a cos 25° = 0.906 threshold. A parallel face pinch at pads 2
+to 4 was therefore rejected regardless of contact quality, and the pad-4
+teacher stalled at qpos −0.067 when moving pad 3 reached the cube first,
+lifting it by edge contacts (the "jaw-axis alignment 0.888" symptom). The
+legacy 25 mm grasp had passed that reference by 0.002.
 
-The detector was **not** changed. This is a known fragility to record: the
-jaw-axis reference measures tip-site geometry, not the pad closing
-direction, and it now holds by a 0.007 cosine margin. Whether to replace the
-reference with the pad-to-pad closing axis is a detector decision for the
-user, separate from teacher tuning.
+**Detector fix (user-approved, `GRASP_DETECTOR_VERSION = pad_normals_v2`).**
+`jaw_closing_axis` now returns the bisector of the fixed and moving pad-4
+inward normals, the direction the jaws actually close along: exactly the pad
+normal for parallel pads and half the moving-jaw tilt otherwise (at most 4.9°
+at the closed limit). The legacy `tip_sites` mode is kept only to reproduce
+historical measurements. Legacy check on `fixed_pick_place_v3` (25 mm, five
+scenarios): strict-frame counts identical under both references (48/63/48/
+50/47), all rollout fields identical, gate still proven and deterministic; the
+tip-site reference's minimum cosine there was 0.908, the new reference's 1.0.
+The comparison report is under
+`artifacts/so_arm101_v2/simulation/detector_pad_axis_check/`. The version tag
+is folded into bench capture identity and the certification directory key so
+evidence from the old detector cannot be mistaken for current certification;
+the earlier `512f897da336467a/` tree is that superseded evidence.
+
+The teacher stays at pad 1 on its own merits: the cube pinches at +0.055 with
+0.23 rad of closing travel to spare and a 3° moving-pad tilt, whereas pad 4
+would pinch at −0.152, only 0.02 rad from the mechanical limit.
 
 ### Teacher scan and certification
 
@@ -225,7 +237,9 @@ Pitch 65° also passed 5/5 at lead 0 but with pad-edge rejections; 78° was
 kept. Certification (`tools/certify_bench_teacher.py`): nominal plus four
 ±10 mm axis offsets, three repeats each, through the unchanged preflight
 machinery → **15/15 successes, deterministic, `environment_proven: true`**,
-scene dependencies `512f897da336467ac2b83de5e4b5adc641db350627c776511bfdff6caffa5375`.
+scene dependencies `512f897da336467ac2b83de5e4b5adc641db350627c776511bfdff6caffa5375`,
+detector `pad_normals_v2` (first passed under the tip-site detector the same
+day with the same 15/15; re-certified after the fix).
 A nominal regression pin lives in `tests/test_bench_contract.py`.
 
 Stage boundaries (actions) are unchanged:
@@ -250,7 +264,8 @@ used the OLD incorrect distance and older code. It is superseded.
   grasp, lift and hold first.
 - `simulation/adapter.py`, `simulation/contact.py`: derived 20 mm cube
   geometry, bench safety intersection and refusal; legacy scene behavior
-  preserved conditionally.
+  preserved conditionally. `contact.py` jaw axis = pad-normal bisector
+  (`pad_normals_v2`); `tip_sites` legacy mode retained for reproduction.
 - `simulation/bench.py`: seeded suite construction and teacher screening
   with rejection accounting.
 - `simulation/oracle.py`, `simulation/rollout.py`: new task support and

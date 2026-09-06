@@ -1,4 +1,13 @@
-"""Strict 25 mm cube opposing-face grasp detector ported from legacy evidence."""
+"""Strict opposing-face grasp detector (cube edge taken from the scene).
+
+Jaw axis reference (2026-09-06, "pad_normals"): the bisector of the fixed and
+moving pad inward normals, i.e. the direction the jaws actually close along.
+The legacy reference ("tip_sites") was the line between the two jaw-tip sites,
+which carries an 18.6 mm vertical offset and therefore sits 25.4 deg off the
+pad normal at gripper qpos 0 and further as the jaw closes; against the 25 deg
+threshold it rejected every parallel pinch of a 20 mm cube at pads 2-4. The
+legacy mode is kept only to reproduce historical measurements.
+"""
 
 from __future__ import annotations
 
@@ -116,7 +125,43 @@ def evaluate_face_grasp_contacts(
     return gripped, min(fixed_force, moving_force) if gripped else 0.0, diagnostics
 
 
-def check_block_face_gripped(model: Any, data: Any, block_name: str = "red_block") -> tuple[bool, float, dict[str, Any]]:
+JAW_AXIS_MODES = ("pad_normals", "tip_sites")
+# Bumped whenever the strict-grasp measurement semantics change; folded into
+# bench provenance so evidence produced under a different detector cannot be
+# mistaken for current certification.
+GRASP_DETECTOR_VERSION = "pad_normals_v2"
+
+
+def jaw_closing_axis(model: Any, data: Any, mode: str = "pad_normals") -> np.ndarray:
+    """World-frame unit vector along which the jaws close.
+
+    ``pad_normals``: bisector of the fixed and moving pad-4 inward normals,
+    each oriented from the fixed jaw toward the moving jaw. For parallel pads
+    this is exactly the pad normal; with the moving jaw rotated by theta it is
+    theta/2 off each pad. ``tip_sites``: legacy tip-site line.
+    """
+    if mode == "tip_sites":
+        axis = np.asarray(data.site("moving_jaw_tip").xpos - data.site("fixed_jaw_tip").xpos, dtype=np.float64)
+    elif mode == "pad_normals":
+        fixed = model.geom("fixed_jaw_pad_4").id
+        moving = model.geom("moving_jaw_pad_4").id
+        across = np.asarray(data.geom_xpos[moving] - data.geom_xpos[fixed], dtype=np.float64)
+        normals = []
+        for geom in (fixed, moving):
+            normal = np.asarray(data.geom_xmat[geom], dtype=np.float64).reshape(3, 3)[:, 0]
+            normals.append(normal if np.dot(normal, across) >= 0 else -normal)
+        axis = normals[0] + normals[1]
+    else:
+        raise ValueError(f"unknown jaw axis mode {mode!r}; expected one of {JAW_AXIS_MODES}")
+    norm = float(np.linalg.norm(axis))
+    if norm <= 1e-9:
+        raise RuntimeError("degenerate jaw closing axis")
+    return axis / norm
+
+
+def check_block_face_gripped(
+    model: Any, data: Any, block_name: str = "red_block", *, jaw_axis: str = "pad_normals"
+) -> tuple[bool, float, dict[str, Any]]:
     try:
         import mujoco
     except ImportError as exc:  # pragma: no cover
@@ -126,7 +171,7 @@ def check_block_face_gripped(model: Any, data: Any, block_name: str = "red_block
     moving_id = model.body("moving_jaw_so101_v1").id
     block_pos = data.body(block_name).xpos.copy()
     rotation = np.asarray(data.body(block_name).xmat).reshape(3, 3)
-    jaw_axis_local = rotation.T @ (data.site("moving_jaw_tip").xpos - data.site("fixed_jaw_tip").xpos)
+    jaw_axis_local = rotation.T @ jaw_closing_axis(model, data, jaw_axis)
     contacts: list[dict[str, Any]] = []
     for index in range(data.ncon):
         contact = data.contact[index]
@@ -148,4 +193,4 @@ def check_block_face_gripped(model: Any, data: Any, block_name: str = "red_block
         cube_half_extent=float(model.geom("red_block_geom").size[0]))
 
 
-__all__ = ["check_block_face_gripped", "evaluate_face_grasp_contacts"]
+__all__ = ["GRASP_DETECTOR_VERSION", "JAW_AXIS_MODES", "check_block_face_gripped", "evaluate_face_grasp_contacts", "jaw_closing_axis"]

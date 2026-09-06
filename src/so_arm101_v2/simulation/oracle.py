@@ -168,8 +168,10 @@ def capture_oracle_demonstrations(
         "teacher_horizon": teacher_horizon,
     }
     if bench is not None:
+        from .contact import GRASP_DETECTOR_VERSION
         identity["bench_config"] = asdict(bench)
         identity["scene_dependencies_sha256"] = scene_dependency_hash(model_path)
+        identity["grasp_detector"] = GRASP_DETECTOR_VERSION
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.

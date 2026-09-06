@@ -202,7 +202,9 @@ def test_active_bench_teacher_registers_strict_grasp_and_completes_nominal():
     scene = Path(__file__).resolve().parents[1] / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml'
     adapter = MujocoTaskAdapter(scene)
     try:
-        assert adapter.bench.grasp_pad == 1  # pads 2-4 pinch a 20 mm cube past the detector's 25 deg jaw-axis limit
+        # Pad 1 pinches a 20 mm cube at qpos +0.055 with ample closing travel; pad 4
+        # would pinch at -0.152, 0.02 rad from the mechanical limit.
+        assert adapter.bench.grasp_pad == 1
         adapter.reset(bench_suite(adapter.bench, [(0, 0)], label='test', repeats=1).scenarios[0])
         controller = PrivilegedStagedController()
         controller.reset(adapter)
@@ -232,3 +234,26 @@ def test_bench_config_rejects_unbounded_teacher_offsets():
     with pytest.raises(ValueError, match='grasp_offset_m'):
         BenchConfig(grasp_offset_m=float('nan'))
     assert BenchConfig(grasp_pad=2).grasp_pad == 2
+
+
+@pytest.mark.parametrize('qgrip', [-0.15, -0.06, 0.0, 0.055, 0.4])
+def test_pad_axis_tracks_pad_normal_where_tip_sites_do_not(qgrip):
+    """The detector's jaw axis must follow the pad closing direction across the whole closure range."""
+    mujoco = pytest.importorskip('mujoco')
+    from pathlib import Path
+    from so_arm101_v2.simulation.contact import jaw_closing_axis
+    scene = Path(__file__).resolve().parents[1] / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml'
+    model = mujoco.MjModel.from_xml_path(str(scene)); data = mujoco.MjData(model)
+    data.qpos[model.joint('gripper').qposadr[0]] = qgrip
+    mujoco.mj_forward(model, data)
+    pad_normal = data.geom_xmat[model.geom('fixed_jaw_pad_4').id].reshape(3, 3)[:, 0]
+    moving_normal = data.geom_xmat[model.geom('moving_jaw_pad_4').id].reshape(3, 3)[:, 0]
+    tilt = np.degrees(np.arccos(abs(float(np.dot(pad_normal, moving_normal)))))
+    new = np.degrees(np.arccos(abs(float(np.dot(jaw_closing_axis(model, data, 'pad_normals'), pad_normal)))))
+    old = np.degrees(np.arccos(abs(float(np.dot(jaw_closing_axis(model, data, 'tip_sites'), pad_normal)))))
+    assert abs(new - tilt / 2) < 0.5, (new, tilt)   # bisector: half the moving-jaw tilt, zero for parallel pads
+    if qgrip <= 0.06:                      # the whole 20 mm and 25 mm pinch range
+        assert new <= 5.0, new
+        assert old >= 22.0, old            # the legacy reference was never near the pad normal there
+    with pytest.raises(ValueError, match='jaw axis mode'):
+        jaw_closing_axis(model, data, 'elsewhere')
