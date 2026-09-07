@@ -83,7 +83,9 @@ class MujocoTaskAdapter:
         mujoco = _mujoco()
         self.model_path = Path(model_path).resolve()
         from so_arm101_v2.contracts.bench import scene_bench_config
+        from so_arm101_v2.contracts.joint_map import LEGACY_JOINT_MAP
         self.bench = scene_bench_config(self.model_path)
+        self.joint_map = self.bench.joint_map_object if self.bench is not None else LEGACY_JOINT_MAP
         if not self.model_path.is_file():
             raise FileNotFoundError(f"MuJoCo model does not exist: {self.model_path}")
         self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
@@ -163,7 +165,7 @@ class MujocoTaskAdapter:
         return np.asarray([self.data.qpos[address] for address in self._joint_qpos], dtype=np.float32)
 
     def current_act(self) -> np.ndarray:
-        return mujoco_qpos_to_act(self.mujoco_qpos())
+        return self.joint_map.mujoco_to_act(self.mujoco_qpos())
 
     def privileged_state(self) -> PrivilegedStateSnapshot:
         quaternion = np.asarray(self.data.qpos[self._block_qpos + 3:self._block_qpos + 7], dtype=np.float32).copy()
@@ -236,12 +238,13 @@ class MujocoTaskAdapter:
         if nonfinite:
             requested = current.copy()
         evaluation = evaluate_physical_command(current, requested,
-            shoulder_floor=self.bench.shoulder_floor if self.bench else None)
+            shoulder_floor=self.bench.shoulder_floor if self.bench else None,
+            joint_map=None if self.joint_map.legacy else self.joint_map)
         executed = physical_normalized_to_act(evaluation.relative_limited_physical)
         if self.bench and (np.any(evaluation.physical_clip_mask) or np.any(evaluation.mujoco_clip_mask)
                            or np.any(evaluation.act_clip_mask) or np.any(evaluation.relative_limit_mask)):
             executed = current.copy()
-        qpos = act_to_mujoco_qpos(executed)
+        qpos = self.joint_map.act_to_mujoco(executed)
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
             self.data.ctrl[actuator] = float(value)
         return CommandApplication(
@@ -261,10 +264,10 @@ class MujocoTaskAdapter:
 
     def apply_external_physical_gripper_opening(self, units: float) -> None:
         current = self.current_act()
-        evaluation = evaluate_physical_command(current, current)
+        evaluation = evaluate_physical_command(current, current, joint_map=None if self.joint_map.legacy else self.joint_map)
         physical = evaluation.current_physical.copy()
         physical[5] = np.clip(physical[5] + units, 0.0, 100.0)
-        qpos = act_to_mujoco_qpos(physical_normalized_to_act(physical))
+        qpos = self.joint_map.act_to_mujoco(physical_normalized_to_act(physical))
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
             self.data.ctrl[actuator] = float(value)
 

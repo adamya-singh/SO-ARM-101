@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .coordinates import MUJOCO_JOINT_LOW, MUJOCO_JOINT_HIGH, act_to_mujoco_qpos
+from .joint_map import KNOWN_JOINT_MAPS, load_joint_map
 from .physical import physical_normalized_to_act
 
 
@@ -34,6 +34,9 @@ class BenchConfig:
     # hashed here rather than living as code defaults.
     depth_lead_m: float = 0.006
     grasp_offset_m: float = 0.0085
+    # Physical-to-MuJoCo joint map. The legacy affine map put three joints a
+    # quarter turn off; the bench lane uses the encoder-anchored measured map.
+    joint_map: str = "measured_20260907"
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -49,8 +52,11 @@ class BenchConfig:
             raise ValueError("bench geometry differs from the agreed task")
         if self.observation_steps != 90:
             raise ValueError("bench observation prefix must align with the first H90 image refresh")
-        if not np.isfinite(self.approach_pitch_deg) or not 10 <= self.approach_pitch_deg <= 85:
+        # 0 deg = jaws pointing straight down; 90 would be horizontal.
+        if not np.isfinite(self.approach_pitch_deg) or not 0 <= self.approach_pitch_deg <= 85:
             raise ValueError("invalid teacher approach pitch")
+        if self.joint_map not in KNOWN_JOINT_MAPS or self.joint_map == "legacy_affine_v1":
+            raise ValueError("bench requires a measured joint map (the legacy affine map misplaces the arm)")
         if self.grasp_pad not in (1, 2, 3, 4):
             raise ValueError("unsupported grasp pad")
         for name in ("depth_lead_m", "grasp_offset_m"):
@@ -61,29 +67,37 @@ class BenchConfig:
             p = np.asarray(self.reset_physical, dtype=np.float64)
             if p.shape != (6,) or not np.isfinite(p).all() or p[1] < self.shoulder_floor:
                 raise ValueError("invalid physical reset or shoulder below floor")
-            self.validate_qpos(act_to_mujoco_qpos(physical_normalized_to_act(p)))
+            self.validate_qpos(self.joint_map_object.act_to_mujoco(physical_normalized_to_act(p)))
         if self.viewing_qpos is not None:
             self.validate_qpos(self.viewing_qpos)
 
     @property
+    def joint_map_object(self):
+        return load_joint_map(self.joint_map)
+
+    @property
     def mujoco_low(self):
-        low = MUJOCO_JOINT_LOW.copy()
+        low = self.joint_map_object.mujoco_low.copy()
         p = np.zeros(6)
         p[1] = self.shoulder_floor
-        low[1] = max(low[1], act_to_mujoco_qpos(physical_normalized_to_act(p))[1])
+        low[1] = max(low[1], self.joint_map_object.act_to_mujoco(physical_normalized_to_act(p))[1])
         return low
 
-    def validate_qpos(self, qpos):
+    @property
+    def mujoco_high(self):
+        return self.joint_map_object.mujoco_high.copy()
+
+    def validate_qpos(self, qpos, tolerance=1e-5):
         q = np.asarray(qpos, dtype=np.float64)
         if (q.shape != (6,) or not np.isfinite(q).all()
-                or np.any(q < self.mujoco_low) or np.any(q > MUJOCO_JOINT_HIGH)):
+                or np.any(q < self.mujoco_low - tolerance) or np.any(q > self.mujoco_high + tolerance)):
             raise ValueError("bench pose exceeds effective joint bounds; do not clip")
 
     @property
     def reset_qpos(self):
         if self.reset_physical is None:
             raise ValueError("bench reset has not been measured and verified")
-        return act_to_mujoco_qpos(physical_normalized_to_act(self.reset_physical))
+        return self.joint_map_object.act_to_mujoco(physical_normalized_to_act(self.reset_physical))
 
     @property
     def cube_center(self):

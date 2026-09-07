@@ -12,7 +12,7 @@ import numpy as np
 from so_arm101_v2.contracts.bench import BenchConfig
 from so_arm101_v2.contracts.physical_io import connect_read_only, disconnect_read_only
 from so_arm101_v2.contracts.physical import physical_normalized_to_act
-from so_arm101_v2.contracts.coordinates import act_to_mujoco_qpos, JOINT_NAMES
+from so_arm101_v2.contracts.coordinates import JOINT_NAMES
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
 
 
@@ -39,7 +39,8 @@ def main():
         disconnect_read_only(robot)
     positions = np.median(rows, axis=0)
     spread = np.ptp(rows, axis=0)
-    qpos = act_to_mujoco_qpos(physical_normalized_to_act(positions))
+    joint_map = BenchConfig().joint_map_object
+    qpos = joint_map.act_to_mujoco(physical_normalized_to_act(positions))
     failure = None
     try:
         if np.any(spread > 0.25):
@@ -53,7 +54,7 @@ def main():
                   calibration_sha256=hashlib.sha256(pinned.read_bytes()).hexdigest(),
                   normalized_samples=rows, raw_tick_samples=raw_rows,
                   normalized_median=positions.tolist(), spread=spread.tolist(),
-                  mujoco_qpos=qpos.tolist(), valid=failure is None, failure=failure)
+                  mujoco_qpos=qpos.tolist(), joint_map=joint_map.provenance(), valid=failure is None, failure=failure)
     digest = content_sha256(report)
     dest = args.output_dir / digest[:16]
     write_immutable_json(dest / 'reset_evidence.json', report)

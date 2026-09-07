@@ -7,8 +7,9 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-06)
 
-Teacher certified in simulation; pipeline rehearsed end to end; **camera
-model mismatch measured and unresolved (gate 1 blocking)**. **No fresh dataset capture,
+Joint map corrected from encoder references (2026-09-07); teacher retuned to a
+top-down approach and re-certified; pipeline rehearsed end to end; **camera
+mount pose still unmeasured (gate 1b blocking)**. **No fresh dataset capture,
 training run, W&B run or URL, or scheduled watcher exists.** The September
 software and its review fixes are committed as one tranche on `master`
 (after `640aa76`, 2026-08-08), with the documentation in a second commit.
@@ -16,13 +17,13 @@ software and its review fixes are committed as one tranche on `master`
 - Targeted regression set: **54 passed** (command under Resume commands).
   This covers software contracts and exact resume; it does not certify the
   teacher, the camera view, or any physical execution.
-- **Teacher certification passed 2026-09-06 (gate 2): 15/15 complete
-  lift-and-replace episodes, deterministic, zero safety invalidation**, with
-  the grasp at the pad-1 tip station and the strict-grasp detector's jaw
-  axis corrected to the pad closing direction (`pad_normals_v2`, see Active
-  scene and teacher). Report:
-  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/512f897da336467a-pad_normals_v2/preflight/bench_pick_replace_v1_certification_e920b408fb5a/evaluation.json`.
-  The legacy 25 mm gate is unchanged under the corrected detector.
+- **Teacher certification passed 2026-09-07 (gate 2) under the measured joint
+  map: 15/15 complete lift-and-replace episodes, deterministic, zero safety
+  invalidation**, pad-1 tip station, top-down approach (5°, 3 mm offset),
+  detector `pad_normals_v2`. Report:
+  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/f198fce23f192000-pad_normals_v2/preflight/bench_pick_replace_v1_certification_c2755a9d7557/evaluation.json`.
+  The 2026-09-06 certifications (`512f897da336467a*`) used the legacy joint
+  map, whose arm poses the physical robot cannot adopt; they are superseded.
 - Camera and viewing pose are unverified. No camera-review approval
   artifact exists.
 - The August results elsewhere in this repository concern the legacy fixed
@@ -149,6 +150,53 @@ overwrite historical evidence or copy that geometry into the active
 scene.** The active configuration is
 `simulation_code/model/bench_pick_replace_v1/bench_config.json`.
 
+## Joint map: physical servo units to MuJoCo (corrected 2026-09-07)
+
+The user compared the sim reset with the physical arm in the live viewer and
+found the wrist roll a quarter turn off. Two read-only encoder recordings
+then fixed the whole map (`tools/read_joint_reference.py`, torque off, arm
+posed by hand):
+
+- `artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133225_wrist_roll_jaws_horizontal_rest_396aa222.json`:
+  gravity rest, jaws horizontal. Earlier the user turned the roll by hand
+  from 2023 to 3089 ticks (+93.7°); the jaws then opened vertically with the
+  moving finger on top, matching the old sim reset. That pins the roll offset
+  and its direction.
+- `artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133609_full_model_zero_reference_hand_held_25d117ec.json`:
+  the model's all-zero configuration held by hand (arm straight out
+  horizontally forward, jaws opening vertically). Ticks: pan 1957, lift 2003,
+  elbow 2114, wrist flex 2031, roll 3113.
+
+The legacy map (`act_coordinate_contract.json`, June 2026) assumed each
+calibrated tick range spans the model joint range; the spans differ by up to
+37 % and the shoulder-lift, elbow and wrist-roll zeros were each ~90° off.
+The new map `measured_20260907` (`contracts/joint_map.py`,
+`data/resources/physical_joint_map_20260907.json`) uses the exact 4096
+ticks/turn scale and the reference ticks as zero offsets; the gripper keeps
+the legacy affine endpoints because the model cannot represent touching jaws.
+Signs: roll verified by the user's turn; shoulder, elbow and wrist flex
+consistent with the rest pose; pan carried over from the legacy FK match and
+not yet verified physically. The hand-held reference is good to roughly ±3°.
+
+| Rest pose (model degrees) | pan | lift | elbow | wrist flex | roll |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legacy map | −0.5 | −180.8 | 178.4 | 41.5 | −1.9 |
+| measured map | 0.1 | −85.3 | 92.5 | 41.6 | −99.5 |
+
+Consequences: the sim rest pose now matches the setup photo (upper arm
+vertical, forearm horizontal forward, gripper pitched 42° down over the
+square, jaws horizontal). The physical joint ranges in model terms are pan
+±80°, lift −85° (the −92 floor) to +10°, elbow −10° to 92.5° (the calibrated
+maximum is the gravity rest), wrist flex ±95°, roll −160° to +86°. The
+gravity-rest elbow is therefore inside the model and needs no staging; the
+shoulder at rest reads −92.08, 0.08 below the floor, so a small shoulder lift
+is still needed before any physical episode. **Every legacy sim trajectory
+folded the shoulder to about −180°, a pose the physical arm cannot reach, so
+the August results say nothing about physical feasibility.** The legacy lane
+keeps `legacy_affine_v1` so its artifacts stay reproducible; the bench scene
+binds to the measured map through `BenchConfig.joint_map`, which is hashed
+into the scene dependencies and every capture identity.
+
 ## Camera and viewing pose
 
 H90 inference sees a fresh image every 90 actions. The shared observation
@@ -192,36 +240,23 @@ physical camera sits closer to the square, i.e. the 3D-printed mount
 further down than the Menagerie mount; the large fingers in the physical
 frame agree. Neither number is measured yet.
 
-**Second cause, found by the user in the live viewer (2026-09-06, late):
-the sim arm's reset pose does not match the physical prepared pose.** In the
-setup photo the gripper hangs straight down; in the sim reset the gripper's
-palm-to-tips axis is 51° forward of vertical. The physical-to-MuJoCo joint map
-(`act_to_mujoco_qpos`) is an affine endpoint map that assumes the LeRobot
-calibrated tick range of each joint spans the same physical angle as the
-model's joint limits (`act_coordinate_contract.json` records this as an
-assumption). The STS3215 encoder is 4096 ticks per turn, so the calibrated
-spans can be checked directly:
+**The joint-map correction (see the Joint map section) changed the sim arm
+pose; the comparison was redone on 2026-09-07** with
+`tools/compare_bench_camera.py` (`camera_comparison_f198fce2.json`,
+`compare_reset_sim_projection_over_physical_f198fce2.png`). At the corrected
+reset the sim wrist camera sits 24 cm above the table, 6 cm beyond the
+square centre, looking down steeply, and projects the square 218 px wide
+centred at (1019, 1126), i.e. **below the bottom edge of the frame**, while
+the physical frame shows it 574 px wide at the top (952, 184). Horizontal
+centring still agrees; the size ratio fell from 4.1× to 2.6×; the pitch
+disagreement is now the other way. So the arm pose is right and the
+remaining gap is the camera model: field of view and mount pose.
 
-| Joint | Calibrated span | Menagerie span | Ratio |
-| --- | ---: | ---: | ---: |
-| shoulder_pan | 160.4° | 220.0° | 0.73 |
-| shoulder_lift | 197.6° | 200.0° | 0.99 |
-| elbow_flex | 195.1° | 186.7° | 1.04 |
-| wrist_flex | 201.2° | 190.0° | 1.06 |
-| wrist_roll | 359.9° | 319.7° | 1.13 |
-| gripper | 128.6° | 110.0° | 1.17 |
-
-The scale errors alone move the reset by only a few degrees; the 51° must come
-from the map's zero offsets, which assume the calibration mid-range equals the
-model's zero pose for each joint (−90° for shoulder_lift, +90° for elbow).
-Which joint(s) carry the error is not yet determined. The fix is a versioned
-coordinate-contract change, **not** a servo recalibration: keep the LeRobot
-calibration file untouched, use the exact 4096 ticks/turn scale, and measure
-each joint's zero offset from a read-only tick reading with the arm posed by
-hand (torque off) at a reference configuration. This also moves the sim
-shoulder floor and every physical-to-sim reset conversion, so it must land
-before camera fitting: the camera pose fit is only meaningful once the arm
-pose in sim is the physical one.
+Separately, the physical camera mount differs from the Menagerie mount: in
+the setup photo the camera board sits beside the jaws along the jaw-opening
+axis, whereas the model camera sits perpendicular to it (68 mm "above" the
+gripper body). No roll value reconciles both the jaw orientation and the
+camera side, so the camera pose fit (gate 1b) remains a separate step.
 
 What gate 1 now requires: (a) the physical camera's field of view, from the
 module datasheet or one photograph of a ruler at a measured distance;
@@ -251,11 +286,11 @@ Active model: `simulation_code/model/bench_pick_replace_v1/scene_bench_pick_repl
 generated by `tools/prepare_bench_scene.py` from the active
 `bench_config.json` (black XYZ visual mesh, separate box collision, white
 square, black floor and arm). Teacher tuning lives in the bench config so it
-is hashed into every capture identity: **grasp pad 1, approach pitch 78°,
-depth lead 0 mm, grasp height offset 0 mm** (active since 2026-09-06). The
-`BenchConfig` code defaults differ (50°, pad 1, +6 mm, +8.5 mm); the scene
-builder therefore requires `--bench-config` and must never be run with bare
-defaults.
+is hashed into every capture identity: **grasp pad 1, approach pitch 5°
+(near vertical), depth lead 0 mm, grasp height offset 3 mm, joint map
+`measured_20260907`** (active since 2026-09-07). The `BenchConfig` code
+defaults differ (50°, pad 1, +6 mm, +8.5 mm); the scene builder therefore
+requires `--bench-config` and must never be run with bare defaults.
 
 ### Why the grasp moved from pad 4 to pad 1, and the detector fix (2026-09-06)
 
@@ -315,6 +350,27 @@ scene dependencies `512f897da336467ac2b83de5e4b5adc641db350627c776511bfdff6caffa
 detector `pad_normals_v2` (first passed under the tip-site detector the same
 day with the same 15/15; re-certified after the fix).
 A nominal regression pin lives in `tests/test_bench_contract.py`.
+
+### Retune under the physical joint ranges (2026-09-07)
+
+With the measured joint map the 78° near-horizontal approach became
+infeasible: the pre-grasp point is reachable in position (4 mm) but the wrist
+cannot bring the gripper back to horizontal at that reach within ±95°, and
+the shoulder cannot lean past +10°. The legacy approach only worked because
+the wrong map let the sim fold the shoulder to −180°. `tools/bench_teacher_scan.py`
+over pitch {0, 5, 8, 10, 12, 15}° × height offset {0…8 mm} on the five
+certification poses:
+
+| pitch | offset 0 | 2 mm | 4 mm | 6 mm | 8 mm |
+| ---: | --- | --- | --- | --- | --- |
+| 0° | 5/5, 755 corner rej. | **5/5 clean** | **5/5 clean** | 4/5 | 0/5 |
+| 5° | 4/5 | **5/5 clean** | **5/5 clean** | 5/5, corner rej. | 0/5 |
+| 8° to 15° | IK failures on the y−10 mm pose or all poses | | | | |
+
+Chosen: pitch 5°, offset 3 mm (centre of the clean window). Certification:
+15/15, deterministic, zero safety invalidation, 151 strict frames per
+episode, scene dependencies
+`f198fce23f1920008910f92e80f2bd1f9bd06d2b680a491fbe7f651c763c59e8`.
 
 Stage boundaries (actions) are unchanged:
 `(0,60,90,135,160,185,205,225,260,280,299,334,369,374,399,419,424,450)`.
@@ -389,6 +445,11 @@ used the OLD incorrect distance and older code. It is superseded.
   throughput vs the run's post-warmup median, GPU memory, checkpoint age,
   W&B state, ETA); exit 0 healthy, 1 warning, 2 failed/complete/action.
 - `tools/render_bench_views.py`: the camera-review renders above.
+- `contracts/joint_map.py` + `data/resources/physical_joint_map_20260907.json`:
+  versioned physical-to-MuJoCo joint maps; `tools/read_joint_reference.py`
+  records read-only encoder references; `tools/bench_teacher_scan.py`
+  is the durable teacher scan; `tools/compare_bench_camera.py` the
+  pixel-space camera comparison.
 - `tests/test_bench_contract.py`: shoulder and tick boundaries, stale and
   nonfinite observations, read-only I/O, reset rejection, geometry and
   provenance, already-on-square prevention, elbow staging, exact resume,
@@ -431,12 +492,13 @@ are later work.
 
 ## Open implementation and review items before launch
 
-1. **Camera model calibration (blocking gate 1).** Renders exist and show a
-   4.1× scale and ~300 px pitch mismatch at the reset pose (see Camera and
-   viewing pose). Needed: physical camera field of view; 3 to 5 physical
-   wrist frames at read-only recorded poses; fit the sim camera pose and
-   `fovy`; regenerate the scene; re-render; then the review record. The
-   arm must be re-prepared (elbow-only) before any frame capture.
+1. **Camera model calibration (blocking gate 1b).** With the arm pose now
+   correct, the sim camera still projects the square off the bottom of the
+   frame where the physical camera sees it at the top (2.6× size ratio).
+   Needed: physical camera field of view (datasheet or a ruler photograph);
+   3 to 5 physical wrist frames at read-only recorded poses; fit the sim
+   camera pose in the gripper frame and `fovy`; regenerate the scene;
+   re-render; then the review record.
 2. *Done 2026-09-06.* Teacher retuned to the pad-1 tip station; the common
    prefix is unchanged and no privileged cube coordinates reach the
    learned policy.
@@ -459,6 +521,11 @@ are later work.
    machine, and resume at the real 38 GB frame scale (the equivalence test
    covers the mechanism, not the scale).
 8. Re-run tests after code changes and proceed only through passing gates.
+9. **Physical preparation before any episode:** the gravity-rest shoulder
+   reads −92.08, below the −92 floor, so a reviewed shoulder lift of a few
+   units (not just the elbow) is needed to enter the contract; the elbow
+   itself no longer needs staging under the measured map. Also verify the
+   shoulder-pan sign physically (one small hand rotation, read-only).
    Do not rewrite legacy results or decisions to imply they apply to this
    task.
 

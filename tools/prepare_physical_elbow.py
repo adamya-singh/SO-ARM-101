@@ -12,7 +12,6 @@ from pathlib import Path
 import time
 import numpy as np
 from so_arm101_v2.contracts.physical import act_to_physical_normalized, physical_normalized_to_act, evaluate_physical_command
-from so_arm101_v2.contracts.coordinates import act_to_mujoco_qpos
 from so_arm101_v2.contracts.bench import BenchConfig
 from so_arm101_v2.contracts.physical_io import assert_pinned_calibration, connect_read_only, disconnect_read_only, read_measured_act
 
@@ -32,7 +31,7 @@ def next_elbow_command(current_act, initial_elbow, previous_target=None):
     prior=float(physical[2]) if previous_target is None else previous_target
     target[2]=max(ELBOW_TARGET, float(physical[2])-10.0, prior-MAX_STEP)
     evaluation=evaluate_physical_command(current_act, physical_normalized_to_act(target),
-        shoulder_floor=-92, max_relative_target=10.01)
+        shoulder_floor=-92, max_relative_target=10.01, joint_map=BenchConfig().joint_map_object)
     if evaluation.act_clip_mask.any() or evaluation.physical_clip_mask.any() or evaluation.relative_limit_mask.any():
         raise RuntimeError('preparation command violates physical safety contract')
     mask=evaluation.mujoco_clip_mask.copy()
@@ -61,7 +60,7 @@ def main(argv=None):
         physical=act_to_physical_normalized(current)
         initial=float(physical[2])
         if 85 <= initial <= 92:
-            BenchConfig().validate_qpos(act_to_mujoco_qpos(current))
+            BenchConfig().validate_qpos(BenchConfig().joint_map_object.act_to_mujoco(current))
             print('elbow already prepared')
             return 0
         next_elbow_command(current,initial)
@@ -89,7 +88,7 @@ def main(argv=None):
             current=read_measured_act(robot)
             physical=act_to_physical_normalized(current)
             if ELBOW_TARGET - 0.5 <= float(physical[2]) <= 92.0:
-                BenchConfig().validate_qpos(act_to_mujoco_qpos(current))
+                BenchConfig().validate_qpos(BenchConfig().joint_map_object.act_to_mujoco(current))
                 print('Elbow prepared; torque remains enabled to prevent gravity collapse. Capture the reset now.')
                 return 0
             target=next_elbow_command(current,initial,previous_target)

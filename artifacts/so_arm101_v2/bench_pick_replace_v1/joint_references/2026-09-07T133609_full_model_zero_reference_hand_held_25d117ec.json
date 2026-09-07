@@ -1,0 +1,95 @@
+{
+  "calibration": {
+    "elbow_flex": {
+      "drive_mode": 0,
+      "homing_offset": 1063,
+      "range_max": 3167,
+      "range_min": 947
+    },
+    "gripper": {
+      "drive_mode": 0,
+      "homing_offset": 879,
+      "range_max": 3382,
+      "range_min": 1919
+    },
+    "shoulder_lift": {
+      "drive_mode": 0,
+      "homing_offset": -801,
+      "range_max": 3192,
+      "range_min": 944
+    },
+    "shoulder_pan": {
+      "drive_mode": 0,
+      "homing_offset": -1374,
+      "range_max": 2865,
+      "range_min": 1040
+    },
+    "wrist_flex": {
+      "drive_mode": 0,
+      "homing_offset": -929,
+      "range_max": 3148,
+      "range_min": 859
+    },
+    "wrist_roll": {
+      "drive_mode": 0,
+      "homing_offset": 497,
+      "range_max": 4095,
+      "range_min": 0
+    }
+  },
+  "degrees_from_calibration_mid": [
+    0.3955078125,
+    -5.712890625,
+    5.009765625,
+    2.4169921875,
+    93.6474609375,
+    -55.5029296875
+  ],
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "label": "full_model_zero_reference_hand_held",
+  "moving": false,
+  "normalized_median": [
+    0.49315068493149283,
+    -5.782918149466184,
+    5.13513513513513,
+    2.40279598077764,
+    52.03907203907204,
+    6.83526999316473
+  ],
+  "note": "User holding the arm by hand (torque off) in the model's all-zero reference configuration: upper arm, forearm and gripper all straight out horizontally forward, jaws opening vertically. User also confirmed: at the rotated roll (3089 ticks) the MOVING finger was on TOP, matching the sim reset, so the roll joint direction matches and the correction is a -90 deg offset.",
+  "port": "/dev/ttyACM0",
+  "raw_tick_median": [
+    1957.0,
+    2003.0,
+    2114.0,
+    2031.0,
+    3113.0,
+    2019.0
+  ],
+  "raw_tick_spread": [
+    0,
+    0,
+    1,
+    1,
+    0,
+    0
+  ],
+  "samples": 20,
+  "ticks_per_turn": 4096,
+  "timestamp": "2026-09-07T13:36:09.208570+00:00",
+  "torque_enable": {
+    "elbow_flex": 0,
+    "gripper": 0,
+    "shoulder_lift": 0,
+    "shoulder_pan": 0,
+    "wrist_flex": 0,
+    "wrist_roll": 0
+  }
+}

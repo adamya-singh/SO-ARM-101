@@ -1,0 +1,73 @@
+{
+  "scene_dependencies_sha256": "f198fce23f1920008910f92e80f2bd1f9bd06d2b680a491fbe7f651c763c59e8",
+  "joint_map": "measured_20260907",
+  "sim_camera": {
+    "fovy_deg": 72.0,
+    "position": [
+      0.0069,
+      0.3413,
+      0.2355
+    ],
+    "forward": [
+      -0.043,
+      0.4,
+      -0.916
+    ],
+    "distance_to_square_center_m": 0.2423
+  },
+  "sim_square_px": [
+    [
+      924.7,
+      1253.4
+    ],
+    [
+      1133.6,
+      1242.8
+    ],
+    [
+      1103.3,
+      998.5
+    ],
+    [
+      915.7,
+      1010.7
+    ]
+  ],
+  "sim_cube_top_px": [
+    [
+      978.3,
+      1204.6
+    ],
+    [
+      1066.4,
+      1199.8
+    ],
+    [
+      1055.9,
+      1092.6
+    ],
+    [
+      971.8,
+      1097.6
+    ]
+  ],
+  "sim_square_bbox_px": {
+    "width": 217.9,
+    "height": 254.9,
+    "center": [
+      1019.3,
+      1126.3
+    ]
+  },
+  "physical_square_bbox_px": {
+    "width": 574,
+    "height": 357,
+    "center": [
+      952.3,
+      184.3
+    ],
+    "touches_top": true
+  },
+  "apparent_width_ratio_physical_over_sim": 2.63,
+  "overlay": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/compare_reset_sim_projection_over_physical_f198fce2.png"
+}

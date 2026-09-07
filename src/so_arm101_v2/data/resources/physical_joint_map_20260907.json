@@ -1,0 +1,72 @@
+{
+  "name": "measured_20260907",
+  "schema_version": 1,
+  "ticks_per_turn": 4096,
+  "description": "Physical (LeRobot-normalized) to MuJoCo Menagerie joint map anchored at read-only encoder readings of the arm posed by hand at the model zero configuration (arm straight out horizontally forward, jaws opening vertically). Exact 4096 ticks/turn scale; per-joint zero offsets from the reference; gripper keeps the legacy affine endpoint map because the model cannot represent touching jaws.",
+  "gripper": "legacy_affine_endpoints",
+  "joints": {
+    "shoulder_pan": {
+      "model_zero_ticks": 1957,
+      "sign": -1,
+      "range_min": 1040,
+      "range_max": 2865,
+      "drive_mode": 0,
+      "verification": "sign carried over from the legacy contract (FK invariant match); zero from the hand-held reference; direction not yet verified physically"
+    },
+    "shoulder_lift": {
+      "model_zero_ticks": 2003,
+      "sign": 1,
+      "range_min": 944,
+      "range_max": 3192,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the arm resting upper-arm-up at low ticks"
+    },
+    "elbow_flex": {
+      "model_zero_ticks": 2114,
+      "sign": 1,
+      "range_min": 947,
+      "range_max": 3167,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the forearm folded forward at high ticks"
+    },
+    "wrist_flex": {
+      "model_zero_ticks": 2031,
+      "sign": 1,
+      "range_min": 859,
+      "range_max": 3148,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the gripper pitched down at rest"
+    },
+    "wrist_roll": {
+      "model_zero_ticks": 3113,
+      "sign": 1,
+      "range_min": 0,
+      "range_max": 4095,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference (jaws vertical, moving finger on top); sign +1 verified: user turned +94 deg by hand and the moving finger ended on top as in the sim"
+    }
+  },
+  "references": {
+    "model_zero": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133609_full_model_zero_reference_hand_held_25d117ec.json",
+      "content_sha256": "25d117ec46e4a336fa09ac1fce79dd7b85e6dafd452cb39ad89837f4e6bc272b",
+      "label": "full_model_zero_reference_hand_held",
+      "timestamp": "2026-09-07T13:36:09.208570+00:00"
+    },
+    "rest_jaws_horizontal": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133225_wrist_roll_jaws_horizontal_rest_396aa222.json",
+      "content_sha256": "396aa222944f1a8a618665832e179ec36ead312215beb276a82401bfb4df6da6",
+      "label": "wrist_roll_jaws_horizontal_rest",
+      "timestamp": "2026-09-07T13:32:25.060574+00:00"
+    }
+  },
+  "expected_rest_pose_model_degrees": {
+    "shoulder_pan": 0.1,
+    "shoulder_lift": -85.3,
+    "elbow_flex": 92.5,
+    "wrist_flex": 41.6,
+    "wrist_roll": -99.5,
+    "gripper": null
+  },
+  "supersedes": "act_coordinate_contract.json affine endpoint mapping (assumed calibration endpoints coincide with model joint limits; measured spans differ by up to 37 percent and three joints were a quarter turn off)"
+}

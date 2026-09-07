@@ -68,7 +68,8 @@ def load_csv_trajectory(csv_path: Path, prefix: str = "action_rad_") -> np.ndarr
 
 
 def gate_command(current_act: np.ndarray, target_act: np.ndarray, *,
-                 max_relative_target: float = 20.0, shoulder_floor: float | None = None) -> tuple[bool, str]:
+                 max_relative_target: float = 20.0, shoulder_floor: float | None = None,
+                 joint_map=None) -> tuple[bool, str]:
     """True/reason if the command is safe to send (no mask fires)."""
     target = np.asarray(target_act, dtype=np.float32)
     if target.shape != (6,) or not np.all(np.isfinite(target)):
@@ -76,7 +77,7 @@ def gate_command(current_act: np.ndarray, target_act: np.ndarray, *,
     if np.asarray(current_act).shape != (6,) or not np.isfinite(current_act).all():
         return False, "nonfinite_current"
     evaluation = evaluate_physical_command(current_act, target,
-        max_relative_target=max_relative_target, shoulder_floor=shoulder_floor)
+        max_relative_target=max_relative_target, shoulder_floor=shoulder_floor, joint_map=joint_map)
     for name, mask in (
         ("act_clip", evaluation.act_clip_mask),
         ("mujoco_clip", evaluation.mujoco_clip_mask),
@@ -112,7 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("motion requires --log")
     bench = BenchConfig.load(args.bench_config) if args.bench_config else None
     gate_options = dict(max_relative_target=args.max_relative_target,
-                        shoulder_floor=bench.shoulder_floor if bench else None)
+                        shoulder_floor=bench.shoulder_floor if bench else None,
+                        joint_map=bench.joint_map_object if bench else None)
 
     if args.capture_manifest is not None:
         trajectory = load_manifest_trajectory(args.capture_manifest, args.scenario)

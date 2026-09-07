@@ -36,7 +36,7 @@
         <joint axis="0 1 0" range="-1.92 1.92" />
       </default>
       <default class="Pitch">
-        <joint axis="1 0 0" range="-3.176499366760254 0.174" />
+        <joint axis="1 0 0" range="-1.4865500926971436 0.174" />
       </default>
       <default class="Elbow">
         <joint axis="1 0 0" range="-0.174 3.14" />

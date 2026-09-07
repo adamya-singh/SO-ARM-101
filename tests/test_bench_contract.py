@@ -10,11 +10,19 @@ from so_arm101_v2.contracts.physical import evaluate_physical_command, physical_
 from so_arm101_v2.contracts.physical_io import connect_read_only, disconnect_read_only, read_measured_act
 
 
-def test_reset_rejects_natural_elbow_outside_model():
-    with pytest.raises(ValueError, match="bounds"):
-        BenchConfig(reset_physical=(0, -90, 100, 43, -1, 13))
+def test_reset_validation_under_the_measured_joint_map():
+    # Under the legacy affine map the gravity-rest elbow (100 normalized) fell
+    # outside the model; the measured map places it at the model's 92.5 deg
+    # limit, so the natural rest is a valid reset and no elbow staging is
+    # required to enter the model's range.
+    BenchConfig(reset_physical=(0, -90, 100, 43, -1, 13))
     with pytest.raises(ValueError, match="shoulder"):
         BenchConfig(reset_physical=(0, -93, 90, 43, -1, 13))
+    with pytest.raises(ValueError, match="bounds"):
+        # shoulder +100 normalized is +104 deg in the model, past its +10 deg limit
+        BenchConfig(reset_physical=(0, 100, 90, 43, -1, 13))
+    with pytest.raises(ValueError, match="measured joint map"):
+        BenchConfig(joint_map="legacy_affine_v1")
     BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13))
 
 
@@ -264,9 +272,11 @@ def test_prefix_success_reads_viewing_pose_at_first_image_refresh(tmp_path):
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
     from run_bench_pipeline import prefix_success, PREFIX_TOLERANCE_RAD
-    bench = BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13), viewing_qpos=(0.0, -3.0, 2.8, 0.7, 0.0, 0.1))
-    good = [dict(robot_qpos=[0.0, -3.0, 2.8 + PREFIX_TOLERANCE_RAD / 2, 0.7, 0.0, 0.5])] * 90
-    bad = [dict(robot_qpos=[0.0, -3.0, 2.8 + 2 * PREFIX_TOLERANCE_RAD, 0.7, 0.0, 0.1])] * 90
+    base = BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13))
+    viewing = [float(v) for v in base.reset_qpos]
+    bench = BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13), viewing_qpos=tuple(viewing))
+    good = [dict(robot_qpos=viewing[:2] + [viewing[2] - PREFIX_TOLERANCE_RAD / 2] + viewing[3:5] + [0.5])] * 90
+    bad = [dict(robot_qpos=viewing[:2] + [viewing[2] - 2 * PREFIX_TOLERANCE_RAD] + viewing[3:])] * 90
     short = good[:40]
     paths = {}
     for name, rows in (('good', good), ('bad', bad), ('short', short)):

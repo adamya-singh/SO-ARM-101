@@ -170,8 +170,13 @@ def evaluate_physical_command(
     calibration: PhysicalCalibration | None = None,
     max_relative_target: float = 20.0,
     shoulder_floor: float | None = None,
+    joint_map: Any | None = None,
 ) -> PhysicalCommandEvaluation:
-    """Evaluate hard clipping, relative limiting, and raw ticks without I/O."""
+    """Evaluate hard clipping, relative limiting, and raw ticks without I/O.
+
+    ``joint_map`` selects the ACT<->MuJoCo leg (a ``JointMap``); ``None`` keeps
+    the legacy affine map so every legacy evaluation stays bit-identical.
+    """
     current = _pose(current_act, "current ACT pose")
     target = _pose(target_act, "target ACT pose")
     if current.shape != (6,) or target.shape != (6,):
@@ -182,8 +187,12 @@ def evaluate_physical_command(
 
     clipped_act = np.clip(target, ACT_DATASET_LOW, ACT_DATASET_HIGH).astype(np.float32)
     act_mask = clipped_act != target
-    requested_mujoco = act_to_mujoco_qpos(target)
-    clipped_mujoco, mujoco_mask = clip_mujoco_qpos(requested_mujoco)
+    if joint_map is None:
+        requested_mujoco = act_to_mujoco_qpos(target)
+        clipped_mujoco, mujoco_mask = clip_mujoco_qpos(requested_mujoco)
+    else:
+        requested_mujoco = joint_map.act_to_mujoco(target)
+        clipped_mujoco, mujoco_mask = joint_map.clip_mujoco(requested_mujoco)
     requested_physical = act_to_physical_normalized(target)
     physical_low = PHYSICAL_NORMALIZED_LOW.copy()
     if shoulder_floor is not None:

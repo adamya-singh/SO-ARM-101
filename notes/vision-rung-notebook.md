@@ -12,6 +12,10 @@ The strict-grasp failure was geometric, not tuning. The detector's jaw-axis refe
 
 The bench pipeline ran end to end in a labelled `--rehearsal` mode (toy scale, camera gate skipped and recorded as skipped, W&B offline). Corrected-distance wrist renders were produced and compared with the physical reset frame: the sim square projects **4.1× smaller and ~300 px lower** than the detected physical square at the same recorded pose, horizontally centred in both. Diagnosis: the sim camera keeps the Menagerie mount (`fovy=72`) while the real webcam likely has ~36° vertical field and a different 3D-printed mount pose. Gate 1 now means calibrating the sim camera model to physical frames, not eyeballing a pair of images. The user power-cycled the arm; elbow prep must be redone before any capture. Still no dataset, training run or W&B run.
 
+## September 7: joint map corrected from encoder references; teacher re-certified top-down
+
+The user spotted in the live viewer that the sim wrist roll was a quarter turn off; two read-only encoder recordings (rest, and the model's all-zero pose held by hand) showed the June affine joint map had shoulder-lift, elbow and wrist-roll zeros each ~90° off and spans off by up to 37 %. New versioned map `measured_20260907` (4096 ticks/turn, reference zeros); legacy lane keeps `legacy_affine_v1`. Under real joint ranges the 78° approach is infeasible (the legacy sim folded the shoulder to −180°, impossible physically), so the teacher moved to a 5° near-vertical approach with a 3 mm height offset: **15/15 certified, deterministic, zero safety**. Camera comparison redone on the corrected arm: sim square now projects off the bottom of the frame vs the top physically (2.6× size ratio) — the mount pose and field of view remain the gate-1b measurement. Still no dataset, training run or W&B run.
+
 ## Methodology for this rung (recorded 2026-08-06)
 
 The vision rung runs in **exploratory mode**, a deliberate recalibration now

@@ -1,0 +1,95 @@
+{
+  "calibration": {
+    "elbow_flex": {
+      "drive_mode": 0,
+      "homing_offset": 1063,
+      "range_max": 3167,
+      "range_min": 947
+    },
+    "gripper": {
+      "drive_mode": 0,
+      "homing_offset": 879,
+      "range_max": 3382,
+      "range_min": 1919
+    },
+    "shoulder_lift": {
+      "drive_mode": 0,
+      "homing_offset": -801,
+      "range_max": 3192,
+      "range_min": 944
+    },
+    "shoulder_pan": {
+      "drive_mode": 0,
+      "homing_offset": -1374,
+      "range_max": 2865,
+      "range_min": 1040
+    },
+    "wrist_flex": {
+      "drive_mode": 0,
+      "homing_offset": -929,
+      "range_max": 3148,
+      "range_min": 859
+    },
+    "wrist_roll": {
+      "drive_mode": 0,
+      "homing_offset": 497,
+      "range_max": 4095,
+      "range_min": 0
+    }
+  },
+  "degrees_from_calibration_mid": [
+    0.3076171875,
+    -90.966796875,
+    97.55859375,
+    43.9892578125,
+    -5.8447265625,
+    -47.6806640625
+  ],
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "label": "wrist_roll_jaws_horizontal_rest",
+  "moving": false,
+  "normalized_median": [
+    0.38356164383561975,
+    -92.08185053380782,
+    100.0,
+    43.7308868501529,
+    -3.2478632478632505,
+    12.918660287081341
+  ],
+  "note": "Arm at gravity rest, torque off. Wrist roll returned by the user to the jaws-horizontal orientation (the recorded reset had -1.20 normalized / 2023 ticks). Transcript readings: horizontal 2023 ticks; user then turned the roll by hand to 3089 ticks (+50.87 normalized), where the jaws opened vertically and matched the sim reset orientation; then returned it here.",
+  "port": "/dev/ttyACM0",
+  "raw_tick_median": [
+    1956.0,
+    1033.0,
+    3167.0,
+    2504.0,
+    1981.0,
+    2108.0
+  ],
+  "raw_tick_spread": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "samples": 20,
+  "ticks_per_turn": 4096,
+  "timestamp": "2026-09-07T13:32:25.060574+00:00",
+  "torque_enable": {
+    "elbow_flex": 0,
+    "gripper": 0,
+    "shoulder_lift": 0,
+    "shoulder_pan": 0,
+    "wrist_flex": 0,
+    "wrist_roll": 0
+  }
+}

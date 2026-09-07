@@ -106,6 +106,7 @@ class PrivilegedStagedController:
     bench_grasp_offset_m: float = 0.0085
 
     def __post_init__(self) -> None:
+        self._joint_map = None
         self.action_index = 0
         self.waypoints: list[np.ndarray] = []
         self.boundaries: tuple[int, ...] = ()
@@ -192,8 +193,8 @@ class PrivilegedStagedController:
                 lhs = jacobian @ jacobian.T + self.damping * np.eye(9)
                 update = jacobian.T @ np.linalg.solve(lhs, residual)
                 update = np.clip(update, -self.maximum_update_rad, self.maximum_update_rad)
-                low = adapter.bench.mujoco_low if getattr(adapter, "bench", None) else MUJOCO_JOINT_LOW
-                qpos[:5] = np.clip(qpos[:5] + update, low[:5], MUJOCO_JOINT_HIGH[:5])
+                low, high = self._bounds(adapter)
+                qpos[:5] = np.clip(qpos[:5] + update, low[:5], high[:5])
             solved = bool(
                 position_error <= self.position_tolerance_m
                 and normal_error <= normal_tolerance
@@ -214,10 +215,22 @@ class PrivilegedStagedController:
             adapter.data.qvel[:] = original_qvel
             mujoco.mj_forward(adapter.model, adapter.data)
 
+    @staticmethod
+    def _bounds(adapter: Any) -> tuple[np.ndarray, np.ndarray]:
+        bench = getattr(adapter, "bench", None)
+        if bench is not None:
+            return bench.mujoco_low, bench.mujoco_high
+        return MUJOCO_JOINT_LOW, MUJOCO_JOINT_HIGH
+
+    def _to_act(self, qpos: np.ndarray) -> np.ndarray:
+        return self._joint_map.mujoco_to_act(qpos) if self._joint_map is not None else mujoco_qpos_to_act(qpos)
+
     def reset(self, adapter: Any) -> None:
         self.action_index = 0
         self.solve_diagnostics = []
-        start = np.clip(adapter.mujoco_qpos(), MUJOCO_JOINT_LOW, MUJOCO_JOINT_HIGH)
+        self._joint_map = getattr(adapter, "joint_map", None)
+        low_b, high_b = self._bounds(adapter)
+        start = np.clip(adapter.mujoco_qpos(), low_b, high_b)
         cube = adapter.data.body("red_block").xpos.copy()
         bench = getattr(adapter, "bench", None)
         if bench is not None:
@@ -367,7 +380,7 @@ class PrivilegedStagedController:
                 start = self.waypoints[stage]
                 stop = self.waypoints[stage + 1]
                 fraction = (self.action_index - boundaries[stage]) / (boundaries[stage + 1] - boundaries[stage])
-                result = mujoco_qpos_to_act(
+                result = self._to_act(
                     (1.0 - _minimum_jerk(fraction)) * start + _minimum_jerk(fraction) * stop
                 )
                 return np.clip(
@@ -375,7 +388,7 @@ class PrivilegedStagedController:
                     ACT_DATASET_HIGH - np.float32(1e-6),
                 ).astype(np.float32)
         return np.clip(
-            mujoco_qpos_to_act(self.waypoints[-1]),
+            self._to_act(self.waypoints[-1]),
             ACT_DATASET_LOW + np.float32(1e-6), ACT_DATASET_HIGH - np.float32(1e-6),
         ).astype(np.float32)
 
