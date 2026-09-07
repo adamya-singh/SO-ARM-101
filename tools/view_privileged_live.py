@@ -170,6 +170,12 @@ def main() -> int:
         "by default the full sequence (including the napkin place) plays out",
     )
     args = parser.parse_args()
+    import os
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        print("no display: DISPLAY/WAYLAND_DISPLAY are unset in this shell, so the MuJoCo window cannot open.\n"
+              "Run this from an interactive Ubuntu (WSLg) terminal window, not from an app-embedded or SSH shell;\n"
+              "`echo $DISPLAY` there should print :0.")
+        return 1
     if args.bench:
         return _view_bench(args)
     if args.checkpoint is not None:
