@@ -8,6 +8,10 @@ The [bench runbook](bench-pick-replace-v1.md) records the complete current plan,
 
 The strict-grasp failure was geometric, not tuning. The detector's jaw-axis reference (tip-site line, 18.6 mm vertical offset) is 25.4° off the pad normal at joint angle 0 and rotates further as the jaw closes, so a 20 mm cube pinched at pads 2 to 4 can never satisfy the unchanged 25° criterion; pad 1 pinches at +0.055 rad where the reference is 24.0° off. Teacher moved to pad 1 (78°, zero depth lead, zero height offset, all now versioned in `bench_config.json`). Certification: **15/15 complete lift-and-replace episodes, deterministic, zero safety invalidation**. The user then approved correcting the detector: the jaw axis is now the pad-normal bisector (`pad_normals_v2`, half the moving-jaw tilt at most), legacy `tip_sites` mode kept for reproduction. Legacy 25 mm gate re-run: identical strict-frame counts and rollout fields, still proven and deterministic. Bench teacher re-certified 15/15 under the new detector; it stays at pad 1 for closing-travel margin. Details in the [bench runbook](bench-pick-replace-v1.md). Camera comparison still pending; still no dataset, training run, or W&B run.
 
+## September 6 (evening): pipeline rehearsed; camera mismatch measured
+
+The bench pipeline ran end to end in a labelled `--rehearsal` mode (toy scale, camera gate skipped and recorded as skipped, W&B offline). Corrected-distance wrist renders were produced and compared with the physical reset frame: the sim square projects **4.1× smaller and ~300 px lower** than the detected physical square at the same recorded pose, horizontally centred in both. Diagnosis: the sim camera keeps the Menagerie mount (`fovy=72`) while the real webcam likely has ~36° vertical field and a different 3D-printed mount pose. Gate 1 now means calibrating the sim camera model to physical frames, not eyeballing a pair of images. The user power-cycled the arm; elbow prep must be redone before any capture. Still no dataset, training run or W&B run.
+
 ## Methodology for this rung (recorded 2026-08-06)
 
 The vision rung runs in **exploratory mode**, a deliberate recalibration now

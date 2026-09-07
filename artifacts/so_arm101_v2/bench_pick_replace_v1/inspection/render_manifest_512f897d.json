@@ -1,0 +1,18 @@
+{
+  "scene_dependencies_sha256": "512f897da336467ac2b83de5e4b5adc641db350627c776511bfdff6caffa5375",
+  "grasp_detector": "pad_normals_v2",
+  "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+  "physical_frame": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/physical_prepared_wrist.png",
+  "physical_frame_sha256": "d99c87155b5e44d4ea8bfd86a11f5801bb29831a06c57cf9df8167a107fff641",
+  "note": "The physical frame was taken at the recorded RESET pose; no physical frame exists for the candidate viewing pose.",
+  "outputs": {
+    "sim_reset_wrist_camera_512f897d.png": "6abd53ba4a216105b67a5f0b5a6f264db8b2d221ba4888e0f39eb34fe2a97dd3",
+    "sim_reset_camera_side_512f897d.png": "219bf47ae93b55727700d16566fdf6eb89c9a198fa091e1590fcb88910dfa5ae",
+    "compare_reset_physical_left_sim_right_512f897d.png": "e6812b52e0d25c16254bdbad4d158d90568e991311e965a3d109fdc277533225",
+    "compare_reset_blend50_512f897d.png": "4fcd3e451be322e2db3b531d6886c79210eb360f54f69bbfb22c827bd962bea2",
+    "sim_viewing_wrist_camera_512f897d.png": "b336d6050238a77029b4b4caf092ea1aa3aff15d2c392764f12920baf6222649",
+    "sim_viewing_camera_side_512f897d.png": "ae46364d3a7faac99cd8ae91ea25ec39e648b2d0d9c94009be8a80c61e3610e8",
+    "compare_viewing_physical_left_sim_right_512f897d.png": "4afc06347d2bddd4a2081aa799a87c61d4d9bb55dbebfa5de310657b93e3af52",
+    "compare_viewing_blend50_512f897d.png": "6b8b9e35ce098426f55c21ba4faec8c5836f988e65a754f44d14bf086d1728a9"
+  }
+}

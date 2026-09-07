@@ -6,7 +6,7 @@ Updated 2026-09-06. **Full-task physical replay is not ready or authorized by th
 
 The serial adapter was `/dev/ttyACM0` (CH343, `1a86:55d3`); camera `/dev/video0` (`0c45:6366`) was returned from Windows to WSL after focusing. Device enumeration can change: inspect before connecting. Live calibration is `~/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json`, pinned against `src/so_arm101_v2/data/resources/physical_inference_calibration_20260620.json`. Do not recalibrate automatically.
 
-The user approved and completed a separate elbow-only preparation. Last stable measured shoulder/elbow: −90.8363 / 91.2613 calibrated units. **Elbow torque was left enabled to prevent gravity collapse.** Reconnecting or ending a session does not establish current pose; use fresh read-only measurements. Do not disable torque without support or assume the current pose matches the saved reset.
+The user approved and completed a separate elbow-only preparation on 2026-09-06 (last stable measured shoulder/elbow: −90.8363 / 91.2613 calibrated units), then **power-cycled the arm that evening so the servos released: torque is off and the arm is at gravity rest.** The preparation must be repeated before any physical step. Reconnecting or ending a session does not establish current pose; use fresh read-only measurements and never assume the current pose matches the saved reset.
 
 The elbow staging tool defaults to read-only dry run. Motion requires `--enable-motion`, a new log path and on-site confirmation; it is separate from trajectory replay. See its implementation and the bench runbook for command-floor/feedback-stop details. The shoulder floor remains −92 at every stage.
 

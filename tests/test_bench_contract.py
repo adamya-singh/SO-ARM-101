@@ -1,3 +1,4 @@
+from pathlib import Path
 from dataclasses import replace
 import json
 from unittest.mock import Mock
@@ -257,3 +258,37 @@ def test_pad_axis_tracks_pad_normal_where_tip_sites_do_not(qgrip):
         assert old >= 22.0, old            # the legacy reference was never near the pad normal there
     with pytest.raises(ValueError, match='jaw axis mode'):
         jaw_closing_axis(model, data, 'elsewhere')
+
+
+def test_prefix_success_reads_viewing_pose_at_first_image_refresh(tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+    from run_bench_pipeline import prefix_success, PREFIX_TOLERANCE_RAD
+    bench = BenchConfig(reset_physical=(0, -90, 90, 43, -1, 13), viewing_qpos=(0.0, -3.0, 2.8, 0.7, 0.0, 0.1))
+    good = [dict(robot_qpos=[0.0, -3.0, 2.8 + PREFIX_TOLERANCE_RAD / 2, 0.7, 0.0, 0.5])] * 90
+    bad = [dict(robot_qpos=[0.0, -3.0, 2.8 + 2 * PREFIX_TOLERANCE_RAD, 0.7, 0.0, 0.1])] * 90
+    short = good[:40]
+    paths = {}
+    for name, rows in (('good', good), ('bad', bad), ('short', short)):
+        paths[name] = tmp_path / f'{name}.json'
+        paths[name].write_text(json.dumps(dict(rows=rows)))
+    report = dict(rollouts=[dict(policy_id='vision', telemetry_path=str(paths['good'])),
+                            dict(policy_id='vision', telemetry_path=str(paths['bad'])),
+                            dict(policy_id='vision', telemetry_path=str(paths['short'])),
+                            dict(policy_id='other', telemetry_path=str(paths['good']))])
+    assert prefix_success(report, bench, 90) == {'vision': dict(prefix_ok=1, rollouts=3), 'other': dict(prefix_ok=1, rollouts=1)}
+
+
+def test_pipeline_rehearsal_refuses_unlabelled_output_and_requires_verification(tmp_path):
+    import os, subprocess, sys
+    root = Path(__file__).resolve().parents[1]
+    model = root / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml'
+    tool = root / 'tools/run_bench_pipeline.py'
+    env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'PYTHONNOUSERSITE': '1', 'MUJOCO_GL': 'egl'}
+    plain = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'not_labelled'), '--rehearsal'],
+                           capture_output=True, text=True, env=env)
+    assert plain.returncode != 0 and 'rehearsal' in (plain.stderr + plain.stdout)
+    assert not (tmp_path / 'not_labelled' / 'experiment.json').exists()
+    missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real')],
+                             capture_output=True, text=True, env=env)
+    assert missing.returncode != 0 and '--verification is required' in (missing.stderr + missing.stdout)

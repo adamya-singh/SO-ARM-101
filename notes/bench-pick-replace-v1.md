@@ -7,7 +7,8 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-06)
 
-Teacher certified in simulation; camera unverified. **No fresh dataset capture,
+Teacher certified in simulation; pipeline rehearsed end to end; **camera
+model mismatch measured and unresolved (gate 1 blocking)**. **No fresh dataset capture,
 training run, W&B run or URL, or scheduled watcher exists.** The September
 software and its review fixes are committed as one tranche on `master`
 (after `640aa76`, 2026-08-08), with the documentation in a second commit.
@@ -83,12 +84,15 @@ Its generic “arm base” caption means the base **front edge**.
   `disable_torque=False`, bypassing `robot.connect()`, which configures
   motors and changes torque.
 
-**Last observed arm state (2026-09-06): elbow torque was deliberately left
-ENABLED to hold the prepared pose.** No other joint was commanded or
-enabled by the preparation tool. This is a past observation, not a fresh
-measurement. Do not disable torque without supporting the arm, and do not
-rerun motion merely to resume work. Joint order: shoulder_pan,
-shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper.
+**Last observed arm state (2026-09-06, evening): the user power-cycled the
+arm so the servos released.** Torque is off and the arm is at gravity rest;
+the prepared pose from the morning is gone. Before any physical step, run
+the elbow-only preparation again and re-capture the reset with
+`tools/read_bench_pose.py`; the recorded reset evidence remains valid as
+the pose to prepare to, and `physical_prepared_wrist.png` remains valid as
+the physical frame at that pose. Never assume the current pose from any
+file; measure read-only first. Joint order: shoulder_pan, shoulder_lift,
+elbow_flex, wrist_flex, wrist_roll, gripper.
 
 ## Rest pose and elbow preparation
 
@@ -160,12 +164,51 @@ changed to 2.8 rad (`viewing_qpos` in the active config). It has not been
 verified as a safe, useful view, and moving the physical arm to it needs
 its own reviewed motion scope and on-site confirmation.
 
+### Corrected-distance renders and the measured camera mismatch (2026-09-06)
+
+`tools/render_bench_views.py` renders the sim wrist camera (and the side
+camera) at the recorded reset and the candidate viewing pose at 1920×1080,
+writes side-by-side and 50 % blend composites against the physical frame,
+and a `render_manifest_512f897d.json` with every SHA-256. Files carry the
+scene-hash tag `512f897d`; the older `sim_prepared_wrist.png` and
+`sim_viewing_wrist.png` are superseded.
+
+**The reset-pose comparison does not match, and the gap is in the camera
+model, not the bench geometry.** In `physical_prepared_wrist.png` the white
+square (a folded paper napkin) spans 574 px wide with its top edge cropped at
+the frame top, centred at pixel (952, 184), and the two jaw fingers fill the
+bottom third of the frame. Projecting the sim square through the sim wrist
+camera at the same reset pose (`compare_reset_sim_projection_over_physical_512f897d.png`,
+green outline) gives a 139 px wide quad centred at (955, 482): **4.1× smaller
+and about 300 px lower**, with a different in-plane rotation. Horizontal
+centring agrees, so the base-to-square line is right; scale and pitch are not.
+
+Two effects explain the size of the gap. The sim `wrist_camera` inherits the
+Menagerie mount (`fovy=72`, 68 mm above the gripper body origin). A 1920×1080
+webcam with a typical ~60° horizontal field of view has a *vertical* field of
+about 36°, which alone halves the apparent size. The remaining ~2× means the
+physical camera sits closer to the square, i.e. the 3D-printed mount
+(`3d-printing/oak-d-lite-mount`) places the camera further forward and pitched
+further down than the Menagerie mount; the large fingers in the physical
+frame agree. Neither number is measured yet.
+
+What gate 1 now requires: (a) the physical camera's field of view, from the
+module datasheet or one photograph of a ruler at a measured distance;
+(b) three to five physical wrist frames at read-only recorded arm poses with
+the square and cube in view; (c) fit the sim camera pose in the gripper frame
+plus `fovy` to the detected square corners and jaw-tip features, regenerate
+the scene (a camera-only change, versioned through the scene hash), re-render,
+and only then write the review record. Training on the current renders would
+teach the policy a viewpoint the real camera never produces.
+
 Inspection images under `artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/`:
 
 | File | Meaning |
 | --- | --- |
 | `physical_prepared_wrist.png` | Good focused physical frame after elbow preparation; cube near upper center, partly cropped |
-| `sim_prepared_wrist.png`, `sim_viewing_wrist.png` | **Stale**, rendered before the front-edge correction. Regenerate and compare; never mark these as aligned |
+| `sim_prepared_wrist.png`, `sim_viewing_wrist.png` | **Superseded** (256×256, pre-correction). Use the `*_512f897d.png` renders |
+| `sim_{reset,viewing}_{wrist_camera,camera_side}_512f897d.png`, `compare_*_512f897d.png`, `render_manifest_512f897d.json` | Corrected-distance renders and comparison composites, 2026-09-06; the `*_BRIGHTENED_review_only.png` is a gamma-lifted copy for viewing, never for training |
+| `compare_reset_sim_projection_over_physical_512f897d.png` | Red: detected physical square; green: sim square projected at the same pose; cyan: sim cube top. The 4.1× mismatch evidence |
 | `physical_reset_wrist.png` | Corrupt raw frame, not evidence |
 | `physical_reset_wrist_mjpg.png` | Hand occlusion, not evidence |
 | `physical_reset_wrist_focused.png` | Not described in the handoff; treat as inspection only, not verification evidence |
@@ -290,10 +333,31 @@ used the OLD incorrect distance and older code. It is superseded.
 - `tools/run_bench_pipeline.py`: draft gate chain, local progress and
   telemetry, online W&B initialization, single vision recipe, evaluations.
   Arguments `--model`, `--verification`, `--output-dir`, optional
-  `--stop-after preflight|capture|train`. The verification file must be an
-  artifact-backed camera review record (see Run gates). **Never run
-  end-to-end; not launch-ready.** No verification file or experiment output
-  directory exists yet.
+  `--stop-after preflight|screen|capture|train`, and `--rehearsal`. The
+  verification file must be an artifact-backed camera review record (see
+  Run gates). W&B is initialised first (120 s init timeout) so a tracking
+  problem fails before hours of screening; every phase, throughput, elapsed
+  time, checkpoint age and tracking state go to W&B and `progress.json`;
+  `provenance.json` records suite ids, preflight reports and the capture
+  manifest digest; the evaluation summary reports success, safety frames
+  and observation-prefix success (arm within 0.05 rad of the viewing pose
+  at the first image refresh; the certified teacher scores 15/15).
+  **Rehearsed end to end 2026-09-06** in `--rehearsal` mode (camera gate
+  skipped and labelled, 3+2 screened poses, 30 training steps, W&B
+  offline, output forced under `rehearsal/`): certification → screening →
+  preflights → capture with frames → training with scratch checkpoints →
+  nominal and held-out evaluation with black-image ablation all ran;
+  `artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/20260906_200755/`.
+  Rehearsal numbers are meaningless by construction. The real run still
+  refuses to start without the review record.
+- `simulation_code/queue_bench_pipeline.sh`: enqueues the pipeline (or a
+  rehearsal) on the persistent `tsp` queue with a label and a queue log;
+  the pipeline's internal gate order is the dependency chain.
+- `tools/bench_health_check.py`: read-only health report from an experiment
+  directory (process alive, phase, step advance, finite loss and trend,
+  throughput vs the run's post-warmup median, GPU memory, checkpoint age,
+  W&B state, ETA); exit 0 healthy, 1 warning, 2 failed/complete/action.
+- `tools/render_bench_views.py`: the camera-review renders above.
 - `tests/test_bench_contract.py`: shoulder and tick boundaries, stale and
   nonfinite observations, read-only I/O, reset rejection, geometry and
   provenance, already-on-square prevention, elbow staging, exact resume,
@@ -336,10 +400,12 @@ are later work.
 
 ## Open implementation and review items before launch
 
-1. Finish the viewing-pose and reset camera comparison at the corrected
-   distance: regenerate the stale sim renders, capture reset, viewing,
-   approach and grasp evidence. A rendered image never proves the real
-   camera mount.
+1. **Camera model calibration (blocking gate 1).** Renders exist and show a
+   4.1× scale and ~300 px pitch mismatch at the reset pose (see Camera and
+   viewing pose). Needed: physical camera field of view; 3 to 5 physical
+   wrist frames at read-only recorded poses; fit the sim camera pose and
+   `fovy`; regenerate the scene; re-render; then the review record. The
+   arm must be re-prepared (elbow-only) before any frame capture.
 2. *Done 2026-09-06.* Teacher retuned to the pad-1 tip station; the common
    prefix is unchanged and no privileged cube coordinates reach the
    learned policy.
@@ -351,18 +417,16 @@ are later work.
    limit preserved, finite and stale feedback refused. LeRobot's integer
    tick truncation was confirmed against the driver source, so the
    shoulder-floor tick check matches what goes on the wire.
-5. *Partly done 2026-09-06.* The pipeline now requires the artifact-backed
-   camera review record described under Run gates. Still open:
-   task/teacher/dataset provenance review and prefix-success reporting in
-   the evaluation summary.
-6. Queue orchestration: the draft pipeline orders its gates internally but
-   is not wired into the existing persistent job queue with explicit
-   dependencies. Inspect the queue tooling before submitting. Failed gates
-   must prevent capture, training and evaluation.
-7. Telemetry: log elapsed time, throughput, checkpoint age and tracking
-   state to W&B and local state. Review W&B connectivity failure behavior,
-   actual recipe defaults, numerics and prefetch pinning, and resume at
-   real scale. No expensive run has exercised this pipeline.
+5. *Done 2026-09-06.* Artifact-backed review record required;
+   `provenance.json` and prefix-success reporting added; rehearsed.
+6. *Done 2026-09-06.* `simulation_code/queue_bench_pipeline.sh` enqueues on
+   `tsp`; gate order is enforced inside the pipeline, so a failed gate
+   raises before capture, training or evaluation.
+7. *Done 2026-09-06 at rehearsal scale.* Elapsed time, throughput,
+   checkpoint age and tracking state logged locally and to W&B; W&B is
+   probed first with a 120 s timeout. Still unexercised: online W&B on this
+   machine, and resume at the real 38 GB frame scale (the equivalence test
+   covers the mechanism, not the scale).
 8. Re-run tests after code changes and proceed only through passing gates.
    Do not rewrite legacy results or decisions to imply they apply to this
    task.
@@ -381,9 +445,11 @@ baseline, GPU memory, checkpoint freshness, W&B sync, estimated remaining
 time. Send one early report with the run link, then notify only on stall,
 failure, completion, or required action, and disable the watcher after the
 final report. No automatic recipe changes and no competence inference from
-loss. The user asked for an assistant-thread heartbeat; if the assistant
-cannot create that automation natively, say so and arrange monitoring
-explicitly rather than claiming a watcher exists.
+loss. The check is implemented as `tools/bench_health_check.py`; schedule it (or
+run it by hand) once `training_clock.json` appears. The user asked for an
+assistant-thread heartbeat; if the assistant cannot create that automation
+natively, say so and arrange monitoring explicitly rather than claiming a
+watcher exists.
 
 ## Resume commands
 
