@@ -192,6 +192,37 @@ physical camera sits closer to the square, i.e. the 3D-printed mount
 further down than the Menagerie mount; the large fingers in the physical
 frame agree. Neither number is measured yet.
 
+**Second cause, found by the user in the live viewer (2026-09-06, late):
+the sim arm's reset pose does not match the physical prepared pose.** In the
+setup photo the gripper hangs straight down; in the sim reset the gripper's
+palm-to-tips axis is 51° forward of vertical. The physical-to-MuJoCo joint map
+(`act_to_mujoco_qpos`) is an affine endpoint map that assumes the LeRobot
+calibrated tick range of each joint spans the same physical angle as the
+model's joint limits (`act_coordinate_contract.json` records this as an
+assumption). The STS3215 encoder is 4096 ticks per turn, so the calibrated
+spans can be checked directly:
+
+| Joint | Calibrated span | Menagerie span | Ratio |
+| --- | ---: | ---: | ---: |
+| shoulder_pan | 160.4° | 220.0° | 0.73 |
+| shoulder_lift | 197.6° | 200.0° | 0.99 |
+| elbow_flex | 195.1° | 186.7° | 1.04 |
+| wrist_flex | 201.2° | 190.0° | 1.06 |
+| wrist_roll | 359.9° | 319.7° | 1.13 |
+| gripper | 128.6° | 110.0° | 1.17 |
+
+The scale errors alone move the reset by only a few degrees; the 51° must come
+from the map's zero offsets, which assume the calibration mid-range equals the
+model's zero pose for each joint (−90° for shoulder_lift, +90° for elbow).
+Which joint(s) carry the error is not yet determined. The fix is a versioned
+coordinate-contract change, **not** a servo recalibration: keep the LeRobot
+calibration file untouched, use the exact 4096 ticks/turn scale, and measure
+each joint's zero offset from a read-only tick reading with the arm posed by
+hand (torque off) at a reference configuration. This also moves the sim
+shoulder floor and every physical-to-sim reset conversion, so it must land
+before camera fitting: the camera pose fit is only meaningful once the arm
+pose in sim is the physical one.
+
 What gate 1 now requires: (a) the physical camera's field of view, from the
 module datasheet or one photograph of a ruler at a measured distance;
 (b) three to five physical wrist frames at read-only recorded arm poses with
