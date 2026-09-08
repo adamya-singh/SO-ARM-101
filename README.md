@@ -23,18 +23,40 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
-**Bench continuation (September 6):** the [bench runbook](notes/bench-pick-replace-v1.md) records the current working-tree changes, hardware state, evidence, blockers, and resume commands. **No bench training run or watcher has started.** Latest contract/regression tests: **54 passed**; the bench teacher still fails strict grasp, and camera alignment is not verified.
+**Bench status (September 8, 2026):** the first bench run is training. The
+[bench runbook](notes/bench-pick-replace-v1.md) is the governing record:
+hardware state, calibration evidence, gates, the run, and what remains.
+W&B run `tinmahze` in project `so-arm101-v2-scaling`; full test suite 259
+passed at launch.
 
-**September 6 bench update (implementation in progress):** the new
-`bench_pick_replace_v1` experiment uses a black, PLA-printed **20 mm XYZ
+**The bench task** (`bench_pick_replace_v1`): a black, PLA-printed **20 mm XYZ
 calibration cube** on a **2 × 2 inch white square**, centered **8.5 inches
-(215.9 mm) forward of the base’s front edge**, on a black mousepad. The task is to
-lift and replace the cube on the same square. Shoulder lift must never be
-commanded below **−92 calibrated units**. An explicit elbow-only preparation
-step brings the gravity-rest elbow into the validated simulator range before
-the task starts. New training is gated on verified reset/camera alignment and
-a passing oracle preflight; the August results below describe the old task.
-See the [bench runbook](notes/bench-pick-replace-v1.md).
+(215.9 mm) forward of the base’s front edge**, on a black mousepad. Lift the
+cube and replace it on the same square. Shoulder lift is never commanded
+below **−92 calibrated units**.
+
+**What it took to get here (September 6–8), each recorded in the runbook:**
+
+- The strict-grasp detector's jaw-axis reference was a tip-site line 25°
+  off the pad normal; replaced by the pad-normal bisector (`pad_normals_v2`)
+  with the legacy 25 mm gate re-verified unchanged.
+- The June physical-to-simulator joint map assumed calibration endpoints
+  coincide with model joint limits; encoder references showed three zeros a
+  quarter turn off and spans up to 37 % off. Replaced by tick-anchored maps,
+  finally `measured_20260908b`, whose shoulder/elbow zeros are pinned by a
+  side photo of the rest pose. Every August sim trajectory folded the
+  shoulder to a pose the real arm cannot reach.
+- The wrist camera was calibrated from a phone-screen checkerboard: 44.0°
+  vertical field of view with strong barrel distortion, not the 72° the sim
+  used nor the 103° published for the module family. The mount is the
+  official SO-ARM101 part the model already carries, so its pose was known;
+  a hand-eye fit on nine flat-board frames placed it within a centimetre.
+- The teacher moved to a near-vertical approach at the jaw tips because the
+  legacy horizontal approach is infeasible within real joint ranges;
+  certified 15/15 with zero safety events on the corrected arm.
+
+**Deployment reminder:** real wrist frames must be undistorted with the
+calibrated intrinsics before a policy sees them; the simulator is a pinhole.
 
 <img src="readme-assets/bench-setup-20260906-annotated.png" alt="Physical SO-101 bench: black cube on white square and mousepad; book used as a spacing guide" width="460">
 
@@ -735,6 +757,24 @@ The pre-registered ladder from here:
 
 The legacy PPO curriculum, reward, and stability ideas above remain useful
 research history, but they are not the active next step of the rebuild.
+
+**September 2026: the bench continuation supersedes this ladder.** The
+August rungs above ran on a simulator whose arm poses the real robot cannot
+reach and whose camera saw nearly twice the true field of view, so their
+numbers do not transfer. The current sequence, governed by the
+[bench runbook](notes/bench-pick-replace-v1.md):
+
+1. **Bench vision run (in progress, launched 2026-09-08):** one
+   pre-registered run, seed 202, 120k steps, on 400 screened bench poses
+   with 10 held-out; evaluated nominal and held-out with the black-image
+   ablation. Exploratory; a promotion claim would need its own gate.
+2. **Read the result,** then choose between more data, more compute, or a
+   robustness pass. The known sim-to-real residual from calibration is about
+   1.6 cm at working distance.
+3. **Physical stage (not authorized yet):** reviewed shoulder lift above the
+   −92 floor, read-only pan-sign check, undistortion of real frames with the
+   calibrated intrinsics, then a gated replay of a certified bench
+   trajectory before any learned policy touches the arm.
 
 ## Setup / Running the Code
 

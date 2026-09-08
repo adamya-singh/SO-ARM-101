@@ -5,33 +5,41 @@ experiment: physical setup, recorded hardware state, active scene and
 teacher, evidence inventory, gates, open work, and resume commands. It
 absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
-## Status (2026-09-06)
+## Status (2026-09-08)
 
-Joint zeros corrected from a flat-checkerboard hand-eye calibration and the
-wrist camera calibrated and written into the scene (2026-09-08); teacher
-re-certified 15/15 on the corrected arm; pipeline rehearsed end to end;
-**gate 1 closed 2026-09-08: the user signed off the rest-pose comparison**
-(`inspection/camera_review_20260908.json`, accepted by the pipeline gate).
-The pipeline can launch.
-**No fresh dataset capture,
-training run, W&B run or URL, or scheduled watcher exists.** The September
-software and its review fixes are committed as one tranche on `master`
-(after `640aa76`, 2026-08-08), with the documentation in a second commit.
+**All gates passed; the single pre-registered run is in progress.** Launched
+2026-09-08 03:03 local on the persistent queue (`tsp` job 0) as W&B run
+`bench-pick-replace-v1-s202-120k`, id `tinmahze`, project
+`so-arm101-v2-scaling`:
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/tinmahze.
+Experiment directory
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908/`
+(`progress.json` is the monitoring source of truth; `experiment.json` is the
+immutable identity; `provenance.json` records suite ids, preflights and the
+capture digest). Scene `6477c4bd…`, joint map `measured_20260908b`, detector
+`pad_normals_v2`, calibrated camera (fovy 44.0°).
 
-- Targeted regression set: **54 passed** (command under Resume commands).
-  This covers software contracts and exact resume; it does not certify the
-  teacher, the camera view, or any physical execution.
-- **Teacher certification passed 2026-09-07 (gate 2) under the measured joint
-  map: 15/15 complete lift-and-replace episodes, deterministic, zero safety
-  invalidation**, pad-1 tip station, top-down approach (5°, 3 mm offset),
-  detector `pad_normals_v2`. Report:
-  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/f198fce23f192000-pad_normals_v2/preflight/bench_pick_replace_v1_certification_c2755a9d7557/evaluation.json`.
-  The 2026-09-06 certifications (`512f897da336467a*`) used the legacy joint
-  map, whose arm poses the physical robot cannot adopt; they are superseded.
-- Camera and viewing pose are unverified. No camera-review approval
-  artifact exists.
+- Gate 1 (reset + camera review): **closed 2026-09-08**, user sign-off in
+  `inspection/camera_review_20260908.json`.
+- Gate 2 (teacher certification): **15/15, deterministic, zero safety
+  invalidation** on the corrected arm (scene `6477c4bd…`):
+  `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/6477c4bda5b92eaa-pad_normals_v2/preflight/bench_pick_replace_v1_certification_5ef75fc85458/evaluation.json`.
+  Earlier certifications (`512f897d…`, `f198fce2…`, `c2053419…`) used
+  superseded joint maps or the old detector and are historical only.
+- Full test suite: **259 passed** at launch.
+- Monitoring: a detached watcher writes `health_20min.txt` twenty minutes
+  after the first optimizer step; the assistant session checks the run
+  twice an hour (`tools/bench_health_check.py`), reporting only on stall,
+  failure or completion. No automatic recipe changes.
 - The August results elsewhere in this repository concern the legacy fixed
-  25 mm cube task and establish nothing about bench readiness.
+  25 mm cube task and establish nothing about bench readiness; the run above
+  is the first bench evidence and is **exploratory** (single seed).
+
+**Deployment reminder.** The simulator renders a pinhole camera. Real wrist
+frames carry strong barrel distortion (k1 ≈ −0.57) and must be undistorted
+with `camera_calibration/camera_intrinsics.json` (`selected` model) before
+the policy sees them, then resized to 256×256 the same way the capture does.
+This step is not yet implemented in any physical inference path.
 
 ## Physical setup
 
@@ -89,20 +97,35 @@ Its generic “arm base” caption means the base **front edge**.
   `disable_torque=False`, bypassing `robot.connect()`, which configures
   motors and changes torque.
 
-**Last observed arm state (2026-09-06, evening): the user power-cycled the
-arm so the servos released.** Torque is off and the arm is at gravity rest;
-the prepared pose from the morning is gone. Before any physical step, run
-the elbow-only preparation again and re-capture the reset with
-`tools/read_bench_pose.py`; the recorded reset evidence remains valid as
-the pose to prepare to, and `physical_prepared_wrist.png` remains valid as
-the physical frame at that pose. Never assume the current pose from any
-file; measure read-only first. Joint order: shoulder_pan, shoulder_lift,
+**Last observed arm state (2026-09-08): torque off, arm at gravity rest**
+(shoulder −92.08, elbow 100.0, wrist flex ≈ 38–44, roll ≈ −2 normalized;
+the user turned the roll by hand during calibration and returned it). The
+side photo `readme-assets/bench-rest-side-20260908.jpg` shows this pose:
+upper arm horizontal backward, forearm horizontal forward stacked on it,
+gripper folded down. Under the corrected joint map this rest pose is inside
+the model (elbow at its calibrated maximum = model 173.5°), so the elbow no
+longer needs staging for range; the shoulder at rest sits 0.08 below the −92
+floor and must be lifted a few units before any physical episode. Never
+assume the current pose from any file; measure read-only first
+(`tools/read_joint_reference.py`). Joint order: shoulder_pan, shoulder_lift,
 elbow_flex, wrist_flex, wrist_roll, gripper.
 
 ## Rest pose and elbow preparation
 
-The observed gravity-rest elbow is about 99.73 calibrated units, mapping to
-3.256 rad, beyond the Menagerie model's 3.14-rad elbow maximum. This is not a
+**Superseded for range on 2026-09-08.** The paragraphs below describe the
+elbow staging performed under the June affine joint map, which placed the
+gravity-rest elbow outside the model. Under `measured_20260908b` the same
+rest reading (100.0 units) maps to the model's elbow maximum, inside range,
+so staging is no longer required for range. What still binds is the
+shoulder: gravity rest reads −92.08, below the −92 floor, so a small
+reviewed shoulder lift (no tool exists yet) precedes any physical episode.
+Kept for history and because the staging tool's safety pattern (read-only
+default, per-step floor check, feedback stop) is the template for that
+shoulder tool.
+
+The observed gravity-rest elbow is about 99.73 calibrated units, which the
+June affine map sent to 3.256 rad, beyond the Menagerie model's 3.14-rad
+elbow maximum. This is not a
 reason to silently clip a reset, recalibrate the arm, or widen model limits.
 The user requested an explicit preparation step before every run instead.
 The user confirmed being beside the arm with a clear workspace and approved
@@ -562,7 +585,7 @@ used the OLD incorrect distance and older code. It is superseded.
 Full physical testing, additional seeds, and arbitrary workspace placement
 are later work.
 
-## Open implementation and review items before launch
+## Implementation and review items (all pre-launch items closed 2026-09-08)
 
 1. *Done 2026-09-08.* Camera review record: the user confirmed
    `inspection/calibrated_rest_compare.png` ("basically matches"; the real
@@ -593,19 +616,38 @@ are later work.
    machine, and resume at the real 38 GB frame scale (the equivalence test
    covers the mechanism, not the scale).
 8. Re-run tests after code changes and proceed only through passing gates.
-9. **Physical preparation before any episode:** the gravity-rest shoulder
-   reads −92.08, below the −92 floor, so a reviewed shoulder lift of a few
-   units (not just the elbow) is needed to enter the contract; the elbow
-   itself no longer needs staging under the measured map. Also verify the
-   shoulder-pan sign physically (one small hand rotation, read-only).
-   Do not rewrite legacy results or decisions to imply they apply to this
-   task.
+9. **Physical preparation before any episode (open):** the gravity-rest
+   shoulder reads −92.08, below the −92 floor, so a reviewed shoulder lift
+   of a few units is needed to enter the contract; the elbow no longer
+   needs staging under `measured_20260908b`. Also verify the shoulder-pan
+   sign physically (one small hand rotation, read-only). Do not rewrite
+   legacy results or decisions to imply they apply to this task.
+10. **Deployment path (open):** undistort real frames with the calibrated
+    intrinsics before the policy; implement and test this in the physical
+    inference/replay path before the first learned-policy trial.
+11. **After the run (open):** read `evaluation_summary.json` (successes,
+    safety frames, prefix success, black-image ablation) on the nominal and
+    held-out suites; a single seed is exploratory. If a promotion claim is
+    wanted, pre-register a gate first. Next levers if it under-performs:
+    more data (the engine is proven) or more compute per seed; the
+    calibration residual (~1.6 cm at working distance) is a known
+    sim-to-real gap.
 
 ## Tracking and monitoring
 
-W&B project `so-arm101-v2-scaling`, distinct bench group and name. Persist
-the actual returned run ID and URL; report a link only after the run has
-started. The draft pipeline writes `training_clock.json`, `training.jsonl`,
+**Live run (2026-09-08):** W&B project `so-arm101-v2-scaling`, run
+`bench-pick-replace-v1-s202-120k` id `tinmahze`,
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/tinmahze;
+queue `tsp` job 0 (`tsp -l`; stdout in the file `tsp -l` names); output
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908/`.
+Monitoring in place: `watch_first_step.sh` (detached, pid in
+`watch_first_step.log`) writes `health_20min.txt` twenty minutes after
+`training_clock.json` appears; the assistant session's scheduled check runs
+`tools/bench_health_check.py` at :23 and :53 and reports once after the
+20-minute check, then only stall/failure/completion. Delete the schedule
+when the run finishes.
+
+The pipeline writes `training_clock.json`, `training.jsonl`,
 `progress.json` and `wandb.json` to its experiment output directory.
 
 The first health check is due **20 minutes after the first optimizer
@@ -638,9 +680,15 @@ PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
 PYTHONNOUSERSITE=1 MUJOCO_GL=egl \
   /home/win10ubuntu/miniforge3/envs/lerobot/bin/python tools/bench_grasp_scan.py
 
-# Targeted regression set (54 passed on 2026-09-06).
-PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python -m pytest -q \
-  tests/test_bench_contract.py tests/test_physical_replay.py \
-  tests/test_physical_commands.py tests/test_calibration_integrity.py \
-  tests/test_task_contract.py tests/test_pick_place_v3.py tests/test_vision_lane.py
+# Full test suite (259 passed on 2026-09-08 at launch).
+PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python -m pytest -q tests
+
+# Run status (read-only).
+tsp -l
+PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python tools/bench_health_check.py \
+  --experiment-dir artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908
+
+# Sim/real comparison at the rest pose (needs the camera on /dev/video0).
+PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/compare_bench_camera.py --reference artifacts/so_arm101_v2/bench_pick_replace_v1/camera_references/<latest>.json
 ```

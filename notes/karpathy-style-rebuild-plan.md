@@ -2,7 +2,7 @@
 
 ## Document status
 
-**2026-09-06 continuation:** the new physical-bench task is in implementation and teacher verification, not complete. Existing successful oracle/learning evidence below concerns legacy tasks. The new 20 mm cube task has not passed its oracle or camera gates; no training has launched. See the [bench runbook](bench-pick-replace-v1.md), which records the current plan, evidence, and open work. That document governs the current experiment while this file remains the broader research framework.
+**2026-09-08 status:** the physical-bench task `bench_pick_replace_v1` has passed its teacher and camera gates on a corrected arm model and the single pre-registered vision run is training (W&B `tinmahze`). Getting there exposed two model errors that the legacy evidence below was blind to: the June physical-to-simulator joint map (zeros a quarter turn off, spans up to 37 % off) and the wrist camera model (44° calibrated field of view with barrel distortion, not 72°). Existing oracle/learning evidence below concerns the legacy 25 mm cube task on the uncorrected arm and establishes nothing about bench readiness. See the [bench runbook](bench-pick-replace-v1.md), which governs the current experiment; this file remains the broader research framework.
 
 This is a living research and engineering plan for rebuilding the SO-ARM-101
 learning stack from a small, trusted skeleton. It is inspired by the process in
@@ -2085,7 +2085,18 @@ equivalence test pins to the same digest, loss trace, and checkpoint sha.
 Measured 3.2x. Runs are charted in the wandb project
 `so-arm101-v2-scaling`; results in `notes/vision-rung-notebook.md`.
 
-**Where the ladder stands.** Simulation evidence is saturating: the
+**Where the ladder stands (updated 2026-09-08).** The August paragraph
+below stood on a simulator whose arm the real robot could not adopt: the
+joint map folded the shoulder past its physical range and the camera saw
+nearly twice the true field of view. The bench continuation fixed both
+before training anything (calibrated joint map `measured_20260908b`,
+calibrated wrist camera, pad-normal grasp detector), then re-certified the
+teacher 15/15 and launched one exploratory vision run on the new task.
+What the ladder now needs is the outcome of that run, then a physical
+stage that still requires a reviewed shoulder lift above the −92 floor,
+an unverified pan sign, and frame undistortion at inference.
+
+*August view, kept for the record:* simulation evidence is saturating: the
 privileged-state policy is perfect on held-out poses, the vision policy
 matches it on its best seed, the data engine turns the crank on demand, and
 training is no longer I/O-bound. The two open sim questions are vision

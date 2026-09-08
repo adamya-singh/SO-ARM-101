@@ -1,5 +1,10 @@
 # Vision Rung Notebook (running log, exploratory lane)
 
+> **Current state (2026-09-08):** see the last entry, "Bench pick-replace
+> v1: first run launched". The September 6 and 7 entries below are the
+> trail that led there and contain claims that were later corrected in
+> place (camera field of view, joint zeros, the 180° board claim).
+
 ## September 6: bench adaptation in progress
 
 The [bench runbook](bench-pick-replace-v1.md) records the complete current plan, evidence and remaining implementation work. New task: black 20 mm XYZ cube, 50.8 mm white square, 8.5 inches from the base **front edge**, shoulder floor −92 calibrated units. Stable prepared physical reset captured; scene corrected to Y=0.2805353 m. Latest software regression set: 54 passed. Nominal teacher lifts ~29 mm but fails strict opposing-face grasp; an explicit stage schedule removed the earlier nominal release limiter event. Camera comparison is still pending. **No new dataset capture, training run, W&B URL or watcher exists.** August results below remain historical; they are not bench certification.
@@ -220,3 +225,30 @@ float ops stay on the main thread in step order → **bitwise identical**
 Seed 101 ran pre-fix (~11 h); seeds 202/303 ran ~3.5 h each. Known gap
 noted for later: training is not resumable mid-run (checkpoint only at
 completion); worth a scratch-checkpoint mechanism before longer runs.
+
+### Bench pick-replace v1: first run launched (2026-09-08)
+
+Task changed to the physical bench (`bench_pick_replace_v1`: 20 mm cube on a
+2 in white square 8.5 in from the base front edge). Everything above this
+entry ran on the legacy 25 mm cube task with an arm model the real robot
+cannot match; none of it transfers. What changed before launch, all in
+`notes/bench-pick-replace-v1.md`:
+
+- **Grasp detector** `pad_normals_v2`: jaw axis is the pad-normal bisector,
+  not the tip-site line (25.4° off). Legacy 25 mm gate re-verified unchanged.
+- **Joint map** `measured_20260908b`: tick-anchored zeros, shoulder/elbow
+  pinned by a side photo of the rest pose. The June map had three zeros a
+  quarter turn off and spans up to 37 % off.
+- **Camera** calibrated from a phone checkerboard: fovy 44.0°, k1 −0.57.
+  Mount pose taken from the official SO-ARM101 part (same as the Menagerie
+  mount) and refined ±10 mm by a hand-eye fit; ~1.6 cm residual at working
+  distance. Sim renders a pinhole, so real frames need undistortion.
+- **Teacher** near-vertical (5°) approach at the jaw tips, 15/15 zero-safety
+  certification on scene `6477c4bd…`.
+- Gate 1 closed by user sign-off on the rest-pose sim/real comparison.
+
+Run: seed 202, 120k steps, H90, w256, batch 64, clamp, cosine_floor_v1,
+scratch checkpoints every 5k. wandb `so-arm101-v2-scaling` run `tinmahze`
+(`bench-pick-replace-v1-s202-120k`), output
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908/`.
+Result: pending.

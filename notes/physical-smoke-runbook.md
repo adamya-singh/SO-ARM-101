@@ -1,14 +1,16 @@
 # Physical Smoke Runbook (bench procedure)
 
-Updated 2026-09-06. **Full-task physical replay is not ready or authorized by the current bench preparation approval.** The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
+Updated 2026-09-08. **Full-task physical replay is not ready or authorized.** The bench sim run is in progress (see the bench runbook status); no learned policy exists yet. The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
 
 ## Current hardware and preparation
 
 The serial adapter was `/dev/ttyACM0` (CH343, `1a86:55d3`); camera `/dev/video0` (`0c45:6366`) was returned from Windows to WSL after focusing. Device enumeration can change: inspect before connecting. Live calibration is `~/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json`, pinned against `src/so_arm101_v2/data/resources/physical_inference_calibration_20260620.json`. Do not recalibrate automatically.
 
-The user approved and completed a separate elbow-only preparation on 2026-09-06 (last stable measured shoulder/elbow: −90.8363 / 91.2613 calibrated units), then **power-cycled the arm that evening so the servos released: torque is off and the arm is at gravity rest.** The preparation must be repeated before any physical step. Reconnecting or ending a session does not establish current pose; use fresh read-only measurements and never assume the current pose matches the saved reset.
+The arm is at gravity rest with torque off (power-cycled 2026-09-06; photographed 2026-09-08, `readme-assets/bench-rest-side-20260908.jpg`). Under the corrected joint map `measured_20260908b` the rest pose is inside the simulator's range, so the elbow-only staging is no longer required for range; the gravity-rest **shoulder reads −92.08, just below the −92 floor**, and a small reviewed shoulder lift is required before any episode. Reconnecting or ending a session does not establish current pose; use fresh read-only measurements (`tools/read_joint_reference.py`) and never assume the current pose matches the saved reset.
 
-The elbow staging tool defaults to read-only dry run. Motion requires `--enable-motion`, a new log path and on-site confirmation; it is separate from trajectory replay. See its implementation and the bench runbook for command-floor/feedback-stop details. The shoulder floor remains −92 at every stage.
+The elbow staging tool (`tools/prepare_physical_elbow.py`) defaults to read-only dry run and is kept for reference; it moves only the elbow. Any shoulder lift needs its own reviewed tool. Motion always requires `--enable-motion`, a new log path and on-site confirmation. The shoulder floor remains −92 at every stage.
+
+**Camera at deployment:** the simulator trained on a pinhole wrist camera (fovy 44.0°, calibrated 2026-09-08). Real frames must be undistorted with `artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json` (`selected`) and resized exactly as the capture pipeline does before they reach a learned policy. This is not yet implemented in the replay/inference tools.
 
 ## Replay modes and required evidence
 
