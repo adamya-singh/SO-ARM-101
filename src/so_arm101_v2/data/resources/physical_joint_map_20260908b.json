@@ -1,0 +1,78 @@
+{
+  "name": "measured_20260908b",
+  "schema_version": 1,
+  "ticks_per_turn": 4096,
+  "description": "Physical (LeRobot-normalized) to MuJoCo Menagerie joint map anchored at read-only encoder readings of the arm posed by hand at the model zero configuration (arm straight out horizontally forward, jaws opening vertically). Exact 4096 ticks/turn scale; per-joint zero offsets from the reference; gripper keeps the legacy affine endpoint map because the model cannot represent touching jaws. 2026-09-08b: shoulder-lift, elbow and wrist-flex zeros corrected; the 2026-09-07 hand-held reference had the upper arm raised and the elbow bent. The shoulder/elbow pair is anchored by the side photo of the rest pose (both printed bars horizontal) because the board data alone is indifferent along that direction.",
+  "gripper": "legacy_affine_endpoints",
+  "joints": {
+    "shoulder_pan": {
+      "model_zero_ticks": 1957,
+      "sign": -1,
+      "range_min": 1040,
+      "range_max": 2865,
+      "drive_mode": 0,
+      "verification": "sign carried over from the legacy contract (FK invariant match); zero from the hand-held reference; direction not yet verified physically"
+    },
+    "shoulder_lift": {
+      "model_zero_ticks": 3064,
+      "sign": 1,
+      "range_min": 944,
+      "range_max": 3192,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the arm resting upper-arm-up at low ticks | 2026-09-08: zero corrected by -93.25 deg: flat-checkerboard hand-eye (board-pose scatter 23 mm, 78 px RMS) anchored by the side photo of the rest pose (upper-arm and forearm bars horizontal)"
+    },
+    "elbow_flex": {
+      "model_zero_ticks": 1192,
+      "sign": 1,
+      "range_min": 947,
+      "range_max": 3167,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the forearm folded forward at high ticks | 2026-09-08: zero corrected by +81.00 deg: flat-checkerboard hand-eye (board-pose scatter 23 mm, 78 px RMS) anchored by the side photo of the rest pose (upper-arm and forearm bars horizontal)"
+    },
+    "wrist_flex": {
+      "model_zero_ticks": 1803,
+      "sign": 1,
+      "range_min": 859,
+      "range_max": 3148,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the gripper pitched down at rest | 2026-09-08: zero corrected by +20.00 deg: flat-checkerboard hand-eye (board-pose scatter 23 mm, 78 px RMS) anchored by the side photo of the rest pose (upper-arm and forearm bars horizontal)"
+    },
+    "wrist_roll": {
+      "model_zero_ticks": 3113,
+      "sign": 1,
+      "range_min": 0,
+      "range_max": 4095,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference (jaws vertical, moving finger on top); sign +1 verified: user turned +94 deg by hand and the moving finger ended on top as in the sim"
+    }
+  },
+  "references": {
+    "model_zero": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133609_full_model_zero_reference_hand_held_25d117ec.json",
+      "content_sha256": "25d117ec46e4a336fa09ac1fce79dd7b85e6dafd452cb39ad89837f4e6bc272b",
+      "label": "full_model_zero_reference_hand_held",
+      "timestamp": "2026-09-07T13:36:09.208570+00:00"
+    },
+    "rest_jaws_horizontal": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133225_wrist_roll_jaws_horizontal_rest_396aa222.json",
+      "content_sha256": "396aa222944f1a8a618665832e179ec36ead312215beb276a82401bfb4df6da6",
+      "label": "wrist_roll_jaws_horizontal_rest",
+      "timestamp": "2026-09-07T13:32:25.060574+00:00"
+    },
+    "hand_eye_20260908": {
+      "intrinsics": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json",
+      "board_frames_dir": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics",
+      "rest_photo": "readme-assets/bench-rest-side-20260908.jpg",
+      "note": "photo supplied by the user 2026-09-08; scatter/pixel comparison in notes/bench-pick-replace-v1.md"
+    }
+  },
+  "expected_rest_pose_model_degrees": {
+    "shoulder_pan": 0.1,
+    "shoulder_lift": -178.6,
+    "elbow_flex": 173.5,
+    "wrist_flex": 61.6,
+    "wrist_roll": -99.5,
+    "gripper": null
+  },
+  "supersedes": "measured_20260908 (board-only zeros, superseded the same day by the photo-anchored pair)"
+}

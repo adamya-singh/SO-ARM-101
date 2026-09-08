@@ -238,15 +238,30 @@ at (−0.010, 0.269, 0.017), where the phone lay. The "board rotated 180°"
 conclusion of 2026-09-07 was an artifact of the wrong arm shape and is
 withdrawn: the board is mounted as the model assumes.
 
-Outputs: joint map `measured_20260908` (`physical_joint_map_20260908.json`,
-same scale and signs as 20260907, three zeros corrected; rest pose now lift
-−157°, elbow 153°, wrist flex 62°: upper arm leaning back over the base,
-forearm folded forward, gripper pitched down), `BenchConfig.camera_*` written
+**Photo anchor (same day).** The user then supplied a side photo of the arm
+at rest: upper arm horizontal pointing backward, forearm horizontal pointing
+forward stacked on it, gripper folded down. Under the board-only zeros the
+sim's upper-arm bar was tilted 21°, and the board data is indifferent along
+the shoulder/elbow trade-off (scatter 19 mm at −72/+60 vs 23 mm at −93/+81;
+pixel RMS 72 vs 78). The photo breaks the tie: zeros **−93.25°, +81.0°,
++20.0°** vs the 2026-09-07 map make both printed bars flat (the bar-to-axis
+offsets of 14° and 2° are accounted for from the mesh) and put the board at
+table height where the board-only fit had it floating 27 mm up. Extra wrist
+flex beyond +20° worsens the board fit, so the gripper keeps +20°.
+
+Outputs: joint map `measured_20260908b` (`physical_joint_map_20260908b.json`,
+same scale and signs as 20260907, three zeros corrected; `measured_20260908`
+kept as the board-only intermediate; rest pose now lift −178.6°, elbow
+173.5°, wrist flex 61.6°: upper arm flat backward over the base, forearm flat
+forward on top of it, gripper pitched down), `BenchConfig.camera_*` written
 into the scene's `wrist_camera` by `tools/prepare_bench_scene.py`, hand-eye
 record `camera_calibration/zero_and_camera_refine.json`, and the comparison
 `inspection/calibrated_rest_compare.png` (physical rest frame vs the calibrated
-sim view at the same joints). Teacher re-certified on the corrected arm:
-15/15, deterministic, zero safety invalidation.
+sim view at the same joints) and `inspection/calibrated_rest_side_views.png`
+(sim arm at the rest joints, to hold against the user's side photo, to be
+filed as `readme-assets/bench-rest-side-20260908.jpg`). Teacher re-certified
+on the corrected arm: 15/15, deterministic, zero safety invalidation (scene
+`6477c4bd…`).
 
 Remaining residual (~1.6 cm) comes from the intrinsics' limited coverage, the
 ±1 unit joint readings of hand-held poses, and the real napkin being a folded

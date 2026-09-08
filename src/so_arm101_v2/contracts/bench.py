@@ -41,7 +41,7 @@ class BenchConfig:
     camera_fovy_deg: float | None = None
     # Physical-to-MuJoCo joint map. The legacy affine map put three joints a
     # quarter turn off; the bench lane uses the encoder-anchored measured map.
-    joint_map: str = "measured_20260908"
+    joint_map: str = "measured_20260908b"
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
