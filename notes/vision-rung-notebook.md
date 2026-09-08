@@ -251,4 +251,22 @@ Run: seed 202, 120k steps, H90, w256, batch 64, clamp, cosine_floor_v1,
 scratch checkpoints every 5k. wandb `so-arm101-v2-scaling` run `tinmahze`
 (`bench-pick-replace-v1-s202-120k`), output
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908/`.
-Result: pending.
+
+**Result (2026-09-08, run finished 08:35 local, 5.5 h wall including a
+2 h screen):** `evaluation_summary.json`
+
+| Suite | Policy | Success | Safety frames | Prefix ok |
+| --- | --- | ---: | ---: | ---: |
+| nominal (3 repeats) | vision | **3/3** | 0 | 3/3 |
+| nominal | vision, black image | 0/3 | 204 | 0/3 |
+| held-out (10 poses × 3) | vision | **27/30** | 0 | 30/30 |
+| held-out | vision, black image | 0/30 | 2055 | 0/30 |
+
+Zero safety frames across all 33 vision rollouts. The three failures are one
+held-out pose (`pose_006`, cube 6 mm left and 6 mm short of nominal),
+deterministic across repeats: `pickup_incomplete`, 28 mm height gain, no
+strict grasp at lift, released and timed out. The black-image ablation
+collapses to 0 with heavy safety invalidation, so the policy is using the
+pixels. Final train MSE ~1e-6. Single seed, exploratory: no promotion
+claim. Next levers, per the pre-registration: more data or a second seed
+before any recipe change.

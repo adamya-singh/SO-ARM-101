@@ -23,7 +23,9 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
-**Bench status (September 8, 2026):** the first bench run is training. The
+**Bench status (September 8, 2026):** the first bench run finished:
+**nominal 3/3, held-out 27/30, zero safety frames**, black-image ablation
+0/33 (the policy uses the pixels). Single seed, exploratory. The
 [bench runbook](notes/bench-pick-replace-v1.md) is the governing record:
 hardware state, calibration evidence, gates, the run, and what remains.
 W&B run `tinmahze` in project `so-arm101-v2-scaling`; full test suite 259
@@ -764,10 +766,10 @@ reach and whose camera saw nearly twice the true field of view, so their
 numbers do not transfer. The current sequence, governed by the
 [bench runbook](notes/bench-pick-replace-v1.md):
 
-1. **Bench vision run (in progress, launched 2026-09-08):** one
-   pre-registered run, seed 202, 120k steps, on 400 screened bench poses
-   with 10 held-out; evaluated nominal and held-out with the black-image
-   ablation. Exploratory; a promotion claim would need its own gate.
+1. **Bench vision run (done 2026-09-08):** one pre-registered run, seed
+   202, 120k steps, on 400 screened bench poses with 10 held-out. Nominal
+   3/3, held-out 27/30, zero safety frames, black-image ablation 0/33.
+   Exploratory; a promotion claim would need its own gate.
 2. **Read the result,** then choose between more data, more compute, or a
    robustness pass. The known sim-to-real residual from calibration is about
    1.6 cm at working distance.

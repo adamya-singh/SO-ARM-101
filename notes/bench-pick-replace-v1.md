@@ -7,7 +7,12 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-08)
 
-**All gates passed; the single pre-registered run is in progress.** Launched
+**The single pre-registered run finished 2026-09-08 08:35 local: nominal
+3/3, held-out 27/30, zero safety frames, black-image ablation 0/33.**
+Summary in `experiments/seed202_120k_20260908/evaluation_summary.json`;
+the three failures are one held-out pose (`pose_006`) with an incomplete
+pickup, deterministic across repeats. Single seed, exploratory. Details in
+`notes/vision-rung-notebook.md`. Launched
 2026-09-08 03:03 local on the persistent queue (`tsp` job 0) as W&B run
 `bench-pick-replace-v1-s202-120k`, id `tinmahze`, project
 `so-arm101-v2-scaling`:
@@ -625,10 +630,9 @@ are later work.
 10. **Deployment path (open):** undistort real frames with the calibrated
     intrinsics before the policy; implement and test this in the physical
     inference/replay path before the first learned-policy trial.
-11. **After the run (open):** read `evaluation_summary.json` (successes,
-    safety frames, prefix success, black-image ablation) on the nominal and
-    held-out suites; a single seed is exploratory. If a promotion claim is
-    wanted, pre-register a gate first. Next levers if it under-performs:
+11. **After the run (done 2026-09-08, result above):** nominal 3/3,
+    held-out 27/30, zero safety frames, ablation 0/33; a single seed is
+    exploratory. If a promotion claim is wanted, pre-register a gate first. Next levers if it under-performs:
     more data (the engine is proven) or more compute per seed; the
     calibration residual (~1.6 cm at working distance) is a known
     sim-to-real gap.
