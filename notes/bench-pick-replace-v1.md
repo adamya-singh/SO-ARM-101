@@ -10,7 +10,9 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 Joint zeros corrected from a flat-checkerboard hand-eye calibration and the
 wrist camera calibrated and written into the scene (2026-09-08); teacher
 re-certified 15/15 on the corrected arm; pipeline rehearsed end to end;
-**gate 1 waits only on the user's sign-off of the rest-pose comparison**.
+**gate 1 closed 2026-09-08: the user signed off the rest-pose comparison**
+(`inspection/camera_review_20260908.json`, accepted by the pipeline gate).
+The pipeline can launch.
 **No fresh dataset capture,
 training run, W&B run or URL, or scheduled watcher exists.** The September
 software and its review fixes are committed as one tranche on `master`
@@ -562,13 +564,13 @@ are later work.
 
 ## Open implementation and review items before launch
 
-1. **Camera review record (gate 1).** Calibration done (see Camera
-   calibration and joint-zero correction). Remaining: the user confirms
-   `inspection/calibrated_rest_compare.png` shows the same viewpoint, then the
-   draft `inspection/camera_review_DRAFT.json` gets `reviewer`, `reviewed_at`
-   and `notes` and is renamed to the verification file the pipeline takes.
-   Physical frames must be undistorted at inference with the calibrated
-   coefficients.
+1. *Done 2026-09-08.* Camera review record: the user confirmed
+   `inspection/calibrated_rest_compare.png` ("basically matches"; the real
+   frame crops the top of the cube and napkin that the sim shows), recorded in
+   `inspection/camera_review_20260908.json`, which `load_bench_verification`
+   accepts. Physical frames must be undistorted at inference with the
+   calibrated coefficients. The rest-pose side photo is to be filed as
+   `readme-assets/bench-rest-side-20260908.jpg` by the user.
 2. *Done 2026-09-06.* Teacher retuned to the pad-1 tip station; the common
    prefix is unchanged and no privileged cube coordinates reach the
    learned policy.
