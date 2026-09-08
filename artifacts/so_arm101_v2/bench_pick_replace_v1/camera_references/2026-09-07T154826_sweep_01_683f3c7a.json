@@ -1,0 +1,64 @@
+{
+  "camera": {
+    "fourcc": "MJPG",
+    "height": 1080,
+    "width": 1920
+  },
+  "camera_device": "/dev/video0",
+  "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_references/2026-09-07T154826_sweep_01.png",
+  "frame_sha256": "51dcdb9e275003ca2c5534bfb6f6c9016063f52c8d25cf7c3e1b41cbf9c0ec87",
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "label": "sweep_01",
+  "moving": false,
+  "normalized_median": [
+    11.06849315068493,
+    -43.95017793594306,
+    -4.369369369369366,
+    94.6701616426387,
+    -2.930402930402934,
+    6.83526999316473
+  ],
+  "normalized_spread": [
+    0.1095890410958873,
+    0.5338078291815052,
+    0.0900900900900865,
+    0.0,
+    0.34188034188034067,
+    0.2734107997265891
+  ],
+  "note": "Hand-posed sweep frame (torque off); kept because the arm was still and the whole square was in view.",
+  "raw_ticks_after": [
+    2053,
+    1577,
+    2009,
+    3087,
+    1991,
+    2021
+  ],
+  "square_corners_px": [
+    [
+      936.0,
+      309.0
+    ],
+    [
+      990.0,
+      575.0
+    ],
+    [
+      712.0,
+      650.0
+    ],
+    [
+      652.0,
+      376.0
+    ]
+  ],
+  "timestamp": "2026-09-07T15:48:26.694975+00:00"
+}

@@ -1,0 +1,423 @@
+{
+  "views": 29,
+  "board": {
+    "device": "iPhone 15 Plus",
+    "screen_px": [
+      1290,
+      2796
+    ],
+    "ppi": 460,
+    "square_px": 160,
+    "square_mm": 8.835,
+    "inner_corners": [
+      7,
+      16
+    ],
+    "note": "display at 1:1 (no zoom/fit), portrait, full brightness"
+  },
+  "selected": {
+    "model": "pinhole_5coef_fixed_principal_point",
+    "rms_px": 1.899,
+    "K": [
+      [
+        1334.651,
+        0.0,
+        960.0
+      ],
+      [
+        0.0,
+        1336.99,
+        540.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "dist": [
+      -0.567035,
+      0.46358,
+      -0.004185,
+      -0.010255,
+      -0.205684
+    ],
+    "fovx_deg": 71.45,
+    "fovy_deg": 43.99,
+    "principal_point": [
+      960.0,
+      540.0
+    ],
+    "per_view_rms_px": [
+      1.42,
+      1.21,
+      1.77,
+      3.12,
+      0.8,
+      0.9,
+      0.91,
+      1.61,
+      2.71,
+      0.5,
+      2.95,
+      0.91,
+      1.36,
+      1.94,
+      3.83,
+      1.98,
+      1.74,
+      1.89,
+      0.74,
+      0.75,
+      2.13,
+      1.12,
+      3.67,
+      1.78,
+      1.44,
+      1.27,
+      1.83,
+      0.78,
+      2.05
+    ],
+    "rational_comparison": {
+      "rms_px": 2.144,
+      "fx": 1674.6,
+      "fy": 1682.0,
+      "dist": [
+        -0.24385,
+        -0.52066,
+        -0.00792,
+        -0.00792,
+        -27.68078,
+        0.37655,
+        1.26829,
+        -39.57379,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "pinhole_rational": {
+    "model": "pinhole_5coef_fixed_principal_point",
+    "rms_px": 1.899,
+    "K": [
+      [
+        1334.651,
+        0.0,
+        960.0
+      ],
+      [
+        0.0,
+        1336.99,
+        540.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "dist": [
+      -0.567035,
+      0.46358,
+      -0.004185,
+      -0.010255,
+      -0.205684
+    ],
+    "fovx_deg": 71.45,
+    "fovy_deg": 43.99,
+    "principal_point": [
+      960.0,
+      540.0
+    ],
+    "per_view_rms_px": [
+      1.42,
+      1.21,
+      1.77,
+      3.12,
+      0.8,
+      0.9,
+      0.91,
+      1.61,
+      2.71,
+      0.5,
+      2.95,
+      0.91,
+      1.36,
+      1.94,
+      3.83,
+      1.98,
+      1.74,
+      1.89,
+      0.74,
+      0.75,
+      2.13,
+      1.12,
+      3.67,
+      1.78,
+      1.44,
+      1.27,
+      1.83,
+      0.78,
+      2.05
+    ],
+    "rational_comparison": {
+      "rms_px": 2.144,
+      "fx": 1674.6,
+      "fy": 1682.0,
+      "dist": [
+        -0.24385,
+        -0.52066,
+        -0.00792,
+        -0.00792,
+        -27.68078,
+        0.37655,
+        1.26829,
+        -39.57379,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "pinhole": {
+    "model": "pinhole_5coef_fixed_principal_point",
+    "rms_px": 1.899,
+    "K": [
+      [
+        1334.651,
+        0.0,
+        960.0
+      ],
+      [
+        0.0,
+        1336.99,
+        540.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "dist": [
+      -0.567035,
+      0.46358,
+      -0.004185,
+      -0.010255,
+      -0.205684
+    ],
+    "fovx_deg": 71.45,
+    "fovy_deg": 43.99,
+    "principal_point": [
+      960.0,
+      540.0
+    ],
+    "per_view_rms_px": [
+      1.42,
+      1.21,
+      1.77,
+      3.12,
+      0.8,
+      0.9,
+      0.91,
+      1.61,
+      2.71,
+      0.5,
+      2.95,
+      0.91,
+      1.36,
+      1.94,
+      3.83,
+      1.98,
+      1.74,
+      1.89,
+      0.74,
+      0.75,
+      2.13,
+      1.12,
+      3.67,
+      1.78,
+      1.44,
+      1.27,
+      1.83,
+      0.78,
+      2.05
+    ],
+    "rational_comparison": {
+      "rms_px": 2.144,
+      "fx": 1674.6,
+      "fy": 1682.0,
+      "dist": [
+        -0.24385,
+        -0.52066,
+        -0.00792,
+        -0.00792,
+        -27.68078,
+        0.37655,
+        1.26829,
+        -39.57379,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "fisheye": {
+    "model": "fisheye_equidistant",
+    "rms_px": 1.838,
+    "K": [
+      [
+        1303.742,
+        0.0,
+        887.926
+      ],
+      [
+        0.0,
+        1303.126,
+        520.488
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "dist": [
+      -0.206927,
+      0.049043,
+      0.165216,
+      -0.272129
+    ],
+    "fovy_deg_equivalent": 45.02
+  },
+  "coverage_note": "board views concentrated in the upper-middle of the image; distortion beyond that region is extrapolated",
+  "frames": [
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204135_int_01.png",
+      "sha256": "cfa14a2a647276a7a964a1477b9b0cfda382463141597287f8ecbfc5935cca74"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204136_int_02.png",
+      "sha256": "46068422fc53e96ea48bdc33eada5de9fbdc82b6f05c681d50cf1fc2870b0bd4"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204140_int_03.png",
+      "sha256": "2e0376d34ebf013939db380bd4262a5d7e665fcc5dd829d22e6dba71263da966"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204143_int_04.png",
+      "sha256": "bf8857ed9aec10526fb90e1c42598bbfbafb788bfa4eb08cae5b0847717e7e76"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204143_int_05.png",
+      "sha256": "b8fb9fdc6923f7bd3974be6776a88387d5630146e3990c790e631427a84f70a2"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204144_int_06.png",
+      "sha256": "3433fe1e71118826d1371b972eb47d6a265b5fa1a868d032c39c5585b6ed0dd3"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204147_int_07.png",
+      "sha256": "cf5d665262c9aa19ad122c1795cea535f651ee44c1fa050c47082f56a6cb7369"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204150_int_08.png",
+      "sha256": "cd9b966a4fa6318294ed9fcaa0671ca2cf2c2e570ce5091e5a90c8d90e787a34"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204151_int_09.png",
+      "sha256": "96f0cd808810bcd4155e4d616ccd2b96bf9c6db5782a9fd53429f0934bae0ad1"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204152_int_10.png",
+      "sha256": "021e78a50536826ca0b970351497cdcb67c31b3cc736b63d6a35885a63a44985"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204153_int_11.png",
+      "sha256": "97503492a61d62a93065f413cc518078b16b543381d675f83b16f408df72ee4e"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204159_int_12.png",
+      "sha256": "515325fe44b36f3837256fb99734c0d7987334fc4a49aeb690c28eba331d0372"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204159_int_13.png",
+      "sha256": "dabda14c675038da33a425ecd1521db225beeffebd3afad9ad4f54db133f56a8"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204201_int_14.png",
+      "sha256": "30b88d234f50aa7dc499a671557f59c30d8ece7825438a2a1091cf6ef2f734ec"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204202_int_15.png",
+      "sha256": "abd89d0a80df3d431ec60651357bbb23e3bde3a2a64d7a6f74e404cded96a6e8"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204202_int_16.png",
+      "sha256": "265ae0fd2654cb334c95432a6b18a2773e167d7e68d5904730cbfd9ebba41afa"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204204_int_17.png",
+      "sha256": "4583651906c25adb029fdad58da1260eafa8441bf1aadecd1f2f24204a344fb5"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204205_int_18.png",
+      "sha256": "799428d93ff08249683628ef12df11a955a97d975871198e678ae9e77369a329"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204227_int_19.png",
+      "sha256": "dc24f14f0cbce676bb802dfd3332783e4588a9804b2e3d058e85b59f909394bf"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204230_int_20.png",
+      "sha256": "a3606af13859d17c4d3cb651bc7dc3429e0b13c9ba3cb36f32e1917e43ca3131"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204231_int_21.png",
+      "sha256": "35030a8ab7467b013e9f45e8a8c40a445d6a591af680cf82ad4bc2ae2d9c9c37"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204232_int_22.png",
+      "sha256": "ebf39ed1ac1c204765b7c9dcabd57747572495125efdaa67630ce765c37a55e2"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204234_int_23.png",
+      "sha256": "243f6f67d035d87c63f996b78e0ba4c191ec50910bf1969ccc94045cf852f69c"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204307_int_24.png",
+      "sha256": "a7d57e3db0c538847fe5201c6098f9cd1fafea002642edc6df3daeb514b8e669"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T204313_int_25.png",
+      "sha256": "42b4636d0ec7044c462a24b09386b1c93932d7d7a9073ca03dbd0cda4ecc201d"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T205305_int_01.png",
+      "sha256": "a33bbddc96f9ec78f47271d8f30933d01fef422b2bdd7e2c4eda3dd4056166bb"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T205315_int_02.png",
+      "sha256": "26284b4ec5faf4182a0845194bdcdf6d1e078248d0cebfc4eaa713136e2f357c"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T205345_int_03.png",
+      "sha256": "fc7846007ea4bc4cb40a4dd5caf38691f14184cc8c1b7d866c28f3deb24965f0"
+    },
+    {
+      "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/intrinsics/2026-09-07T205346_int_04.png",
+      "sha256": "b7000b5995c97105cf818eeea1699c783f51025a5c975392d1b98fd5c3e7b149"
+    }
+  ]
+}

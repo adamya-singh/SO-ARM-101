@@ -7,9 +7,11 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-06)
 
-Joint map corrected from encoder references (2026-09-07); teacher retuned to a
-top-down approach and re-certified; pipeline rehearsed end to end; **camera
-mount pose still unmeasured (gate 1b blocking)**. **No fresh dataset capture,
+Joint zeros corrected from a flat-checkerboard hand-eye calibration and the
+wrist camera calibrated and written into the scene (2026-09-08); teacher
+re-certified 15/15 on the corrected arm; pipeline rehearsed end to end;
+**gate 1 waits only on the user's sign-off of the rest-pose comparison**.
+**No fresh dataset capture,
 training run, W&B run or URL, or scheduled watcher exists.** The September
 software and its review fixes are committed as one tranche on `master`
 (after `640aa76`, 2026-08-08), with the documentation in a second commit.
@@ -196,6 +198,59 @@ the August results say nothing about physical feasibility.** The legacy lane
 keeps `legacy_affine_v1` so its artifacts stay reproducible; the bench scene
 binds to the measured map through `BenchConfig.joint_map`, which is hashed
 into the scene dependencies and every capture identity.
+
+## Camera calibration and joint-zero correction (2026-09-08)
+
+The mount is the official SO-ARM101 small camera mount, i.e. the very part
+the Menagerie model already places on the gripper, so the camera position was
+known and only the lens and the arm's joint zeros were in question.
+
+**Lens.** 29 hand-held views of a checkerboard shown 1:1 on an iPhone 15 Plus
+(160 px squares = 8.835 mm at 460 ppi) plus 9 flat-on-table views:
+`cv2.calibrateCamera`, principal point fixed at the image centre, five
+distortion coefficients: **fovy 44.0°, fovx 71.5°, 1.9 px RMS**, strong barrel
+distortion (k1 −0.57). The 103° figure found online for this module family is
+wrong for this lens; the sim had been using 72°. Record:
+`artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json`.
+MuJoCo renders a pinhole, so physical frames must be undistorted with these
+coefficients before the policy sees them.
+
+**Joint zeros.** With the phone flat on the mousepad and the arm posed by hand
+(torque off), 9 frames were kept in which all 98 corners of an asymmetric
+8×15-square board were detected together with a read-only joint reading
+(`tools/capture_checkerboard.py`, `tools/checkerboard_assist.py`; the first
+symmetric board flipped its corner order between frames and had to be
+replaced). Per-frame PnP gives the camera pose to ~1 px. Relative rotation
+angles from the encoders matched the camera's to 2.5°, so scales and signs were
+right; the camera's height above the board disagreed with the arm model by up
+to 10 cm, so the shape of the arm was wrong. Deriving the board's world pose
+from each frame through the forward kinematics and the mount camera, the nine
+poses agree to **21 mm** (tilt 3.5°) only when the shoulder-lift, elbow and
+wrist-flex zeros are shifted by **−72.3°, +60.0°, +20.0°**; with the 2026-09-07
+zeros they scatter by 61 mm. The user confirmed the cause: the hand-held
+reference pose of 2026-09-07 had the forearm level but the upper arm raised
+and the elbow bent, not the straight horizontal arm the model zero means
+(`inspection/reference_pose_hypothesis.png`). A bounded pixel refinement
+(camera within 10 mm of the mount, zeros within 6°) settles at **73 px RMS**
+over 882 corners, about 1.6 cm at working distance, with the camera 1 cm from
+the Menagerie position and pitched 5° from its orientation; the board lands
+at (−0.010, 0.269, 0.017), where the phone lay. The "board rotated 180°"
+conclusion of 2026-09-07 was an artifact of the wrong arm shape and is
+withdrawn: the board is mounted as the model assumes.
+
+Outputs: joint map `measured_20260908` (`physical_joint_map_20260908.json`,
+same scale and signs as 20260907, three zeros corrected; rest pose now lift
+−157°, elbow 153°, wrist flex 62°: upper arm leaning back over the base,
+forearm folded forward, gripper pitched down), `BenchConfig.camera_*` written
+into the scene's `wrist_camera` by `tools/prepare_bench_scene.py`, hand-eye
+record `camera_calibration/zero_and_camera_refine.json`, and the comparison
+`inspection/calibrated_rest_compare.png` (physical rest frame vs the calibrated
+sim view at the same joints). Teacher re-certified on the corrected arm:
+15/15, deterministic, zero safety invalidation.
+
+Remaining residual (~1.6 cm) comes from the intrinsics' limited coverage, the
+±1 unit joint readings of hand-held poses, and the real napkin being a folded
+paper towel larger than the 50.8 mm square in the model.
 
 ## Camera and viewing pose
 
@@ -492,13 +547,13 @@ are later work.
 
 ## Open implementation and review items before launch
 
-1. **Camera model calibration (blocking gate 1b).** With the arm pose now
-   correct, the sim camera still projects the square off the bottom of the
-   frame where the physical camera sees it at the top (2.6× size ratio).
-   Needed: physical camera field of view (datasheet or a ruler photograph);
-   3 to 5 physical wrist frames at read-only recorded poses; fit the sim
-   camera pose in the gripper frame and `fovy`; regenerate the scene;
-   re-render; then the review record.
+1. **Camera review record (gate 1).** Calibration done (see Camera
+   calibration and joint-zero correction). Remaining: the user confirms
+   `inspection/calibrated_rest_compare.png` shows the same viewpoint, then the
+   draft `inspection/camera_review_DRAFT.json` gets `reviewer`, `reviewed_at`
+   and `notes` and is renamed to the verification file the pipeline takes.
+   Physical frames must be undistorted at inference with the calibrated
+   coefficients.
 2. *Done 2026-09-06.* Teacher retuned to the pad-1 tip station; the common
    prefix is unchanged and no privileged cube coordinates reach the
    learned policy.

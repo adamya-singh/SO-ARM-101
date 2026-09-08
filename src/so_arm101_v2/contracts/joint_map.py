@@ -10,7 +10,8 @@ shoulder-lift, elbow and wrist-roll zeros were each a quarter turn off. The
 legacy lane (25 mm cube, every August artifact) keeps this map so its evidence
 stays reproducible.
 
-``measured_20260907`` (``load_joint_map``) uses the exact 4096 ticks/turn
+``measured_20260908`` (``load_joint_map``; ``measured_20260907`` kept as its
+predecessor with the hand-held zeros) uses the exact 4096 ticks/turn
 encoder scale and per-joint zero offsets read from the arm posed by hand at
 the model's zero configuration. The bench scene binds to it through
 ``BenchConfig.joint_map``. The gripper channel keeps the legacy affine map in
@@ -33,7 +34,7 @@ from so_arm101_v2.data.resources import load_json_resource, read_resource_bytes
 from . import coordinates as C
 from .physical import act_to_physical_normalized, physical_normalized_to_act
 
-KNOWN_JOINT_MAPS = ("legacy_affine_v1", "measured_20260907")
+KNOWN_JOINT_MAPS = ("legacy_affine_v1", "measured_20260907", "measured_20260908")
 _TWO_PI = 2.0 * np.pi
 
 
@@ -93,7 +94,7 @@ LEGACY_JOINT_MAP = JointMap(
 _CACHE: dict[str, JointMap] = {}
 
 
-def load_joint_map(name: str = "measured_20260907") -> JointMap:
+def load_joint_map(name: str = "measured_20260908") -> JointMap:
     """Return a named joint map; ``legacy_affine_v1`` or a measured resource."""
     if name == "legacy_affine_v1":
         return LEGACY_JOINT_MAP

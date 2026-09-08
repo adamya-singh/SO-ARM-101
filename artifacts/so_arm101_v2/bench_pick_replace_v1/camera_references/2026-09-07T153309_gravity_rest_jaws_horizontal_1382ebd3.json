@@ -1,0 +1,55 @@
+{
+  "camera": {
+    "fourcc": "MJPG",
+    "fps": 30.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "camera_device": "/dev/video0",
+  "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_references/2026-09-07T153309_gravity_rest_jaws_horizontal.png",
+  "frame_sha256": "fc15a88358d16b3ad4d6cea8f059cf7d7fa0aa4bd3aea1c4e1e9467423c06e4a",
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "label": "gravity_rest_jaws_horizontal",
+  "moving": false,
+  "normalized_median": [
+    -2.136986301369859,
+    -91.81494661921708,
+    100.0,
+    38.138925294888594,
+    -2.8083028083028125,
+    6.698564593301436
+  ],
+  "normalized_spread": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "note": "Arm at gravity rest, torque off, jaws horizontal; camera reattached via usbipd 5-3; square and cube at the bench position.",
+  "raw_ticks_after": [
+    1933,
+    1036,
+    3173,
+    2440,
+    1990,
+    2017
+  ],
+  "timestamp": "2026-09-07T15:33:09.548402+00:00",
+  "torque_enable": {
+    "elbow_flex": 0,
+    "gripper": 0,
+    "shoulder_lift": 0,
+    "shoulder_pan": 0,
+    "wrist_flex": 0,
+    "wrist_roll": 0
+  }
+}

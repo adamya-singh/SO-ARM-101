@@ -51,6 +51,12 @@ def prepare(destination: Path, config: BenchConfig):
         pos='-0.01 -0.01 -0.01',material='black_pla',contype='0',conaffinity='0',density='0',group='2')
     pitch=arm.find("default/default/default[@class='Pitch']/joint")
     pitch.set('range',f'{float(config.mujoco_low[1])} 0.174')
+    # Calibrated wrist camera (2026-09-08 hand-eye): pose in the gripper frame and the lens's vertical field of view.
+    if config.camera_pos is not None:
+        cam = arm.find(".//camera[@name='wrist_camera']")
+        cam.set('pos', ' '.join(f'{float(v):.7f}' for v in config.camera_pos))
+        cam.set('quat', ' '.join(f'{float(v):.7f}' for v in config.camera_quat_wxyz))
+        cam.set('fovy', f'{float(config.camera_fovy_deg):.2f}')
     ET.indent(arm)
     scene=destination/'scene_bench_pick_replace_v1.xml'
     ET.ElementTree(arm).write(scene,encoding='unicode')
@@ -60,7 +66,7 @@ def prepare(destination: Path, config: BenchConfig):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     # Required: the active scene carries a measured reset, a viewing pose and
-    # a tuned teacher (78 deg / pad 4); bare BenchConfig() defaults would
+    # a tuned teacher and a calibrated camera; bare BenchConfig() defaults would
     # silently overwrite them.
     p.add_argument('--bench-config',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,default=ROOT/'simulation_code/model/bench_pick_replace_v1')

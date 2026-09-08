@@ -1,0 +1,31 @@
+{
+  "camera": {
+    "fourcc": "MJPG",
+    "height": 1080,
+    "width": 1920
+  },
+  "frame": "artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/physical_prepared_wrist.png",
+  "frame_sha256": "d99c87155b5e44d4ea8bfd86a11f5801bb29831a06c57cf9df8167a107fff641",
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "label": "prepared_reset_20260906_retroactive",
+  "moving": false,
+  "normalized_median": [
+    0.49315068493149283,
+    -90.83629893238434,
+    91.26126126126127,
+    43.64351245085189,
+    -1.1965811965811923,
+    13.533834586466165
+  ],
+  "normalized_spread": null,
+  "note": "Frame captured by the previous assistant session on 2026-09-06 at the recorded prepared reset pose (reset evidence 9ed7de59...). Joints taken from the recorded reset, not read at capture time; treat as +-1 unit.",
+  "retroactive": true,
+  "timestamp": "2026-09-06T00:00:00+00:00"
+}

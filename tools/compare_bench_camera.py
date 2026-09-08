@@ -26,10 +26,18 @@ def main(argv=None) -> int:
     p.add_argument('--model', type=Path, default=ROOT / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml')
     p.add_argument('--physical', type=Path, default=ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/physical_prepared_wrist.png')
     p.add_argument('--output-dir', type=Path, default=ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/inspection')
+    p.add_argument('--reference', type=Path, default=None,
+                   help='camera_references JSON (frame + joints at capture); overrides --physical and the reset pose')
     args = p.parse_args(argv)
     bench = scene_bench_config(args.model); tag = scene_dependency_hash(args.model)[:8]
+    qpos = bench.reset_qpos; pose_label = 'recorded reset'
+    if args.reference is not None:
+        from so_arm101_v2.contracts.physical import physical_normalized_to_act
+        record = json.loads(args.reference.read_text())
+        qpos = bench.joint_map_object.act_to_mujoco(physical_normalized_to_act(record['normalized_median']))
+        args.physical = ROOT / record['frame']; pose_label = record['label']; tag = f"{tag}_{record['label']}"
     m = mujoco.MjModel.from_xml_path(str(args.model)); d = mujoco.MjData(m)
-    for name, value in zip(JOINT_NAMES, bench.reset_qpos):
+    for name, value in zip(JOINT_NAMES, qpos):
         d.qpos[m.joint(name).qposadr[0]] = float(value)
     mujoco.mj_forward(m, d)
     cid = m.camera('wrist_camera').id
@@ -46,7 +54,8 @@ def main(argv=None) -> int:
     sim_square = [project(square + np.array([sx * h, sy * h, 0])) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
     cube_top = np.array([*bench.square_center_xy, bench.square_thickness_m + bench.cube_edge_m])
     sim_cube = [project(cube_top + np.array([sx * bench.cube_edge_m / 2, sy * bench.cube_edge_m / 2, 0])) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-    report = dict(scene_dependencies_sha256=scene_dependency_hash(args.model), joint_map=bench.joint_map,
+    report = dict(scene_dependencies_sha256=scene_dependency_hash(args.model), joint_map=bench.joint_map, pose=pose_label,
+                  pose_model_degrees=np.degrees(np.asarray(qpos, float)).round(1).tolist(), physical_frame=str(args.physical),
                   sim_camera=dict(fovy_deg=float(m.cam_fovy[cid]), position=cpos.round(4).tolist(), forward=(-R[:, 2]).round(3).tolist(),
                                   distance_to_square_center_m=round(float(np.linalg.norm(square - cpos)), 4)),
                   sim_square_px=[None if q is None else [round(v, 1) for v in q] for q in sim_square],
@@ -73,7 +82,7 @@ def main(argv=None) -> int:
         draw.polygon([tuple(q) for q in visible], outline=(0, 255, 0), width=4)
     if all(q is not None for q in sim_cube):
         draw.polygon([tuple(q) for q in sim_cube], outline=(0, 200, 255), width=3)
-    draw.text((20, 20), f"red: physical white square | green: sim square projected at the recorded reset ({bench.joint_map}) | cyan: sim cube top", fill=(255, 255, 0))
+    draw.text((20, 20), f"red: physical white square | green: sim square projected at pose '{pose_label}' ({bench.joint_map}) | cyan: sim cube top", fill=(255, 255, 0))
     out = args.output_dir / f'compare_reset_sim_projection_over_physical_{tag}.png'; overlay.save(out); report['overlay'] = str(out)
     (args.output_dir / f'camera_comparison_{tag}.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

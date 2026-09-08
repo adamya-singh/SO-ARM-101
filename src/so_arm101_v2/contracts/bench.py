@@ -34,9 +34,14 @@ class BenchConfig:
     # hashed here rather than living as code defaults.
     depth_lead_m: float = 0.006
     grasp_offset_m: float = 0.0085
+    # Wrist camera in the gripper frame (MuJoCo camera convention), from the
+    # 2026-09-08 hand-eye calibration; None = keep the Menagerie mount camera.
+    camera_pos: tuple | None = None
+    camera_quat_wxyz: tuple | None = None
+    camera_fovy_deg: float | None = None
     # Physical-to-MuJoCo joint map. The legacy affine map put three joints a
     # quarter turn off; the bench lane uses the encoder-anchored measured map.
-    joint_map: str = "measured_20260907"
+    joint_map: str = "measured_20260908"
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":

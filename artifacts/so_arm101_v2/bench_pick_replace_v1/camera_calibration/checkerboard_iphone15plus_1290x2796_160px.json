@@ -1,0 +1,15 @@
+{
+  "device": "iPhone 15 Plus",
+  "screen_px": [
+    1290,
+    2796
+  ],
+  "ppi": 460,
+  "square_px": 160,
+  "square_mm": 8.835,
+  "inner_corners": [
+    7,
+    16
+  ],
+  "note": "display at 1:1 (no zoom/fit), portrait, full brightness"
+}

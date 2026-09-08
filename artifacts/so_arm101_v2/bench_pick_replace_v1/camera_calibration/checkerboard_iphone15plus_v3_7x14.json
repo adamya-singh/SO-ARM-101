@@ -1,0 +1,16 @@
+{
+  "device": "iPhone 15 Plus",
+  "screen_px": [
+    1290,
+    2796
+  ],
+  "ppi": 460,
+  "square_px": 160,
+  "square_mm": 8.835,
+  "inner_corners": [
+    7,
+    14
+  ],
+  "top_margin_px": 300,
+  "note": "v3: 8x15 squares (odd row count) so a 180-degree rotation changes the pattern; 300 px top margin clears the Dynamic Island; display 1:1 portrait full brightness"
+}

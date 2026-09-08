@@ -1,0 +1,116 @@
+{
+  "name": "measured_20260908",
+  "schema_version": 1,
+  "ticks_per_turn": 4096,
+  "description": "Physical (LeRobot-normalized) to MuJoCo Menagerie joint map anchored at read-only encoder readings of the arm posed by hand at the model zero configuration (arm straight out horizontally forward, jaws opening vertically). Exact 4096 ticks/turn scale; per-joint zero offsets from the reference; gripper keeps the legacy affine endpoint map because the model cannot represent touching jaws. 2026-09-08: shoulder-lift, elbow and wrist-flex zeros corrected from a flat-checkerboard hand-eye calibration; the 2026-09-07 hand-held reference pose had the upper arm raised (~72 deg) with the elbow bent (~60 deg), not the straight horizontal arm the model zero means.",
+  "gripper": "legacy_affine_endpoints",
+  "joints": {
+    "shoulder_pan": {
+      "model_zero_ticks": 1957,
+      "sign": -1,
+      "range_min": 1040,
+      "range_max": 2865,
+      "drive_mode": 0,
+      "verification": "sign carried over from the legacy contract (FK invariant match); zero from the hand-held reference; direction not yet verified physically"
+    },
+    "shoulder_lift": {
+      "model_zero_ticks": 2825,
+      "sign": 1,
+      "range_min": 944,
+      "range_max": 3192,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the arm resting upper-arm-up at low ticks | 2026-09-08: zero corrected by -72.25 deg from the flat-checkerboard hand-eye calibration (9 frames, board-pose scatter 21 mm, pixel rms 73 px)"
+    },
+    "elbow_flex": {
+      "model_zero_ticks": 1431,
+      "sign": 1,
+      "range_min": 947,
+      "range_max": 3167,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the forearm folded forward at high ticks | 2026-09-08: zero corrected by +60.00 deg from the flat-checkerboard hand-eye calibration (9 frames, board-pose scatter 21 mm, pixel rms 73 px)"
+    },
+    "wrist_flex": {
+      "model_zero_ticks": 1803,
+      "sign": 1,
+      "range_min": 859,
+      "range_max": 3148,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference; sign +1 consistent with the gripper pitched down at rest | 2026-09-08: zero corrected by +20.00 deg from the flat-checkerboard hand-eye calibration (9 frames, board-pose scatter 21 mm, pixel rms 73 px)"
+    },
+    "wrist_roll": {
+      "model_zero_ticks": 3113,
+      "sign": 1,
+      "range_min": 0,
+      "range_max": 4095,
+      "drive_mode": 0,
+      "verification": "zero from the hand-held reference (jaws vertical, moving finger on top); sign +1 verified: user turned +94 deg by hand and the moving finger ended on top as in the sim"
+    }
+  },
+  "references": {
+    "model_zero": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133609_full_model_zero_reference_hand_held_25d117ec.json",
+      "content_sha256": "25d117ec46e4a336fa09ac1fce79dd7b85e6dafd452cb39ad89837f4e6bc272b",
+      "label": "full_model_zero_reference_hand_held",
+      "timestamp": "2026-09-07T13:36:09.208570+00:00"
+    },
+    "rest_jaws_horizontal": {
+      "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133225_wrist_roll_jaws_horizontal_rest_396aa222.json",
+      "content_sha256": "396aa222944f1a8a618665832e179ec36ead312215beb276a82401bfb4df6da6",
+      "label": "wrist_roll_jaws_horizontal_rest",
+      "timestamp": "2026-09-07T13:32:25.060574+00:00"
+    },
+    "hand_eye_20260908": {
+      "refine": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/zero_and_camera_refine.json",
+      "refine_sha256": "b26c7ba22a517e3962d4469e980aefc00f9650b60b03b33af4504d16e0461a50",
+      "intrinsics": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json",
+      "frames": [
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T045450_ext_01.json",
+          "content_sha256": "dac88346917a1e0d17e3635efb2910b6c0cc3dd9dfa4c91f594b6bb967ac47a2"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T045510_ext_02.json",
+          "content_sha256": "f73abb1beb037a1cd254b5917a9e63769584b1229fffb39deaf79e20d58a8faf"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T045512_ext_03.json",
+          "content_sha256": "b70b1f46dbee0665f716058879cc0deca9ddae9f3b93b69b321d89592c68ce86"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T045542_ext_04.json",
+          "content_sha256": "2b9cf03dc4d59b75c9495ca988569cc8c0dc32dea6a579b79224d3aa84aedadd"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T045612_ext_05.json",
+          "content_sha256": "1682fc79e7580320b5605884c7dc47861e59c2c77cab9a2ae398b7b1f4b2e45b"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T050238_ext_06.json",
+          "content_sha256": "dcb4dcab9496ba511eb836803240076b5370fbc38e82f2324a19f13c05bc18ec"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T050240_ext_07.json",
+          "content_sha256": "12a9b9397c7504878e85fb69dd2834d2615b83cbb6dfa36fc0cd0dd6a28a38c9"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T050315_ext_08.json",
+          "content_sha256": "2c8044b1dc6eb1bc2bc26b771fa10e3ec63daabe544fbebce3d9fb3fcd2a27f1"
+        },
+        {
+          "file": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/extrinsics/2026-09-08T051119_ext_09.json",
+          "content_sha256": "df9cddecd47ba34c1e1d956dc5c9fb65bc6924462412664907f4b6f3d6c00110"
+        }
+      ],
+      "note": "board flat on the mousepad, arm hand-posed, torque off"
+    }
+  },
+  "expected_rest_pose_model_degrees": {
+    "shoulder_pan": 0.1,
+    "shoulder_lift": -157.5,
+    "elbow_flex": 152.5,
+    "wrist_flex": 61.6,
+    "wrist_roll": -99.5,
+    "gripper": null
+  },
+  "supersedes": "measured_20260907 (same scale and signs; zeros for shoulder_lift, elbow_flex, wrist_flex corrected)"
+}

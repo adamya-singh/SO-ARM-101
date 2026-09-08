@@ -14,7 +14,8 @@ from so_arm101_v2.contracts.joint_map import LEGACY_JOINT_MAP, load_joint_map
 from so_arm101_v2.contracts.physical import load_physical_calibration, physical_normalized_to_act
 from so_arm101_v2.data.resources import read_resource_bytes
 
-MEASURED_RESOURCE_SHA256 = "6afc2d93235394f8fa27f8a188dbf1066d81cec1d18ee0788dc44f4c51e4d8be"
+MEASURED_RESOURCE_SHA256 = "6afc2d93235394f8fa27f8a188dbf1066d81cec1d18ee0788dc44f4c51e4d8be"  # measured_20260907 (hand-held zeros)
+CORRECTED_RESOURCE_SHA256 = "5baf717937142bc45ea86fb3914f739a66fd6266db50dec23e4ff79650d82bb2"  # measured_20260908 (board-calibrated zeros)
 # Read-only encoder readings of 2026-09-07 (artifacts/.../joint_references/).
 ZERO_REFERENCE_NORMALIZED = [0.49315068493149283, -5.782918149466184, 5.13513513513513, 2.40279598077764, 52.03907203907204, 6.83526999316473]
 REST_JAWS_HORIZONTAL_NORMALIZED = [0.38356164383561975, -92.08185053380782, 100.0, 43.7308868501529, -3.2478632478632505, 12.918660287081341]
@@ -26,16 +27,16 @@ def test_measured_resource_is_pinned_and_matches_the_calibration():
     calibration = {j.name: j for j in load_physical_calibration().joints}
     for name, joint in resource["joints"].items():
         assert (joint["range_min"], joint["range_max"], joint["drive_mode"]) == (calibration[name].range_min, calibration[name].range_max, calibration[name].drive_mode)
-    assert resource["ticks_per_turn"] == 4096 and load_joint_map().resource_sha256 == MEASURED_RESOURCE_SHA256
+    assert resource["ticks_per_turn"] == 4096 and load_joint_map("measured_20260907").resource_sha256 == MEASURED_RESOURCE_SHA256
 
 
 def test_hand_held_zero_reference_maps_to_the_model_zero_pose():
-    q = load_joint_map().act_to_mujoco(physical_normalized_to_act(ZERO_REFERENCE_NORMALIZED))
+    q = load_joint_map("measured_20260907").act_to_mujoco(physical_normalized_to_act(ZERO_REFERENCE_NORMALIZED))
     assert np.allclose(np.degrees(q[:5]), 0.0, atol=0.05)
 
 
 def test_rest_pose_is_upper_arm_up_forearm_forward_jaws_horizontal():
-    q = np.degrees(load_joint_map().act_to_mujoco(physical_normalized_to_act(REST_JAWS_HORIZONTAL_NORMALIZED)))
+    q = np.degrees(load_joint_map("measured_20260907").act_to_mujoco(physical_normalized_to_act(REST_JAWS_HORIZONTAL_NORMALIZED)))
     assert np.allclose(q[:5], [0.1, -85.3, 92.5, 41.6, -99.5], atol=0.1)
     legacy = np.degrees(LEGACY_JOINT_MAP.act_to_mujoco(physical_normalized_to_act(REST_JAWS_HORIZONTAL_NORMALIZED)))
     # The legacy map put three joints roughly a quarter turn away.
@@ -43,7 +44,7 @@ def test_rest_pose_is_upper_arm_up_forearm_forward_jaws_horizontal():
 
 
 def test_scale_is_exactly_the_encoder_resolution():
-    measured = load_joint_map(); calibration = {j.name: j for j in load_physical_calibration().joints}
+    measured = load_joint_map("measured_20260907"); calibration = {j.name: j for j in load_physical_calibration().joints}
     for i, name in enumerate(JOINT_NAMES[:5]):
         span_ticks = calibration[name].range_max - calibration[name].range_min
         a = np.zeros(6); b = np.zeros(6); a[i] = -50; b[i] = 50  # normalized units
@@ -68,9 +69,24 @@ def test_legacy_map_is_bit_identical_to_the_module_functions():
 
 
 def test_measured_bounds_are_physical_range_within_mechanical_limits():
-    measured = load_joint_map()
+    measured = load_joint_map("measured_20260907")
     assert np.all(measured.mujoco_low >= _MENAGERIE_MECHANICAL_LOW - 1e-6) and np.all(measured.mujoco_high <= _MENAGERIE_MECHANICAL_HIGH + 1e-6)
     # The physical elbow cannot fold past its calibrated maximum, which is the gravity-rest pose.
     assert np.degrees(measured.mujoco_high[2]) == pytest.approx(92.5, abs=0.1)
     with pytest.raises(ValueError, match="unknown joint map"):
         load_joint_map("made_up")
+
+
+def test_corrected_map_is_default_and_differs_from_the_hand_held_map_only_in_three_zeros():
+    """measured_20260908: zeros for shoulder lift, elbow and wrist flex corrected from the flat-board hand-eye calibration."""
+    assert hashlib.sha256(read_resource_bytes("physical_joint_map_20260908.json")).hexdigest() == CORRECTED_RESOURCE_SHA256
+    corrected = load_joint_map(); assert corrected.name == "measured_20260908"
+    hand_held = load_joint_map("measured_20260907")
+    act = physical_normalized_to_act(REST_JAWS_HORIZONTAL_NORMALIZED)
+    delta = np.degrees(corrected.act_to_mujoco(act) - hand_held.act_to_mujoco(act))
+    assert np.allclose(delta, [0.0, -72.25, 60.0, 20.0, 0.0, 0.0], atol=0.1)  # the held reference had the upper arm raised and the elbow bent
+    rest = np.degrees(corrected.act_to_mujoco(act))
+    assert np.allclose(rest[:5], [0.1, -157.5, 152.5, 61.6, -99.5], atol=0.15)
+    # scales unchanged: a 50-unit shoulder move is the same angle under both maps
+    a = physical_normalized_to_act([0, -50, 0, 0, 0, 0]); b = physical_normalized_to_act([0, 50, 0, 0, 0, 0])
+    assert corrected.act_to_mujoco(b)[1] - corrected.act_to_mujoco(a)[1] == pytest.approx(hand_held.act_to_mujoco(b)[1] - hand_held.act_to_mujoco(a)[1], rel=1e-6)
