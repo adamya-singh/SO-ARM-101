@@ -23,7 +23,17 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
-**Bench status (September 8, 2026):** the first bench run finished:
+**Bench status (September 9, 2026):** the second bench run is queued on a
+lens-matched simulator: the wrist lens was recalibrated with edge and corner
+coverage, the simulator now renders a wide pinhole and resamples it through
+that lens so the policy sees the full camera frame exactly as the real
+camera delivers it, capture runs in parallel and training uses an in-RAM
+lossless frame cache (about 6× faster). Gate 1 was re-signed on these
+images: [observation pair](readme-assets/bench-lens-review-observation-pair-20260909.png)
+and [projection overlay](readme-assets/bench-lens-review-projection-overlay-20260909.png).
+Details in the [bench runbook](notes/bench-pick-replace-v1.md).
+
+**First bench run (September 8, 2026)** finished:
 **nominal 3/3, held-out 27/30, zero safety frames**, black-image ablation
 0/33 (the policy uses the pixels). Single seed, exploratory. The
 [bench runbook](notes/bench-pick-replace-v1.md) is the governing record:
@@ -766,6 +776,10 @@ reach and whose camera saw nearly twice the true field of view, so their
 numbers do not transfer. The current sequence, governed by the
 [bench runbook](notes/bench-pick-replace-v1.md):
 
+0. **Lens-matched rerun (queued 2026-09-09):** same recipe on the scene
+   whose observation reproduces the real lens (full frame squashed to
+   256×256); result pending. Real frames need no undistortion for this
+   policy family.
 1. **Bench vision run (done 2026-09-08):** one pre-registered run, seed
    202, 120k steps, on 400 screened bench poses with 10 held-out. Nominal
    3/3, held-out 27/30, zero safety frames, black-image ablation 0/33.

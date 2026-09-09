@@ -296,3 +296,33 @@ corner radius 1185 px. The fixed-principal-point rational model (1.72 px,
 fovy 44.01) and the fisheye (1.656 px) also cover the frame; both free models
 put the principal point ~70–90 px left of centre, so the offset is treated as
 real. The centre-only file is kept as `camera_intrinsics_20260908_centre.json`.
+
+### Lens-matched simulator and the second bench run (2026-09-09)
+
+Decision: reproduce the real lens in the simulator (option 2) with the policy
+seeing the full 1920×1080 frame squashed to 256×256; same recipe as the first
+run. What landed, each committed as its own tranche:
+
+- `contracts/lens.py`: one `LensModel` for both sides. Sim renders a 90.34°
+  pinhole at 1600×900 (the smallest symmetric field covering the undistorted
+  frame plus 5 %) and resamples it through the rational lens with one fixed
+  sparse operator (Newton inverse, coverage guard, ~21 taps/pixel, 28 ms per
+  frame); real frames get the exact area filter. Bench config carries the
+  block, so the scene hash changed to `7c765d4b…`.
+- Gate 1 re-signed by the user on the observation pair and the projection
+  overlay (`readme-assets/bench-lens-review-*-20260909.png`): "the review
+  images look good for now". The corrected principal point removed a ~100 px
+  horizontal offset; the ~140 px vertical residual from 2026-09-08 remains and
+  a pitch refit was declined for now. Teacher 15/15 on the new scene.
+- Capture is process-parallel (scenario slots in one memmap, order-preserving
+  assembly; physics bytes identical). Finding: EGL rendering jitters by one
+  grey level on a few pixels run to run even sequentially, so frame digests
+  were never reproducible; tests now say so.
+- Training was disk-bound: raw random reads from the 37.7 GB sidecar cap at
+  ~13 batches/s on this WSL disk while the GPU step is 5.3 ms. Prefetch/upload
+  knobs gave 9.5 → 10.6 steps/s; the lossless in-RAM frame cache (42×, 0.89 GB,
+  53 s to build) gives **57.8 steps/s**, bit-identical. Pipeline rehearsal on
+  the lens scene passed end to end.
+
+Run queued 2026-09-09 as `experiments/seed202_120k_lens_20260909` with
+`--workers 10`; W&B id in that directory's `wandb.json`. Result: pending.

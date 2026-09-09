@@ -1,0 +1,88 @@
+{
+  "scene_dependencies_sha256": "7c765d4b5b1ff9696ff95cf0ef466d5fb5a002e11a2b14efad154984e17c5668",
+  "joint_map": "measured_20260908b",
+  "pose": "gravity_rest_jaws_horizontal",
+  "pose_model_degrees": [
+    2.1,
+    -178.2,
+    173.6,
+    56.0,
+    -98.7,
+    -2.6
+  ],
+  "physical_frame": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/camera_references/2026-09-07T153309_gravity_rest_jaws_horizontal.png",
+  "sim_camera": {
+    "lens": "opencv_rational_8",
+    "fovy_deg": 44.85,
+    "principal_point": [
+      867.465,
+      531.906
+    ],
+    "position": [
+      0.0058,
+      0.1901,
+      0.1658
+    ],
+    "forward": [
+      -0.088,
+      0.263,
+      -0.961
+    ],
+    "distance_to_square_center_m": 0.1881
+  },
+  "sim_square_px": [
+    [
+      751.3,
+      394.9
+    ],
+    [
+      1121.9,
+      384.0
+    ],
+    [
+      1091.1,
+      85.3
+    ],
+    [
+      765.1,
+      97.2
+    ]
+  ],
+  "sim_cube_top_px": [
+    [
+      848.0,
+      222.8
+    ],
+    [
+      1005.2,
+      217.3
+    ],
+    [
+      996.9,
+      93.4
+    ],
+    [
+      849.2,
+      99.0
+    ]
+  ],
+  "sim_square_bbox_px": {
+    "width": 370.6,
+    "height": 309.7,
+    "center": [
+      932.4,
+      240.3
+    ]
+  },
+  "physical_square_bbox_px": {
+    "width": 622,
+    "height": 295,
+    "center": [
+      947.4,
+      146.0
+    ],
+    "touches_top": true
+  },
+  "apparent_width_ratio_physical_over_sim": 1.68,
+  "overlay": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/compare_reset_sim_projection_over_physical_7c765d4b_gravity_rest_jaws_horizontal.png"
+}

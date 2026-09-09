@@ -10,7 +10,7 @@ The arm is at gravity rest with torque off (power-cycled 2026-09-06; photographe
 
 The elbow staging tool (`tools/prepare_physical_elbow.py`) defaults to read-only dry run and is kept for reference; it moves only the elbow. Any shoulder lift needs its own reviewed tool. Motion always requires `--enable-motion`, a new log path and on-site confirmation. The shoulder floor remains −92 at every stage.
 
-**Camera at deployment:** the simulator trained on a pinhole wrist camera (fovy 44.0°, calibrated 2026-09-08). Real frames must be undistorted with `artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json` (`selected`) and resized exactly as the capture pipeline does before they reach a learned policy. This is not yet implemented in the replay/inference tools.
+**Camera at deployment (updated 2026-09-09):** policies trained on the lens-matched scene (`7c765d4b…` and later) expect the raw 1920×1080 MJPEG frame passed through `LensModel.real_operator()` from `src/so_arm101_v2/contracts/lens.py` (an exact area filter to 256×256; no undistortion, no crop), with the lens block taken from the scene's `bench_config.json`. Policies from the earlier pinhole scene would need undistortion and are superseded. No physical inference runner exists yet.
 
 ## Replay modes and required evidence
 

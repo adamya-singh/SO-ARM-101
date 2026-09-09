@@ -5,10 +5,31 @@ experiment: physical setup, recorded hardware state, active scene and
 teacher, evidence inventory, gates, open work, and resume commands. It
 absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
-## Status (2026-09-08)
+## Status (2026-09-09)
 
-**The single pre-registered run finished 2026-09-08 08:35 local: nominal
-3/3, held-out 27/30, zero safety frames, black-image ablation 0/33.**
+**Second pre-registered run queued 2026-09-09 on the lens-matched scene
+`7c765d4b…`** (same recipe: seed 202, 120k steps, 400/10 poses, w256,
+batch 64), experiment directory
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/`
+(`wandb.json` there holds the W&B id once the pipeline starts; `tsp -l`
+shows the queue job). What changed since the first run, all recorded below
+under "Lens model and observation": the wrist lens was recalibrated with
+edge/corner coverage (rational 8-coefficient model, fovy 44.85°, principal
+point (867.5, 531.9)); the simulator now renders a 90.34° pinhole at
+1600×900 and resamples it through that lens into the 256×256 observation,
+which is the **full 1920×1080 frame squashed to a square**; the real camera
+path is the same area filter on the raw frame, so **no undistortion is
+needed at deployment any more**. Gate 1 re-signed 2026-09-09
+(`inspection/camera_review_20260909.json`, images in `readme-assets/
+bench-lens-review-*-20260909.png`); teacher re-certified 15/15 on the new
+scene (`teacher_certification/7c765d4b5b1ff969-pad_normals_v2/`); pipeline
+rehearsed end to end. Capture is process-parallel and training uses an
+in-RAM lossless frame cache (57.8 steps/s vs 10.1), so the whole pipeline
+should take about an hour instead of 5.5.
+
+**First run (2026-09-08, pinhole scene `6477c4bd…`) finished 08:35 local:
+nominal 3/3, held-out 27/30, zero safety frames, black-image ablation
+0/33.**
 Summary in `experiments/seed202_120k_20260908/evaluation_summary.json`;
 the three failures are one held-out pose (`pose_006`) with an incomplete
 pickup, deterministic across repeats. Single seed, exploratory. Details in
@@ -40,11 +61,12 @@ capture digest). Scene `6477c4bd…`, joint map `measured_20260908b`, detector
   25 mm cube task and establish nothing about bench readiness; the run above
   is the first bench evidence and is **exploratory** (single seed).
 
-**Deployment reminder.** The simulator renders a pinhole camera. Real wrist
-frames carry strong barrel distortion (k1 ≈ −0.57) and must be undistorted
-with `camera_calibration/camera_intrinsics.json` (`selected` model) before
-the policy sees them, then resized to 256×256 the same way the capture does.
-This step is not yet implemented in any physical inference path.
+**Deployment reminder (updated 2026-09-09).** Policies trained on the lens
+scene (`7c765d4b…` and later) expect the raw 1920×1080 camera frame passed
+through `LensModel.real_operator()` (an exact area filter to 256×256):
+no undistortion, no crop. Policies from the pinhole scene (`6477c4bd…`,
+run `tinmahze`) would need undistortion plus a centre crop and are
+superseded. No physical inference path exists yet either way.
 
 ## Physical setup
 
@@ -380,6 +402,55 @@ Inspection images under `artifacts/so_arm101_v2/bench_pick_replace_v1/inspection
 | `physical_reset_wrist_focused.png` | Not described in the handoff; treat as inspection only, not verification evidence |
 | `diagnostic_unsettled_*` | Out-of-model natural-rest FK diagnostics, not accepted reset images |
 
+## Lens model and observation (2026-09-09)
+
+Decision (user, 2026-09-09): make the simulator reproduce the real lens
+rather than undistorting real frames at inference, with the policy seeing
+the **whole 1920×1080 frame squashed to 256×256** (7.5× horizontally,
+4.22× vertically). Design: one `LensModel`
+(`src/so_arm101_v2/contracts/lens.py`, numpy only) defines the observation
+on both sides. Sim: MuJoCo renders a symmetric pinhole (`render_fovy_deg`
+90.34°, 1600×900, written into the scene XML with a matching offscreen
+framebuffer) and `sim_operator()` resamples it with one fixed sparse
+operator: every observation pixel's box footprint in the raw frame is
+supersampled 8×5, each sample mapped raw → undistorted (Newton inverse with
+the analytic Jacobian, refused beyond the model's invertible radius) →
+render pixel, bilinear taps accumulated (~21 taps/pixel, ~28 ms/frame). Real:
+`real_operator()` is the exact separable area filter of the raw frame.
+The lens block lives in `bench_config.json` (`BenchConfig.lens`, validated
+against `camera_fovy_deg`), so it is inside the scene hash; the capture
+identity carries it and the frames convention names the model.
+
+Why the recalibration: the 2026-09-08 intrinsics (5-coefficient, 29 centre
+views) had a distorted-radius peak at 929 px while the frame corners lie
+1101 px out, so the outer ~11 % of the frame had no invertible model. A
+guided session (`tools/capture_checkerboard.py --guided --live-dir`, live
+tkinter preview highlighting the target cell; the assistant watched the
+snapshot feed) added 17 edge/corner views; the bottom-centre cells are
+permanently filled by the fixed jaw and are ignored. Refit on 46 views:
+`pinhole_rational_8coef_free_principal_point`, RMS 1.651 px, fovy 44.85°,
+fovx 72.5°, principal point (867.5, 531.9), valid radius 1873 px (evidence:
+`camera_calibration/camera_intrinsics.json`; the centre-only file is kept
+as `camera_intrinsics_20260908_centre.json`). The corrected principal point
+moved the projected square ~100 px horizontally onto the real one.
+
+Review (gate 1, re-signed 2026-09-09): `tools/render_bench_views.py`
+produces the observation pair (real frame through the area filter vs sim
+through the lens) and a synthetic full-resolution raw frame;
+`tools/compare_bench_camera.py` projects through the lens. Accepted
+residual: the simulated square sits ~140 px (≈6° of pitch) lower than the
+real paper towel, which is larger than the 50.8 mm model square; a pitch
+refit was offered and declined for now. Images:
+`readme-assets/bench-lens-review-observation-pair-20260909.png`,
+`readme-assets/bench-lens-review-projection-overlay-20260909.png`.
+
+Known facts recorded with this work: EGL rendering jitters by one grey
+level on a few pixels run to run (so frame digests are records, not
+reproducibility claims; physics arrays are bit-identical); the training
+loop was disk-bound on the 37.7 GB sidecar (raw random-read ceiling ~13
+batches/s), which the lossless in-RAM frame cache removes
+(`notes/environment-switches.md`).
+
 ## Active scene and teacher
 
 Active model: `simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml`,
@@ -480,7 +551,19 @@ The earlier pad-4 preflight report at
 `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_diagnostics/9c4cff24f78b/preflight/bench_pick_replace_v1_diagnostic_59b6ba96b593/evaluation.json`
 used the OLD incorrect distance and older code. It is superseded.
 
-## Software inventory (reviewed 2026-09-06)
+## Software inventory (reviewed 2026-09-06; lens additions 2026-09-09)
+
+2026-09-09 additions: `contracts/lens.py` (LensModel, operators);
+`BenchConfig.lens`; `MujocoTaskAdapter.render_wrist_observation()`;
+`tools/prepare_bench_scene.py --intrinsics`; `tools/camera_preview.py`
+(FrameGrabber + tkinter PreviewWindow with the save-flash dot, used by every
+capture tool); `tools/capture_checkerboard.py --assist/--guided/--live-dir`;
+`tools/calibrate_camera_intrinsics.py` (five models, valid radius, coverage
+evidence, `--ignore-cells`); process-parallel `capture_oracle_demonstrations`
+(`workers`) and `run_bench_pipeline.py --workers`; training switches
+`SO_ARM101_V2_FRAME_CACHE`, `SO_ARM101_V2_IMAGE_UPLOAD`; tests
+`test_lens_model.py`, `test_oracle_capture_parallel.py`, vision-lane parity
+tests. Full suite 278 passed at the second launch.
 
 - `src/so_arm101_v2/contracts/bench.py`: versioned bench reset and
   geometry, shoulder-floor intersection, strict reset rejection, dependency

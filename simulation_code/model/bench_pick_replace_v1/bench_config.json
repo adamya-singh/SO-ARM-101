@@ -45,6 +45,40 @@
     0.5475767,
     0.8357887
   ],
-  "camera_fovy_deg": 43.99,
-  "joint_map": "measured_20260908b"
+  "camera_fovy_deg": 44.85,
+  "joint_map": "measured_20260908b",
+  "lens": {
+    "model": "opencv_rational_8",
+    "image_size": [
+      1920,
+      1080
+    ],
+    "fx": 1309.354,
+    "fy": 1308.542,
+    "cx": 867.465,
+    "cy": 531.906,
+    "dist": [
+      1.868187,
+      11.048714,
+      -0.001691,
+      0.00279,
+      1.326563,
+      2.38168,
+      12.079937,
+      6.246789
+    ],
+    "render_fovy_deg": 90.34,
+    "render_size": [
+      1600,
+      900
+    ],
+    "framing": "full_frame_squash",
+    "observation_size": 256,
+    "supersample": [
+      8,
+      5
+    ],
+    "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+    "calibration_rms_px": 1.651
+  }
 }
