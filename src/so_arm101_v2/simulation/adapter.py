@@ -91,6 +91,13 @@ class MujocoTaskAdapter:
         self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
         self.data = mujoco.MjData(self.model)
         self._renderer: Any | None = None
+        self._lens_renderer: Any | None = None
+        self.lens = self.bench.lens_model if self.bench is not None else None
+        if self.lens is not None:
+            # The lens render needs an offscreen buffer at least as large as itself.
+            rw, rh = self.lens.render_size
+            self.model.vis.global_.offwidth = max(int(self.model.vis.global_.offwidth), rw)
+            self.model.vis.global_.offheight = max(int(self.model.vis.global_.offheight), rh)
         self._joint_qpos = []
         self._joint_dof = []
         self._actuator_ids = []
@@ -124,10 +131,20 @@ class MujocoTaskAdapter:
             self._renderer = _mujoco().Renderer(self.model, height=256, width=256)
         return self._renderer
 
+    @property
+    def lens_renderer(self) -> Any:
+        if self._lens_renderer is None:
+            rw, rh = self.lens.render_size
+            self._lens_renderer = _mujoco().Renderer(self.model, height=rh, width=rw)
+        return self._lens_renderer
+
     def close(self) -> None:
         if self._renderer is not None:
             self._renderer.close()
             self._renderer = None
+        if self._lens_renderer is not None:
+            self._lens_renderer.close()
+            self._lens_renderer = None
 
     def reset(self, scenario: SimulationScenario) -> None:
         if self.bench is not None:
@@ -219,12 +236,26 @@ class MujocoTaskAdapter:
             raise RuntimeError(f"MuJoCo rendered unexpected image shape {image.shape}")
         return image
 
+    def render_wrist_observation(self) -> np.ndarray:
+        """The 256x256 wrist observation: the lens-resampled wider render when the bench has a lens, else the pinhole."""
+        if self.lens is None:
+            return self.render("wrist_camera")
+        self.lens_renderer.update_scene(self.data, camera="wrist_camera")
+        render = np.asarray(self.lens_renderer.render(), dtype=np.uint8)
+        rw, rh = self.lens.render_size
+        if render.shape != (rh, rw, 3):
+            raise RuntimeError(f"MuJoCo rendered unexpected lens image shape {render.shape}")
+        image = self.lens.sim_operator().apply(render)
+        if image.shape != (256, 256, 3):
+            raise RuntimeError(f"lens operator produced unexpected image shape {image.shape}")
+        return image
+
     def observation(
         self, *, render_pixels: bool = True
     ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray]:
         if not render_pixels:
             return None, None, self.current_act()
-        raw = self.render("wrist_camera")
+        raw = self.render_wrist_observation()
         return raw, preprocess_wrist_image(raw), self.current_act()
 
     def apply_policy_command(self, requested_act: Any) -> CommandApplication:

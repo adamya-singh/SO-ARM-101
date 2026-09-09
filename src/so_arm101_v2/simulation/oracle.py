@@ -173,6 +173,8 @@ def capture_oracle_demonstrations(
         identity["scene_dependencies_sha256"] = scene_dependency_hash(model_path)
         identity["grasp_detector"] = GRASP_DETECTOR_VERSION
         identity["joint_map"] = bench.joint_map_object.provenance()
+        if bench.lens is not None:
+            identity["lens"] = dict(bench.lens)
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.
@@ -226,7 +228,7 @@ def capture_oracle_demonstrations(
                 controller.reset(adapter)
                 for action_index in range(identity["teacher_horizon"]):
                     snapshot = adapter.privileged_state()
-                    raw = adapter.render("wrist_camera")
+                    raw = adapter.render_wrist_observation()
                     if frames is not None:
                         # Running row counter: stays dense when scenarios are
                         # skipped (skip_failed_scenarios).
@@ -407,7 +409,8 @@ def capture_oracle_demonstrations(
             "rows": int(materialized["action_index"].shape[0]),
             "dtype": "uint8",
             "frame_shape": [256, 256, 3],
-            "convention": "raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image",
+            "convention": ("raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image" if "lens" not in identity
+                           else f"raw_wrist_hwc_uint8_lens_{identity['lens']['model']}_{identity['lens']['framing']}_preprocess_with_preprocess_wrist_image"),
         }
     manifest_payload["content_sha256"] = content_sha256(manifest_payload)
     manifest_path = destination / "manifest.json"

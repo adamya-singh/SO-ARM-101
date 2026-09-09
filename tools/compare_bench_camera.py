@@ -41,14 +41,27 @@ def main(argv=None) -> int:
         d.qpos[m.joint(name).qposadr[0]] = float(value)
     mujoco.mj_forward(m, d)
     cid = m.camera('wrist_camera').id
-    W, H = 1920, 1080; f = 0.5 * H / np.tan(np.deg2rad(float(m.cam_fovy[cid])) / 2)
+    W, H = 1920, 1080
     cpos = d.cam_xpos[cid].copy(); R = d.cam_xmat[cid].reshape(3, 3)
+    lens = bench.lens_model
+    if lens is not None:
+        # Project through the calibrated lens (principal point + distortion) so the overlay lives in raw pixel space.
+        def project(point):
+            pc = R.T @ (np.asarray(point, float) - cpos)
+            if pc[2] >= 0:
+                return None
+            xd, yd = lens.distort(np.array([pc[0] / -pc[2]]), np.array([-pc[1] / -pc[2]]))
+            return (float(lens.cx + lens.fx * xd[0]), float(lens.cy + lens.fy * yd[0]))
+        camera_note = dict(lens=lens.model, fovy_deg=round(lens.fovy_deg, 2), principal_point=[lens.cx, lens.cy])
+    else:
+        f = 0.5 * H / np.tan(np.deg2rad(float(m.cam_fovy[cid])) / 2)
 
-    def project(point):
-        pc = R.T @ (np.asarray(point, float) - cpos)
-        if pc[2] >= 0:
-            return None
-        return (W / 2 + f * pc[0] / -pc[2], H / 2 - f * pc[1] / -pc[2])
+        def project(point):
+            pc = R.T @ (np.asarray(point, float) - cpos)
+            if pc[2] >= 0:
+                return None
+            return (W / 2 + f * pc[0] / -pc[2], H / 2 - f * pc[1] / -pc[2])
+        camera_note = dict(lens=None, fovy_deg=float(m.cam_fovy[cid]))
 
     square = np.array([*bench.square_center_xy, bench.square_thickness_m]); h = bench.square_edge_m / 2
     sim_square = [project(square + np.array([sx * h, sy * h, 0])) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
@@ -56,7 +69,7 @@ def main(argv=None) -> int:
     sim_cube = [project(cube_top + np.array([sx * bench.cube_edge_m / 2, sy * bench.cube_edge_m / 2, 0])) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
     report = dict(scene_dependencies_sha256=scene_dependency_hash(args.model), joint_map=bench.joint_map, pose=pose_label,
                   pose_model_degrees=np.degrees(np.asarray(qpos, float)).round(1).tolist(), physical_frame=str(args.physical),
-                  sim_camera=dict(fovy_deg=float(m.cam_fovy[cid]), position=cpos.round(4).tolist(), forward=(-R[:, 2]).round(3).tolist(),
+                  sim_camera=dict(**camera_note, position=cpos.round(4).tolist(), forward=(-R[:, 2]).round(3).tolist(),
                                   distance_to_square_center_m=round(float(np.linalg.norm(square - cpos)), 4)),
                   sim_square_px=[None if q is None else [round(v, 1) for v in q] for q in sim_square],
                   sim_cube_top_px=[None if q is None else [round(v, 1) for v in q] for q in sim_cube])

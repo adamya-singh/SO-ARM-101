@@ -1,12 +1,13 @@
 """Build the versioned 20 mm XYZ bench scene without modifying legacy XML."""
 from __future__ import annotations
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
 from so_arm101_v2.contracts.bench import BenchConfig
+from so_arm101_v2.contracts.lens import LensModel
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,6 +58,15 @@ def prepare(destination: Path, config: BenchConfig):
         cam.set('pos', ' '.join(f'{float(v):.7f}' for v in config.camera_pos))
         cam.set('quat', ' '.join(f'{float(v):.7f}' for v in config.camera_quat_wxyz))
         cam.set('fovy', f'{float(config.camera_fovy_deg):.2f}')
+    lens = config.lens_model
+    if lens is not None:
+        # The simulator renders a wider pinhole that the lens operator resamples into the
+        # observation; the offscreen framebuffer must hold that render (default 640x480).
+        cam = arm.find(".//camera[@name='wrist_camera']")
+        cam.set('fovy', f'{float(lens.render_fovy_deg):.2f}')
+        glob = arm.find('visual/global')
+        glob.set('offwidth', str(max(int(lens.render_size[0]), 640)))
+        glob.set('offheight', str(max(int(lens.render_size[1]), 480)))
     ET.indent(arm)
     scene=destination/'scene_bench_pick_replace_v1.xml'
     ET.ElementTree(arm).write(scene,encoding='unicode')
@@ -70,7 +80,17 @@ def main():
     # silently overwrite them.
     p.add_argument('--bench-config',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,default=ROOT/'simulation_code/model/bench_pick_replace_v1')
+    p.add_argument('--intrinsics',type=Path,default=None,help='camera_intrinsics.json: (re)build the lens block from its selected model and set camera_fovy_deg from it')
+    p.add_argument('--render-size',type=int,nargs=2,default=(1600,900),metavar=('W','H'),help='pinhole render size for the lens path (16:9)')
+    p.add_argument('--render-fovy',type=float,default=None,help='pinhole render fovy; default = smallest fovy covering the whole undistorted frame + 5%% margin')
     a=p.parse_args()
-    print(prepare(a.output_dir,BenchConfig.load(a.bench_config)))
+    config=BenchConfig.load(a.bench_config)
+    if a.intrinsics is not None:
+        probe=LensModel.from_intrinsics_file(a.intrinsics,render_fovy_deg=90.0,render_size=tuple(a.render_size))
+        fovy=a.render_fovy if a.render_fovy is not None else round(probe.required_render_fovy_deg(),2)
+        lens=LensModel.from_intrinsics_file(a.intrinsics,render_fovy_deg=fovy,render_size=tuple(a.render_size))
+        lens.sim_operator()  # coverage guard: fails here rather than at capture time
+        config=replace(config,lens=lens.identity(),camera_fovy_deg=round(lens.fovy_deg,2))
+    print(prepare(a.output_dir,config))
 
 if __name__ == '__main__':main()

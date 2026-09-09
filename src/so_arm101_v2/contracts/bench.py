@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from .joint_map import KNOWN_JOINT_MAPS, load_joint_map
+from .lens import LensModel
 from .physical import physical_normalized_to_act
 
 
@@ -42,6 +43,10 @@ class BenchConfig:
     # Physical-to-MuJoCo joint map. The legacy affine map put three joints a
     # quarter turn off; the bench lane uses the encoder-anchored measured map.
     joint_map: str = "measured_20260908b"
+    # Physical lens model (contracts/lens.py): when set, the simulator renders
+    # a wider pinhole (fovy = lens.render_fovy_deg) and resamples it into the
+    # observation as the real lens would image it; None = plain 256x256 pinhole.
+    lens: dict | None = None
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -68,6 +73,15 @@ class BenchConfig:
             value = getattr(self, name)
             if not np.isfinite(value) or not -0.02 <= value <= 0.02:
                 raise ValueError(f"bench {name} must be a finite offset within 20 mm")
+        if self.lens is not None:
+            lens = self.lens_model
+            if self.camera_fovy_deg is None or abs(float(self.camera_fovy_deg) - lens.fovy_deg) > 0.05:
+                raise ValueError("camera_fovy_deg must equal the lens model's vertical field of view")
+            if not lens.fovy_deg <= lens.render_fovy_deg <= 120.0:
+                raise ValueError("lens render fovy must cover the physical field of view and stay below 120 deg")
+            if abs(lens.render_size[0] * 9 - lens.render_size[1] * 16) > 16:
+                raise ValueError("lens render size must be 16:9 like the physical frame")
+            object.__setattr__(self, "lens", lens.identity())
         if self.reset_physical is not None:
             p = np.asarray(self.reset_physical, dtype=np.float64)
             if p.shape != (6,) or not np.isfinite(p).all() or p[1] < self.shoulder_floor:
@@ -79,6 +93,10 @@ class BenchConfig:
     @property
     def joint_map_object(self):
         return load_joint_map(self.joint_map)
+
+    @property
+    def lens_model(self):
+        return None if self.lens is None else LensModel.from_mapping(self.lens)
 
     @property
     def mujoco_low(self):

@@ -174,7 +174,7 @@ def capture_observability_annotations(
             _append_observation(adapter, nominal_rows)
             # Rendering is part of the immutable oracle capture's exact replay
             # path even though pixels are not observability inputs.
-            adapter.render("wrist_camera")
+            adapter.render_wrist_observation()
             adapter.render("camera_side")
             requested = np.asarray(source["executed_act"][action_index], dtype=np.float32)
             command = adapter.apply_policy_command(requested)
