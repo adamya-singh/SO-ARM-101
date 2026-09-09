@@ -12,9 +12,12 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import sys
 import time
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from so_arm101_v2.contracts.coordinates import JOINT_NAMES
 from so_arm101_v2.contracts.physical_io import assert_pinned_calibration, connect_read_only, disconnect_read_only
@@ -24,23 +27,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def grab_frame(device: int, warmup: int, width: int, height: int):
-    import cv2
-    cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
-    try:
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height); cap.set(cv2.CAP_PROP_FPS, 30)
-        frame = None
-        for _ in range(warmup):  # let auto-exposure settle
-            ok, frame = cap.read()
-            if not ok:
-                raise RuntimeError('camera read failed')
-        if frame is None or frame.shape[:2] != (height, width):
-            raise RuntimeError(f'unexpected frame shape {None if frame is None else frame.shape}')
-        props = dict(fourcc=int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, 'little').decode(errors='replace'),
-                     width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), fps=cap.get(cv2.CAP_PROP_FPS))
-        return frame, props
-    finally:
-        cap.release()
+    """One current frame via the shared grabber (tools/camera_preview.py); warmup lets auto-exposure settle."""
+    from camera_preview import FrameGrabber
+    with FrameGrabber(device, width=width, height=height, warmup=warmup) as grabber:
+        _seq, _stamp, frame = grabber.wait_for_new(-1)
+        frame = frame.copy(); props = dict(grabber.properties)
+    if frame is None or frame.shape[:2] != (height, width):
+        raise RuntimeError(f'unexpected frame shape {None if frame is None else frame.shape}')
+    return frame, props
 
 
 def main(argv=None) -> int:
