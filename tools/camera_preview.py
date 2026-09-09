@@ -116,24 +116,87 @@ def display_available() -> bool:
     return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
+def compose_view(frame, step: int, status: str, overlays, flash: bool):
+    """Half-resolution PIL image of ``frame`` with the status bar, target overlays and the save dot.
+
+    ``overlays`` is a list of dicts with full-resolution ``box`` [x0, y0, x1, y1], optional ``label``
+    and ``color`` (RGB tuple); they are drawn as thick rectangles so a viewer sees where the board
+    should go.
+    """
+    from PIL import Image, ImageDraw
+
+    image = Image.fromarray(np.ascontiguousarray(frame[::step, ::step, ::-1]))
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
+    for item in overlays or ():
+        x0, y0, x1, y1 = [v / step for v in item["box"]]
+        color = tuple(item.get("color", (255, 220, 0)))
+        for k in range(3):
+            draw.rectangle([x0 + k, y0 + k, x1 - k, y1 - k], outline=color)
+        label = item.get("label")
+        if label:
+            draw.rectangle([x0, max(0, y0 - 18), x0 + 8 * len(label) + 8, max(0, y0 - 18) + 18], fill=color)
+            draw.text((x0 + 4, max(0, y0 - 18) + 3), label, fill=(0, 0, 0))
+    if status:
+        draw.rectangle([0, 0, width, 22], fill=(0, 0, 0))
+        draw.text((6, 4), status[:170], fill=(255, 255, 255))
+    if flash:
+        r = max(8, int(0.02 * width))
+        cx, cy = width - r - 12, r + 12
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 40, 40), outline=(255, 255, 255))
+    return image
+
+
+class SnapshotWriter:
+    """Writes the composed view to ``path`` atomically at most every ``interval`` seconds (for a remote viewer)."""
+
+    def __init__(self, path, interval: float = 1.0) -> None:
+        self.path = path
+        self.interval = float(interval)
+        self._last = 0.0
+
+    def maybe_write(self, image) -> bool:
+        now = time.time()
+        if now - self._last < self.interval:
+            return False
+        tmp = str(self.path) + ".tmp"
+        image.save(tmp, format="JPEG", quality=80)
+        os.replace(tmp, self.path)
+        self._last = now
+        return True
+
+
 class _HeadlessPreview:
-    """Stand-in with the PreviewWindow interface when no display exists."""
+    """Stand-in with the PreviewWindow interface when no display exists (still writes snapshots if asked)."""
 
     closed = False
     headless = True
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, title: str = "", grabber: Optional[FrameGrabber] = None, scale: float = 0.5, snapshot=None, **kwargs: Any) -> None:
         print("no display: DISPLAY/WAYLAND_DISPLAY are unset in this shell, so the preview window cannot open; "
               "capturing without it (run from an interactive WSLg terminal to see the live stream).", flush=True)
+        self.grabber = grabber
+        self._step = max(1, int(round(1.0 / float(scale))))
+        self._status = ""
+        self._overlays: list = []
+        self._flash_until = 0.0
+        self._snapshot = SnapshotWriter(snapshot) if snapshot else None
 
     def flash(self, seconds: float = 0.4) -> None:
-        pass
+        self._flash_until = time.time() + float(seconds)
 
     def set_status(self, text: str) -> None:
-        pass
+        self._status = str(text)
+
+    def set_overlays(self, overlays) -> None:
+        self._overlays = list(overlays or ())
 
     def run(self, until: Callable[[], bool]) -> None:
         while not until():
+            if self._snapshot is not None and self.grabber is not None:
+                _seq, _stamp, frame = self.grabber.latest()
+                if frame is not None:
+                    self._snapshot.maybe_write(compose_view(frame, self._step, self._status, self._overlays, time.time() < self._flash_until))
             time.sleep(0.05)
 
     def close(self) -> None:
@@ -150,7 +213,7 @@ class PreviewWindow:
             return _HeadlessPreview()
         return super().__new__(cls)
 
-    def __init__(self, title: str, grabber: FrameGrabber, scale: float = 0.5, interval_ms: int = 15) -> None:
+    def __init__(self, title: str, grabber: FrameGrabber, scale: float = 0.5, interval_ms: int = 15, snapshot=None) -> None:
         import tkinter as tk
 
         from PIL import Image, ImageDraw, ImageTk
@@ -162,6 +225,8 @@ class PreviewWindow:
         self.closed = False
         self._flash_until = 0.0
         self._status = ""
+        self._overlays: list = []
+        self._snapshot = SnapshotWriter(snapshot) if snapshot else None
         self._shown_seq = -1
         self._root = tk.Tk()
         self._root.title(title)
@@ -186,6 +251,10 @@ class PreviewWindow:
     def set_status(self, text: str) -> None:
         self._status = str(text)
 
+    def set_overlays(self, overlays) -> None:
+        """Full-resolution boxes to highlight (list of {box:[x0,y0,x1,y1], label, color}); replaces the previous set."""
+        self._overlays = list(overlays or ())
+
     def close(self) -> None:
         if not self.closed:
             self.closed = True
@@ -203,15 +272,9 @@ class PreviewWindow:
         seq, _stamp, frame = self.grabber.latest()
         if seq != self._shown_seq and frame is not None:
             self._shown_seq = seq
-            image = self._Image.fromarray(np.ascontiguousarray(frame[::self._step, ::self._step, ::-1]))
-            draw = self._ImageDraw.Draw(image)
-            if self._status:
-                draw.rectangle([0, 0, self._size[0], 22], fill=(0, 0, 0))
-                draw.text((6, 4), self._status[:160], fill=(255, 255, 255))
-            if time.time() < self._flash_until:
-                r = max(8, int(0.02 * self._size[0]))
-                cx, cy = self._size[0] - r - 12, r + 12
-                draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 40, 40), outline=(255, 255, 255))
+            image = compose_view(frame, self._step, self._status, self._overlays, time.time() < self._flash_until)
+            if self._snapshot is not None:
+                self._snapshot.maybe_write(image)
             if self._photo is None or self._photo.width() != image.width or self._photo.height() != image.height:
                 self._photo = self._ImageTk.PhotoImage(image)
                 self._label.configure(image=self._photo)

@@ -18,6 +18,15 @@ off at a frame edge.
 A live preview window (tools/camera_preview.py) shows the stream while the tool
 runs; a red dot flashes in its top-right corner every time a frame is saved.
 ``--no-preview`` disables it; without a display it degrades to headless.
+
+Guided mode (``--guided targets.json --live-dir DIR``): the JSON lists poses to
+collect, e.g. ``[{"cell": "ML", "tilt": "flat"}, {"cell": "BR", "tilt": "tilted"}]``.
+The window highlights the current target cell and says what to do; a target is
+done when a KEPT frame has its board centre inside that cell with the requested
+tilt (estimated by solvePnP against the current intrinsics). The targets file is
+re-read whenever it changes, so a remote guide can re-order or add poses live.
+``DIR/live.jpg`` (the composed view, ~1 Hz) and ``DIR/state.json`` (targets,
+progress, what the detector currently sees) let that guide watch along.
 """
 from __future__ import annotations
 import argparse
@@ -85,6 +94,35 @@ def coverage_hint(grid, target):
     return missing
 
 
+def cell_box(name, width=1920, height=1080):
+    """Full-resolution [x0, y0, x1, y1] of a coverage cell by name (e.g. 'ML')."""
+    for r in range(GRID_ROWS):
+        for c in range(GRID_COLS):
+            if CELL_NAMES[r][c] == name:
+                return [c * width / GRID_COLS, r * height / GRID_ROWS, (c + 1) * width / GRID_COLS, (r + 1) * height / GRID_ROWS]
+    raise KeyError(name)
+
+
+def cell_of_point(x, y, width=1920, height=1080):
+    c = min(GRID_COLS - 1, max(0, int(x * GRID_COLS / width))); r = min(GRID_ROWS - 1, max(0, int(y * GRID_ROWS / height)))
+    return CELL_NAMES[r][c]
+
+
+def board_tilt_deg(corners, board, K, dist):
+    """Angle between the board normal and the optical axis (0 = facing the camera squarely), via solvePnP."""
+    import cv2
+    cols, rows = board['inner_corners']; s = board['square_mm'] / 1000.0
+    objp = np.array([[c * s, r * s, 0.0] for r in range(rows) for c in range(cols)], dtype=np.float64)
+    ok, rvec, _tvec = cv2.solvePnP(objp, np.asarray(corners, dtype=np.float64).reshape(-1, 1, 2), np.asarray(K, dtype=np.float64), np.asarray(dist, dtype=np.float64))
+    if not ok:
+        return None
+    R, _ = cv2.Rodrigues(rvec)
+    return float(np.degrees(np.arccos(min(1.0, abs(float(R[2, 2]))))))
+
+
+TILT_RULES = dict(flat=lambda a: a is not None and a < 15.0, tilted=lambda a: a is not None and a >= 20.0, any=lambda a: True)
+
+
 def main(argv=None) -> int:
     import cv2
     p = argparse.ArgumentParser(description=__doc__)
@@ -99,6 +137,9 @@ def main(argv=None) -> int:
     p.add_argument('--coverage-target', type=int, default=4, help='intrinsics: views wanted per grid cell before a cell counts as covered')
     p.add_argument('--label-prefix', default=None, help='label prefix for kept records (default int_/ext_); numbering continues after existing records')
     p.add_argument('--no-preview', action='store_true', help='do not open the live preview window')
+    p.add_argument('--guided', type=Path, default=None, help='intrinsics: JSON list of target poses [{cell, tilt: flat|tilted|any}], re-read when it changes')
+    p.add_argument('--live-dir', type=Path, default=None, help='write live.jpg (composed view) and state.json here for a remote guide')
+    p.add_argument('--intrinsics', type=Path, default=ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json', help='current intrinsics used only for the rough tilt estimate in guided mode')
     args = p.parse_args(argv)
     from camera_preview import FrameGrabber, PreviewWindow, _HeadlessPreview, run_with_preview
     board = json.loads(args.board.read_text()); inner = board['inner_corners']
@@ -109,7 +150,50 @@ def main(argv=None) -> int:
     if grid is not None:
         print(f"coverage from {len(existing)} existing views (rows top->bottom, cols left->right):\n{grid}\nstill needed (<{args.coverage_target} views): {coverage_hint(grid, args.coverage_target)}", flush=True)
     grabber = FrameGrabber(args.device)
-    preview = _HeadlessPreview() if args.no_preview else PreviewWindow(f'wrist camera: checkerboard {args.mode}', grabber)
+    snapshot = None
+    if args.live_dir is not None:
+        args.live_dir.mkdir(parents=True, exist_ok=True); snapshot = args.live_dir / 'live.jpg'
+    preview = _HeadlessPreview('', grabber, snapshot=snapshot) if args.no_preview else PreviewWindow(f'wrist camera: checkerboard {args.mode}', grabber, snapshot=snapshot)
+    K_tilt = dist_tilt = None
+    if args.guided is not None and args.intrinsics.exists():
+        sel = json.loads(args.intrinsics.read_text()).get('selected', {})
+        if 'K' in sel and 'dist' in sel and not sel.get('model', '').startswith('fisheye'):
+            K_tilt, dist_tilt = sel['K'], sel['dist'][:5]
+    if K_tilt is None:
+        K_tilt, dist_tilt = [[1335.0, 0, 960.0], [0, 1335.0, 540.0], [0, 0, 1]], [0, 0, 0, 0, 0]
+    targets = []; targets_mtime = None; targets_done = []
+    def load_targets():
+        nonlocal targets, targets_mtime
+        if args.guided is None or not args.guided.exists():
+            return
+        m = args.guided.stat().st_mtime
+        if m != targets_mtime:
+            try:
+                targets = json.loads(args.guided.read_text()); targets_mtime = m
+                names = [f"{x['cell']}/{x.get('tilt', 'any')}" for x in targets]
+                print(f"targets loaded: {names}", flush=True)
+            except (ValueError, KeyError) as exc:
+                print(f'targets file unreadable ({exc}); keeping the previous list', flush=True)
+    def current_target():
+        for x in targets:
+            key = f"{x['cell']}/{x.get('tilt', 'any')}"
+            if key not in targets_done:
+                return x
+        return None
+    def target_overlays():
+        x = current_target()
+        if x is None:
+            return []
+        tilt = x.get('tilt', 'any'); hint = {'flat': 'facing the camera squarely', 'tilted': 'tilted ~30 deg', 'any': ''}[tilt]
+        return [dict(box=cell_box(x['cell']), label=f"PUT BOARD HERE ({x['cell']}) {hint}".strip(), color=(255, 220, 0))]
+    def write_state(extra):
+        if args.live_dir is None:
+            return
+        state = dict(updated_at=datetime.now(timezone.utc).isoformat(), elapsed_s=round(time.time() - start_time, 1), kept_this_run=len(kept), total_records=len(existing),
+                     coverage_grid=(grid.tolist() if grid is not None else None), still_needed=(coverage_hint(grid, args.coverage_target) if grid is not None else None),
+                     targets=[f"{x['cell']}/{x.get('tilt', 'any')}" for x in targets], targets_done=list(targets_done), current_target=current_target(), **extra)
+        tmp = args.live_dir / 'state.json.tmp'; tmp.write_text(json.dumps(state, indent=1)); tmp.replace(args.live_dir / 'state.json')
+    start_time = time.time()
     robot = None
     if args.mode == 'extrinsics':
         from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
@@ -141,9 +225,10 @@ def main(argv=None) -> int:
     def loop():
         nonlocal attempts, last_corners, last_hint, last_seq
         deadline = time.time() + args.seconds
-        status('starting')
+        status('starting'); load_targets(); preview.set_overlays(target_overlays()); write_state(dict(seen=None, last_hint=''))
         while time.time() < deadline and len(kept) < args.max_keep and not preview.closed:
             attempts += 1
+            load_targets(); preview.set_overlays(target_overlays())
             before = after = None
             if robot is not None:
                 before = np.array([[float(robot.bus.sync_read('Present_Position')[n]) for n in JOINT_NAMES] for _ in range(3)])
@@ -157,11 +242,19 @@ def main(argv=None) -> int:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             sharp = float(cv2.Laplacian(gray, cv2.CV_64F).var())
             corners = find_board(gray, inner)
+            seen = None
+            if corners is not None:
+                centre = corners.mean(axis=0); tilt = board_tilt_deg(corners, board, K_tilt, dist_tilt) if args.guided is not None else None
+                seen = dict(centre_px=[int(centre[0]), int(centre[1])], centre_cell=cell_of_point(*centre), cells=sorted(CELL_NAMES[r][c] for r, c in coverage_cells(corners)),
+                            tilt_deg=(None if tilt is None else round(tilt, 1)), sharpness=round(sharp, 1))
             if args.assist and grid is not None:
                 line = hint_line(gray, corners)
+                if seen is not None:
+                    line += f" | board centre in {seen['centre_cell']}" + (f", tilt {seen['tilt_deg']} deg" if seen['tilt_deg'] is not None else '')
                 if line != last_hint:
                     print(f"{time.time() - (deadline - args.seconds):5.1f}s {line}", flush=True); last_hint = line
                 status(line)
+            write_state(dict(seen=seen, last_hint=last_hint))
             if corners is None:
                 reasons['no_board'] = reasons.get('no_board', 0) + 1; continue
             if sharp < 40:
@@ -189,6 +282,13 @@ def main(argv=None) -> int:
                   + (f" | still needed: {coverage_hint(grid, args.coverage_target)}" if grid is not None else ''), flush=True)
             existing.append(record); preview.flash()
             status(f"saved {record['label']}" + (f" | needed: {coverage_hint(grid, args.coverage_target)}" if grid is not None else ''))
+            if seen is not None:
+                tgt = current_target()
+                if tgt is not None and seen['centre_cell'] == tgt['cell'] and TILT_RULES[tgt.get('tilt', 'any')](seen['tilt_deg']):
+                    key = f"{tgt['cell']}/{tgt.get('tilt', 'any')}"; targets_done.append(key)
+                    print(f"TARGET DONE {key} with {record['label']} (tilt {seen['tilt_deg']}) -> next: {current_target()}", flush=True)
+                    preview.set_overlays(target_overlays())
+                write_state(dict(seen=seen, last_hint=last_hint, last_kept=dict(label=record['label'], **seen)))
     try:
         run_with_preview(loop, preview)
     finally:
@@ -198,6 +298,9 @@ def main(argv=None) -> int:
     summary = dict(kept=len(kept), attempts=attempts, rejected=reasons)
     if grid is not None:
         summary.update(coverage_grid=grid.tolist(), still_needed=coverage_hint(grid, args.coverage_target))
+    if args.guided is not None:
+        summary.update(targets_done=targets_done, targets_remaining=[f"{x['cell']}/{x.get('tilt', 'any')}" for x in targets if f"{x['cell']}/{x.get('tilt', 'any')}" not in targets_done])
+    write_state(dict(finished=True, summary=summary))
     print(json.dumps(summary))
     return 0
 
