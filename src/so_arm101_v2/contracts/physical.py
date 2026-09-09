@@ -235,13 +235,98 @@ def evaluate_physical_command(
     )
 
 
+@dataclass(frozen=True)
+class HoldDecision:
+    """One gated control step: what the policy asked, what will be executed, and why it was held.
+
+    Shared by the simulator adapter and the physical runner so both apply the
+    identical bench rule: a nonfinite request becomes the current pose, and any
+    clip or limiter mask holds the current pose outright (no partial limiting).
+    ``sent_physical`` is the servo-normalized command to write: the
+    relative-limited request, or the measured present pose when held.
+    """
+
+    policy_act: NDArray[np.float32]
+    requested_act: NDArray[np.float32]
+    executed_act: NDArray[np.float32]
+    sent_physical: NDArray[np.float32]
+    raw_goal_ticks: NDArray[np.int32]
+    held: bool
+    hold_reason: str
+    nonfinite: bool
+    evaluation: PhysicalCommandEvaluation
+
+    @property
+    def command_bound_violation(self) -> bool:
+        e = self.evaluation
+        return bool(np.any(e.act_clip_mask) or np.any(e.mujoco_clip_mask) or np.any(e.physical_clip_mask))
+
+    @property
+    def delta_limiter_activated(self) -> bool:
+        return bool(np.any(self.evaluation.relative_limit_mask))
+
+
+def _mask_reason(evaluation: PhysicalCommandEvaluation) -> str:
+    parts = []
+    for name in ("act_clip", "mujoco_clip", "physical_clip", "relative_limit"):
+        mask = getattr(evaluation, f"{name}_mask")
+        if np.any(mask):
+            joints = ",".join(JOINT_NAMES[i] for i in np.flatnonzero(mask))
+            parts.append(f"{name}:{joints}")
+    return ";".join(parts)
+
+
+def bench_hold_decision(
+    current_act: Any,
+    policy_act: Any,
+    *,
+    shoulder_floor: float | None,
+    joint_map: Any | None,
+    max_relative_target: float = 20.0,
+    calibration: PhysicalCalibration | None = None,
+    hold_on_any_mask: bool = True,
+) -> HoldDecision:
+    """Gate one policy command exactly as ``MujocoTaskAdapter.apply_policy_command`` does.
+
+    With ``hold_on_any_mask`` (the bench rule) any mask holds the current pose;
+    without it (legacy lane) the executed command is the relative-limited one.
+    """
+    current = np.asarray(current_act, dtype=np.float32)
+    if current.shape != (6,) or not np.all(np.isfinite(current)):
+        raise ValueError("current ACT pose must be six finite values")
+    policy = np.asarray(policy_act, dtype=np.float32)
+    nonfinite = policy.shape != (6,) or not np.all(np.isfinite(policy))
+    requested = current.copy() if nonfinite else policy.copy()
+    evaluation = evaluate_physical_command(
+        current, requested, calibration=calibration, max_relative_target=max_relative_target,
+        shoulder_floor=shoulder_floor, joint_map=joint_map,
+    )
+    executed = physical_normalized_to_act(evaluation.relative_limited_physical)
+    sent = evaluation.relative_limited_physical
+    reason = _mask_reason(evaluation)
+    held = False
+    if hold_on_any_mask and reason:
+        held = True
+        executed = current.copy()
+        sent = evaluation.current_physical
+    if nonfinite:
+        reason = "nonfinite" + (";" + reason if reason else "")
+    return HoldDecision(
+        policy_act=policy, requested_act=requested, executed_act=np.asarray(executed, dtype=np.float32),
+        sent_physical=np.asarray(sent, dtype=np.float32), raw_goal_ticks=evaluation.raw_goal_ticks,
+        held=held, hold_reason=reason, nonfinite=bool(nonfinite), evaluation=evaluation,
+    )
+
+
 __all__ = [
     "PHYSICAL_NORMALIZED_HIGH",
     "PHYSICAL_NORMALIZED_LOW",
+    "HoldDecision",
     "JointCalibration",
     "PhysicalCalibration",
     "PhysicalCommandEvaluation",
     "act_to_physical_normalized",
+    "bench_hold_decision",
     "evaluate_physical_command",
     "load_physical_calibration",
     "physical_normalized_to_act",

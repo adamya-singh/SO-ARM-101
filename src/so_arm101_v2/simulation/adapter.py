@@ -13,6 +13,7 @@ from so_arm101_v2.contracts import (
     PickPlaceMeasurement,
     TaskMeasurement,
     act_to_mujoco_qpos,
+    bench_hold_decision,
     evaluate_physical_command,
     mujoco_qpos_to_act,
     physical_normalized_to_act,
@@ -264,30 +265,24 @@ class MujocoTaskAdapter:
         self._previous_privileged_snapshot = self.privileged_state()
         self._previous_contact_snapshot = self.privileged_contact_state()
         current = self.current_act()
-        requested = np.asarray(requested_act, dtype=np.float32)
-        nonfinite = requested.shape != (6,) or not np.all(np.isfinite(requested))
-        if nonfinite:
-            requested = current.copy()
-        evaluation = evaluate_physical_command(current, requested,
+        # The gate (nonfinite -> current; bench: any mask -> hold) is shared with
+        # the physical runner so both lanes execute the identical rule.
+        decision = bench_hold_decision(
+            current, requested_act,
             shoulder_floor=self.bench.shoulder_floor if self.bench else None,
-            joint_map=None if self.joint_map.legacy else self.joint_map)
-        executed = physical_normalized_to_act(evaluation.relative_limited_physical)
-        if self.bench and (np.any(evaluation.physical_clip_mask) or np.any(evaluation.mujoco_clip_mask)
-                           or np.any(evaluation.act_clip_mask) or np.any(evaluation.relative_limit_mask)):
-            executed = current.copy()
-        qpos = self.joint_map.act_to_mujoco(executed)
+            joint_map=None if self.joint_map.legacy else self.joint_map,
+            hold_on_any_mask=self.bench is not None,
+        )
+        evaluation = decision.evaluation
+        qpos = self.joint_map.act_to_mujoco(decision.executed_act)
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
             self.data.ctrl[actuator] = float(value)
         return CommandApplication(
-            requested_act=requested,
-            executed_act=executed,
-            command_bound_violation=bool(
-                np.any(evaluation.act_clip_mask)
-                or np.any(evaluation.mujoco_clip_mask)
-                or np.any(evaluation.physical_clip_mask)
-            ),
-            delta_limiter_activated=bool(np.any(evaluation.relative_limit_mask)),
-            nonfinite_command=bool(nonfinite),
+            requested_act=decision.requested_act,
+            executed_act=decision.executed_act,
+            command_bound_violation=decision.command_bound_violation,
+            delta_limiter_activated=decision.delta_limiter_activated,
+            nonfinite_command=decision.nonfinite,
             act_clip_mask=evaluation.act_clip_mask,
             mujoco_clip_mask=evaluation.mujoco_clip_mask,
             relative_limit_mask=evaluation.relative_limit_mask,

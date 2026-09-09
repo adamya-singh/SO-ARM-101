@@ -98,6 +98,11 @@ class VisionChunkedPolicy:
         self.action_index = 0
         self._buffer = []
 
+    @property
+    def needs_frame(self) -> bool:
+        """True when the next ``predict`` will run the network and therefore needs a real frame."""
+        return not self._buffer
+
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
         del adapter
         if not self._buffer:
