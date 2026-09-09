@@ -1,0 +1,16 @@
+{
+  "suites": {
+    "train": {
+      "suite_id": "bench_pick_replace_v1_seed12_n400_27aa44bd0fe6",
+      "path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/suites/bench_pick_replace_v1_seed12_n400_27aa44bd0fe6/suite.json",
+      "preflight": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/simulation/preflight/bench_pick_replace_v1_seed12_n400_27aa44bd0fe6/evaluation.json"
+    },
+    "heldout": {
+      "suite_id": "bench_pick_replace_v1_seed8_n10_c5cfbeeea11d",
+      "path": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/suites/bench_pick_replace_v1_seed8_n10_c5cfbeeea11d/suite.json",
+      "preflight": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/simulation/preflight/bench_pick_replace_v1_seed8_n10_c5cfbeeea11d/evaluation.json"
+    }
+  },
+  "capture_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/capture/oracle/bench_pick_replace_v1_seed12_n400_27aa44bd0fe6/70267089669aade3/manifest.json",
+  "capture_manifest_sha256": "e6cb4269cdd159ba42fd3df779c02397a74b6f699d598fc8779874ffc1c09a58"
+}

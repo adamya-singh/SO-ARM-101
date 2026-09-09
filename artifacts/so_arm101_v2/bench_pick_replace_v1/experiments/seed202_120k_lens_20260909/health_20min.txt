@@ -1,0 +1,11 @@
+=== HEALTH CHECK 20 min after the first optimizer step (2026-09-09 15:23:43) ===
+status=running phase=training pid=44179 alive=True
+experiment started 76.2 min ago; progress.json updated 1 s ago
+training: step 85200 (of 120000), loss 1.764e-06, first optimizer step 21.0 min ago
+loss trend: mean(last 50) 2.358e-06 vs mean(450-500 steps ago) 1.601e-05
+throughput: 68.54 steps/s now vs post-warmup median 67.53
+estimated remaining: 0.14 h
+scratch checkpoint age: 0.1 min
+gpu: 2717/24576 MiB, 30% util
+wandb: url=https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw tracking_error=None last_ok=1788981821.983884
+exit 0

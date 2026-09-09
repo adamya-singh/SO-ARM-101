@@ -1,0 +1,161 @@
+{
+  "bench": {
+    "approach_pitch_deg": 5.0,
+    "base_front_edge_y_m": 0.0646353,
+    "camera_fovy_deg": 44.85,
+    "camera_pos": [
+      0.0004901,
+      0.0002011,
+      0.0783225
+    ],
+    "camera_quat_wxyz": [
+      -0.0377976,
+      0.0137259,
+      0.5475767,
+      0.8357887
+    ],
+    "cube_edge_m": 0.02,
+    "depth_lead_m": 0.0,
+    "distance_reference": "base_front_edge",
+    "grasp_offset_m": 0.003,
+    "grasp_pad": 1,
+    "joint_map": "measured_20260908b",
+    "lens": {
+      "calibration_rms_px": 1.651,
+      "cx": 867.465,
+      "cy": 531.906,
+      "dist": [
+        1.868187,
+        11.048714,
+        -0.001691,
+        0.00279,
+        1.326563,
+        2.38168,
+        12.079937,
+        6.246789
+      ],
+      "framing": "full_frame_squash",
+      "fx": 1309.354,
+      "fy": 1308.542,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+      "model": "opencv_rational_8",
+      "observation_size": 256,
+      "render_fovy_deg": 90.34,
+      "render_size": [
+        1600,
+        900
+      ],
+      "supersample": [
+        8,
+        5
+      ]
+    },
+    "measured_forward_distance_m": 0.2159,
+    "observation_steps": 90,
+    "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+    "reset_physical": [
+      0.49315068493149283,
+      -90.83629893238434,
+      91.26126126126127,
+      43.64351245085189,
+      -1.1965811965811923,
+      13.533834586466165
+    ],
+    "schema_version": 1,
+    "shoulder_floor": -92.0,
+    "square_center_xy": [
+      0,
+      0.2805353
+    ],
+    "square_edge_m": 0.0508,
+    "square_thickness_m": 0.001,
+    "task_id": "bench_pick_replace_v1",
+    "viewing_qpos": [
+      2.6332525493444336e-08,
+      -3.094038963317871,
+      2.8808159828186035,
+      1.0737862586975098,
+      -1.6720390319824219,
+      0.08529800176620483
+    ]
+  },
+  "grasp_detector": "pad_normals_v2",
+  "max_steps": 120000,
+  "rehearsal": false,
+  "scene_dependencies_sha256": "7c765d4b5b1ff9696ff95cf0ef466d5fb5a002e11a2b14efad154984e17c5668",
+  "suite_counts": {
+    "heldout": 10,
+    "train": 400
+  },
+  "suite_seeds": {
+    "heldout": 8,
+    "train": 12
+  },
+  "training_seed": 202,
+  "verification": {
+    "camera_review": {
+      "calibration": {
+        "hand_eye": "../camera_calibration/zero_refine_photo_anchored.json",
+        "intrinsics": "../camera_calibration/camera_intrinsics.json",
+        "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+        "joint_map": "measured_20260908b",
+        "lens": {
+          "calibration_rms_px": 1.651,
+          "cx": 867.465,
+          "cy": 531.906,
+          "dist": [
+            1.868187,
+            11.048714,
+            -0.001691,
+            0.00279,
+            1.326563,
+            2.38168,
+            12.079937,
+            6.246789
+          ],
+          "framing": "full_frame_squash",
+          "fx": 1309.354,
+          "fy": 1308.542,
+          "image_size": [
+            1920,
+            1080
+          ],
+          "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+          "model": "opencv_rational_8",
+          "observation_size": 256,
+          "render_fovy_deg": 90.34,
+          "render_size": [
+            1600,
+            900
+          ],
+          "supersample": [
+            8,
+            5
+          ]
+        },
+        "previous_review": "camera_review_20260908.json",
+        "teacher_certification": "../teacher_certification/7c765d4b5b1ff969-pad_normals_v2"
+      },
+      "notes": "Lens-matched scene (full 1920x1080 frame squashed to 256x256 through the calibrated rational lens model; simulated_wrist_image is the synthetic raw frame made from the 90.34-degree pinhole render). User, 2026-09-09: \"yeah the review images look good for now, they should be saved in the docs along with this decision.\" Reviewed material: the observation pair (real frame through the area filter vs sim through the lens operator) and the projection overlay of the sim square/cube through the lens over the real rest-pose frame, both copied to readme-assets/bench-lens-review-*-20260909.png. Horizontal placement of the square now agrees within ~15 px at full resolution (the corrected principal point removed the previous ~100 px offset). Known residual, unchanged from the 2026-09-08 review and accepted again: the simulated square sits ~140 px (about 6 degrees of camera pitch) lower than the real paper towel, which is itself larger than the 50.8 mm model square; the user declined a camera-pitch refit for now.",
+      "observation_images": {
+        "compare_reset_observation_physical_left_sim_right_7c765d4b.png": "694475fe0cd7fdb2e2ccf59b9bc6fdf43c92e7a465b673a111775f86c119449a",
+        "compare_reset_sim_projection_over_physical_7c765d4b_gravity_rest_jaws_horizontal.png": "a682eb7b487e05d93454d054d9c2f7c5e21dae67b227946c3d652f597955a16a",
+        "physical_reset_observation_7c765d4b.png": "e5a996a1b59d464f9379ba05c5af7420dde9702b6343f99fe663ea7c04fac2ca",
+        "sim_reset_observation_7c765d4b.png": "a1c82c2f36811f5cc169b6ce919eeb878a12bead069a20b76a06be2816761914",
+        "sim_reset_wide_render_7c765d4b.png": "09257c70027e2760f355b3eb35241dab58317bf588f93d1a5e99fd72e07e8176"
+      },
+      "physical_wrist_image": "../camera_references/2026-09-07T153309_gravity_rest_jaws_horizontal.png",
+      "physical_wrist_image_sha256": "fc15a88358d16b3ad4d6cea8f059cf7d7fa0aa4bd3aea1c4e1e9467423c06e4a",
+      "reviewed_at": "2026-09-09T18:06:56.948612+00:00",
+      "reviewer": "7adamyasingh@gmail.com (bench owner)",
+      "simulated_wrist_image": "sim_reset_wrist_camera_7c765d4b.png",
+      "simulated_wrist_image_sha256": "22d031da36f54722c9c2b6a319429266f0955cc41d33f555a7a7a7ebed4295df"
+    },
+    "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+    "scene_dependencies_sha256": "7c765d4b5b1ff9696ff95cf0ef466d5fb5a002e11a2b14efad154984e17c5668"
+  }
+}

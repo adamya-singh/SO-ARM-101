@@ -325,4 +325,19 @@ run. What landed, each committed as its own tranche:
   the lens scene passed end to end.
 
 Run queued 2026-09-09 as `experiments/seed202_120k_lens_20260909` with
-`--workers 10`; W&B run `iziftplw`: https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw. Result: pending.
+`--workers 10`; W&B run `iziftplw`: https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw.
+
+| Suite | Policy | Success | Safety frames | Prefix ok |
+| --- | --- | ---: | ---: | ---: |
+| nominal (3 repeats) | vision | **3/3** | 0 | 3/3 |
+| nominal | vision, black image | 0/3 | 48 | 0/3 |
+| held-out (10 poses × 3) | vision | **30/30** | 0 | 30/30 |
+| held-out | vision, black image | 0/30 | 492 | 0/30 |
+
+Wall clock 94 min total (capture ~20 min with 10 workers, training 29.5 min
+at ~68 steps/s with the frame cache, evaluations ~5 min) versus 5.5 h for the
+first run. Held-out is perfect where the pinhole-scene run scored 27/30; the
+only held-out pose that failed before (`pose_006`) succeeds in all three
+repeats. One seed, so the 27 → 30 difference is suggestive, not established.
+Zero safety frames across all 33 vision rollouts; the black-image ablation
+collapses to 0, so the policy relies on the pixels.

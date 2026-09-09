@@ -23,8 +23,9 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
-**Bench status (September 9, 2026):** the second bench run is queued on a
-lens-matched simulator: the wrist lens was recalibrated with edge and corner
+**Bench status (September 9, 2026):** the second bench run, on a
+lens-matched simulator, scored **nominal 3/3 and held-out 30/30 with zero
+safety frames** (black-image ablation 0/33) in 94 minutes end to end: the wrist lens was recalibrated with edge and corner
 coverage, the simulator now renders a wide pinhole and resamples it through
 that lens so the policy sees the full camera frame exactly as the real
 camera delivers it, capture runs in parallel and training uses an in-RAM
@@ -776,10 +777,11 @@ reach and whose camera saw nearly twice the true field of view, so their
 numbers do not transfer. The current sequence, governed by the
 [bench runbook](notes/bench-pick-replace-v1.md):
 
-0. **Lens-matched rerun (queued 2026-09-09):** same recipe on the scene
+0. **Lens-matched rerun (done 2026-09-09):** same recipe on the scene
    whose observation reproduces the real lens (full frame squashed to
-   256×256); result pending. Real frames need no undistortion for this
-   policy family.
+   256×256): nominal 3/3, **held-out 30/30**, zero safety frames,
+   black-image ablation 0/33, in 94 minutes wall clock. Real frames need no
+   undistortion for this policy family. Single seed, exploratory.
 1. **Bench vision run (done 2026-09-08):** one pre-registered run, seed
    202, 120k steps, on 400 screened bench poses with 10 held-out. Nominal
    3/3, held-out 27/30, zero safety frames, black-image ablation 0/33.

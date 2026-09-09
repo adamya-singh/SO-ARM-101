@@ -1,0 +1,30 @@
+{
+  "nominal/vision": {
+    "successes": 3,
+    "rollouts": 3,
+    "safety_frames": 0,
+    "prefix_ok": 3,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_3de9de823621/evaluation.json"
+  },
+  "nominal/vision_black": {
+    "successes": 0,
+    "rollouts": 3,
+    "safety_frames": 48,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_3de9de823621/evaluation.json"
+  },
+  "heldout/vision": {
+    "successes": 30,
+    "rollouts": 30,
+    "safety_frames": 0,
+    "prefix_ok": 30,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n10_c5cfbeeea11d/evaluation.json"
+  },
+  "heldout/vision_black": {
+    "successes": 0,
+    "rollouts": 30,
+    "safety_frames": 492,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n10_c5cfbeeea11d/evaluation.json"
+  }
+}

@@ -7,7 +7,17 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-09)
 
-**Second pre-registered run queued 2026-09-09 on the lens-matched scene
+**Result (2026-09-09, finished 15:44 local, 94 min wall of which 29.5 min
+training at ~68 steps/s): nominal 3/3, held-out 30/30, zero safety frames
+in all 33 vision rollouts, prefix success 33/33, black-image ablation 0/33
+with heavy safety invalidation (pixels used).** First perfect held-out
+score on the bench task; the first run's single failing pose (`pose_006`,
+same held-out suite seed 8) now succeeds in all three repeats. Single seed,
+exploratory; the observation change is the only difference from run
+`tinmahze` (27/30). Summary in
+`experiments/seed202_120k_lens_20260909/evaluation_summary.json`.
+
+**Second pre-registered run ran 2026-09-09 on the lens-matched scene
 `7c765d4b…`** (same recipe: seed 202, 120k steps, 400/10 poses, w256,
 batch 64), experiment directory
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/`
