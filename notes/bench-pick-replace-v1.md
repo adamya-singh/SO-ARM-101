@@ -563,6 +563,13 @@ used the OLD incorrect distance and older code. It is superseded.
 
 ## Software inventory (reviewed 2026-09-06; lens additions 2026-09-09)
 
+2026-09-09 additions (evening): `contracts/physical.py::bench_hold_decision` (the
+shared gate; the adapter delegates to it), `so_arm101_v2.physical` (runner,
+sim backend, lerobot backend, camera, evidence) and
+`tools/run_physical_episode.py`; tests `test_hold_decision.py`,
+`test_physical_runner*.py`, `test_lerobot_backend.py`,
+`test_run_physical_episode.py`.
+
 2026-09-09 additions: `contracts/lens.py` (LensModel, operators);
 `BenchConfig.lens`; `MujocoTaskAdapter.render_wrist_observation()`;
 `tools/prepare_bench_scene.py --intrinsics`; `tools/camera_preview.py`
@@ -714,15 +721,16 @@ are later work.
    machine, and resume at the real 38 GB frame scale (the equivalence test
    covers the mechanism, not the scale).
 8. Re-run tests after code changes and proceed only through passing gates.
-9. **Physical preparation before any episode (open):** the gravity-rest
-   shoulder reads −92.08, below the −92 floor, so a reviewed shoulder lift
-   of a few units is needed to enter the contract; the elbow no longer
-   needs staging under `measured_20260908b`. Also verify the shoulder-pan
-   sign physically (one small hand rotation, read-only). Do not rewrite
-   legacy results or decisions to imply they apply to this task.
-10. **Deployment path (open):** undistort real frames with the calibrated
-    intrinsics before the policy; implement and test this in the physical
-    inference/replay path before the first learned-policy trial.
+9. **Physical preparation before any episode (tooling done 2026-09-09,
+   execution open):** `tools/run_physical_episode.py` performs the gated
+   approach from gravity rest to the recorded reset (the shoulder lift above
+   the −92 floor included) and the read-only pan-sign check at preflight;
+   the user still has to run them on site. Do not rewrite legacy results or
+   decisions to imply they apply to this task.
+10. **Deployment path (done 2026-09-09):** no undistortion; the lens-scene
+    policy expects the raw frame (BGR→RGB) through the exact area filter,
+    implemented in `physical/lerobot_backend.py` and proven bit-identical to
+    `LensModel.real_operator()` at preflight. See the smoke runbook.
 11. **After the run (done 2026-09-08, result above):** nominal 3/3,
     held-out 27/30, zero safety frames, ablation 0/33; a single seed is
     exploratory. If a promotion claim is wanted, pre-register a gate first. Next levers if it under-performs:

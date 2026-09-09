@@ -1,0 +1,195 @@
+{
+  "status": "completed",
+  "started_at": "2026-09-09T21:24:42.519514+00:00",
+  "mode": "sim_rehearsal",
+  "checkpoint": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/models/vision_h90/5e96018881d4140f/model.pt",
+  "checkpoint_sha256": "e76fa96eb3999e1eabf508fc971ce9c4b1aa7ea224a19f71422ff75a826618de",
+  "report_content_sha256": "6243569b1c20e3c2926d419e2e45ac014d50a54321f3c55e11ffa730c4897d07",
+  "policy_id": "vision_h90.seed202.gripper_clamp_v1",
+  "chunk_horizon": 90,
+  "teacher_horizon": 480,
+  "scene_dependencies_sha256": "7c765d4b5b1ff9696ff95cf0ef466d5fb5a002e11a2b14efad154984e17c5668",
+  "bench": {
+    "schema_version": 1,
+    "task_id": "bench_pick_replace_v1",
+    "shoulder_floor": -92.0,
+    "cube_edge_m": 0.02,
+    "square_edge_m": 0.0508,
+    "distance_reference": "base_front_edge",
+    "measured_forward_distance_m": 0.2159,
+    "base_front_edge_y_m": 0.0646353,
+    "square_center_xy": [
+      0,
+      0.2805353
+    ],
+    "square_thickness_m": 0.001,
+    "reset_physical": [
+      0.49315068493149283,
+      -90.83629893238434,
+      91.26126126126127,
+      43.64351245085189,
+      -1.1965811965811923,
+      13.533834586466165
+    ],
+    "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+    "viewing_qpos": [
+      2.6332525493444336e-08,
+      -3.094038963317871,
+      2.8808159828186035,
+      1.0737862586975098,
+      -1.6720390319824219,
+      0.08529800176620483
+    ],
+    "observation_steps": 90,
+    "approach_pitch_deg": 5.0,
+    "grasp_pad": 1,
+    "depth_lead_m": 0.0,
+    "grasp_offset_m": 0.003,
+    "camera_pos": [
+      0.0004901,
+      0.0002011,
+      0.0783225
+    ],
+    "camera_quat_wxyz": [
+      -0.0377976,
+      0.0137259,
+      0.5475767,
+      0.8357887
+    ],
+    "camera_fovy_deg": 44.85,
+    "joint_map": "measured_20260908b",
+    "lens": {
+      "model": "opencv_rational_8",
+      "image_size": [
+        1920,
+        1080
+      ],
+      "fx": 1309.354,
+      "fy": 1308.542,
+      "cx": 867.465,
+      "cy": 531.906,
+      "dist": [
+        1.868187,
+        11.048714,
+        -0.001691,
+        0.00279,
+        1.326563,
+        2.38168,
+        12.079937,
+        6.246789
+      ],
+      "render_fovy_deg": 90.34,
+      "render_size": [
+        1600,
+        900
+      ],
+      "framing": "full_frame_squash",
+      "observation_size": 256,
+      "supersample": [
+        8,
+        5
+      ],
+      "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+      "calibration_rms_px": 1.651
+    }
+  },
+  "lens": {
+    "model": "opencv_rational_8",
+    "image_size": [
+      1920,
+      1080
+    ],
+    "fx": 1309.354,
+    "fy": 1308.542,
+    "cx": 867.465,
+    "cy": 531.906,
+    "dist": [
+      1.868187,
+      11.048714,
+      -0.001691,
+      0.00279,
+      1.326563,
+      2.38168,
+      12.079937,
+      6.246789
+    ],
+    "render_fovy_deg": 90.34,
+    "render_size": [
+      1600,
+      900
+    ],
+    "framing": "full_frame_squash",
+    "observation_size": 256,
+    "supersample": [
+      8,
+      5
+    ],
+    "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+    "calibration_rms_px": 1.651
+  },
+  "observation_contract": "raw 1920x1080 MJPEG -> BGR->RGB -> exact area filter -> 256x256 (no undistortion, no crop)",
+  "calibration": {
+    "resource": "physical_inference_calibration_20260620.json",
+    "resource_sha256": "f48d0ca37c2152f1279ca88f7a34dbcbf2c3cbe37054cb4a55584a7f6c83eb40",
+    "live_file": "/home/win10ubuntu/.cache/huggingface/lerobot/calibration/robots/so_follower/None.json",
+    "live_sha256": "00c6940f682c47448c484ee727117d28439744cc4fbc93a60f9b492ce2892ca8"
+  },
+  "git": {
+    "commit": "75a705e48ee1f0e3c0c9c2885dad2c5d3bb18454",
+    "dirty": true
+  },
+  "torch": {
+    "version": "2.7.1+cu126",
+    "threads": 1
+  },
+  "control_hz": 30.0,
+  "max_actions": 480,
+  "confirmations": [],
+  "holds": null,
+  "finished_at": "2026-09-09T21:24:50.151599+00:00",
+  "backend": "simulation",
+  "actions": 427,
+  "success": true,
+  "invalidated": false,
+  "hold_frames": 0,
+  "aborted_reason": null,
+  "boundaries": [
+    {
+      "step": 0,
+      "observation_array_sha256": "d9b797e8ce697215afd6e0009c8dcc11148be9c5a48d1f89e3b12fe591b015e3",
+      "observation_png": "step_000.obs.png",
+      "observation_png_sha256": "8a811893b9cddef8a4ee5f763673ad5e72e30298e97ef35f1b6b0c630fd768ac"
+    },
+    {
+      "step": 90,
+      "observation_array_sha256": "1a33cab0ffe91b865bc5671b071f923179aefc5f09bc9a67d32067a22ec58c07",
+      "observation_png": "step_090.obs.png",
+      "observation_png_sha256": "fdb1b95a78a6ed14350b6b660c6b345417556f09e68ffd93c0a689c73d688384"
+    },
+    {
+      "step": 180,
+      "observation_array_sha256": "576a5f865b0d0290d295c8894a26651f294f7779529706bc3d6a33d2a653bb85",
+      "observation_png": "step_180.obs.png",
+      "observation_png_sha256": "fc6a80f152b65774e0425c0a95b94695aa83aee80dd75623b9eb22647faf6850"
+    },
+    {
+      "step": 270,
+      "observation_array_sha256": "b976d4cdf0657574d533eb410fe163d4e5f050815463f43e2e155a88811d206f",
+      "observation_png": "step_270.obs.png",
+      "observation_png_sha256": "494a1527a8990f7ee20462dcc4b27700b408da1a6748835d1f1837a6e0498bf2"
+    },
+    {
+      "step": 360,
+      "observation_array_sha256": "24eb016528f4321fd778538d7f89482f9ccbc563f304885417d2333acc1a694c",
+      "observation_png": "step_360.obs.png",
+      "observation_png_sha256": "c6fa9fff23f2831649b99bf3d2550c825226d7e291cd894bcd7de4785b83e2ba"
+    }
+  ],
+  "safety_counts": {
+    "clip": 0,
+    "limit": 0,
+    "nonfinite": 0,
+    "unsafe": 0
+  },
+  "steps_csv_sha256": "e5993e2819f65bfff433c9aed3bc180d15baf9a27305453057cd7ab88efeb502"
+}

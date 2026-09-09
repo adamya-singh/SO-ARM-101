@@ -341,3 +341,20 @@ only held-out pose that failed before (`pose_006`) succeeds in all three
 repeats. One seed, so the 27 → 30 difference is suggestive, not established.
 Zero safety frames across all 33 vision rollouts; the black-image ablation
 collapses to 0, so the policy relies on the pixels.
+
+### Physical inference runner built (2026-09-09, evening)
+
+`tools/run_physical_episode.py` with `so_arm101_v2.physical`: one control
+loop shared by a simulator backend and the real-arm backend. The simulator
+backend cross-checks the runner's gate against the adapter on every step and
+reproduces the stored nominal rollout of run `iziftplw` exactly with live
+renders (427 actions, success, max |Δ executed| = 0). The real backend holds
+on refusal like the bench rule (abort after 15 consecutive holds), converts
+BGR→RGB before the area filter (nothing on the live camera path did this
+before; it would have swapped red and blue silently), proves the fast
+resampler bit-identical at preflight, keeps absolute 30 Hz deadlines, and
+never disables torque. The approach to the reset pose (shoulder lift
+included) is a phase inside the tool, and the pan-sign check is a read-only
+preflight step. Tool-level rehearsal on the simulator:
+`artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/physical_runner_20260909/`.
+No physical episode has been run.

@@ -1,6 +1,6 @@
 # Physical Smoke Runbook (bench procedure)
 
-Updated 2026-09-08. **Full-task physical replay is not ready or authorized.** The bench sim run is in progress (see the bench runbook status); no learned policy exists yet. The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
+Updated 2026-09-09. **A physical inference runner now exists (`tools/run_physical_episode.py`); no physical episode has been run yet and none is authorized until its preflight passes and the user confirms each motion on site.** The lens-scene policy (run `iziftplw`, nominal 3/3, held-out 30/30) is the candidate. The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
 
 ## Current hardware and preparation
 
@@ -10,7 +10,36 @@ The arm is at gravity rest with torque off (power-cycled 2026-09-06; photographe
 
 The elbow staging tool (`tools/prepare_physical_elbow.py`) defaults to read-only dry run and is kept for reference; it moves only the elbow. Any shoulder lift needs its own reviewed tool. Motion always requires `--enable-motion`, a new log path and on-site confirmation. The shoulder floor remains −92 at every stage.
 
-**Camera at deployment (updated 2026-09-09):** policies trained on the lens-matched scene (`7c765d4b…` and later) expect the raw 1920×1080 MJPEG frame passed through `LensModel.real_operator()` from `src/so_arm101_v2/contracts/lens.py` (an exact area filter to 256×256; no undistortion, no crop), with the lens block taken from the scene's `bench_config.json`. Policies from the earlier pinhole scene would need undistortion and are superseded. No physical inference runner exists yet.
+**Camera at deployment (updated 2026-09-09):** policies trained on the lens-matched scene (`7c765d4b…` and later) expect the raw 1920×1080 MJPEG frame, **channel order flipped BGR→RGB** (OpenCV delivers BGR; the policy trained on MuJoCo's RGB renders), passed through `LensModel.real_operator()` from `src/so_arm101_v2/contracts/lens.py` (an exact area filter to 256×256; no undistortion, no crop), with the lens block taken from the scene's `bench_config.json`. In the control loop the runner computes that filter with `cv2.resize` in INTER_AREA mode, which `verify_fast_resampler` proves bit-identical on live frames at preflight (it refuses to run otherwise). Policies from the earlier pinhole scene would need undistortion and are superseded.
+
+## Physical inference runner (`tools/run_physical_episode.py`, 2026-09-09)
+
+One control loop (`src/so_arm101_v2/physical/runner.py`) serves two backends. The simulator backend drives a `MujocoTaskAdapter` through it and raises if the runner's gate ever differs from the adapter's; with pinned frames it reproduces `evaluate_closed_loop` row for row, and with live renders it reproduces the stored nominal rollout of run `iziftplw` exactly (`tests/test_physical_runner_parity.py`). The real backend (`physical/lerobot_backend.py`) reads joints with `read_measured_act` (100 ms staleness rule), takes the newest camera frame only at chunk boundaries (steps 0, 90, …; it must be ≤ 100 ms old and unused), gates every command with the shared bench rule (`bench_hold_decision`: any clip/limiter mask holds the current pose; 15 consecutive holds abort), sends through `robot.send_action` and aborts if the driver modifies a command, and keeps absolute 30 Hz deadlines (re-anchors after a large overrun; any step over 100 ms or three consecutive overruns aborts). Torque is never disabled; the bus is opened read-only (`robot.connect()`/`disconnect()` are never called).
+
+Modes, in the order to use them:
+
+```bash
+# 1. No hardware: the same tool path on the simulator, same evidence layout; must succeed.
+PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/run_physical_episode.py --sim-rehearsal --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/<new>
+
+# 2. Hardware, read-only (torque off): pinned calibration, fresh pose, camera rate >= 25 fps, resampler proof on
+#    live frames, pan-sign check (you rotate the base by hand the way the preview shows), policy dry pass.
+PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/run_physical_episode.py --preflight-only --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/physical/<new>
+
+# 3. Motion: confirmation -> torque on at the present pose -> gated approach to the recorded reset (0.5 units per
+#    step, gravity lead cap 10 units, feedback stop, 45 s timeout; this is the shoulder lift above the -92 floor)
+#    -> second confirmation -> the 16 s episode at 30 Hz with the camera recorded.
+PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/run_physical_episode.py --enable-motion --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/physical/<new>
+```
+
+Preconditions: usbipd 5-4 (serial) and 5-3 (camera) attached, `/dev/ttyACM0` and `/dev/video0` present; cube on the square, mousepad and lighting as in the reference frames; arm at gravity rest, power on, torque off; a hand near the power switch. The approach starts with the shoulder 0.08 units below the floor, which the gate tolerates because it clips targets, not the current pose; the runner refuses to start the episode unless the shoulder is above the floor and the pose is within 0.35 ACT of the recorded reset.
+
+Evidence per run directory: `run.json` (status, checkpoint and report hashes, scene hash, bench and lens blocks, calibration pin with the live file's hash, camera properties and measured rate, resampler proof, pan-sign result, policy dry pass, approach plan and result, confirmations with timestamps, start-pose delta, timing, holds, prefix check at step 90, file hashes), `steps.csv` (measured / policy / requested / executed / sent / returned values per step with hold reasons and latencies), `approach.csv`, `boundaries/` (raw and observation PNGs at every chunk boundary with hashes), `camera.mp4` with `camera_frames.csv`, `preflight/`. Record the outcome in `notes/vision-rung-notebook.md`.
+
+Ctrl-C during motion stops issuing commands and leaves torque on; it is not a mechanical stop. Support the arm before removing power.
 
 ## Replay modes and required evidence
 
