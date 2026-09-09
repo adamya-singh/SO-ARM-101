@@ -270,3 +270,29 @@ collapses to 0 with heavy safety invalidation, so the policy is using the
 pixels. Final train MSE ~1e-6. Single seed, exploratory: no promotion
 claim. Next levers, per the pre-registration: more data or a second seed
 before any recipe change.
+
+### Lens recalibration with edge coverage (2026-09-09)
+
+Why: the 2026-09-08 intrinsics were fit from board views concentrated in the
+upper-middle of the frame; the resulting 5-coefficient model's distorted radius
+peaks at 929 px from the centre while the frame corners lie 1101 px out, so the
+outer ~11 % of the frame had no invertible model. A full-frame simulated lens
+(the user's choice: the policy sees the whole 1920×1080 frame squashed to
+256×256) needs a model that reaches the corners with evidence behind it.
+
+Session: guided capture (`tools/capture_checkerboard.py --guided --live-dir`,
+new this day) with a live tkinter preview highlighting the target cell; the
+assistant watched the snapshot feed and narrated poses. 17 new views at the left
+and right edges, the four corners and the bottom-left/right; the bottom-centre
+cells `Bl`/`Br` are permanently filled by the fixed gripper jaw and were dropped
+(`--ignore-cells Bl,Br`). Tilted passes were skipped: the kept frames already
+carry 11–29° of incidental tilt.
+
+Refit on 46 views (29 old 7×16 board + 17 new 7×14 board, object points per
+view): outer annulus (>800 px) now holds 355 corners at 1.1–1.3 px RMS.
+Selected `pinhole_rational_8coef_free_principal_point`: RMS 1.651 px, fovy
+44.85°, fovx 72.5°, principal point (867.5, 531.9), valid radius 1873 px vs
+corner radius 1185 px. The fixed-principal-point rational model (1.72 px,
+fovy 44.01) and the fisheye (1.656 px) also cover the frame; both free models
+put the principal point ~70–90 px left of centre, so the offset is treated as
+real. The centre-only file is kept as `camera_intrinsics_20260908_centre.json`.

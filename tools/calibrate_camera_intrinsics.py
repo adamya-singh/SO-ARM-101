@@ -99,6 +99,7 @@ def main(argv=None) -> int:
     p.add_argument('--valid-margin', type=float, default=1.05, help='selected model must have valid radius >= margin x frame-corner radius')
     p.add_argument('--coverage-target', type=int, default=4, help='views per 4x3 cell wanted before the fit counts as full-frame evidence')
     p.add_argument('--min-outer-corners', type=int, default=200, help='corners beyond 800 px from the principal point required before a model may claim full-frame validity')
+    p.add_argument('--ignore-cells', default='', help='comma-separated coverage cells that cannot be observed (e.g. Bl,Br: the fixed gripper jaw fills them) and are excluded from the coverage requirement')
     args = p.parse_args(argv)
     records = [json.loads(Path(f).read_text()) for f in sorted(glob.glob(str(args.input_dir / '*.json')))]
     if len(records) < 8:
@@ -112,8 +113,11 @@ def main(argv=None) -> int:
         obj.append(o.astype(np.float32)); img.append(c.astype(np.float32).reshape(-1, 1, 2)); used.append(rec)
     boards = sorted({f"{r['board']['inner_corners'][0]}x{r['board']['inner_corners'][1]}@{r['board']['square_mm']}mm" for r in used})
     grid = coverage_grid(used)
+    ignored = {c.strip() for c in args.ignore_cells.split(',') if c.strip()}
+    def missing_cells():
+        return [c for c in coverage_hint(grid, args.coverage_target) if c not in ignored]
     print(f'{len(img)} views ({len(records) - len(img)} skipped for corner-count mismatch); boards {boards}')
-    print(f'coverage grid (rows top->bottom, cols left->right):\n{grid}\ncells below target {args.coverage_target}: {coverage_hint(grid, args.coverage_target)}')
+    print(f'coverage grid (rows top->bottom, cols left->right):\n{grid}\ncells below target {args.coverage_target}: {coverage_hint(grid, args.coverage_target)} (ignored: {sorted(ignored)})')
 
     def evaluate(name, rms, K, dist, rvecs, tvecs, fisheye=False):
         errs, radii, per_view = [], [], []
@@ -139,7 +143,7 @@ def main(argv=None) -> int:
                     # valid radius is a property of the fit, not evidence, so extrapolation alone never qualifies.
                     model_reaches_corners=bool(vr_norm >= args.valid_margin * c_norm),
                     outer_corners=int((radii >= 800.0).sum()),
-                    covers_full_frame=bool(vr_norm >= args.valid_margin * c_norm and (radii >= 800.0).sum() >= args.min_outer_corners and not coverage_hint(grid, args.coverage_target)))
+                    covers_full_frame=bool(vr_norm >= args.valid_margin * c_norm and (radii >= 800.0).sum() >= args.min_outer_corners and not missing_cells()))
 
     candidates = {}
     K0 = np.array([[1400.0, 0, W / 2], [0, 1400.0, H / 2], [0, 0, 1.0]])
@@ -177,7 +181,7 @@ def main(argv=None) -> int:
     else:
         selected = candidates['pinhole_5coef_fixed_principal_point']; selection = 'FALLBACK: no candidate has full-frame validity AND coverage evidence; centre-region model kept, do not build a full-frame lens on it'
     report = dict(written_at=datetime.now(timezone.utc).isoformat(), views=len(img), boards=boards, coverage_grid=grid.tolist(), coverage_cell_names=CELL_NAMES,
-                  coverage_below_target=coverage_hint(grid, args.coverage_target), coverage_target=args.coverage_target,
+                  coverage_below_target=coverage_hint(grid, args.coverage_target), coverage_ignored_cells=sorted(ignored), coverage_target=args.coverage_target,
                   selection_rule=selection, valid_margin=args.valid_margin, selected=selected, candidates=candidates,
                   fisheye=candidates.get('fisheye_equidistant'),
                   frames=[dict(frame=r['frame'], sha256=r['frame_sha256']) for r in used])
