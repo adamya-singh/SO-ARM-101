@@ -11,8 +11,8 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 `7c765d4b…`** (same recipe: seed 202, 120k steps, 400/10 poses, w256,
 batch 64), experiment directory
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/`
-(`wandb.json` there holds the W&B id once the pipeline starts; `tsp -l`
-shows the queue job). What changed since the first run, all recorded below
+(W&B run `iziftplw`, project `so-arm101-v2-scaling`:
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw; `tsp -l` shows the queue job). What changed since the first run, all recorded below
 under "Lens model and observation": the wrist lens was recalibrated with
 edge/corner coverage (rational 8-coefficient model, fovy 44.85°, principal
 point (867.5, 531.9)); the simulator now renders a 90.34° pinhole at

@@ -325,4 +325,4 @@ run. What landed, each committed as its own tranche:
   the lens scene passed end to end.
 
 Run queued 2026-09-09 as `experiments/seed202_120k_lens_20260909` with
-`--workers 10`; W&B id in that directory's `wandb.json`. Result: pending.
+`--workers 10`; W&B run `iziftplw`: https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw. Result: pending.
