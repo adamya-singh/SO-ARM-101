@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 import hashlib
 import io
 import json
+import multiprocessing
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from typing import Any, Iterable
 
@@ -27,6 +30,7 @@ from so_arm101_v2.data._serialization import (
 from so_arm101_v2.data.resources import RESOURCE_NAMES, read_resource_bytes
 
 from .adapter import MujocoTaskAdapter
+from .parallel import resolve_workers
 from .privileged import PrivilegedStagedController
 from .rollout import _VideoWriter
 from .suites import SimulationScenario, SimulationSuite, load_simulation_suite, suite_payload
@@ -115,6 +119,208 @@ def _write_immutable_bytes(path: Path, data: bytes) -> None:
     )
 
 
+_ORACLE_FIELDS = (
+    "scenario_index", "action_index", "progress", "current_act", "robot_qvel",
+    "cube_position", "cube_quaternion_wxyz", "cube_linear_velocity",
+    "cube_angular_velocity", "requested_act", "executed_act", "executed_delta_act",
+    "post_cube_position", "post_cube_footprint_inside", "post_cube_support_error_m",
+    "post_cube_linear_speed_m_s", "post_cube_angular_speed_rad_s", "post_gripper_act",
+    "post_jaw_cube_distance_m", "post_any_contact", "post_bilateral_interior_contact",
+    "post_strict_bilateral_grasp", "post_cube_height_gain_m", "post_unsafe_contact",
+    "post_command_bound_violation", "post_delta_limiter_activated", "post_nonfinite_command",
+)
+
+
+@dataclass(frozen=True)
+class _OracleScenarioTask:
+    model_path: str
+    scenario: SimulationScenario
+    scenario_index: int
+    teacher_horizon: int
+    contract: Any
+    temporary_dir: str
+    record_video: bool
+    frames_path: str | None
+    skip_failed_scenarios: bool
+
+
+@dataclass(frozen=True)
+class _OracleScenarioResult:
+    scenario_id: str
+    error: str | None
+    columns: dict[str, list[Any]]
+    events: list[dict[str, Any]]
+    boundaries: tuple[int, ...]
+    solve_diagnostics: list[dict[str, Any]]
+    safety_counts: dict[str, int]
+    final_evaluation: dict[str, Any] | None
+    video_names: tuple[str, ...]
+
+
+def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
+    """One deterministic teacher episode; frames go to this scenario's own memmap slot.
+
+    Exactly the sequential per-scenario body: a fresh adapter and controller and
+    the same failure rules. Nothing carries across scenarios, which is what makes
+    the process-parallel fan-out byte-identical.
+    """
+    item = task.scenario
+    contract = task.contract
+    horizon = task.teacher_horizon
+    temporary_path = Path(task.temporary_dir)
+    adapter = MujocoTaskAdapter(task.model_path)
+    controller = PrivilegedStagedController()
+    wrist_temp = temporary_path / f"{item.scenario_id}.wrist.mp4" if task.record_video else None
+    overview_temp = temporary_path / f"{item.scenario_id}.overview.mp4" if task.record_video else None
+    wrist = _VideoWriter(wrist_temp)
+    overview = _VideoWriter(overview_temp)
+    frames = np.load(task.frames_path, mmap_mode="r+") if task.frames_path is not None else None
+    base = task.scenario_index * horizon
+    state = PickPlaceEvaluationState()
+    columns: dict[str, list[Any]] = {name: [] for name in _ORACLE_FIELDS}
+    event_rows: list[dict[str, Any]] = []
+    evaluation = None
+    safety_counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
+    episode_error: str | None = None
+    try:
+        adapter.reset(item)
+        controller.reset(adapter)
+        for action_index in range(horizon):
+            snapshot = adapter.privileged_state()
+            raw = adapter.render_wrist_observation()
+            if frames is not None:
+                frames[base + action_index] = raw
+            wrist.add(raw)
+            if overview_temp is not None:
+                # The overview render only feeds the video writer; rendering never
+                # touches physics, so skipping it without video is digest-neutral.
+                overview.add(adapter.render("camera_side"))
+            requested = controller.predict(raw, snapshot.current_act, adapter)
+            command = adapter.apply_policy_command(requested)
+            adapter.advance_control_period()
+            measurement, _ = adapter.pick_place_measurement(
+                command,
+                footprint_edge_margin_m=contract.placement.footprint_edge_margin_m,
+            )
+            if not state.completed:
+                state, evaluation = evaluate_pick_place_step(contract, measurement, state)
+                pickup_events = [event.value for event in evaluation.pickup_events]
+                placement_events = [event.value for event in evaluation.events]
+            else:
+                pickup_events = []
+                placement_events = []
+
+            if float(np.max(np.abs(command.requested_act - command.executed_act))) > 1e-6:
+                raise RuntimeError("oracle requested and executed commands diverged")
+            safety_counts["clip"] += int(measurement.pickup.command_bound_violation)
+            safety_counts["limit"] += int(measurement.pickup.delta_limiter_activated)
+            safety_counts["nonfinite"] += int(measurement.pickup.nonfinite_command)
+            safety_counts["unsafe"] += int(measurement.pickup.unsafe_contact)
+
+            values: dict[str, Any] = {
+                "scenario_index": task.scenario_index,
+                "action_index": action_index,
+                "progress": action_index / (horizon - 1),
+                "current_act": snapshot.current_act,
+                "robot_qvel": snapshot.robot_qvel,
+                "cube_position": snapshot.cube_position,
+                "cube_quaternion_wxyz": snapshot.cube_quaternion_wxyz,
+                "cube_linear_velocity": snapshot.cube_linear_velocity,
+                "cube_angular_velocity": snapshot.cube_angular_velocity,
+                "requested_act": command.requested_act,
+                "executed_act": command.executed_act,
+                "executed_delta_act": command.executed_act - snapshot.current_act,
+                "post_cube_position": adapter.data.body("red_block").xpos.copy(),
+                "post_cube_footprint_inside": measurement.cube_footprint_inside,
+                "post_cube_support_error_m": measurement.cube_support_error_m,
+                "post_cube_linear_speed_m_s": measurement.cube_linear_speed_m_s,
+                "post_cube_angular_speed_rad_s": measurement.cube_angular_speed_rad_s,
+                "post_gripper_act": measurement.gripper_act,
+                "post_jaw_cube_distance_m": measurement.pickup.jaw_cube_distance_m,
+                "post_any_contact": measurement.pickup.any_contact,
+                "post_bilateral_interior_contact": measurement.pickup.bilateral_interior_contact,
+                "post_strict_bilateral_grasp": measurement.pickup.strict_bilateral_grasp,
+                "post_cube_height_gain_m": measurement.pickup.cube_height_gain_m,
+                "post_unsafe_contact": measurement.pickup.unsafe_contact,
+                "post_command_bound_violation": measurement.pickup.command_bound_violation,
+                "post_delta_limiter_activated": measurement.pickup.delta_limiter_activated,
+                "post_nonfinite_command": measurement.pickup.nonfinite_command,
+            }
+            for name, value in values.items():
+                columns[name].append(value)
+            event_rows.append({
+                "action_index": action_index,
+                "pickup_events": pickup_events,
+                "placement_events": placement_events,
+            })
+    except RuntimeError as exc:
+        if not task.skip_failed_scenarios:
+            raise
+        episode_error = str(exc)
+    finally:
+        wrist.close()
+        overview.close()
+        adapter.close()
+        if frames is not None:
+            frames.flush()
+            del frames
+    if episode_error is None and (
+        evaluation is None
+        or not evaluation.success
+        or len(event_rows) != horizon
+    ):
+        episode_error = (
+            f"oracle scenario {item.scenario_id} did not pass v3 within "
+            f"{horizon} actions"
+        )
+        if not task.skip_failed_scenarios:
+            raise RuntimeError(episode_error)
+    if episode_error is None and any(safety_counts.values()):
+        episode_error = f"oracle scenario {item.scenario_id} used the safety layer"
+        if not task.skip_failed_scenarios:
+            raise RuntimeError(episode_error)
+    if episode_error is not None:
+        return _OracleScenarioResult(
+            scenario_id=item.scenario_id, error=episode_error, columns={name: [] for name in _ORACLE_FIELDS},
+            events=[], boundaries=(), solve_diagnostics=[], safety_counts=safety_counts, final_evaluation=None, video_names=(),
+        )
+    video_names = (wrist_temp.name, overview_temp.name) if wrist_temp is not None and overview_temp is not None else ()
+    return _OracleScenarioResult(
+        scenario_id=item.scenario_id, error=None, columns=columns, events=event_rows,
+        boundaries=tuple(controller.boundaries), solve_diagnostics=list(controller.solve_diagnostics),
+        safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names,
+    )
+
+
+def _execute_capture_tasks(tasks: list[_OracleScenarioTask], *, workers: int) -> list[_OracleScenarioResult]:
+    """Run scenario captures in-process or on a spawn pool; results in submission order, progress to stderr."""
+    def report(index: int, result: _OracleScenarioResult) -> None:
+        status = "kept" if result.error is None else f"skipped ({result.error})"
+        print(f"oracle capture {index + 1}/{len(tasks)}: {result.scenario_id} {status}", file=sys.stderr, flush=True)
+
+    if workers <= 1 or len(tasks) <= 1:
+        results = []
+        for index, task in enumerate(tasks):
+            result = _capture_scenario(task)
+            report(index, result)
+            results.append(result)
+        return results
+    pool = ProcessPoolExecutor(
+        max_workers=min(workers, len(tasks)),
+        mp_context=multiprocessing.get_context("spawn"),
+    )
+    try:
+        futures = [pool.submit(_capture_scenario, task) for task in tasks]
+        results = []
+        for index, future in enumerate(futures):
+            result = future.result()
+            report(index, result)
+            results.append(result)
+        return results
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+
+
 def capture_oracle_demonstrations(
     model_path: str | Path,
     suite: SimulationSuite | str,
@@ -126,8 +332,17 @@ def capture_oracle_demonstrations(
     teacher_horizon: int = 450,
     store_frames: bool = False,
     skip_failed_scenarios: bool = False,
+    workers: int | None = None,
 ) -> OracleDemonstrationCollection:
-    """Capture one deterministic full-horizon teacher episode per scenario."""
+    """Capture one deterministic full-horizon teacher episode per scenario.
+
+    ``workers`` fans scenarios out over spawn-context processes; every published
+    byte (arrays, frames, manifest, collection digest) is identical to the
+    sequential path because each scenario is an independent deterministic
+    episode, results are assembled in scenario order, and frames are written to
+    disjoint slots of the same memmap. ``None`` = auto (capture always holds an
+    EGL context per worker, so the video cap applies).
+    """
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
     if suite.task_contract not in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1"):
         raise ValueError("oracle demonstrations require the v3 pick-place suite")
@@ -183,20 +398,11 @@ def capture_oracle_demonstrations(
             "frame_shape": [256, 256, 3],
         }
 
-    arrays: dict[str, list[np.ndarray | float | int | bool]] = {
-        name: [] for name in (
-            "scenario_index", "action_index", "progress", "current_act", "robot_qvel",
-            "cube_position", "cube_quaternion_wxyz", "cube_linear_velocity",
-            "cube_angular_velocity", "requested_act", "executed_act", "executed_delta_act",
-            "post_cube_position", "post_cube_footprint_inside", "post_cube_support_error_m",
-            "post_cube_linear_speed_m_s", "post_cube_angular_speed_rad_s", "post_gripper_act",
-            "post_jaw_cube_distance_m", "post_any_contact", "post_bilateral_interior_contact",
-            "post_strict_bilateral_grasp", "post_cube_height_gain_m", "post_unsafe_contact",
-            "post_command_bound_violation", "post_delta_limiter_activated", "post_nonfinite_command",
-        )
-    }
+    arrays: dict[str, list[np.ndarray | float | int | bool]] = {name: [] for name in _ORACLE_FIELDS}
     episode_records: list[dict[str, Any]] = []
     skipped_records: list[dict[str, Any]] = []
+    horizon = int(identity["teacher_horizon"])
+    worker_count = resolve_workers(workers, record_video=True, task_count=len(selected))
 
     frames_sha256: str | None = None
     with tempfile.TemporaryDirectory(prefix="so_arm101_oracle_") as temporary:
@@ -205,138 +411,45 @@ def capture_oracle_demonstrations(
         frames = None
         frames_temp = temporary_path / "images.npy"
         if store_frames:
-            total_rows = len(selected) * int(identity["teacher_horizon"])
+            total_rows = len(selected) * horizon
             frames = np.lib.format.open_memmap(
                 frames_temp, mode="w+", dtype=np.uint8,
                 shape=(total_rows, 256, 256, 3),
             )
-        for scenario_index, item in enumerate(selected):
-            adapter = MujocoTaskAdapter(model_path)
-            controller = PrivilegedStagedController()
-            wrist_temp = temporary_path / f"{item.scenario_id}.wrist.mp4" if record_video else None
-            overview_temp = temporary_path / f"{item.scenario_id}.overview.mp4" if record_video else None
-            wrist = _VideoWriter(wrist_temp)
-            overview = _VideoWriter(overview_temp)
-            state = PickPlaceEvaluationState()
-            event_rows: list[dict[str, Any]] = []
-            evaluation = None
-            safety_counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
-            rows_before = len(arrays["action_index"])
-            episode_error: str | None = None
-            try:
-                adapter.reset(item)
-                controller.reset(adapter)
-                for action_index in range(identity["teacher_horizon"]):
-                    snapshot = adapter.privileged_state()
-                    raw = adapter.render_wrist_observation()
-                    if frames is not None:
-                        # Running row counter: stays dense when scenarios are
-                        # skipped (skip_failed_scenarios).
-                        frames[len(arrays["action_index"])] = raw
-                    wrist.add(raw)
-                    overview.add(adapter.render("camera_side"))
-                    requested = controller.predict(raw, snapshot.current_act, adapter)
-                    command = adapter.apply_policy_command(requested)
-                    adapter.advance_control_period()
-                    measurement, _ = adapter.pick_place_measurement(
-                        command,
-                        footprint_edge_margin_m=contract.placement.footprint_edge_margin_m,
-                    )
-                    if not state.completed:
-                        state, evaluation = evaluate_pick_place_step(contract, measurement, state)
-                        pickup_events = [event.value for event in evaluation.pickup_events]
-                        placement_events = [event.value for event in evaluation.events]
-                    else:
-                        pickup_events = []
-                        placement_events = []
-
-                    if float(np.max(np.abs(command.requested_act - command.executed_act))) > 1e-6:
-                        raise RuntimeError("oracle requested and executed commands diverged")
-                    safety_counts["clip"] += int(measurement.pickup.command_bound_violation)
-                    safety_counts["limit"] += int(measurement.pickup.delta_limiter_activated)
-                    safety_counts["nonfinite"] += int(measurement.pickup.nonfinite_command)
-                    safety_counts["unsafe"] += int(measurement.pickup.unsafe_contact)
-
-                    values: dict[str, Any] = {
-                        "scenario_index": scenario_index,
-                        "action_index": action_index,
-                        "progress": action_index / (identity["teacher_horizon"] - 1),
-                        "current_act": snapshot.current_act,
-                        "robot_qvel": snapshot.robot_qvel,
-                        "cube_position": snapshot.cube_position,
-                        "cube_quaternion_wxyz": snapshot.cube_quaternion_wxyz,
-                        "cube_linear_velocity": snapshot.cube_linear_velocity,
-                        "cube_angular_velocity": snapshot.cube_angular_velocity,
-                        "requested_act": command.requested_act,
-                        "executed_act": command.executed_act,
-                        "executed_delta_act": command.executed_act - snapshot.current_act,
-                        "post_cube_position": adapter.data.body("red_block").xpos.copy(),
-                        "post_cube_footprint_inside": measurement.cube_footprint_inside,
-                        "post_cube_support_error_m": measurement.cube_support_error_m,
-                        "post_cube_linear_speed_m_s": measurement.cube_linear_speed_m_s,
-                        "post_cube_angular_speed_rad_s": measurement.cube_angular_speed_rad_s,
-                        "post_gripper_act": measurement.gripper_act,
-                        "post_jaw_cube_distance_m": measurement.pickup.jaw_cube_distance_m,
-                        "post_any_contact": measurement.pickup.any_contact,
-                        "post_bilateral_interior_contact": measurement.pickup.bilateral_interior_contact,
-                        "post_strict_bilateral_grasp": measurement.pickup.strict_bilateral_grasp,
-                        "post_cube_height_gain_m": measurement.pickup.cube_height_gain_m,
-                        "post_unsafe_contact": measurement.pickup.unsafe_contact,
-                        "post_command_bound_violation": measurement.pickup.command_bound_violation,
-                        "post_delta_limiter_activated": measurement.pickup.delta_limiter_activated,
-                        "post_nonfinite_command": measurement.pickup.nonfinite_command,
-                    }
-                    for name, value in values.items():
-                        arrays[name].append(value)
-                    event_rows.append({
-                        "action_index": action_index,
-                        "pickup_events": pickup_events,
-                        "placement_events": placement_events,
-                    })
-            except RuntimeError as exc:
-                if not skip_failed_scenarios:
-                    raise
-                episode_error = str(exc)
-            finally:
-                wrist.close()
-                overview.close()
-                adapter.close()
-            if episode_error is None and (
-                evaluation is None
-                or not evaluation.success
-                or len(event_rows) != identity["teacher_horizon"]
-            ):
-                episode_error = (
-                    f"oracle scenario {item.scenario_id} did not pass v3 within "
-                    f"{identity['teacher_horizon']} actions"
-                )
-                if not skip_failed_scenarios:
-                    raise RuntimeError(episode_error)
-            if episode_error is None and any(safety_counts.values()):
-                episode_error = f"oracle scenario {item.scenario_id} used the safety layer"
-                if not skip_failed_scenarios:
-                    raise RuntimeError(episode_error)
-            if episode_error is not None:
-                # Roll the arrays back to the episode boundary and record the
-                # skip; frames stay dense via the running row counter.
-                for name in arrays:
-                    del arrays[name][rows_before:]
-                skipped_records.append({
-                    "scenario_id": item.scenario_id,
-                    "reason": episode_error,
-                })
+            frames.flush()
+        tasks = [
+            _OracleScenarioTask(
+                model_path=str(model_path), scenario=item, scenario_index=index, teacher_horizon=horizon,
+                contract=contract, temporary_dir=str(temporary_path), record_video=record_video,
+                frames_path=(str(frames_temp) if store_frames else None), skip_failed_scenarios=skip_failed_scenarios,
+            )
+            for index, item in enumerate(selected)
+        ]
+        results = _execute_capture_tasks(tasks, workers=worker_count)
+        kept = 0
+        for index, (item, result) in enumerate(zip(selected, results)):
+            if result.error is not None:
+                skipped_records.append({"scenario_id": item.scenario_id, "reason": result.error})
                 continue
+            if frames is not None and kept != index:
+                # Compact kept episodes forward over skipped slots (ascending, so the
+                # destination slot is always free): identical bytes to the sequential
+                # running-row layout.
+                frames[kept * horizon:(kept + 1) * horizon] = frames[index * horizon:(index + 1) * horizon]
+            for name in _ORACLE_FIELDS:
+                arrays[name].extend(result.columns[name])
             episode_records.append({
                 "scenario_id": item.scenario_id,
-                "rows": identity["teacher_horizon"],
-                "waypoint_boundaries": list(controller.boundaries),
-                "solve_diagnostics": controller.solve_diagnostics,
-                "safety_counts": safety_counts,
-                "events": event_rows,
-                "final_evaluation": asdict(evaluation),
+                "rows": horizon,
+                "waypoint_boundaries": list(result.boundaries),
+                "solve_diagnostics": list(result.solve_diagnostics),
+                "safety_counts": dict(result.safety_counts),
+                "events": list(result.events),
+                "final_evaluation": result.final_evaluation,
             })
-            if wrist_temp is not None and overview_temp is not None:
-                staged_videos.extend(((wrist_temp, wrist_temp.name), (overview_temp, overview_temp.name)))
+            for name in result.video_names:
+                staged_videos.append((temporary_path / name, name))
+            kept += 1
 
         materialized = {name: np.asarray(values) for name, values in arrays.items()}
         if not all(np.all(np.isfinite(value)) for value in materialized.values()):

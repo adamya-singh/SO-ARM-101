@@ -72,6 +72,7 @@ def main():
     p.add_argument('--output-dir', type=Path, required=True)
     p.add_argument('--stop-after', choices=['preflight', 'screen', 'capture', 'train'], default='train')
     p.add_argument('--rehearsal', action='store_true', help='toy-scale dry run; skips the camera gate; output must be under a rehearsal/ folder')
+    p.add_argument('--workers', type=int, default=None, help='process-parallel preflights, capture and evaluation (digest-neutral; default auto, 1 = sequential)')
     args = p.parse_args()
     import mujoco
     if mujoco.__version__ != '3.9.0':
@@ -118,7 +119,7 @@ def main():
     def preflight(suite):
         path = root / 'simulation' / 'preflight' / suite.suite_id / 'evaluation.json'
         if not path.exists():
-            result = run_simulation_preflight(args.model, root / 'simulation', suite=suite, record_video=False, workers=1)
+            result = run_simulation_preflight(args.model, root / 'simulation', suite=suite, record_video=False, workers=args.workers)
             path = Path(result.report_json)
         report = json.loads(path.read_text())
         if not report.get('environment_proven') or not report.get('deterministic'):
@@ -170,7 +171,8 @@ def main():
             manifest = Path(pointer.read_text().strip())
         else:
             capture = capture_oracle_demonstrations(args.model, suites['train'], provenance['suites']['train']['preflight'],
-                                                    root / 'capture', scenario='all', record_video=False, teacher_horizon=480, store_frames=True)
+                                                    root / 'capture', scenario='all', record_video=False, teacher_horizon=480, store_frames=True,
+                                                    workers=args.workers)
             manifest = Path(capture.manifest); pointer.write_text(str(manifest.resolve()) + '\n')
         provenance['capture_manifest'] = str(manifest)
         provenance['capture_manifest_sha256'] = content_sha256(json.loads(manifest.read_text()))
@@ -223,7 +225,7 @@ def main():
                 policies[name] = PolicySpec(kind='vision_chunked', checkpoint=str(trained.checkpoint),
                                             options=(('clamp_channels', (5,)), ('black_image', black)))
             result = evaluate_closed_loop(args.model, suite, policies, root / 'evaluations' / label,
-                                          environment_proven=True, record_video=True, workers=1, provenance=identity)
+                                          environment_proven=True, record_video=True, workers=args.workers, provenance=identity)
             report = json.loads(Path(result.report_json).read_text())
             prefix = prefix_success(report, bench, bench.observation_steps)
             for name in policies:

@@ -117,3 +117,15 @@ The scaling tranche's first (legacy) launch was killed pre-artifact on
 
 The full catalogue of environment switches this lane reads — including
 this one — lives in `notes/environment-switches.md`.
+
+
+## Note (2026-09-09): the vision lane's `compile` label
+
+`learning/vision.py` never calls `torch.compile`; its step is eager on the
+device. The identity still records the regime's `compile: inductor` because
+`numerics_identity` describes the regime, not what each lane compiled. The
+vision step is I/O-bound (10 steps/s at 13–48 % GPU utilisation on the 37.7 GB
+sidecar), so compiling it is not the lever; the 2026-09-09 speedups are on the
+I/O side (`SO_ARM101_V2_PREFETCH_*` defaults, `SO_ARM101_V2_IMAGE_UPLOAD`) and
+bitwise-neutral. Changing the label would fork every vision run digest for no
+numerical reason, so it is left as is and documented here.

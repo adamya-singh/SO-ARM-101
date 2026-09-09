@@ -166,6 +166,73 @@ def test_sorted_gather_read_matches_fancy_index() -> None:
         )
 
 
+def test_device_image_upload_is_bitwise_identical_to_cpu_path(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SO_ARM101_V2_NUMERICS", "legacy")
+    manifest_path = _write_tiny_frames_manifest(tmp_path, rows=12)
+    config = VisionChunkedConfig(chunk_horizon=2, max_steps=25, batch_size=4)
+    monkeypatch.setenv("SO_ARM101_V2_IMAGE_UPLOAD", "device")
+    device_path = train_vision_chunked(manifest_path, tmp_path / "device", config=config, numerics=None)
+    monkeypatch.setenv("SO_ARM101_V2_IMAGE_UPLOAD", "cpu")
+    cpu_path = train_vision_chunked(manifest_path, tmp_path / "cpu", config=config, numerics=None)
+    assert device_path.directory.name == cpu_path.directory.name
+    first = json.loads(device_path.report_json.read_text(encoding="utf-8"))
+    second = json.loads(cpu_path.report_json.read_text(encoding="utf-8"))
+    assert first["loss_trace"] == second["loss_trace"]
+    assert hashlib.sha256(device_path.checkpoint.read_bytes()).hexdigest() == hashlib.sha256(cpu_path.checkpoint.read_bytes()).hexdigest()
+
+
+def test_device_image_upload_is_bitwise_identical_on_cuda(tmp_path: Path, monkeypatch) -> None:
+    torch = pytest.importorskip("torch")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    monkeypatch.delenv("SO_ARM101_V2_NUMERICS", raising=False)  # conftest pins legacy; this test opts into the GPU regime
+    from so_arm101_v2.learning.numerics import require_numerics, resolve_default_numerics
+    try:
+        spec = resolve_default_numerics()
+        if spec is None:
+            pytest.skip("no pinned GPU numerics regime resolved")
+        require_numerics(spec)
+    except Exception as exc:  # the pinned regime is machine-specific
+        pytest.skip(f"pinned numerics unavailable here: {exc}")
+    manifest_path = _write_tiny_frames_manifest(tmp_path, rows=12)
+    config = VisionChunkedConfig(chunk_horizon=2, max_steps=25, batch_size=4)
+    monkeypatch.setenv("SO_ARM101_V2_IMAGE_UPLOAD", "device")
+    device_path = train_vision_chunked(manifest_path, tmp_path / "device", config=config)
+    monkeypatch.setenv("SO_ARM101_V2_IMAGE_UPLOAD", "cpu")
+    cpu_path = train_vision_chunked(manifest_path, tmp_path / "cpu", config=config)
+    assert device_path.directory.name == cpu_path.directory.name
+    first = json.loads(device_path.report_json.read_text(encoding="utf-8"))
+    second = json.loads(cpu_path.report_json.read_text(encoding="utf-8"))
+    assert first["loss_trace"] == second["loss_trace"]
+    assert hashlib.sha256(device_path.checkpoint.read_bytes()).hexdigest() == hashlib.sha256(cpu_path.checkpoint.read_bytes()).hexdigest()
+
+
+def test_frame_cache_is_bitwise_identical_to_the_memmap_and_is_reused(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SO_ARM101_V2_NUMERICS", "legacy")
+    manifest_path = _write_tiny_frames_manifest(tmp_path, rows=12)
+    config = VisionChunkedConfig(chunk_horizon=2, max_steps=25, batch_size=4)
+    monkeypatch.setenv("SO_ARM101_V2_FRAME_CACHE", "off")
+    memmap = train_vision_chunked(manifest_path, tmp_path / "memmap", config=config, numerics=None)
+    monkeypatch.setenv("SO_ARM101_V2_FRAME_CACHE", "zlib")
+    cached = train_vision_chunked(manifest_path, tmp_path / "cached", config=config, numerics=None)
+    caches = list((tmp_path / "cached" / "frame_cache").glob("frames_cache_*.npz"))
+    assert len(caches) == 1
+    from so_arm101_v2.learning.vision import CompressedFrames, load_vision_frames
+    _manifest, frames, _arrays = load_vision_frames(manifest_path)
+    loaded = CompressedFrames.load(caches[0])
+    assert loaded.shape == frames.shape
+    assert np.array_equal(loaded[np.array([3, 0, 11])], np.asarray(frames[np.array([3, 0, 11])]))
+    assert np.array_equal(loaded[2:5], np.asarray(frames[2:5]))
+    # A run under a root that already holds the cache loads it instead of rebuilding (bitwise identical again).
+    (tmp_path / "cached_again" / "frame_cache").mkdir(parents=True)
+    (tmp_path / "cached_again" / "frame_cache" / caches[0].name).write_bytes(caches[0].read_bytes())
+    reused = train_vision_chunked(manifest_path, tmp_path / "cached_again", config=config, numerics=None)
+    for a, b in ((memmap, cached), (memmap, reused)):
+        assert a.directory.name == b.directory.name
+        assert json.loads(a.report_json.read_text())["loss_trace"] == json.loads(b.report_json.read_text())["loss_trace"]
+        assert hashlib.sha256(a.checkpoint.read_bytes()).hexdigest() == hashlib.sha256(b.checkpoint.read_bytes()).hexdigest()
+
+
 def test_prefetch_is_bitwise_identical_to_synchronous(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("SO_ARM101_V2_NUMERICS", "legacy")
     manifest_path = _write_tiny_frames_manifest(tmp_path, rows=12)

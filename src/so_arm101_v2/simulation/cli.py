@@ -80,6 +80,7 @@ def _parser() -> argparse.ArgumentParser:
     capture.add_argument("--store-frames", action="store_true", help="store per-step 256x256 wrist frames as an images.npy sidecar (vision lane)")
     capture.add_argument("--suite-path", type=Path, help="generated suite JSON (overrides --suite)")
     capture.add_argument("--skip-failed-scenarios", action="store_true", help="skip (and record) scenarios the teacher cannot solve instead of aborting")
+    capture.add_argument("--workers", type=int, default=None, help="process-parallel scenario capture (digest-neutral; default auto)")
     recovery = commands.add_parser("capture-recovery")
     recovery.add_argument("--mujoco-model", type=Path, default=Path("simulation_code/model/menagerie_so_arm100/scene_v2.xml"))
     recovery.add_argument("--output-dir", type=Path, default=Path("artifacts/so_arm101_v2/oracle_distillation"))
@@ -540,6 +541,7 @@ def main(argv: list[str] | None = None) -> int:
                 teacher_horizon=args.teacher_horizon,
                 store_frames=args.store_frames,
                 skip_failed_scenarios=args.skip_failed_scenarios,
+                workers=args.workers,
             )
             print(result.manifest)
             print(f"rows={result.rows} scenarios={','.join(result.scenario_ids)}")

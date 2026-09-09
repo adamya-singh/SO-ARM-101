@@ -22,6 +22,7 @@ import os
 import random
 import tempfile
 import time
+import zlib
 from pathlib import Path
 from typing import Any, Callable
 
@@ -140,6 +141,116 @@ def _read_frame_rows(frames: Any, index_array: "np.ndarray") -> "np.ndarray":
     return result
 
 
+class CompressedFrames:
+    """Lossless zlib copy of a frames sidecar held in RAM; indexing decodes rows to uint8 (n, 256, 256, 3).
+
+    Rendered wrist frames are mostly flat (black ground, few surfaces) and compress ~40x, so a
+    37.7 GB sidecar that cannot fit the page cache becomes < 1 GB of RAM. Decoding a row costs
+    ~0.1 ms, versus a random disk read of 192 KiB, which was the whole training bottleneck
+    (measured 2026-09-09: 10 steps/s disk-bound vs a 5 ms GPU step). Pixels are bit-identical to
+    the memmap, so run digests and checkpoints are unaffected (pinned by test).
+    """
+
+    LEVEL = 3
+
+    def __init__(self, blob: np.ndarray, offsets: np.ndarray, shape: tuple[int, ...]) -> None:
+        self.blob = np.ascontiguousarray(blob, dtype=np.uint8)
+        self.offsets = np.ascontiguousarray(offsets, dtype=np.int64)
+        self.shape = tuple(int(v) for v in shape)
+        self.dtype = np.dtype(np.uint8)
+        if self.offsets.shape != (self.shape[0] + 1,):
+            raise ValueError("frame cache offsets do not match the row count")
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    @property
+    def nbytes(self) -> int:
+        return int(self.blob.nbytes + self.offsets.nbytes)
+
+    def _row(self, index: int) -> np.ndarray:
+        start, stop = self.offsets[index], self.offsets[index + 1]
+        raw = zlib.decompress(self.blob[start:stop].tobytes())
+        return np.frombuffer(raw, dtype=np.uint8).reshape(self.shape[1:])
+
+    def __getitem__(self, index: Any) -> np.ndarray:
+        if isinstance(index, (int, np.integer)):
+            return self._row(int(index))
+        if isinstance(index, slice):
+            index = np.arange(*index.indices(self.shape[0]))
+        index = np.asarray(index)
+        out = np.empty((index.shape[0],) + self.shape[1:], dtype=np.uint8)
+        for position, row in enumerate(index.tolist()):
+            out[position] = self._row(row)
+        return out
+
+    @classmethod
+    def build(cls, frames: np.ndarray, *, threads: int = 12, chunk: int = 256) -> "CompressedFrames":
+        rows = int(frames.shape[0])
+        bounds = [(start, min(start + chunk, rows)) for start in range(0, rows, chunk)]
+
+        def compress(bound: tuple[int, int]) -> list[bytes]:
+            start, stop = bound
+            block = np.ascontiguousarray(frames[start:stop])   # sequential read
+            return [zlib.compress(block[i].tobytes(), cls.LEVEL) for i in range(stop - start)]
+
+        with ThreadPoolExecutor(max_workers=threads) as pool:
+            pieces = [piece for chunk_pieces in pool.map(compress, bounds) for piece in chunk_pieces]
+        sizes = np.fromiter((len(piece) for piece in pieces), dtype=np.int64, count=len(pieces))
+        offsets = np.concatenate([[0], np.cumsum(sizes)])
+        blob = np.frombuffer(b"".join(pieces), dtype=np.uint8)
+        return cls(blob, offsets, tuple(int(v) for v in frames.shape))
+
+    def save(self, path: Path) -> None:
+        temporary = path.with_name(path.name + ".tmp")
+        with open(temporary, "wb") as handle:
+            np.savez(handle, blob=self.blob, offsets=self.offsets, shape=np.asarray(self.shape, dtype=np.int64))
+        os.replace(temporary, path)
+
+    @classmethod
+    def load(cls, path: Path) -> "CompressedFrames":
+        with np.load(path) as handle:
+            return cls(np.asarray(handle["blob"]), np.asarray(handle["offsets"]), tuple(int(v) for v in handle["shape"]))
+
+
+def _projected_cache_bytes(frames: np.ndarray, sample_rows: int = 256) -> int:
+    rows = int(frames.shape[0])
+    picks = np.linspace(0, rows - 1, min(sample_rows, rows)).astype(np.int64)
+    sizes = [len(zlib.compress(np.ascontiguousarray(frames[int(i)]).tobytes(), CompressedFrames.LEVEL)) for i in picks]
+    return int(np.mean(sizes) * rows)
+
+
+def cache_frames(frames: np.ndarray, manifest: dict[str, Any], directory: Path, *, log=print) -> Any:
+    """Return the frames source to train from: a RAM zlib cache (built once, persisted under ``directory``) or the memmap.
+
+    ``SO_ARM101_V2_FRAME_CACHE=off`` keeps the memmap. The cache is skipped (with a message) when its
+    projected size exceeds half of physical memory.
+    """
+    mode = os.environ.get("SO_ARM101_V2_FRAME_CACHE", "zlib")
+    if mode not in ("zlib", "off"):
+        raise ValueError("SO_ARM101_V2_FRAME_CACHE must be 'zlib' or 'off'")
+    if mode == "off":
+        return frames
+    key = str(manifest["frames"]["sha256"])[:16]
+    path = Path(directory) / f"frames_cache_{key}.npz"
+    if path.exists():
+        cache = CompressedFrames.load(path)
+        if cache.shape == tuple(frames.shape):
+            log(f"frame cache: loaded {path.name} ({cache.nbytes / 1e9:.2f} GB in RAM)")
+            return cache
+    physical = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+    projected = _projected_cache_bytes(frames)
+    if projected > physical // 2:
+        log(f"frame cache: skipped, projected {projected / 1e9:.1f} GB exceeds half of physical memory ({physical / 1e9:.1f} GB)")
+        return frames
+    started = time.time()
+    cache = CompressedFrames.build(frames)
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    cache.save(path)
+    log(f"frame cache: built {path.name} ({cache.nbytes / 1e9:.2f} GB in RAM, {frames.nbytes / max(cache.nbytes, 1):.0f}x) in {time.time() - started:.0f}s")
+    return cache
+
+
 def load_vision_frames(manifest_path: str | Path) -> tuple[dict[str, Any], np.ndarray, dict[str, np.ndarray]]:
     """Manifest + memmapped frames + demonstration arrays for a frames capture."""
     manifest_path = Path(manifest_path)
@@ -185,6 +296,8 @@ def train_vision_chunked(
         numerics = resolve_default_numerics()
 
     manifest, frames, arrays = load_vision_frames(manifest_path)
+    # The cache is keyed by the frames digest and shared by every run under this output root.
+    frames = cache_frames(frames, manifest, Path(output_dir) / "frame_cache")
     episode_lengths = [int(item["rows"]) for item in manifest["episodes"]]
     rows = int(arrays["action_index"].shape[0])
     if sum(episode_lengths) != rows:
@@ -257,14 +370,35 @@ def train_vision_chunked(
         np.random.set_state(resumed["numpy_rng"])
         random.setstate(resumed["python_rng"])
 
-    def batch_images(indices: Any) -> Any:
-        block = np.asarray(frames[indices.numpy()], dtype=np.float32) / np.float32(255.0)
-        return torch.from_numpy(np.transpose(block, (0, 3, 1, 2))).to(device)
+    # Image upload path. "device" (default) ships the raw uint8 block through a
+    # pinned staging buffer and does the /255 and HWC->CHW on the device: a
+    # quarter of the host-to-device bytes and no host float conversion. It is
+    # bitwise identical to the historical "cpu" path (single float32 division
+    # either way, same strides handed to the convolution; pinned by test), so
+    # identities and digests are unaffected. SO_ARM101_V2_IMAGE_UPLOAD=cpu
+    # restores the old path.
+    image_upload = os.environ.get("SO_ARM101_V2_IMAGE_UPLOAD", "device")
+    if image_upload not in ("device", "cpu"):
+        raise ValueError("SO_ARM101_V2_IMAGE_UPLOAD must be 'device' or 'cpu'")
+    staging = None
 
     def to_device_images(uint8_block: "np.ndarray") -> Any:
-        # Identical float path to batch_images, applied to a pre-read block.
-        block = np.asarray(uint8_block, dtype=np.float32) / np.float32(255.0)
-        return torch.from_numpy(np.transpose(block, (0, 3, 1, 2))).to(device)
+        nonlocal staging
+        block = np.ascontiguousarray(uint8_block)
+        if image_upload == "cpu":
+            floats = np.asarray(block, dtype=np.float32) / np.float32(255.0)
+            return torch.from_numpy(np.transpose(floats, (0, 3, 1, 2))).to(device)
+        source = torch.from_numpy(block)
+        if device.type == "cuda":
+            if staging is None or tuple(staging.shape) != tuple(source.shape):
+                staging = torch.empty(source.shape, dtype=torch.uint8).pin_memory()
+            staging.copy_(source)
+            source = staging
+        on_device = source.to(device)
+        return on_device.permute(0, 3, 1, 2).float().div_(255.0)
+
+    def batch_images(indices: Any) -> Any:
+        return to_device_images(np.asarray(frames[indices.numpy()]))
 
     # Deterministic prefetching (see notes/vision-rung-notebook.md): the
     # per-step minibatch read is the only disk I/O in the loop and dominates
@@ -275,8 +409,10 @@ def train_vision_chunked(
     # and the op order are unchanged — results are bitwise identical to the
     # synchronous path (pinned by test).  Identity/digests unaffected.
     prefetch_enabled = os.environ.get("SO_ARM101_V2_PREFETCH", "1") != "0"
-    prefetch_depth = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_DEPTH", "8")))
-    prefetch_workers = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_WORKERS", "6")))
+    # Defaults raised 8/6 -> 16/12 on 2026-09-09: the 37.7 GB bench sidecar is
+    # 2.5x this machine's RAM, so the disk queue depth is the throughput lever.
+    prefetch_depth = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_DEPTH", "16")))
+    prefetch_workers = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_WORKERS", "12")))
 
     loss_trace: list[dict[str, float | int]] = []
     batch = min(config.batch_size, rows)

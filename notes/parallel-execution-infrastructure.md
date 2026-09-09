@@ -128,3 +128,46 @@ orchestration tests appended to `tests/test_saturation_gate.py`. Full suite: 180
   changes stopping steps and forks run digests. **Not** a free win as previously assumed.
 - GPU / float-tolerance policy.
 - Speculative parallel execution of early-stop ladder gates.
+
+
+## 5. Process-parallel oracle capture (2026-09-09)
+
+`capture_oracle_demonstrations(..., workers=)` (CLI `capture-oracle --workers`,
+`tools/run_bench_pipeline.py --workers`, which also forwards to the preflights and
+the closed-loop evaluations that used to hard-code `workers=1`). Each scenario
+is an independent deterministic episode (fresh adapter and controller, no RNG,
+no cross-scenario state), so scenarios fan out over a spawn pool exactly like
+rollouts: results are assembled in scenario order, and frames are written by
+each worker into its own slot `[i·H, (i+1)·H)` of the single preallocated
+memmap; skipped scenarios are compacted forward in ascending order, which
+reproduces the sequential running-row layout byte for byte. The overview
+(`camera_side`) render is now skipped when no video is recorded; it only ever
+fed the video writer.
+
+Parity evidence (`tests/test_oracle_capture_parallel.py`): `demonstrations.npz`
+bytes, episodes, labels and every manifest field except the frames block are
+identical between `workers=1` and `workers=2`; the video toggle is likewise
+neutral for arrays and episodes.
+
+**Rendered frames are not byte-reproducible, and never were.** Measured
+2026-09-09 on the legacy v3 scene: two *sequential* captures in the same
+process differ on 72 of 900 frames, two parallel captures on 30, sequential vs
+parallel on 22, always by at most one grey level on a handful of pixels (EGL
+rasterization jitter). Physics arrays are bit-identical in every pairing. So
+`frames.sha256` and hence `collection_digest` of a frames capture are a record
+of what was captured, not a reproducibility claim; the tests compare frames
+with that tolerance (max |Δ| ≤ 1, < 0.1 % of pixels).
+
+Expected wall-clock for the bench capture (400 × 480 steps, lens path ≈ 65
+ms/step sequential): ~10 workers → ~15–20 min instead of ~3.5 h.
+
+### Training-side measurements (same day)
+
+Raw random-read ceiling of the 37.7 GB frames sidecar on this WSL disk: 5.7
+batches/s at 1 thread, 10.0 at 6, 12.8 at 12 (161 MB/s), 10.5 at 24. The GPU
+step with data already on the device is 5.3 ms (w256, batch 64); host-to-device
+plus conversion of a uint8 batch is 1.9 ms. So the vision loop was disk-bound
+at ~10 steps/s and the prefetch/upload knobs alone gave 9.5 → 10.6 steps/s.
+The in-RAM lossless frame cache (`SO_ARM101_V2_FRAME_CACHE`, see
+`notes/environment-switches.md`) removes the disk from the loop: 57.8 steps/s
+measured over steps 1500–3000 on the real data, bit-identical results.
