@@ -7,6 +7,15 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-09)
 
+**Physical inference runner built (evening): `tools/run_physical_episode.py`
+with `so_arm101_v2.physical` (shared gate `bench_hold_decision`, runner loop,
+simulator backend proven row-identical to the scored evaluation, real-arm
+backend, gated approach from gravity rest to the reset, read-only pan-sign
+preflight, evidence layout). Simulation rehearsal through the tool succeeded
+(`rehearsal/physical_runner_20260909/`). No physical episode has been run;
+the on-site procedure and preconditions are in
+`notes/physical-smoke-runbook.md`. Full suite 298 passed.**
+
 **Result (2026-09-09, finished 15:44 local, 94 min wall of which 29.5 min
 training at ~68 steps/s): nominal 3/3, held-out 30/30, zero safety frames
 in all 33 vision rollouts, prefix success 33/33, black-image ablation 0/33

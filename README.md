@@ -23,9 +23,18 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
-**Bench status (September 9, 2026):** the second bench run, on a
-lens-matched simulator, scored **nominal 3/3 and held-out 30/30 with zero
-safety frames** (black-image ablation 0/33) in 94 minutes end to end: the wrist lens was recalibrated with edge and corner
+**Bench status (September 9, 2026, evening):** a physical inference runner
+now exists ([run_physical_episode.py](tools/run_physical_episode.py)):
+one control loop shared by a simulator backend, which reproduces the scored
+evaluation row for row, and the real-arm backend, which keeps every safety
+invariant of the replay tool (read-only bus, shared gate, hold on refusal,
+torque never disabled) and feeds the policy the raw camera frame exactly as
+it trained (colour order flipped, area filter proven bit-identical). No
+physical episode has been run; the procedure is in the
+[smoke runbook](notes/physical-smoke-runbook.md). Earlier the same day the
+second bench run, on a lens-matched simulator, scored **nominal 3/3 and
+held-out 30/30 with zero safety frames** (black-image ablation 0/33) in 94
+minutes end to end: the wrist lens was recalibrated with edge and corner
 coverage, the simulator now renders a wide pinhole and resamples it through
 that lens so the policy sees the full camera frame exactly as the real
 camera delivers it, capture runs in parallel and training uses an in-RAM
@@ -789,10 +798,16 @@ numbers do not transfer. The current sequence, governed by the
 2. **Read the result,** then choose between more data, more compute, or a
    robustness pass. The known sim-to-real residual from calibration is about
    1.6 cm at working distance.
-3. **Physical stage (not authorized yet):** reviewed shoulder lift above the
-   −92 floor, read-only pan-sign check, undistortion of real frames with the
-   calibrated intrinsics, then a gated replay of a certified bench
-   trajectory before any learned policy touches the arm.
+3. **Physical stage (tooling done 2026-09-09, execution not yet run):**
+   `tools/run_physical_episode.py` in order: simulation rehearsal (done),
+   read-only preflight on the hardware (calibration pin, camera, resampler
+   proof, pan-sign check by hand, policy dry pass), then the motion run with
+   two on-site confirmations: the gated approach from gravity rest to the
+   recorded reset (the shoulder lift above the −92 floor) and the 16 s
+   episode with the camera recorded. The lens-scene policy needs no
+   undistortion. The outcome goes into the notebook with its evidence
+   directory; success in simulation says nothing about the real arm until
+   then.
 
 ## Setup / Running the Code
 
