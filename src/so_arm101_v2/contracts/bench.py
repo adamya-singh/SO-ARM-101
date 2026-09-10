@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .appearance import AppearanceRegime
 from .joint_map import KNOWN_JOINT_MAPS, load_joint_map
 from .lens import LensModel
 from .physical import physical_normalized_to_act
@@ -47,6 +48,9 @@ class BenchConfig:
     # a wider pinhole (fovy = lens.render_fovy_deg) and resamples it into the
     # observation as the real lens would image it; None = plain 256x256 pinhole.
     lens: dict | None = None
+    # Appearance randomization regime (contracts/appearance.py): ranges for the per-scenario
+    # look drawn at suite generation; None = every scenario renders the pristine scene.
+    appearance: dict | None = None
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -82,6 +86,8 @@ class BenchConfig:
             if abs(lens.render_size[0] * 9 - lens.render_size[1] * 16) > 16:
                 raise ValueError("lens render size must be 16:9 like the physical frame")
             object.__setattr__(self, "lens", lens.identity())
+        if self.appearance is not None:
+            object.__setattr__(self, "appearance", AppearanceRegime.from_mapping(self.appearance).identity())
         if self.reset_physical is not None:
             p = np.asarray(self.reset_physical, dtype=np.float64)
             if p.shape != (6,) or not np.isfinite(p).all() or p[1] < self.shoulder_floor:
@@ -97,6 +103,10 @@ class BenchConfig:
     @property
     def lens_model(self):
         return None if self.lens is None else LensModel.from_mapping(self.lens)
+
+    @property
+    def appearance_regime(self):
+        return None if self.appearance is None else AppearanceRegime.from_mapping(self.appearance)
 
     @property
     def mujoco_low(self):

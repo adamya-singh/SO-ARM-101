@@ -14,10 +14,31 @@ class SimulationScenario:
     robot_qpos_mujoco: tuple[float, ...]
     cube_quaternion_wxyz: tuple[float, float, float, float]
     fixed_appearance: bool = True
+    # Per-scenario appearance draw (contracts/appearance.py); None = the pristine scene look.
+    # Kept alongside fixed_appearance (packaged suites and the task contract read that flag).
+    appearance_seed: int | None = None
 
     def __post_init__(self) -> None:
         if len(self.cube_position_m) != 3 or len(self.robot_qpos_mujoco) != 6 or len(self.cube_quaternion_wxyz) != 4:
             raise ValueError("simulation scenario has malformed reset dimensions")
+        if self.appearance_seed is not None:
+            seed = int(self.appearance_seed)
+            if seed != self.appearance_seed or not 0 <= seed < 2 ** 31:
+                raise ValueError("appearance_seed must be an integer in [0, 2**31)")
+            object.__setattr__(self, "appearance_seed", seed)
+        if bool(self.fixed_appearance) != (self.appearance_seed is None):
+            raise ValueError("fixed_appearance must be true exactly when no appearance_seed is set")
+
+
+def _scenario_from_payload(item: dict) -> SimulationScenario:
+    return SimulationScenario(
+        scenario_id=str(item["scenario_id"]),
+        cube_position_m=tuple(float(value) for value in item["cube_position_m"]),
+        robot_qpos_mujoco=tuple(float(value) for value in item["robot_qpos_mujoco"]),
+        cube_quaternion_wxyz=tuple(float(value) for value in item["cube_quaternion_wxyz"]),
+        fixed_appearance=bool(item["fixed_appearance"]),
+        appearance_seed=(None if item.get("appearance_seed") is None else int(item["appearance_seed"])),
+    )
 
 
 @dataclass(frozen=True)
@@ -38,13 +59,7 @@ class SimulationSuite:
 
 
 def _suite_from_payload(payload: dict) -> SimulationSuite:
-    scenarios = tuple(SimulationScenario(
-        scenario_id=str(item["scenario_id"]),
-        cube_position_m=tuple(float(value) for value in item["cube_position_m"]),
-        robot_qpos_mujoco=tuple(float(value) for value in item["robot_qpos_mujoco"]),
-        cube_quaternion_wxyz=tuple(float(value) for value in item["cube_quaternion_wxyz"]),
-        fixed_appearance=bool(item["fixed_appearance"]),
-    ) for item in payload["scenarios"])
+    scenarios = tuple(_scenario_from_payload(item) for item in payload["scenarios"])
     probe = payload.get("recovery_probe")
     return SimulationSuite(
         suite_id=str(payload["suite_id"]), schema_version=int(payload["schema_version"]),
@@ -215,13 +230,7 @@ def load_simulation_suite(name: str) -> SimulationSuite:
         raise ValueError(f"unknown simulation suite: {name!r}")
     resource = files("so_arm101_v2.data.resources").joinpath(f"{name}.json")
     payload = json.loads(resource.read_text(encoding="utf-8"))
-    scenarios = tuple(SimulationScenario(
-        scenario_id=str(item["scenario_id"]),
-        cube_position_m=tuple(float(value) for value in item["cube_position_m"]),
-        robot_qpos_mujoco=tuple(float(value) for value in item["robot_qpos_mujoco"]),
-        cube_quaternion_wxyz=tuple(float(value) for value in item["cube_quaternion_wxyz"]),
-        fixed_appearance=bool(item["fixed_appearance"]),
-    ) for item in payload["scenarios"])
+    scenarios = tuple(_scenario_from_payload(item) for item in payload["scenarios"])
     probe = payload.get("recovery_probe")
     return SimulationSuite(
         suite_id=str(payload["suite_id"]), schema_version=int(payload["schema_version"]),
