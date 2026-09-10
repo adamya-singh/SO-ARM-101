@@ -35,7 +35,8 @@ BUCKETS = {
 }
 
 
-def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: int = 0) -> dict[str, float]:
+def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: int = 0, episode_limit: int | None = None) -> dict[str, float]:
+    """Mean chunk-target MSE per chunk-start bucket; ``episode_limit`` scores only the first N episodes (a training prefix)."""
     import torch
     manifest, frames, arrays = load_vision_frames(manifest_path)
     episode_lengths = [int(e["rows"]) for e in manifest["episodes"]]
@@ -43,11 +44,14 @@ def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: i
     state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
                             np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)
     action_index = np.asarray(arrays["action_index"])
+    within = np.ones(frames.shape[0], dtype=bool)
+    if episode_limit is not None:
+        within = np.arange(frames.shape[0]) < int(sum(episode_lengths[:int(episode_limit)]))
     rng = np.random.default_rng(seed)
     out = {}
     with torch.inference_mode():
         for name, predicate in BUCKETS.items():
-            index = np.flatnonzero(predicate(action_index))
+            index = np.flatnonzero(predicate(action_index) & within)
             pick = np.sort(rng.choice(index, min(samples, index.shape[0]), replace=False))
             images = torch.from_numpy(np.ascontiguousarray(frames[pick])).to(device).permute(0, 3, 1, 2).float().div_(255.0)
             prediction = model(images, torch.from_numpy(state[pick]).to(device)).cpu().numpy()

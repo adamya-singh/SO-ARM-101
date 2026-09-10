@@ -113,6 +113,8 @@ def main():
     p.add_argument('--frame-stride', type=int, default=1,
                    help='train on every N-th row of each episode (1 = the historical recipe; 3 with --frame-store gpu fits a '
                         '400-episode capture on a 24 GB GPU and removes the disk from the training loop)')
+    p.add_argument('--heldout-fit-manifest', type=Path, default=None,
+                   help='frames capture of unseen placements for the train-vs-held-out loss diagnostic (default: captured once per scene+suite into artifacts/.../heldout_fit_captures and reused)')
     p.add_argument('--real-frame-episode', type=Path, action='append', default=None,
                    help='recorded physical episode directory for the real-frame gate (repeatable; default physical/episode_02_20260909)')
     args = p.parse_args()
@@ -219,7 +221,10 @@ def main():
                 state['tracking_error'] = str(exc)
 
         stage = certification_suite(bench, repeats=3)
-        preflight(stage); assert_scene(); track({'phase/certification_passed': 1})
+        # W&B panel order (user request 2026-09-10): sections sort alphabetically, so numbered prefixes put the most
+        # important charts first: 01_outcome (closed-loop success), 02_generalisation (train vs held-out loss),
+        # 03_training (loss), 04_throughput (steps/s, checkpoint age), 05_phases (gate flags).
+        preflight(stage); assert_scene(); track({'05_phases/certification_passed': 1})
         if args.stop_after == 'preflight':
             progress(status='complete', phase='preflight_complete'); return 0
         suites = {}; provenance = dict(suites={})
@@ -280,10 +285,10 @@ def main():
                           training_elapsed_s=now - clock['first_optimizer_step_at'], checkpoint_age_s=checkpoint_age)
             telemetry.write(json.dumps(values) + '\n'); telemetry.flush()
             progress(phase='training', **values)
-            track({'train/batch_normalized_mse': loss, 'train/steps_per_second': rate,
-                   'train/elapsed_s': values['training_elapsed_s'],
-                   'train/checkpoint_age_s': checkpoint_age if checkpoint_age is not None else -1,
-                   'train/tracking_ok': 0 if state.get('tracking_error') else 1}, step=step)
+            track({'03_training/batch_normalized_mse': loss, '04_throughput/steps_per_second': rate,
+                   '04_throughput/elapsed_s': values['training_elapsed_s'],
+                   '04_throughput/checkpoint_age_s': checkpoint_age if checkpoint_age is not None else -1,
+                   '04_throughput/tracking_ok': 0 if state.get('tracking_error') else 1}, step=step)
             if step % 100 == 0 or step == max_steps:
                 print(f'TRAIN step={step} loss={loss:.8g} steps_per_second={rate:.2f}', flush=True)
         try:
@@ -291,9 +296,53 @@ def main():
                                            scratch_checkpoint=scratch, checkpoint_interval=checkpoint_interval)
         finally:
             telemetry.close()
+        progress(phase='heldout_fit', checkpoint=str(trained.checkpoint)); assert_scene()
+        # Generalisation diagnostic (2026-09-10): train vs held-out loss at the chunk boundaries. The held-out suite
+        # is captured with frames ONCE per (scene hash, suite id) in a shared store and every run scores its checkpoint
+        # on it (seconds); the ratio at chunk start 90 (the first descent chunk) separates memorisation from capacity
+        # before any rollout is spent. Rehearsals keep their tiny capture under their own root.
+        summary = {}
+        try:
+            from heldout_fit import boundary_losses
+            from so_arm101_v2.learning.vision import build_vision_chunked_model
+            import torch as _torch
+            heldout_suite_id = provenance['suites']['heldout']['suite_id']
+            shared_store = (root if args.rehearsal else root.parent.parent / 'heldout_fit_captures') / f'{scene_hash[:12]}_{heldout_suite_id}'
+            shared_store.mkdir(parents=True, exist_ok=True)
+            heldout_pointer = shared_store / 'manifest.path'
+            if args.heldout_fit_manifest is not None:
+                heldout_manifest = args.heldout_fit_manifest.resolve()
+            elif heldout_pointer.exists() and Path(heldout_pointer.read_text().strip()).exists():
+                heldout_manifest = Path(heldout_pointer.read_text().strip())
+            else:
+                heldout_capture = capture_oracle_demonstrations(args.model, suites['heldout'], provenance['suites']['heldout']['preflight'],
+                                                                shared_store, scenario='all', record_video=False, teacher_horizon=480,
+                                                                store_frames=True, workers=args.workers)
+                heldout_manifest = Path(heldout_capture.manifest); heldout_pointer.write_text(str(heldout_manifest.resolve()) + '\n')
+            heldout_meta = json.loads(heldout_manifest.read_text())
+            if heldout_meta.get('scene_dependencies_sha256') != scene_hash:
+                raise RuntimeError(f'held-out capture scene hash {heldout_meta.get("scene_dependencies_sha256")} != run scene hash {scene_hash}')
+            payload = _torch.load(trained.checkpoint, map_location='cpu', weights_only=False)
+            fit_model = build_vision_chunked_model(int(payload['hidden_width']), int(payload['chunk_horizon']), encoder=str(payload.get('encoder', 'v1')))
+            fit_model.load_state_dict(payload['state_dict']); fit_model.chunk_horizon = int(payload['chunk_horizon'])
+            fit_device = _torch.device('cuda' if _torch.cuda.is_available() else 'cpu'); fit_model.eval().to(fit_device)
+            fit_train = boundary_losses(fit_model, manifest, device=fit_device)
+            fit_heldout = boundary_losses(fit_model, heldout_manifest, device=fit_device)
+            del fit_model
+            fit = dict(train=fit_train, heldout=fit_heldout, ratio={k: round(fit_heldout[k] / max(fit_train[k], 1e-12), 1) for k in fit_train},
+                       heldout_manifest=str(heldout_manifest))
+            atomic_json(root / 'heldout_fit.json', fit)
+            summary['heldout_fit'] = fit
+            track({f'02_generalisation/heldout_{k}': v for k, v in fit_heldout.items()} | {f'02_generalisation/train_{k}': v for k, v in fit_train.items()}
+                  | {'02_generalisation/ratio_start_90': fit['ratio']['start_90']}, step=max_steps)
+            for k, v in fit['ratio'].items():
+                tracker.summary[f'heldout_fit/ratio_{k}'] = v
+            print(f"HELDOUT FIT start_90 train {fit_train['start_90']:.2e} heldout {fit_heldout['start_90']:.2e} ratio {fit['ratio']['start_90']}x", flush=True)
+        except Exception as exc:   # a diagnostic must never stop the run
+            summary['heldout_fit'] = dict(error=f'{type(exc).__name__}: {exc}')
+            print(f'HELDOUT FIT skipped: {summary["heldout_fit"]["error"]}', flush=True)
         progress(phase='evaluation', checkpoint=str(trained.checkpoint)); assert_scene()
         nominal = bench_suite(bench, [(0, 0)], label='nominal_eval', repeats=3)
-        summary = {}
         evaluations = [('nominal', nominal), ('heldout', suites['heldout'])]
         if args.appearance:
             evaluations.append(('heldout_appearance', appearance_product(bench, suites['heldout'], per_scenario=HELDOUT_APPEARANCE_PER_POSE,
@@ -319,6 +368,8 @@ def main():
                 for key, value in entry.items():
                     if key not in ('report', 'success_by_region'):
                         tracker.summary[f'{label}/{name}/{key}'] = value
+                track({f'01_outcome/{label}_{name}_success_rate': entry['successes'] / max(entry['rollouts'], 1),
+                       f'01_outcome/{label}_{name}_safety_frames': entry['safety_frames']}, step=max_steps)
             tracker.summary[f'{label}/report'] = str(result.report_json)
         if args.appearance and real_frame_episodes and any(p.exists() for p in real_frame_episodes):
             # Offline real-frame gate on the new policy: recorded, never raised (the run must complete for comparison).
@@ -339,6 +390,7 @@ def main():
                                                         for f in check['frames']},
                                                 sim_reference_passed=check['sim_reference']['check']['passed'], report=str(root / 'real_frame_check.json'))
             tracker.summary['real_frames/reset/passed'] = int(check['passed'])
+            track({'01_outcome/real_frame_gate_passed': int(check['passed'])}, step=max_steps)
             for name, frame in summary['real_frames/reset']['frames'].items():
                 for key in ('shoulder_units', 'elbow_units', 'holds'):
                     tracker.summary[f'real_frames/{name}/{key}'] = frame[key]

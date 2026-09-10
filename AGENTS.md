@@ -20,6 +20,12 @@ that cannot load them as skills should read the file and follow it.
 
 ## Conventions that matter
 
+- W&B panel order (user request 2026-09-10): log metrics under numbered section prefixes so the
+  most important charts come first: `01_outcome/` (closed-loop success rates, safety frames,
+  gate results), `02_generalisation/` (train vs held-out loss at chunk start 90 and the ratio),
+  `03_training/` (loss), `04_throughput/` (steps/s, checkpoint age), `05_phases/` (gate flags).
+  Sections sort alphabetically in the run workspace; keep the numbering on every new metric.
+
 - Python runs with `PYTHONNOUSERSITE=1` and `MUJOCO_GL=egl` from
   `/home/win10ubuntu/miniforge3/envs/lerobot/bin/python`; MuJoCo is pinned to 3.9.0.
 - `artifacts/` is git-ignored; evidence files are force-added individually.

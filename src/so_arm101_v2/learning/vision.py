@@ -68,14 +68,19 @@ class VisionChunkedConfig:
     # "v2" (2026-09-10) = stride-4 first layer, 16/32/64/64 channels, 8x8x64 map (4096 features) for sub-patch
     # localisation of a 12-25 px cube anywhere in the frame. Identity-bearing only when not "v1".
     encoder: str = "v1"
+    # Train on the first ``episode_limit`` episodes of the capture only (scaling ladder, 2026-09-10): the accepted
+    # placements are in draw order, so a prefix is a random subset. None = all episodes (identity unchanged).
+    episode_limit: int | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.chunk_horizon <= 480:
             raise ValueError("chunk_horizon must lie in [1, 480]")
         if int(self.frame_stride) < 1 or int(self.frame_stride) != self.frame_stride:
             raise ValueError("frame_stride must be a positive integer")
-        if self.encoder not in ("v1", "v2"):
-            raise ValueError("encoder must be 'v1' or 'v2'")
+        if self.encoder not in ("v1", "v2", "v3"):
+            raise ValueError("encoder must be 'v1', 'v2' or 'v3'")
+        if self.episode_limit is not None and (int(self.episode_limit) < 1 or int(self.episode_limit) != self.episode_limit):
+            raise ValueError("episode_limit must be a positive integer or None")
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
             raise ValueError("invalid vision clone configuration")
         if self.hidden_width not in (128, 256, 512):
@@ -111,9 +116,9 @@ def build_vision_chunked_model(hidden_width: int, chunk_horizon: int, encoder: s
         raise ValueError("vision clone hidden_width must be 128, 256, or 512")
     if not 1 <= chunk_horizon <= 480:
         raise ValueError("chunk_horizon must lie in [1, 480]")
-    if encoder not in ("v1", "v2"):
-        raise ValueError("encoder must be 'v1' or 'v2'")
-    feature_width = 512 if encoder == "v1" else 4096
+    if encoder not in ("v1", "v2", "v3"):
+        raise ValueError("encoder must be 'v1', 'v2' or 'v3'")
+    feature_width = {"v1": 512, "v2": 4096, "v3": 8192}[encoder]
 
     class VisionChunkedNetwork(torch.nn.Module):
         def __init__(self) -> None:
@@ -125,12 +130,20 @@ def build_vision_chunked_model(hidden_width: int, chunk_horizon: int, encoder: s
                     torch.nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),
                     torch.nn.Flatten(),
                 )
-            else:
+            elif encoder == "v2":
                 self.encoder = torch.nn.Sequential(
                     torch.nn.Conv2d(3, 16, kernel_size=4, stride=4), torch.nn.ReLU(),                 # 256 -> 64
                     torch.nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 64 -> 32
                     torch.nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 32 -> 16
                     torch.nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 16 -> 8
+                    torch.nn.Flatten(),
+                )
+            else:   # v3: twice the channels of v2 and a 128-channel 8x8 map (8192 features)
+                self.encoder = torch.nn.Sequential(
+                    torch.nn.Conv2d(3, 32, kernel_size=4, stride=4), torch.nn.ReLU(),                 # 256 -> 64
+                    torch.nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 64 -> 32
+                    torch.nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),    # 32 -> 16
+                    torch.nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),   # 16 -> 8
                     torch.nn.Flatten(),
                 )
             self.state = torch.nn.Sequential(
@@ -350,7 +363,13 @@ def train_vision_chunked(
     rows = int(arrays["action_index"].shape[0])
     # Training rows: every row (stride 1, historical) or every frame_stride-th row of each episode.
     stride = int(config.frame_stride)
-    kept_rows = np.arange(rows, dtype=np.int64) if stride == 1 else np.flatnonzero(np.asarray(arrays["action_index"], dtype=np.int64) % stride == 0).astype(np.int64)
+    keep = np.ones(rows, dtype=bool) if stride == 1 else (np.asarray(arrays["action_index"], dtype=np.int64) % stride == 0)
+    if config.episode_limit is not None:
+        limit = int(config.episode_limit)
+        if limit > len(episode_lengths):
+            raise ValueError(f"episode_limit {limit} exceeds the capture's {len(episode_lengths)} episodes")
+        keep &= np.arange(rows) < int(sum(episode_lengths[:limit]))
+    kept_rows = np.flatnonzero(keep).astype(np.int64)
     rows_train = int(kept_rows.shape[0])
     if sum(episode_lengths) != rows:
         raise ValueError("oracle manifest episode lengths disagree with its row count")
@@ -372,7 +391,8 @@ def train_vision_chunked(
         "optimizer": "adam_minibatch",
         "source_rows": rows,
         # frame_stride enters the identity only when it changes the sample set, so every historical digest is unchanged.
-        "config": {k: v for k, v in asdict(config).items() if not ((k == "frame_stride" and v == 1) or (k == "encoder" and v == "v1"))},
+        "config": {k: v for k, v in asdict(config).items()
+                   if not ((k == "frame_stride" and v == 1) or (k == "encoder" and v == "v1") or (k == "episode_limit" and v is None))},
         "input_schema": list(VISION_INPUT_SCHEMA),
         "image_convention": "preprocess_wrist_image_div255_chw",
         "target": "normalized_absolute_act_residual_on_current_pose",

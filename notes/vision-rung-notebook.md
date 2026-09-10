@@ -624,3 +624,20 @@ survey pose the cube spans 12-25 px in the 256-px observation, i.e. two or
 three 8-px patches, so sub-patch localisation relies on the 344k-parameter
 head reading a 4x4x32 map. A finer, wider encoder is the next lever if run 5
 narrows but does not close the gap.
+
+### W&B chart order and a per-run generalisation phase (2026-09-10)
+
+User request: every run's W&B page should show the charts from most to least
+important. W&B sorts panel sections alphabetically by the prefix before the
+slash, so the pipeline and the scaling ladder now log under numbered
+sections: `01_outcome/` (success rates, safety frames, real-frame gate),
+`02_generalisation/` (train vs held-out loss at chunk start 90 and the
+ratio), `03_training/` (batch loss), `04_throughput/` (steps/s, elapsed,
+checkpoint age), `05_phases/` (gate flags). To make section 02 exist for
+every run, the pipeline gained a `heldout_fit` phase between training and
+evaluation: the held-out suite is captured with frames once per (scene hash,
+suite id) into `heldout_fit_captures/` and reused, and the checkpoint is
+scored with `tools/heldout_fit.py` (seconds). The run 4 analysis had to build
+this by hand; from run 6 on the memorisation-versus-capacity reading is
+available before a single rollout is spent. Run 5 (already training under
+the old names) is scored by hand the same way when it finishes.

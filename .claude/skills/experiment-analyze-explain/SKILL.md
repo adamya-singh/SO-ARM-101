@@ -102,6 +102,9 @@ generalisation; never claim a cause you did not measure.
   safety frames, height gain).
 - Train vs held-out at chunk boundaries: `tools/heldout_fit.py --checkpoint <model.pt>
   --heldout-manifest <capture manifest>`; make the held-out capture with
-  `capture_oracle_demonstrations(..., store_frames=True)` on the held-out suite.
+  `capture_oracle_demonstrations(..., store_frames=True)` on the held-out suite. Pipeline runs
+  after 2026-09-10 already do this in their `heldout_fit` phase (`experiments/<run>/heldout_fit.json`,
+  W&B section `02_generalisation/`); the shared captures live under
+  `artifacts/.../heldout_fit_captures/<scene hash>_<suite id>/`.
 - Real-frame gate (sim-to-real check on recorded frames): `tools/check_policy_on_real_frames.py`.
 - Network: `src/so_arm101_v2/learning/vision.py` (`build_vision_chunked_model`, encoders v1/v2).

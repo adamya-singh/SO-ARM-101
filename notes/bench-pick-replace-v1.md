@@ -1025,6 +1025,23 @@ are later work.
 
 ## Tracking and monitoring
 
+**W&B chart order (user request 2026-09-10, runs after run 5).** W&B groups
+panels by the prefix before the slash and sorts the sections alphabetically,
+so the pipeline and the scaling ladder log under numbered prefixes that put
+the decisive charts first: `01_outcome/` (closed-loop success rate and
+safety frames per suite, real-frame gate), `02_generalisation/` (train vs
+held-out loss at chunk start 90 and the ratio, from the new `heldout_fit`
+phase), `03_training/` (batch loss), `04_throughput/` (steps/s, elapsed,
+checkpoint age, tracking), `05_phases/` (gate flags). The `heldout_fit`
+phase runs between training and evaluation: it captures the held-out suite
+with frames once per (scene hash, suite id) into
+`artifacts/.../heldout_fit_captures/` (reused by every later run, or pass
+`--heldout-fit-manifest`), scores the checkpoint with `tools/heldout_fit.py`
+and writes `heldout_fit.json` into the experiment directory and the
+evaluation summary. Runs 1-5 keep their old metric names (`train/*`,
+`phase/*`); their generalisation numbers live in `heldout_fit.json` files
+produced by hand. The convention is recorded in `AGENTS.md`.
+
 Fourth run (placement + appearance recipes, gate 7) queued 2026-09-10 13:19 local
 as `tsp` job 2, experiment directory
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/`,
@@ -1040,6 +1057,18 @@ approach; full-data fit 7.7e-6 vs 1.3e-6 for the fixed-square run: an
 underfit of the far larger input distribution on the same 400 episodes.
 Next run: 1200 placements, stride 9 (chunk starts 0.3 s apart; 12.7 GB on
 the GPU), 240k steps; nothing else changes.**
+
+**Scaling ladder queued 2026-09-10 17:45 local as `tsp` job 4** (runs after run 5),
+`tools/scaling_ladder.py --output-dir experiments/scaling_ladder_20260910 --workers 8`:
+one screened capture of 2400 placements, data sizes 300/600/1200/2400 (prefixes)
+x encoders v1/v2/v3 at 120k steps, plus a steps sweep 60k/240k/480k at (1200, v2);
+every point scored train-vs-held-out at chunk start 90, closed-loop rollouts on
+the frontier only; W&B run `scaling-ladder-92f07142` (group scaling-ladder,
+numbered sections). Resumable: completed points in `progress.json` are kept.
+Rehearsed three times at toy scale (`rehearsal/scaling_ladder_20260910`,
+including the resume path). Estimated cost: ~4.7 h CPU capture, ~6-8 h GPU
+training. When it finishes, apply the experiment-analyze-explain skill to
+`ladder.json` and report.
 
 Fifth run queued 2026-09-10 15:04 local as `tsp` job 3, experiment directory
 `experiments/seed202_120k_placement_20260910b/`, W&B id `pfavtk49`:
