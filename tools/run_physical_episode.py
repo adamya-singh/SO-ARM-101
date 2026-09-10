@@ -59,6 +59,7 @@ from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
 from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass  # noqa: E402
 from so_arm101_v2.physical.evidence import BoundaryStore, StepLog, VideoRecorder, sha256_file, write_run_record  # noqa: E402
+from so_arm101_v2.physical.placement import DEFAULT_TOLERANCE_MM, check_cube_placement  # noqa: E402
 from so_arm101_v2.physical.lerobot_backend import MIN_SERVO_VOLTAGE_V, LeRobotBackend, check_servo_voltage, fast_area_resampler, verify_fast_resampler  # noqa: E402
 from so_arm101_v2.physical.runner import (  # noqa: E402
     CONTROL_HZ,
@@ -223,6 +224,9 @@ def main(argv=None) -> int:
     p.add_argument("--skip-pan-check", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: the check is opt-in now
     p.add_argument("--pan-check-seconds", type=float, default=45.0, help="how long to wait for the hand rotation")
     p.add_argument("--no-preview", action="store_true")
+    p.add_argument("--cube-tolerance-mm", type=float, default=DEFAULT_TOLERANCE_MM,
+                   help="refuse the episode when the cube, back-projected from the reset-pose frame, is farther than this from the task pose "
+                        "(the policies train on +-10 mm; on 2026-09-10 the cube sat 40 mm beyond it and the policy closed on nothing)")
     p.add_argument("--yes", action="store_true",
                    help="do not prompt: auto-confirm the approach and the episode (bench owner's standing authorization of 2026-09-10; "
                         "recorded in run.json). Every built-in gate still applies.")
@@ -422,6 +426,16 @@ def _hardware(args, bench, contract, policy, record) -> int:
         record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset")
         if not record["real_frame_check"]["passed"]:
             raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
+        # Cube placement gate on the same reset-pose observation: the policy cannot win outside its +-10 mm training range.
+        gate_png = run_dir / record["real_frame_check"]["observation_png"] if run_dir is not None else None
+        from PIL import Image
+        gate_observation = np.asarray(Image.open(gate_png).convert("RGB")) if gate_png is not None else None
+        if gate_observation is not None:
+            record["cube_placement"] = check_cube_placement(gate_observation, bench, args.model, current, tolerance_mm=args.cube_tolerance_mm)
+            print(f"cube placement: {record['cube_placement']}", flush=True)
+            if not record["cube_placement"]["ok"]:
+                raise Refused(f"cube is not at the task pose (no episode): {record['cube_placement'].get('advice')}; "
+                              f"measured {record['cube_placement'].get('cube_xy_mm')} mm vs nominal {record['cube_placement']['nominal_xy_mm']} mm")
         answer = _confirm(args, record, "episode", f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0

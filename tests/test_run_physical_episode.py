@@ -111,6 +111,8 @@ def _install(monkeypatch, events, robot):
     monkeypatch.setattr(tool, "check_reset_frame", lambda policy, image, anchor, bench, **kw: dict(
         gate="stub", label=kw.get("label", "frame"), passed=True, reasons=[], thresholds={},
         dry_pass=dict(chunk_len=90, max_abs_delta_from_start_units={n: 0.0 for n in JOINT_NAMES}, holds_in_dry_chunk=0, chunk_physical=[])))
+    monkeypatch.setattr(tool, "check_cube_placement", lambda observation, bench, model, current, **kw: dict(
+        found=True, ok=True, cube_xy_mm=[0.0, 280.5], nominal_xy_mm=[0.0, 280.5], offset_mm=dict(dx=0.0, dy=0.0), distance_mm=0.0, tolerance_mm=15.0))
     monkeypatch.setattr(tool.time, "sleep", lambda s: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "")
     return tool
@@ -250,3 +252,20 @@ def test_yes_flag_runs_without_reading_the_terminal(tmp_path: Path, monkeypatch)
     assert record["status"] == "completed" and len(record["confirmations"]) == 2
     assert all(c["auto"].startswith("--yes") and c["answer"] == "" for c in record["confirmations"])
     assert events.count("torque") == 1 and "DISABLE" not in events
+
+
+@needs_checkpoint
+def test_misplaced_cube_refuses_the_episode_after_the_approach(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+    robot = TrackingRobot(events, REST)
+    tool = _install(monkeypatch, events, robot)
+    monkeypatch.setattr(tool, "check_cube_placement", lambda observation, bench, model, current, **kw: dict(
+        found=True, ok=False, cube_xy_mm=[11.0, 319.0], nominal_xy_mm=[0.0, 280.5], offset_mm=dict(dx=11.0, dy=38.5), distance_mm=40.0,
+        tolerance_mm=15.0, clipped_at_frame_edge=True, advice="move the cube 39 mm toward the base and 11 mm to the left (-x)"))
+    run_dir = tmp_path / "misplaced"
+    code = tool.main(["--enable-motion", "--yes", "--run-dir", str(run_dir), "--no-preview", "--max-actions", "5"])
+    assert code == 2
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["status"] == "refused" and "toward the base" in record["reason"] and record["cube_placement"]["ok"] is False
+    assert record["approach"]["steps"] > 0 and events.count("torque") == 1 and "DISABLE" not in events
+    assert not (run_dir / "steps.csv").exists()
