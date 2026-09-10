@@ -598,3 +598,29 @@ episodes now cover positions × yaw × appearance and the network underfits.
 Frame stride is not the cause: only chunk starts at multiples of 90 occur at
 inference and all of them are multiples of the stride. Next: 1200
 placements, stride 9, 240k steps (same GPU footprint, ~28 min of training).
+
+### Analysis of run 4 (2026-09-10): memorisation on the placement axis, not a saturated loss
+
+Loss curves (batch loss, smoothed): lens run 7.9e-5 at 10k, 6.9e-6 at 60k,
+9.4e-7 at 120k; appearance run 8.4e-5, 7.9e-6, 1.3e-6; placement run 2.4e-4,
+2.8e-5, 7.7e-6. All three fall to the end because the cosine schedule is
+still annealing (the last 20k steps buy 1.2-1.4x); the placement run is ~6x
+higher at every stage and drops less from 60k to 120k (3.6x vs 6-7x), i.e.
+it converges to a higher floor rather than lagging. Per-start-step loss of
+the run-4 checkpoint on its training capture: start 0 (survey move) 3.0e-6,
+start 90 (first descent chunk from the survey frame) 1.4e-5, later boundary
+starts 5.6e-6, in-between starts 5-11e-6. The 30/30 fixed-square policy sits
+at 2.5e-6 / 1.3e-6 at the same points, so the first descent chunk is 5.7x
+worse and the rest 4.4x. Held-out placements (10 poses captured with the
+teacher, `rehearsal/analysis_run4_heldout_capture`): start 0 1.2e-5, **start 90
+1.9e-3 (136x the training loss)**, later boundaries 1.8e-5, all rows 1.9e-4
+(24x). Reading: the network fits the 400 training placements well and does
+not generalise the one mapping that matters, survey frame -> where to descend.
+That is memorisation, not a saturated loss, so longer training alone would
+not help; more placements (run 5, 1200) attacks it directly. The network is
+also small for the job: 352k parameters, of which the image encoder holds
+8k (three convolutions, 8/16/32 channels, stride 8 first layer); at the
+survey pose the cube spans 12-25 px in the 256-px observation, i.e. two or
+three 8-px patches, so sub-patch localisation relies on the 344k-parameter
+head reading a 4x4x32 map. A finer, wider encoder is the next lever if run 5
+narrows but does not close the gap.
