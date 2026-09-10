@@ -1,0 +1,20 @@
+[
+ {
+  "step": 0,
+  "observation_array_sha256": "4117ce60432103e216adbd8b7b1fbd939c13b0c5fa73e37a8d41c2878021fd80",
+  "observation_png": "step_000.obs.png",
+  "observation_png_sha256": "e4e57711013ef455aa184257efdbaa6d67b6944a8068ea830edefbc91988c569",
+  "raw_png": "step_000.raw.png",
+  "raw_png_sha256": "4c5cd1de6501a3ec7d3c58a2734785914bc9e2dd517b312bc6a88fcd8e6c56f2",
+  "raw_array_sha256": "8bea8156a08bf775d74ee74a00bcc3d4ac0a25fa85e11cffb5fe781fff74c708"
+ },
+ {
+  "step": 90,
+  "observation_array_sha256": "499c583ecfb404b2c9d2eb2ca919eac7915a83d600fc81e299ebc438e23213ea",
+  "observation_png": "step_090.obs.png",
+  "observation_png_sha256": "eb0be39a480c5e510f232247735b68e4d0a04521a31c366ce9fce721e7b974a3",
+  "raw_png": "step_090.raw.png",
+  "raw_png_sha256": "9aa0636747618ca37f8e61bb2080b6b482a77729435245d4315b809e9f08ec90",
+  "raw_array_sha256": "20cb180095278db03b944dbf695e90b3848663e7a0690b161a6df03186bfb03b"
+ }
+]
