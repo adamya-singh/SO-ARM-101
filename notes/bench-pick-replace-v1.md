@@ -23,14 +23,14 @@ scene gained two render-only slots (pristine renders byte-identical to the
 2026-09-09 review images; teacher re-certified 15/15 on the new hash); an
 **offline real-frame gate** (`tools/check_policy_on_real_frames.py`) that
 the current policy fails (shoulder 25 units, elbow 21, 23 holds) and its
-simulated reset chunk passes (0.47 / 0.45); the physical runner now refuses
-motion below a 6.0 V servo supply and refuses the episode if the gate fails
-on a fresh frame at the reset pose. Recipe registered as gate 6. Full suite
+simulated reset chunk passes (0.47 / 0.45); the physical runner now records the
+servo supply voltage (refusing only a brown-out below 4.8 V: the stock 5 V
+adapter reads 5.3–5.4 V and is what this arm runs on) and refuses the
+episode if the gate fails on a fresh frame at the reset pose. Recipe registered as gate 6. Full suite
 318 passed; pipeline rehearsed end to end with the recipe
 (`rehearsal/appearance_20260910/`). Pending: the bench owner's confirmation
-of `inspection/camera_review_20260910.json` (draft, images identical), then
-the queue command under "Resume commands"; the 5.4 V supply must be fixed
-before any physical trial.
+of `inspection/camera_review_20260910.json` (signed 2026-09-10, images identical);
+third run queued 2026-09-10 (see "Tracking and monitoring").
 
 **Physical inference runner built (2026-09-09, evening): `tools/run_physical_episode.py`
 with `so_arm101_v2.physical` (shared gate `bench_hold_decision`, runner loop,
@@ -547,8 +547,11 @@ byte-identical to the 2026-09-09 review images
 (`inspection/sim_reset_observation_fcead5c7.png` = `…_7c765d4b.png`);
 teacher certified 15/15
 (`teacher_certification/fcead5c72426f292-pad_normals_v2/`). Review sheet
-of 14 draws next to the real reset observation and the pristine sim:
-`readme-assets/bench-appearance-review-sheet-20260910.png`.
+of 14 draws next to the real reset observation and the pristine sim
+(reviewed and accepted by the user 2026-09-10, recorded in
+`inspection/camera_review_20260910.json`):
+
+![Appearance review sheet: real reset observation, pristine sim, 14 draws](../readme-assets/bench-appearance-review-sheet-20260910.png)
 
 Suites and evidence: `SimulationScenario.appearance_seed` (None = pristine;
 `fixed_appearance` must agree), hashed into suite ids, `suite.json`, the
@@ -574,7 +577,7 @@ result (`real_frame_check.json`, `evaluation_summary["real_frames/reset"]`,
 plus a 16-draw photometric sweep of the real frame); the physical runner
 runs it on a fresh frame at the reset pose after the approach and refuses
 the episode on failure (torque kept), and reads `Present_Voltage` after the
-read-only connect, refusing below 6.0 V.
+read-only connect (stock 5 V adapter: 5.3–5.4 V; refuses below 4.8 V).
 
 ## Active scene and teacher
 
@@ -829,8 +832,8 @@ tests. Full suite 278 passed at the second launch.
    Success for the tranche: the real-frame gate passes and held-out
    appearance is not far below the fixed held-out score, with nominal and
    fixed held-out comparable to `iziftplw`. Only then is a physical trial
-   authorized (after the supply voltage is fixed; the runner refuses below
-   6.0 V and refuses the episode if the gate fails live).
+   authorized (the runner records the servo voltage, refusing only a
+   brown-out below 4.8 V, and refuses the episode if the gate fails live).
 
 Full physical testing, additional seeds, and arbitrary workspace placement
 are later work.

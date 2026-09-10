@@ -6,9 +6,9 @@
     "physical_wrist_image_sha256": "fc15a88358d16b3ad4d6cea8f059cf7d7fa0aa4bd3aea1c4e1e9467423c06e4a",
     "simulated_wrist_image": "sim_reset_wrist_camera_fcead5c7.png",
     "simulated_wrist_image_sha256": "22d031da36f54722c9c2b6a319429266f0955cc41d33f555a7a7a7ebed4295df",
-    "reviewed_at": "",
-    "reviewer": "",
-    "notes": "",
+    "reviewed_at": "2026-09-10T04:28:54.531477+00:00",
+    "reviewer": "7adamyasingh@gmail.com (bench owner)",
+    "notes": "Re-confirmation on the regenerated scene fcead5c7 (appearance-randomization slots: unbound ground texture and an invisible visual-only towel body; bench_appearance v1 regime block in bench_config.json). Every reviewed image is byte-identical to the 2026-09-09 review set (see identical_to_20260909): the pristine reset/viewing renders, the synthetic raw frame and the observation pair are unchanged; only the scene hash moved. Reviewed material this time also included the appearance review sheet (real reset observation, pristine sim, 14 random draws; readme-assets/bench-appearance-review-sheet-20260910.png). User, 2026-09-10: \"it looks good so go ahead and queue the run when ready.\" Accepted residuals unchanged from 2026-09-09 (simulated square ~140 px lower than the real towel; pitch refit declined).",
     "observation_images": {
       "sim_reset_observation_fcead5c7.png": "a1c82c2f36811f5cc169b6ce919eeb878a12bead069a20b76a06be2816761914",
       "physical_reset_observation_fcead5c7.png": "e5a996a1b59d464f9379ba05c5af7420dde9702b6343f99fe663ea7c04fac2ca",
@@ -57,7 +57,6 @@
       "teacher_certification": "../teacher_certification/fcead5c72426f292-pad_normals_v2",
       "previous_review": "camera_review_20260909.json"
     },
-    "pending_user_confirmation": "DRAFT 2026-09-10: the scene gained two appearance-randomization slots (unbound ground texture, invisible visual-only towel body) and an appearance regime block in bench_config.json; the pristine renders are byte-identical to the images signed on 2026-09-09 (see identical_to_20260909). The bench owner must confirm before the pipeline accepts this record (reviewer/notes/reviewed_at are empty until then).",
     "identical_to_20260909": {
       "sim_reset_observation": true,
       "sim_reset_wrist_camera": true,

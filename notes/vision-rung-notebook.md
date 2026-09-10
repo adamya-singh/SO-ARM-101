@@ -369,9 +369,12 @@ pixel shift after resampling), so the runner captures at 720p. In the first
 motion attempt (`physical/episode_01_20260909`, user-confirmed) pan, shoulder,
 wrist and gripper reached the reset in 4 s but the elbow stalled 4 units short
 under gravity and the approach timed out. Cause found afterwards: all servos
-report a 5.3–5.4 V supply (spec 6–12 V); the gripper had flagged an input
+report a 5.3–5.4 V supply (the stock 5 V adapter under load, normal for this
+arm as the user confirmed on 2026-09-10); the gripper had flagged an input
 voltage error. The approach ramp now lets commands pass the reset by up to 6
-units, but the power supply must be fixed before the next attempt.
+units; the supply reading turned out to be normal for this arm (see the
+2026-09-10 entry), so the next attempt waits on the appearance-randomized
+policy passing the offline real-frame gate, not on a hardware change.
 
 ### Second physical attempt (2026-09-09, evening): approach succeeded, policy's first chunk is off-distribution
 
@@ -422,7 +425,9 @@ units, no holds, above the floor). Calibrated on the lens policy with the
 episode_02 frame: FAIL (shoulder 25.15, elbow 21.07, 23 holds, min shoulder
 −94.49) versus PASS on the simulated reset chunk (0.47 / 0.45). The pipeline
 records it after evaluation; the physical runner runs it live at the reset pose
-and refuses the episode on failure, and refuses motion below a 6.0 V supply.
+and refuses the episode on failure, and records the servo voltage (the stock
+5 V adapter, 5.3–5.4 V under load, is normal for this arm; refusal only below
+4.8 V).
 Pipeline rehearsed end to end with `--appearance` (toy scale, offline W&B).
 Full suite 318 passed. The third run is queued as soon as the bench owner
 confirms the camera review on the regenerated scene (images identical).

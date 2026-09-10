@@ -33,7 +33,7 @@ class TrackingRobot:
     def __init__(self, events, start_physical):
         self.events = events
         self.pose = np.asarray(start_physical, dtype=np.float64).copy()
-        self.voltage_raw = 74   # Present_Voltage in 0.1 V units: a healthy 7.4 V supply
+        self.voltage_raw = 54   # Present_Voltage in 0.1 V units: the stock 5 V adapter under load (5.4 V, as measured 2026-09-09)
         self.bus = Mock()
 
         def sync_read(name="Present_Position", *a, **k):
@@ -141,7 +141,7 @@ def test_motion_ordering_claims_run_dir_before_torque_and_never_disables_torque(
     assert record["approach"]["steps"] > 0 and max(abs(v) for v in record["approach"]["residual_physical"]) <= 1.0
     assert record["start_pose_delta_act"] <= tool.START_POSE_TOLERANCE_ACT
     assert record["pan_sign"]["skipped"] and record["resampler"]["bit_identical"] and record["dry_pass"]["chunk_len"] == 90
-    assert record["servo_voltage"]["ok"] and record["servo_voltage"]["lowest_v"] == 7.4
+    assert record["servo_voltage"]["ok"] and record["servo_voltage"]["lowest_v"] == 5.4
     assert record["real_frame_check"]["passed"] and record["real_frame_check"]["label"] == "reset_observation"
     assert (run_dir / "preflight" / "real_frame_gate_reset.png").exists()
     assert len(record["confirmations"]) == 2
@@ -223,11 +223,11 @@ def test_real_frame_gate_failure_refuses_the_episode_after_the_approach(tmp_path
 def test_low_servo_voltage_refuses_before_any_torque(tmp_path: Path, monkeypatch) -> None:
     events: list[str] = []
     robot = TrackingRobot(events, REST)
-    robot.voltage_raw = 54   # the 2026-09-09 bench supply
+    robot.voltage_raw = 45   # brown-out: below the 4.8 V floor
     tool = _install(monkeypatch, events, robot)
     run_dir = tmp_path / "lowv"
     code = tool.main(["--enable-motion", "--run-dir", str(run_dir), "--no-preview"])
     assert code == 2 and "torque" not in events and "goal" not in events and "send" not in events
     record = json.loads((run_dir / "run.json").read_text())
-    assert record["status"] == "refused" and "5.4 V" in record["reason"] and record["servo_voltage"]["ok"] is False
-    assert record["servo_voltage"]["volts"]["gripper"] == 5.4 and record["servo_voltage"]["minimum_v"] == 6.0
+    assert record["status"] == "refused" and "4.5 V" in record["reason"] and record["servo_voltage"]["ok"] is False
+    assert record["servo_voltage"]["volts"]["gripper"] == 4.5 and record["servo_voltage"]["minimum_v"] == 4.8

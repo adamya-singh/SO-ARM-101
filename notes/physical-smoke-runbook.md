@@ -1,6 +1,6 @@
 # Physical Smoke Runbook (bench procedure)
 
-Updated 2026-09-10. **Two physical attempts were run on 2026-09-09 (`physical/episode_01`, `episode_02`; see `notes/vision-rung-notebook.md`): the runner, timing, gate and safety stack worked; the lens policy (run `iziftplw`) retracted on the real reset frame and is not a candidate for another trial.** The next candidate is the policy from the appearance-randomized run (gate 6 in the bench runbook), and only if it passes the offline real-frame gate. Before any trial the servo supply must be fixed: the preflight now reads `Present_Voltage` and refuses below 6.0 V, and the runner refuses the episode if the real-frame gate fails on a fresh frame at the reset pose. The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
+Updated 2026-09-10. **Two physical attempts were run on 2026-09-09 (`physical/episode_01`, `episode_02`; see `notes/vision-rung-notebook.md`): the runner, timing, gate and safety stack worked; the lens policy (run `iziftplw`) retracted on the real reset frame and is not a candidate for another trial.** The next candidate is the policy from the appearance-randomized run (gate 6 in the bench runbook), and only if it passes the offline real-frame gate. The preflight now records `Present_Voltage` (the stock 5 V adapter reads 5.3–5.4 V; refusal only below 4.8 V), and the runner refuses the episode if the real-frame gate fails on a fresh frame at the reset pose. The previous v3 trajectory examples used a different cube, location and reset. Do not use them on the new bench. Read the [bench setup/runbook](bench-pick-replace-v1.md) first.
 
 ## Current hardware and preparation
 
@@ -23,7 +23,7 @@ Modes, in the order to use them:
 PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/run_physical_episode.py --sim-rehearsal --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/<new>
 
-# 2. Hardware, read-only (torque off): pinned calibration, fresh pose, servo voltage >= 6.0 V (refuses otherwise),
+# 2. Hardware, read-only (torque off): pinned calibration, fresh pose, servo voltage >= 4.8 V (stock 5 V adapter; refuses a brown-out),
 #    camera rate >= 25 fps, resampler proof on live frames, optional pan-sign check (--pan-check; verified 2026-09-09),
 #    policy dry pass (informational at gravity rest; the real-frame gate applies here only if already at the reset).
 PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
@@ -37,7 +37,7 @@ PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/run_physical_episode.py --enable-motion --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/physical/<new>
 ```
 
-**Servo supply voltage (found 2026-09-09, gated 2026-09-10):** with torque on, every servo reported `Present_Voltage` 5.3–5.4 V (STS3215 servos need about 6–12 V). The gripper raised an input-voltage error and the elbow could not close the last 4 units under gravity at that voltage. Fix the power adapter feeding the servo bus board before any motion: the preflight reads every motor's `Present_Voltage` (raw 0.1 V units) right after the read-only connect, records it in `run.json` (`servo_voltage`) and refuses below 6.0 V (`MIN_SERVO_VOLTAGE_V`).
+**Servo supply voltage (measured 2026-09-09, gated 2026-09-10):** with torque on, every servo reported `Present_Voltage` 5.3–5.4 V. That is the stock SO-101 5 V adapter under load, which this arm has always run on (user, 2026-09-10); it is not a fault. The gripper's input-voltage flag and the elbow's ~4-unit gravity sag seen on 2026-09-09 are observations to keep in mind (the approach ramp now overshoots up to 6 units to cover the sag). The preflight reads every motor's `Present_Voltage` (raw 0.1 V units) right after the read-only connect, records it in `run.json` (`servo_voltage`) and refuses only a brown-out below 4.8 V (`MIN_SERVO_VOLTAGE_V`).
 
 **Real-frame gate (2026-09-10):** `so_arm101_v2.physical.dry_pass.check_reset_frame` runs the network once on a frame at the reset pose and walks the first chunk through the bench gate; it passes only if shoulder_lift and elbow_flex move at most 3 units, no command is held and the shoulder never goes below the floor. Offline: `tools/check_policy_on_real_frames.py` on `physical/episode_02_20260909` (the lens policy fails it: shoulder 25 units, elbow 21, 23 holds; its simulated reset chunk passes at 0.47 / 0.45). Live: the runner grabs a fresh frame after the approach and refuses the episode on failure (`run.json` `real_frame_check`, `preflight/real_frame_gate_reset.png`).
 

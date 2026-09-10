@@ -34,13 +34,18 @@ config, seeds hashed into every suite and capture identity; pristine
 renders unchanged, physics untouched, teacher re-certified 15/15), and an
 offline real-frame gate (`tools/check_policy_on_real_frames.py`) that the
 current policy fails and its simulated chunk passes must pass before the
-next trial; the runner also refuses motion below a 6.0 V servo supply (the
-bench supply read 5.4 V). Review sheet:
-[appearance draws next to the real frame](readme-assets/bench-appearance-review-sheet-20260910.png).
+next trial; the preflight also records the servo supply voltage (the stock
+5 V adapter reads 5.4 V under load; only a brown-out below 4.8 V refuses).
 The third pre-registered run (same recipe plus the appearance draws and a
-held-out-under-appearance evaluation) is ready to queue after the camera
-review is re-confirmed on the regenerated scene. Details in the
+held-out-under-appearance evaluation) was queued on September 10 after the
+camera review was re-confirmed on the regenerated scene. Details in the
 [bench runbook](notes/bench-pick-replace-v1.md).
+
+Appearance review sheet (top-left: the real reset frame as the policy sees
+it; second: the unchanged pristine simulator; the rest: fourteen random
+appearance draws at the same pose):
+
+![Appearance randomization review sheet, 2026-09-10](readme-assets/bench-appearance-review-sheet-20260910.png)
 
 **Bench status (September 9, 2026, evening):** a physical inference runner
 now exists ([run_physical_episode.py](tools/run_physical_episode.py)):

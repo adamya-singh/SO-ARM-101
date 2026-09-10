@@ -120,21 +120,22 @@ def test_tampered_evidence_is_refused(tmp_path):
         load_boundary_frame(EPISODE_02, step=17)
 
 
-def test_servo_voltage_preflight_reads_the_raw_register_and_refuses_the_bench_supply():
+def test_servo_voltage_preflight_reads_the_raw_register_and_accepts_the_stock_supply():
     robot = Mock()
     seen = {}
 
     def sync_read(name, *a, **k):
         seen["name"], seen["kwargs"] = name, k
-        return {n: 54.0 for n in JOINT_NAMES}
+        return {n: 45.0 for n in JOINT_NAMES}
 
     robot.bus.sync_read.side_effect = sync_read
-    assert read_present_voltages(robot) == {n: 5.4 for n in JOINT_NAMES}
+    assert read_present_voltages(robot) == {n: 4.5 for n in JOINT_NAMES}
     assert seen["name"] == "Present_Voltage" and seen["kwargs"] == {"normalize": False}
     low = check_servo_voltage(robot)
-    assert low["ok"] is False and low["lowest_v"] == 5.4 and low["minimum_v"] == 6.0
-    robot.bus.sync_read.side_effect = lambda name, *a, **k: {n: (74.0 if n != "gripper" else 73.0) for n in JOINT_NAMES}
+    assert low["ok"] is False and low["lowest_v"] == 4.5 and low["minimum_v"] == 4.8
+    # The stock 5 V adapter reads 5.3-5.4 V under load on this arm and must pass.
+    robot.bus.sync_read.side_effect = lambda name, *a, **k: {n: (54.0 if n != "gripper" else 53.0) for n in JOINT_NAMES}
     good = check_servo_voltage(robot)
-    assert good["ok"] and good["lowest_v"] == 7.3 and good["volts"]["gripper"] == 7.3
+    assert good["ok"] and good["lowest_v"] == 5.3 and good["volts"]["gripper"] == 5.3
     robot.bus.enable_torque.assert_not_called()
     robot.send_action.assert_not_called()

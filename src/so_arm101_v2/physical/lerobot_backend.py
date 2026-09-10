@@ -32,7 +32,9 @@ from so_arm101_v2.contracts.physical_io import read_measured_act
 from .runner import CONTROL_HZ, Observation, PeriodOutcome, SendRecord
 
 
-MIN_SERVO_VOLTAGE_V = 6.0   # STS3215 rated 6-12 V; the 2026-09-09 bench supply read 5.3-5.4 V (gripper voltage error, elbow sag)
+# The SO-101 kit ships with a 5 V supply for its 7.4 V-class STS3215 servos and this arm has run on it (user, 2026-09-10);
+# the bench reads 5.3-5.4 V under load. The floor catches a brown-out or an unplugged/failing adapter, not a spec mismatch.
+MIN_SERVO_VOLTAGE_V = 4.8
 
 
 class StaleFrame(RuntimeError):

@@ -330,12 +330,12 @@ def _hardware(args, bench, contract, policy, record) -> int:
         physical = act_to_physical_normalized(current)
         record["measured_pose_physical"] = [round(float(v), 3) for v in physical]
         print(f"measured pose (physical units): {np.round(physical, 2).tolist()}", flush=True)
-        # Servo supply (read-only register). The 2026-09-09 supply read 5.4 V: gripper voltage error, elbow sag.
+        # Servo supply (read-only register): the stock 5 V adapter reads 5.3-5.4 V; refuse only a brown-out (< 4.8 V).
         record["servo_voltage"] = check_servo_voltage(robot)
         print(f"servo voltage: {record['servo_voltage']}", flush=True)
         if not record["servo_voltage"]["ok"]:
             raise Refused(f"servo supply {record['servo_voltage']['lowest_v']:.1f} V is below {MIN_SERVO_VOLTAGE_V:.1f} V "
-                          f"(per motor: {record['servo_voltage']['volts']}); fix the power supply before any motion")
+                          f"(per motor: {record['servo_voltage']['volts']}); check the servo power adapter before any motion")
         # Camera and observation contract.
         rate = grabber.measure_rate(1.0)
         record["camera"]["measured_fps"] = round(rate, 1)
