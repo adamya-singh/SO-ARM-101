@@ -23,6 +23,16 @@ photometric perturbations pass (`real_frame_check.json`,
 (W&B `ytn3eygr`). This is the first checkpoint eligible for a live trial
 under gate 6.**
 
+**Live attempts 3 and 4 (2026-09-10, auto-confirmed under the user's
+standing authorization): the plan executes on the arm end to end (427
+actions, zero overruns, prefix check passed) but the grasp misses because
+the cube sits ~40 mm farther from the base and ~11 mm to the side of the
+task pose: the towel's near edge, not its centre, is at the 8.5 in mark
+(back-projection through the calibrated lens; the same method reproduces
+the simulated square to 0.2 mm). Fix on the bench: centre the towel on the
+8.5 in mark and the cube on the towel. Details in `notes/vision-rung-notebook.md`;
+evidence in `physical/episode_04_20260910/analysis/`.**
+
 **Appearance randomization tranche implemented and rehearsed (2026-09-10);
 the third pre-registered run is ready to queue once gate 1 is re-signed on
 the regenerated scene `fcead5c7…`.** Two physical attempts on 2026-09-09

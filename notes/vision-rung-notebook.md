@@ -448,3 +448,40 @@ wall): the photometric noise defeats the zlib frame cache, so the next run
 needs an uncompressed in-RAM or GPU-resident frame store. Per the user's
 standing authorization of 2026-09-10, the live trial follows immediately
 (`tools/run_physical_episode.py --enable-motion --yes`).
+
+### Live attempts 3 and 4 (2026-09-10): the plan executes on the arm; the cube is 40 mm from where the task puts it
+
+Under the user's standing authorization the runner now auto-confirms
+(`--yes`). Attempt 3 (`physical/episode_03_20260910`) was refused by the live
+real-frame gate on a graze: the chunk moved the shoulder 1.2 units and
+touched −92.12, one hold. The gate became `real_frame_gate_v2` (up to 3 holds,
+0.5 units of floor margin; the calibration failure sits at 23 holds and 2.5
+units). Attempt 4 (`physical/episode_04_20260910`) then ran the whole plan at
+30 Hz with zero overruns: 90-step observation prefix at the reset (prefix
+check passed, 0.017 rad), lift to the viewing pose, descent, gripper open at
+~130, close at ~280, and the release at ~412, where the policy's 50-unit
+gripper jump against the 20-unit relative limiter produced 15 consecutive
+holds and the abort. The gripper closed to 0.55 units: it closed on nothing,
+and the video shows the cube still on the towel beside the jaws
+(`analysis/video_sheet.png`, `analysis/joints.png`).
+
+Why: the same checkpoint run through the tool's simulator backend
+(`rehearsal/appearance_policy_nominal_20260910`, success, 431 actions) ends
+its descent with the square between the jaws; on the bench the arm stops
+short with the cube far ahead and to one side, and the policy's servoing
+bends the trajectory (pan −5 vs −1.4 units, shoulder 8 units less forward,
+elbow 8 units more flexed) without reaching it
+(`analysis/real_vs_sim_boundaries.png`, `analysis/real_vs_sim_joints.png`).
+Back-projecting the reset frame through the calibrated lens and the
+simulated camera pose (`analysis/cube_placement_vs_nominal.png`): the
+towel's near edge lies at y = 280 mm, exactly where the task puts the
+**centre** of the square (8.5 in from the base front edge), and the cube's
+top face is at y ≈ 319 mm (its near edge 305 vs 270.5 nominal), x ≈ +11 mm:
+the cube is about **40 mm farther from the base and 11 mm to the side** of
+the pose the policy trained around (±10 mm). The same back-projection on the
+simulated frame reproduces the square's near edge to 0.2 mm, so this is
+placement, not a camera or joint-map error; the "sim square ~140 px lower
+than the real towel" residual accepted in the camera reviews was this
+placement all along. The physical fix is to move the towel so its centre,
+not its near edge, sits 8.5 in from the base front edge, with the cube at
+the towel's centre; the runner and the policy need no change.

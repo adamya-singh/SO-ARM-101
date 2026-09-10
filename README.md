@@ -41,8 +41,12 @@ held-out-under-appearance evaluation) finished on September 10: **nominal
 3/3, held-out 30/30 with zero safety frames, held-out under appearance
 29/30**, and the offline real-frame gate **passes** on the recorded real
 reset frame (shoulder 0.7 units, elbow 0.6, no holds), the first checkpoint
-eligible for a live trial. Details in the
-[bench runbook](notes/bench-pick-replace-v1.md).
+eligible for a live trial. The live trial (September 10, auto-confirmed)
+executed the whole plan on the arm at 30 Hz with zero overruns but closed on
+nothing: back-projection through the calibrated lens showed the cube 40 mm
+farther from the base than the task pose (the towel's near edge, not its
+centre, was at the 8.5 in mark). Next trial after the towel is centred.
+Details in the [bench runbook](notes/bench-pick-replace-v1.md).
 
 Appearance review sheet (top-left: the real reset frame as the policy sees
 it; second: the unchanged pristine simulator; the rest: fourteen random
