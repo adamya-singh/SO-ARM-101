@@ -32,7 +32,11 @@ what stood in the way: a live real-frame gate, a cube-placement gate that
 says how far to move the cube, and a runner gate that rate-limits instead
 of freezing when a chunk outruns the servos. Single episode, exploratory: a repeat in brighter daylight closed beside the
 cube, because the policy trained on ±10 mm cube offsets and the cube sat
-about 20 mm beyond the task pose. Next: randomize placement in the capture.
+about 20 mm beyond the task pose. Next: randomize placement in the capture. That tranche is implemented
+(September 10, later): the square and cube are placed anywhere in a 14 × 10 in
+rectangle with yaw, the policy's first chunk rises to a survey pose that sees
+the reachable area, and the yaw-aware teacher is certified 30/30; the fourth
+run is pending the camera review on the regenerated scene.
 
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the

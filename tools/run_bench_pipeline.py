@@ -27,17 +27,17 @@ import traceback
 import numpy as np
 
 from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION
+from so_arm101_v2.contracts.placement import PLACEMENT_RESOLVER_VERSION
 from so_arm101_v2.contracts.bench import scene_bench_config, scene_dependency_hash
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
 from so_arm101_v2.physical.dry_pass import REAL_FRAME_GATE_VERSION, load_boundary_frame
-from so_arm101_v2.simulation.bench import appearance_product, bench_suite, generate_bench_suite, load_bench_verification
+from so_arm101_v2.simulation.bench import CERTIFICATION_PLACEMENTS, appearance_product, bench_suite, certification_suite, generate_bench_suite, load_bench_verification
 from so_arm101_v2.simulation.contact import GRASP_DETECTOR_VERSION
 from so_arm101_v2.simulation.suites import load_suite_from_path
 from so_arm101_v2.simulation.rollout import run_simulation_preflight, evaluate_closed_loop
 from so_arm101_v2.simulation.oracle import capture_oracle_demonstrations
 from so_arm101_v2.simulation.policy_specs import PolicySpec
 
-CERTIFICATION_OFFSETS = [(0, 0), (.01, 0), (-.01, 0), (0, .01), (0, -.01)]
 PREFIX_TOLERANCE_RAD = 0.05
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REAL_FRAME_EPISODES = [ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909']
@@ -70,6 +70,23 @@ def prefix_success(report: dict, bench, observation_steps: int) -> dict:
     return result
 
 
+def success_by_region(rows: list, suite, bench) -> dict:
+    """Successes per (y band, x band) of the square centre: near/mid/far forward, left/centre/right lateral."""
+    regime = bench.placement_regime
+    by_id = {s.scenario_id: s for s in suite.scenarios}
+    result = {}
+    for row in rows:
+        scenario = by_id.get(row['scenario_id'])
+        centre = scenario.square_center_xy if scenario is not None and scenario.square_center_xy is not None else bench.square_center_xy
+        fy = (centre[1] - regime.y_range_m[0]) / (regime.y_range_m[1] - regime.y_range_m[0])
+        fx = (centre[0] - regime.x_range_m[0]) / (regime.x_range_m[1] - regime.x_range_m[0])
+        band = ('near', 'mid', 'far')[min(2, int(fy * 3))] + '/' + ('left', 'centre', 'right')[min(2, int(fx * 3))]
+        bucket = result.setdefault(band, dict(successes=0, rollouts=0))
+        bucket['rollouts'] += 1
+        bucket['successes'] += int(bool(row['success']) and not row['invalidated'])
+    return dict(sorted(result.items()))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model', type=Path, required=True)
@@ -82,6 +99,10 @@ def main():
                    help='the bench_appearance recipe: training poses drawn with per-scenario appearance seeds, the held-out poses also evaluated '
                         'under 3 appearance draws each, and the offline real-frame gate run on the recorded physical reset frame(s). '
                         'Requires (and is required by) an appearance block in bench_config.json.')
+    p.add_argument('--placement', action='store_true',
+                   help='the bench_placement recipe: training and held-out squares (with the cube) drawn anywhere in the placement '
+                        'rectangle with yaw, screened by the teacher and the survey-pose visibility check; certification over the '
+                        'placement set; success reported by region. Requires (and is required by) a placement block in bench_config.json.')
     p.add_argument('--real-frame-episode', type=Path, action='append', default=None,
                    help='recorded physical episode directory for the real-frame gate (repeatable; default physical/episode_02_20260909)')
     args = p.parse_args()
@@ -95,6 +116,9 @@ def main():
     if bool(args.appearance) != (bench.appearance is not None):
         raise RuntimeError('--appearance must be passed exactly when bench_config.json carries an appearance regime '
                            f'(flag={bool(args.appearance)}, regime={"present" if bench.appearance is not None else "absent"})')
+    if bool(args.placement) != (bench.placement is not None):
+        raise RuntimeError('--placement must be passed exactly when bench_config.json carries a placement regime '
+                           f'(flag={bool(args.placement)}, regime={"present" if bench.placement is not None else "absent"})')
     scene_hash = scene_dependency_hash(args.model)
     real_frame_episodes = [Path(p) for p in (args.real_frame_episode or DEFAULT_REAL_FRAME_EPISODES)] if args.appearance else []
     real_frames = []
@@ -121,7 +145,7 @@ def main():
         verification = load_bench_verification(args.verification, scene_hash=scene_hash,
                                                reset_evidence_sha256=bench.reset_evidence_sha256)
         counts = dict(train=(12, 400, 1), heldout=(8, 10, 3)); max_steps, checkpoint_interval = 120000, 5000
-        wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k' + ('-appearance' if args.appearance else '')
+        wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k' + ('-appearance' if args.appearance else '') + ('-placement' if args.placement else '')
     root.mkdir(parents=True, exist_ok=True)
     identity = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, bench=asdict(bench),
                     verification=verification, training_seed=202, max_steps=max_steps, rehearsal=bool(args.rehearsal),
@@ -134,6 +158,12 @@ def main():
         identity['real_frame_gate'] = dict(gate=REAL_FRAME_GATE_VERSION, frames=real_frames)
     else:
         identity['recipe'] = 'fixed_appearance'
+    if args.placement:
+        identity['recipe'] += '+bench_placement_v1'
+        identity['placement'] = dict(regime=dict(bench.placement), resolver=PLACEMENT_RESOLVER_VERSION,
+                                     train_suite='square centre + yaw per pose (stream 2), teacher + survey-visibility screened',
+                                     heldout_suite='same, seed 8', certification=CERTIFICATION_PLACEMENTS,
+                                     viewing_qpos=[float(v) for v in bench.viewing_qpos])
     write_immutable_json(root / 'experiment.json', identity)
     started = time.time()
     state = dict(status='running', phase='preflight', pid=os.getpid(), started_at=started, output_dir=str(root),
@@ -178,7 +208,7 @@ def main():
             except Exception as exc:  # tracking must never stop the experiment
                 state['tracking_error'] = str(exc)
 
-        stage = bench_suite(bench, CERTIFICATION_OFFSETS, label='certification', repeats=3)
+        stage = certification_suite(bench, repeats=3)
         preflight(stage); assert_scene(); track({'phase/certification_passed': 1})
         if args.stop_after == 'preflight':
             progress(status='complete', phase='preflight_complete'); return 0
@@ -190,7 +220,8 @@ def main():
                 path = Path(pointer.read_text().strip()); suite = load_suite_from_path(path)
             else:
                 suite, path = generate_bench_suite(args.model, bench, seed=seed, count=count, repeats=repeats, output_dir=root / 'suites',
-                                                   randomize_appearance=bool(args.appearance) and label == 'train')
+                                                   randomize_appearance=bool(args.appearance) and label == 'train',
+                                                   randomize_placement=bool(args.placement))
                 pointer.write_text(str(path.resolve()) + '\n')
             suites[label] = suite
             provenance['suites'][label] = dict(suite_id=suite.suite_id, path=str(path), preflight=str(preflight(suite)))
@@ -269,9 +300,11 @@ def main():
                 entry = dict(successes=sum(r['success'] and not r['invalidated'] for r in rows), rollouts=len(rows),
                              safety_frames=sum(sum(r[k] for k in ('clipping_frames', 'limiting_frames', 'nonfinite_frames', 'unsafe_contact_frames')) for r in rows),
                              prefix_ok=prefix.get(name, {}).get('prefix_ok'), report=str(result.report_json))
+                if args.placement:
+                    entry['success_by_region'] = success_by_region(rows, suite, bench)
                 summary[f'{label}/{name}'] = entry
                 for key, value in entry.items():
-                    if key != 'report':
+                    if key not in ('report', 'success_by_region'):
                         tracker.summary[f'{label}/{name}/{key}'] = value
             tracker.summary[f'{label}/report'] = str(result.report_json)
         if args.appearance and real_frame_episodes and any(p.exists() for p in real_frame_episodes):

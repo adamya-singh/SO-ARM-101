@@ -7,6 +7,12 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-10)
 
+**Placement randomization tranche implemented (2026-09-10, later): square +
+cube anywhere in the 14 × 10 in rectangle with yaw; survey viewing pose;
+yaw-aware teacher certified 30/30 on the regenerated scene `92f07142…`;
+pipeline recipe `--appearance --placement` rehearsed. Fourth run pending gate 1
+re-sign. Details under "Placement randomization" below.**
+
 **FIRST SUCCESSFUL LIVE EPISODE (2026-09-10, `physical/episode_10_20260910`):
 the appearance-randomized policy (run `ytn3eygr`) ran all 480 actions on the
 physical arm at 30 Hz with zero holds and zero overruns, closed on the cube
@@ -625,6 +631,74 @@ runs it on a fresh frame at the reset pose after the approach and refuses
 the episode on failure (torque kept), and reads `Present_Voltage` after the
 read-only connect (stock 5 V adapter: 5.3–5.4 V; refuses below 4.8 V).
 
+
+## Placement randomization (2026-09-10)
+
+User direction after episode 13: the cube and the white square move
+**together**, placed at random inside a rectangle **14 in wide (x) × 10 in
+deep (y)** whose near edge is **2 in forward of the base front edge**
+(x ∈ [−0.1778, 0.1778], y ∈ [0.1154, 0.3694] m), yawed up to **±45°**, cube
+keeping its ±10 mm jitter on the square; the square is not always visible
+from the reset pose, so the arm looks for it.
+
+Design (`contracts/placement.py`, `BenchConfig.placement`, hashed like the
+lens and appearance blocks; `simulation/bench.py`; `simulation/adapter.py`;
+`simulation/privileged.py`; `physical/placement.py`, `physical/dry_pass.py`):
+- **Scenario**: `SimulationScenario.square_center_xy` and `square_yaw_rad`
+  (omitted from payloads when nominal, so fixed suites hash as before). The
+  adapter moves the napkin geom (its compiler "same rotation as body" flag is
+  cleared so yaw takes effect), the visual towel body (yaw composed on the
+  appearance draw's own yaw) and the cube together at every reset; the
+  footprint metric reads the napkin pose live, so the task follows the square.
+- **Survey pose**: the teacher's existing 0–60 "look-up" stage now moves to a
+  raised viewing pose (`viewing_qpos` = reset + shoulder_lift 0.40, elbow −0.60,
+  wrist_flex 0.40 rad; camera 235 mm above the bench), so the frame the policy
+  consumes at step 90 sees the reachable rectangle (reset frame: 80/165 grid
+  points of the full rectangle; survey frame: 108/165; the far strip beyond
+  ~300 mm and the near-centre pocket stay out of view, `inspection/
+  survey_pose_coverage_92f07142.png`). Zero extra actions: horizon 480 stays.
+  Placements the survey pose cannot see are screened out
+  (`not_visible_from_survey`).
+- **Teacher**: pad-normal and depth targets rotate with the cube's yaw (folded
+  into ±45° by the cube's symmetry), the depth lead rotates with it, and the
+  plan is built for the equivalent grasp yaws (yaw, yaw ± 90°) in order of
+  wrist roll, keeping the first the IK solves. Legacy (yaw 0) is bit-identical.
+  Reach map (`tools/bench_reach_scan.py`, `inspection/reach_scan_92f07142_retry.png`):
+  about half of the full 7×5×3 grid is reachable at every yaw; the far strip
+  (y ≥ ~0.32) and the far-lateral corners fail IK, the near-centre pocket
+  (y < 0.15, |x| < 0.09) cannot fold for the top-down grasp, and one
+  near-left yawed spot invalidates on contact. Suite generation samples the
+  full rectangle and records every rejection by reason.
+- **Certification** (`CERTIFICATION_PLACEMENTS`, ten placements with yaws
+  across the reachable region × 3 repeats): **30/30, deterministic, zero
+  safety** on the regenerated scene
+  (`teacher_certification/92f07142c449ca2f-pad_normals_v2/`).
+- **Suites**: `generate_bench_suite(randomize_placement=True)` draws (x, y,
+  yaw) from stream 2 and the ±10 mm cube offset as before; `--placement` in the
+  pipeline randomizes the training (seed 12, 400) and held-out (seed 8, 10 × 3)
+  suites over the rectangle, keeps `nominal` as the fixed-square regression and
+  `heldout_appearance` as before, and reports `success_by_region` (near/mid/far
+  × left/centre/right).
+- **Physical**: `real_frame_gate_v3` when the survey pose is active: the chunk
+  on the real reset frame must track the simulated reference chunk within 5
+  units on shoulder/elbow/wrist_flex and end within 4 units of the survey pose
+  (holds ≤ 3 and the floor margin still apply). The cube-placement reading is
+  region-aware (inside/outside the rectangle, advisory; a cube not visible at
+  the reset pose is expected) and the runner records a second reading from the
+  survey frame at step 90.
+
+Scene regenerated with `--placement default --survey-pose default`: hash
+`92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818`; the
+pristine reset render is unchanged. Gate 1 needs a re-sign on the new hash
+(same reset image, plus the survey-pose render); draft record
+`inspection/camera_review_20260910b.json`. Review images copied to the repo:
+
+![Certification placements from the reset pose (top) and the survey pose (bottom)](../readme-assets/bench-placement-review-sheet-20260910.png)
+
+![Wrist-camera coverage of the rectangle from the reset and survey poses](../readme-assets/bench-survey-coverage-20260910.png)
+
+![Teacher reach map over the rectangle at yaw 0 and ±45°](../readme-assets/bench-reach-map-20260910.png)
+
 ## Active scene and teacher
 
 Active model: `simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml`,
@@ -880,6 +954,18 @@ tests. Full suite 278 passed at the second launch.
    fixed held-out comparable to `iziftplw`. Only then is a physical trial
    authorized (the runner records the servo voltage, refusing only a
    brown-out below 4.8 V, and refuses the episode if the gate fails live).
+7. **Placement recipe (registered 2026-09-10, `--placement`, with `--appearance`):**
+   the scene carries the `bench_placement` v1 regime and the survey viewing
+   pose (gate 1 re-signed on the regenerated scene, gate 2 re-certified
+   30/30 over the placement set); training (seed 12, 400) and held-out
+   (seed 8, 10 × 3) squares are drawn anywhere in the rectangle with yaw and
+   screened by the teacher and the survey-visibility check; `nominal` stays
+   the fixed-square regression; the same single training run; evaluation
+   reports success by region; the offline real-frame gate v3 on the recorded
+   reset frames. Success for the tranche: held-out success over the
+   rectangle well above chance across regions, nominal comparable to
+   `ytn3eygr`, and a live episode with the square placed away from the
+   old task pose.
 
 Full physical testing, additional seeds, and arbitrary workspace placement
 are later work.

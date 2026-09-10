@@ -133,14 +133,14 @@
     <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane" />
     <camera name="camera_up" pos="0 0.2 0.6" xyaxes="1 0 0 0 1 0" fovy="72" />
     <camera name="camera_side" pos="0.5 0.2 0.25" xyaxes="0 1 0 -0.2873 0 0.9578" fovy="72" />
-    <geom name="napkin" type="box" pos="0 0.2805353 0.0005" size="0.0254 0.0254 0.0005" rgba="1 1 1 1" friction="1 0.005 0.0001" />
-    <body name="red_block" pos="0 0.2805353 0.011">
+    <geom name="napkin" type="box" pos="0.0 0.2805353 0.0005" size="0.0254 0.0254 0.0005" rgba="1 1 1 1" friction="1 0.005 0.0001" />
+    <body name="red_block" pos="0.0 0.2805353 0.011">
       <freejoint />
       <geom name="red_block_geom" type="box" size="0.01 0.01 0.01" rgba="0.025 0.025 0.025 0" mass="0.05" />
       <inertial pos="0 0 0" mass="0.05" diaginertia="0.00001 0.00001 0.00001" />
       <geom name="xyz_visual" type="mesh" mesh="xyz_cube_visual" pos="-0.01 -0.01 -0.01" material="black_pla" contype="0" conaffinity="0" density="0" group="2" />
     </body>
-    <body name="towel_visual" pos="0 0.2805353 0.000300">
+    <body name="towel_visual" pos="0.0 0.2805353 0.000300">
       <geom name="towel_visual_geom" type="box" size="0.0254 0.0254 0.0002" rgba="1 1 1 0" contype="0" conaffinity="0" density="0" group="2" />
     </body>
   </worldbody>

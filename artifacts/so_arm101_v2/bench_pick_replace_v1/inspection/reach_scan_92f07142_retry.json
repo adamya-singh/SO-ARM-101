@@ -1,0 +1,787 @@
+{
+  "model": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml",
+  "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+  "regime": {
+    "name": "bench_placement",
+    "version": 1,
+    "x_range_m": [
+      -0.17779999999999999,
+      0.17779999999999999
+    ],
+    "y_range_m": [
+      0.1154353,
+      0.36943529999999997
+    ],
+    "base_gap_m": 0.0508,
+    "depth_m": 0.254,
+    "cube_offset_m": 0.01,
+    "yaw_range_deg": 45.0,
+    "survey_visibility_margin_px": 20.0
+  },
+  "grid": {
+    "xs": [
+      -0.1778,
+      -0.1185,
+      -0.0593,
+      0.0,
+      0.0593,
+      0.1185,
+      0.1778
+    ],
+    "ys": [
+      0.1154,
+      0.1789,
+      0.2424,
+      0.3059,
+      0.3694
+    ],
+    "yaws_deg": [
+      0.0,
+      45.0,
+      -45.0
+    ]
+  },
+  "outcomes": {
+    "pose_000": {
+      "x": -0.1778,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_001": {
+      "x": -0.1185,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_002": {
+      "x": -0.0593,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_003": {
+      "x": 0.0,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_004": {
+      "x": 0.0593,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_005": {
+      "x": 0.1185,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_006": {
+      "x": 0.1778,
+      "y": 0.1154,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_007": {
+      "x": -0.1778,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_008": {
+      "x": -0.1185,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_009": {
+      "x": -0.0593,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_010": {
+      "x": 0.0,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_011": {
+      "x": 0.0593,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_012": {
+      "x": 0.1185,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_013": {
+      "x": 0.1778,
+      "y": 0.1789,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_014": {
+      "x": -0.1778,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.007977m normal=7.442deg depth=8.223deg"
+    },
+    "pose_015": {
+      "x": -0.1185,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_016": {
+      "x": -0.0593,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_017": {
+      "x": 0.0,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_018": {
+      "x": 0.0593,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_019": {
+      "x": 0.1185,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_020": {
+      "x": 0.1778,
+      "y": 0.2424,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_021": {
+      "x": -0.1778,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.004113m normal=11.970deg depth=17.885deg"
+    },
+    "pose_022": {
+      "x": -0.1185,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.001404m normal=4.226deg depth=6.113deg"
+    },
+    "pose_023": {
+      "x": -0.0593,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_024": {
+      "x": 0.0,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_025": {
+      "x": 0.0593,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_026": {
+      "x": 0.1185,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "safety_invalidation"
+    },
+    "pose_027": {
+      "x": 0.1778,
+      "y": 0.3059,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.003935m normal=11.393deg depth=17.136deg"
+    },
+    "pose_028": {
+      "x": -0.1778,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_029": {
+      "x": -0.1185,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_030": {
+      "x": -0.0593,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_031": {
+      "x": 0.0,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_032": {
+      "x": 0.0593,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_033": {
+      "x": 0.1185,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_034": {
+      "x": 0.1778,
+      "y": 0.3694,
+      "yaw_deg": 0.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_035": {
+      "x": -0.1778,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_036": {
+      "x": -0.1185,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_037": {
+      "x": -0.0593,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_038": {
+      "x": 0.0,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_039": {
+      "x": 0.0593,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_040": {
+      "x": 0.1185,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_041": {
+      "x": 0.1778,
+      "y": 0.1154,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_042": {
+      "x": -0.1778,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_043": {
+      "x": -0.1185,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_044": {
+      "x": -0.0593,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_045": {
+      "x": 0.0,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_046": {
+      "x": 0.0593,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_047": {
+      "x": 0.1185,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_048": {
+      "x": 0.1778,
+      "y": 0.1789,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_049": {
+      "x": -0.1778,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_050": {
+      "x": -0.1185,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "safety_invalidation"
+    },
+    "pose_051": {
+      "x": -0.0593,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_052": {
+      "x": 0.0,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_053": {
+      "x": 0.0593,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_054": {
+      "x": 0.1185,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_055": {
+      "x": 0.1778,
+      "y": 0.2424,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_056": {
+      "x": -0.1778,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.004488m normal=3.950deg depth=26.083deg"
+    },
+    "pose_057": {
+      "x": -0.1185,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_058": {
+      "x": -0.0593,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_059": {
+      "x": 0.0,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_060": {
+      "x": 0.0593,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_061": {
+      "x": 0.1185,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.007845m normal=14.808deg depth=18.309deg"
+    },
+    "pose_062": {
+      "x": 0.1778,
+      "y": 0.3059,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.006732m normal=19.363deg depth=21.308deg"
+    },
+    "pose_063": {
+      "x": -0.1778,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_064": {
+      "x": -0.1185,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_065": {
+      "x": -0.0593,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_066": {
+      "x": 0.0,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_067": {
+      "x": 0.0593,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_068": {
+      "x": 0.1185,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_069": {
+      "x": 0.1778,
+      "y": 0.3694,
+      "yaw_deg": 45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_070": {
+      "x": -0.1778,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_071": {
+      "x": -0.1185,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_072": {
+      "x": -0.0593,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_073": {
+      "x": 0.0,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_074": {
+      "x": 0.0593,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_075": {
+      "x": 0.1185,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_076": {
+      "x": 0.1778,
+      "y": 0.1154,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_077": {
+      "x": -0.1778,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_078": {
+      "x": -0.1185,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_079": {
+      "x": -0.0593,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_080": {
+      "x": 0.0,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_081": {
+      "x": 0.0593,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_082": {
+      "x": 0.1185,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_083": {
+      "x": 0.1778,
+      "y": 0.1789,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_084": {
+      "x": -0.1778,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_085": {
+      "x": -0.1185,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_086": {
+      "x": -0.0593,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_087": {
+      "x": 0.0,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_088": {
+      "x": 0.0593,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_089": {
+      "x": 0.1185,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_090": {
+      "x": 0.1778,
+      "y": 0.2424,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_091": {
+      "x": -0.1778,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.006978m normal=22.135deg depth=22.608deg"
+    },
+    "pose_092": {
+      "x": -0.1185,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_093": {
+      "x": -0.0593,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": true,
+      "reason": "success"
+    },
+    "pose_094": {
+      "x": 0.0,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_095": {
+      "x": 0.0593,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_096": {
+      "x": 0.1185,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.005860m normal=5.834deg depth=20.867deg"
+    },
+    "pose_097": {
+      "x": 0.1778,
+      "y": 0.3059,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "privileged IK failed: position=0.004536m normal=4.259deg depth=26.329deg"
+    },
+    "pose_098": {
+      "x": -0.1778,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_099": {
+      "x": -0.1185,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_100": {
+      "x": -0.0593,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_101": {
+      "x": 0.0,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_102": {
+      "x": 0.0593,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_103": {
+      "x": 0.1185,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    },
+    "pose_104": {
+      "x": 0.1778,
+      "y": 0.3694,
+      "yaw_deg": -45.0,
+      "ok": false,
+      "reason": "not_visible_from_survey"
+    }
+  },
+  "seconds": 23.8,
+  "reachable_fraction": {
+    "0.0": 0.514,
+    "45.0": 0.486,
+    "-45.0": 0.514
+  }
+}

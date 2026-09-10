@@ -8,7 +8,7 @@
   "measured_forward_distance_m": 0.2159,
   "base_front_edge_y_m": 0.0646353,
   "square_center_xy": [
-    0,
+    0.0,
     0.2805353
   ],
   "square_thickness_m": 0.001,
@@ -23,9 +23,9 @@
   "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
   "viewing_qpos": [
     2.6332525493444336e-08,
-    -3.094038963317871,
-    2.8808159828186035,
-    1.0737862586975098,
+    -2.6940388679504395,
+    2.280816078186035,
+    1.4737862348556519,
     -1.6720390319824219,
     0.08529800176620483
   ],
@@ -186,5 +186,22 @@
       0.0,
       1.0
     ]
+  },
+  "placement": {
+    "name": "bench_placement",
+    "version": 1,
+    "x_range_m": [
+      -0.17779999999999999,
+      0.17779999999999999
+    ],
+    "y_range_m": [
+      0.1154353,
+      0.36943529999999997
+    ],
+    "base_gap_m": 0.0508,
+    "depth_m": 0.254,
+    "cube_offset_m": 0.01,
+    "yaw_range_deg": 45.0,
+    "survey_visibility_margin_px": 20.0
   }
 }

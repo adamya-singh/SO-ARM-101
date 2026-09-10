@@ -12,12 +12,11 @@ import json
 from pathlib import Path
 
 from so_arm101_v2.contracts.bench import scene_bench_config, scene_dependency_hash
-from so_arm101_v2.simulation.bench import bench_suite
+from so_arm101_v2.simulation.bench import bench_suite, certification_suite
 from so_arm101_v2.simulation.contact import GRASP_DETECTOR_VERSION
 from so_arm101_v2.simulation.rollout import run_simulation_preflight
 
 ROOT = Path(__file__).resolve().parents[1]
-CERTIFICATION_OFFSETS = [(0, 0), (0.01, 0), (-0.01, 0), (0, 0.01), (0, -0.01)]
 
 
 def main(argv=None) -> int:
@@ -37,7 +36,7 @@ def main(argv=None) -> int:
         raise RuntimeError('not a bench scene')
     bench.reset_qpos  # raises when the reset has not been measured
     scene_hash = scene_dependency_hash(args.model)
-    suite = bench_suite(bench, CERTIFICATION_OFFSETS, label='certification', repeats=3)
+    suite = certification_suite(bench, repeats=3)
     # Keyed by scene AND detector version: per-step telemetry carries detector
     # measurements, so a detector change must land in a fresh immutable tree.
     destination = args.output_dir / f'{scene_hash[:16]}-{GRASP_DETECTOR_VERSION}'

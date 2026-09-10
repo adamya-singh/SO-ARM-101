@@ -82,6 +82,42 @@ def render_appearance_sheet(model_path, bench, output_dir, tag, count, *, physic
                       params={seed: resolve_appearance(bench.appearance_regime, seed).as_record() for seed in seeds})
 
 
+def render_placement_sheet(model_path, bench, output_dir, tag):
+    """Review sheet: the certification placements seen from the reset pose (top rows) and from the survey pose (bottom rows)."""
+    from PIL import Image, ImageDraw
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import CERTIFICATION_PLACEMENTS, certification_suite
+    if bench.placement_regime is None:
+        raise RuntimeError('--placement-sheet needs a placement regime in bench_config.json')
+    adapter = MujocoTaskAdapter(model_path)
+    tiles = {'reset': [], 'survey': []}
+    try:
+        suite = certification_suite(adapter.bench, repeats=1)
+        for scenario in suite.scenarios:
+            adapter.reset(scenario)
+            tiles['reset'].append(adapter.render_wrist_observation())
+            for address, value in zip(adapter._joint_qpos, adapter.bench.viewing_qpos):
+                adapter.data.qpos[address] = float(value)
+            mujoco_module = __import__('mujoco')
+            mujoco_module.mj_forward(adapter.model, adapter.data)
+            tiles['survey'].append(adapter.render_wrist_observation())
+    finally:
+        adapter.close()
+    columns = 5
+    rows = 2 * ((len(tiles['reset']) + columns - 1) // columns)
+    sheet = Image.new('RGB', (columns * 256, rows * 256 + 20), (30, 30, 30))
+    draw = ImageDraw.Draw(sheet)
+    half = rows // 2
+    for index, (reset_tile, survey_tile) in enumerate(zip(tiles['reset'], tiles['survey'])):
+        x, y = (index % columns) * 256, 20 + (index // columns) * 256
+        sheet.paste(Image.fromarray(reset_tile), (x, y))
+        sheet.paste(Image.fromarray(survey_tile), (x, y + half * 256))
+    draw.text((4, 4), 'top: certification placements from the reset pose; bottom: the same from the survey pose (step 90 frame)', fill=(255, 255, 255))
+    path = Path(output_dir) / f'sim_placement_sheet_{tag}.png'
+    sheet.save(path)
+    return path, dict(placements=CERTIFICATION_PLACEMENTS)
+
+
 def main(argv=None) -> int:
     from PIL import Image
     import mujoco
@@ -94,6 +130,8 @@ def main(argv=None) -> int:
     p.add_argument('--output-dir', type=Path, default=ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/inspection')
     p.add_argument('--width', type=int, default=1920)
     p.add_argument('--height', type=int, default=1080)
+    p.add_argument('--placement-sheet', action='store_true',
+                   help='also render the certification placements from the reset and survey poses into a review sheet (needs a placement regime)')
     p.add_argument('--appearance-samples', type=int, default=0,
                    help='also render this many random appearance draws of the reset observation (needs an appearance regime in the config) '
                         'into a review sheet next to the real reset frame')
@@ -152,6 +190,9 @@ def main(argv=None) -> int:
             blend = Image.blend(physical, wrist, 0.5)
             blend_path = args.output_dir / f'compare_{name}_blend50_{tag}.png'
             blend.save(blend_path); outputs[blend_path.name] = hashlib.sha256(blend_path.read_bytes()).hexdigest()
+    if args.placement_sheet:
+        placement_path, _ = render_placement_sheet(args.model, bench, args.output_dir, tag)
+        outputs[placement_path.name] = hashlib.sha256(placement_path.read_bytes()).hexdigest()
     if args.appearance_samples > 0:
         sheet_path, sheet_record = render_appearance_sheet(args.model, bench, args.output_dir, tag, args.appearance_samples,
                                                            physical_observation=args.output_dir / f'physical_reset_observation_{tag}.png')

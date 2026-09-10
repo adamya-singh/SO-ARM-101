@@ -27,7 +27,7 @@ from so_arm101_v2.simulation.contact import check_block_face_gripped
 from so_arm101_v2.simulation.privileged import PrivilegedStagedController
 
 ROOT = Path(__file__).resolve().parents[1]
-CERTIFICATION_OFFSETS = [(0, 0), (.01, 0), (-.01, 0), (0, .01), (0, -.01)]
+from so_arm101_v2.simulation.bench import CERTIFICATION_OFFSETS  # noqa: E402
 
 
 def run_episode(model, bench, pose, lead, offset):

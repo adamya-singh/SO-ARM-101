@@ -57,7 +57,7 @@ from so_arm101_v2.contracts.physical_io import (  # noqa: E402
 )
 from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
-from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass  # noqa: E402
+from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass, sim_reference_dry_pass, survey_pose_active  # noqa: E402
 from so_arm101_v2.physical.evidence import BoundaryStore, StepLog, VideoRecorder, sha256_file, write_run_record  # noqa: E402
 from so_arm101_v2.physical.placement import DEFAULT_TOLERANCE_MM, check_cube_placement  # noqa: E402
 from so_arm101_v2.physical.lerobot_backend import MIN_SERVO_VOLTAGE_V, LeRobotBackend, check_servo_voltage, fast_area_resampler, verify_fast_resampler  # noqa: E402
@@ -307,11 +307,17 @@ def _confirm(args, record: dict[str, Any], phase: str, prompt: str) -> str:
     return answer
 
 
-def _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, label: str) -> dict[str, Any]:
+def _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, label: str, model_path=None) -> dict[str, Any]:
     """Grab a fresh frame, resample it as the runner would, and run the real-frame gate on it (nothing is sent)."""
     _seq, _stamp, frame = grabber.wait_for_new(-1)
     observation = fast_area_resampler(bench.lens_model, source_size=source_size)(np.array(frame, copy=True))
-    result = check_reset_frame(policy, observation, current, bench, label=f"{label}_observation")
+    reference = None
+    if survey_pose_active(bench):
+        # v3: the first chunk is the survey move; the real chunk must track the simulated reference chunk.
+        reference = sim_reference_dry_pass(policy, model_path, current, bench)
+    result = check_reset_frame(policy, observation, current, bench, label=f"{label}_observation", reference=reference)
+    if reference is not None:
+        result["reference"] = {k: v for k, v in reference.items() if k != "chunk_physical"}
     result["dry_pass"] = {k: v for k, v in result["dry_pass"].items() if k != "chunk_physical"}
     if run_dir is not None:
         from PIL import Image
@@ -401,7 +407,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         if args.preflight_only:
             if record["start_pose_delta_act"] <= START_POSE_TOLERANCE_ACT:
                 # At the reset pose already: the real-frame gate applies to this frame.
-                record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "preflight")
+                record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "preflight", args.model)
                 if not record["real_frame_check"]["passed"]:
                     raise Refused("policy fails the real-frame gate at the reset pose: " + "; ".join(record["real_frame_check"]["reasons"]))
             else:
@@ -431,7 +437,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         if act_to_physical_normalized(current)[1] < bench.shoulder_floor:
             raise Refused("shoulder is below the floor at the start of the episode")
         # Real-frame gate on a fresh frame at the reset pose: the chunk must be hold-like (the arm keeps holding torque on refusal).
-        record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset")
+        record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset", args.model)
         if not record["real_frame_check"]["passed"]:
             raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
         # Cube placement gate on the same reset-pose observation: the policy cannot win outside its +-10 mm training range.
@@ -464,6 +470,13 @@ def _hardware(args, bench, contract, policy, record) -> int:
                 qpos = bench.joint_map_object.act_to_mujoco(r.current_act)[:5]
                 prefix.update(step=r.step, max_abs_rad=float(np.max(np.abs(qpos - np.asarray(bench.viewing_qpos)[:5]))))
                 prefix["ok"] = prefix["max_abs_rad"] <= PREFIX_TOLERANCE_RAD
+            if r.step == bench.observation_steps and r.observation is not None and bench.placement is not None:
+                # Placement tranche: where the cube is, seen from the survey pose (advisory evidence only).
+                try:
+                    record["cube_placement_survey"] = check_cube_placement(r.observation.image, bench, args.model, r.current_act,
+                                                                           tolerance_mm=args.cube_tolerance_mm)
+                except Exception as exc:  # evidence must never stop the episode
+                    record["cube_placement_survey"] = dict(error=f"{type(exc).__name__}: {exc}")
 
         try:
             result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=on_step)

@@ -1,0 +1,100 @@
+{
+  "nominal/vision": {
+    "successes": 0,
+    "rollouts": 3,
+    "safety_frames": 0,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_c6b6bbae7577/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "nominal/vision_black": {
+    "successes": 0,
+    "rollouts": 3,
+    "safety_frames": 0,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_c6b6bbae7577/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "heldout/vision": {
+    "successes": 0,
+    "rollouts": 2,
+    "safety_frames": 0,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n2_placement_f3ea83a9b584/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 2
+      }
+    }
+  },
+  "heldout/vision_black": {
+    "successes": 0,
+    "rollouts": 2,
+    "safety_frames": 57,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n2_placement_f3ea83a9b584/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 2
+      }
+    }
+  },
+  "heldout_appearance/vision": {
+    "successes": 0,
+    "rollouts": 6,
+    "safety_frames": 0,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/heldout_appearance/policies/bench_pick_replace_v1_heldout_appearance_6660e3c33c9e/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      }
+    }
+  },
+  "heldout_appearance/vision_black": {
+    "successes": 0,
+    "rollouts": 6,
+    "safety_frames": 171,
+    "prefix_ok": 0,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/evaluations/heldout_appearance/policies/bench_pick_replace_v1_heldout_appearance_6660e3c33c9e/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      }
+    }
+  },
+  "real_frames/reset": {
+    "passed": false,
+    "frames": {
+      "episode_02_20260909": {
+        "passed": false,
+        "reasons": [
+          "shoulder_lift differs from the simulated survey chunk by 7.67 units (limit 5.0)",
+          "elbow_flex differs from the simulated survey chunk by 5.81 units (limit 5.0)",
+          "shoulder_lift ends the chunk 18.35 units from the survey pose (limit 4.0)",
+          "wrist_flex ends the chunk 21.76 units from the survey pose (limit 4.0)"
+        ],
+        "shoulder_units": 41.64,
+        "elbow_units": 31.16,
+        "holds": 0,
+        "photometric_pass_fraction": 0.0
+      }
+    },
+    "sim_reference_passed": false,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/placement_20260910/real_frame_check.json"
+  }
+}

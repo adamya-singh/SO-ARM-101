@@ -562,3 +562,23 @@ widen the cube offset distribution well beyond ±10 mm (teacher screening at
 the wider range; the certification offsets may need to grow), keep the
 appearance regime, and retrain; the placement gate then becomes a soft
 report. The arm was parked at the reset pose (`physical/reset_pose_20260910c`).
+
+### Placement randomization tranche implemented (2026-09-10, later)
+
+Square + cube anywhere in the user's 14 × 10 in rectangle (near edge 2 in from
+the base front edge), yaw ±45°, cube jitter ±10 mm kept. Read-only
+measurements first: the teacher reaches about half of the rectangle (not the
+far strip beyond ~9.5 in nor the near-centre pocket); no joint-feasible pose
+sees the whole rectangle, but a raised survey pose (reset + 0.40/−0.60/0.40
+rad on shoulder/elbow/wrist) sees the reachable part, and the teacher's
+existing 60-step look-up stage reaches it for free (horizon stays 480).
+Implemented: placement regime block in the scene config; per-scenario square
+centre and yaw moved with the napkin, towel and cube at every reset (the
+napkin's compiler same-rotation flag had to be cleared for yaw to take
+effect); teacher targets rotated with the cube yaw with a retry over the
+equivalent grasp yaws (+45° reach rose from 31 % to 49 % of the grid, matching
+−45° and 0°); certification over ten placements 30/30; survey-visibility
+screening; pipeline `--placement` with success by region; real-frame gate v3
+(track the simulated survey chunk); region-aware placement report. Reach map
+and coverage map in `inspection/` (`reach_scan_92f07142_retry.png`,
+`survey_pose_coverage_92f07142.png`).

@@ -9,6 +9,11 @@ import xml.etree.ElementTree as ET
 from so_arm101_v2.contracts.appearance import AppearanceRegime
 from so_arm101_v2.contracts.bench import BenchConfig
 from so_arm101_v2.contracts.lens import LensModel
+from so_arm101_v2.contracts.placement import PlacementRegime
+
+# Raised survey pose for the observation prefix (2026-09-10): joint deltas from the reset pose, MuJoCo radians.
+# Found by a read-only search: sees 119/121 sample points of the teacher-reachable rectangle with a 20 px margin.
+SURVEY_POSE_DELTA_RAD = (0.0, 0.40, -0.60, 0.40, 0.0, 0.0)
 
 ROOT = Path(__file__).resolve().parents[1]
 # Names shared with so_arm101_v2.simulation.appearance (the applier resolves them by name).
@@ -109,12 +114,24 @@ def main():
     p.add_argument('--render-fovy',type=float,default=None,help='pinhole render fovy; default = smallest fovy covering the whole undistorted frame + 5%% margin')
     p.add_argument('--appearance',choices=['keep','none','default'],default='keep',
         help='appearance randomization regime written into bench_config.json: keep the config\'s block, remove it, or write the default bench_appearance v1 regime')
+    p.add_argument('--placement',choices=['keep','none','default'],default='keep',
+        help='placement randomization regime written into bench_config.json: keep, remove, or write the default bench_placement v1 rectangle (14 x 10 in, near edge 2 in from the base front edge)')
+    p.add_argument('--survey-pose',choices=['keep','default','reset'],default='keep',
+        help='viewing_qpos: keep, write the default raised survey pose (reset + shoulder_lift 0.40, elbow -0.60, wrist_flex 0.40 rad; camera 235 mm up, sees the reachable rectangle), or set it back to the reset pose')
     a=p.parse_args()
     config=BenchConfig.load(a.bench_config)
     if a.appearance=='none':
         config=replace(config,appearance=None)
     elif a.appearance=='default':
         config=replace(config,appearance=AppearanceRegime().identity())
+    if a.placement=='none':
+        config=replace(config,placement=None)
+    elif a.placement=='default':
+        config=replace(config,placement=PlacementRegime().identity())
+    if a.survey_pose=='default':
+        config=replace(config,viewing_qpos=tuple(float(q+d) for q,d in zip(config.reset_qpos,SURVEY_POSE_DELTA_RAD)))
+    elif a.survey_pose=='reset':
+        config=replace(config,viewing_qpos=tuple(float(q) for q in config.reset_qpos))
     if a.intrinsics is not None:
         probe=LensModel.from_intrinsics_file(a.intrinsics,render_fovy_deg=90.0,render_size=tuple(a.render_size))
         fovy=a.render_fovy if a.render_fovy is not None else round(probe.required_render_fovy_deg(),2)
