@@ -26,9 +26,11 @@ import traceback
 
 import numpy as np
 
+from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION
 from so_arm101_v2.contracts.bench import scene_bench_config, scene_dependency_hash
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
-from so_arm101_v2.simulation.bench import bench_suite, generate_bench_suite, load_bench_verification
+from so_arm101_v2.physical.dry_pass import REAL_FRAME_GATE_VERSION, load_boundary_frame
+from so_arm101_v2.simulation.bench import appearance_product, bench_suite, generate_bench_suite, load_bench_verification
 from so_arm101_v2.simulation.contact import GRASP_DETECTOR_VERSION
 from so_arm101_v2.simulation.suites import load_suite_from_path
 from so_arm101_v2.simulation.rollout import run_simulation_preflight, evaluate_closed_loop
@@ -37,6 +39,9 @@ from so_arm101_v2.simulation.policy_specs import PolicySpec
 
 CERTIFICATION_OFFSETS = [(0, 0), (.01, 0), (-.01, 0), (0, .01), (0, -.01)]
 PREFIX_TOLERANCE_RAD = 0.05
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_REAL_FRAME_EPISODES = [ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909']
+HELDOUT_APPEARANCE_PER_POSE = 3
 
 
 def atomic_json(path, payload):
@@ -73,6 +78,12 @@ def main():
     p.add_argument('--stop-after', choices=['preflight', 'screen', 'capture', 'train'], default='train')
     p.add_argument('--rehearsal', action='store_true', help='toy-scale dry run; skips the camera gate; output must be under a rehearsal/ folder')
     p.add_argument('--workers', type=int, default=None, help='process-parallel preflights, capture and evaluation (digest-neutral; default auto, 1 = sequential)')
+    p.add_argument('--appearance', action='store_true',
+                   help='the bench_appearance recipe: training poses drawn with per-scenario appearance seeds, the held-out poses also evaluated '
+                        'under 3 appearance draws each, and the offline real-frame gate run on the recorded physical reset frame(s). '
+                        'Requires (and is required by) an appearance block in bench_config.json.')
+    p.add_argument('--real-frame-episode', type=Path, action='append', default=None,
+                   help='recorded physical episode directory for the real-frame gate (repeatable; default physical/episode_02_20260909)')
     args = p.parse_args()
     import mujoco
     if mujoco.__version__ != '3.9.0':
@@ -81,7 +92,19 @@ def main():
     if bench is None or bench.viewing_qpos is None:
         raise RuntimeError('missing verified bench reset/viewing pose')
     bench.reset_qpos
+    if bool(args.appearance) != (bench.appearance is not None):
+        raise RuntimeError('--appearance must be passed exactly when bench_config.json carries an appearance regime '
+                           f'(flag={bool(args.appearance)}, regime={"present" if bench.appearance is not None else "absent"})')
     scene_hash = scene_dependency_hash(args.model)
+    real_frame_episodes = [Path(p) for p in (args.real_frame_episode or DEFAULT_REAL_FRAME_EPISODES)] if args.appearance else []
+    real_frames = []
+    for episode_dir in real_frame_episodes:
+        if not episode_dir.exists():
+            if args.rehearsal:
+                continue
+            raise RuntimeError(f'real-frame episode directory missing: {episode_dir}')
+        _image, _anchor, evidence = load_boundary_frame(episode_dir, step=0)   # hash-verified now, so the identity is honest
+        real_frames.append(evidence)
     root = args.output_dir.resolve()
     if args.rehearsal:
         if 'rehearsal' not in root.parts:
@@ -98,11 +121,19 @@ def main():
         verification = load_bench_verification(args.verification, scene_hash=scene_hash,
                                                reset_evidence_sha256=bench.reset_evidence_sha256)
         counts = dict(train=(12, 400, 1), heldout=(8, 10, 3)); max_steps, checkpoint_interval = 120000, 5000
-        wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k'
+        wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k' + ('-appearance' if args.appearance else '')
     root.mkdir(parents=True, exist_ok=True)
     identity = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, bench=asdict(bench),
                     verification=verification, training_seed=202, max_steps=max_steps, rehearsal=bool(args.rehearsal),
                     suite_seeds={k: v[0] for k, v in counts.items()}, suite_counts={k: v[1] for k, v in counts.items()})
+    if args.appearance:
+        identity['recipe'] = 'bench_appearance_v1'
+        identity['appearance'] = dict(regime=dict(bench.appearance), resolver=APPEARANCE_RESOLVER_VERSION,
+                                      train_suite='per-pose appearance seeds (stream 0)',
+                                      heldout_appearance=dict(per_pose=HELDOUT_APPEARANCE_PER_POSE, seed=counts['heldout'][0], stream=1))
+        identity['real_frame_gate'] = dict(gate=REAL_FRAME_GATE_VERSION, frames=real_frames)
+    else:
+        identity['recipe'] = 'fixed_appearance'
     write_immutable_json(root / 'experiment.json', identity)
     started = time.time()
     state = dict(status='running', phase='preflight', pid=os.getpid(), started_at=started, output_dir=str(root),
@@ -158,7 +189,8 @@ def main():
             if pointer.exists():
                 path = Path(pointer.read_text().strip()); suite = load_suite_from_path(path)
             else:
-                suite, path = generate_bench_suite(args.model, bench, seed=seed, count=count, repeats=repeats, output_dir=root / 'suites')
+                suite, path = generate_bench_suite(args.model, bench, seed=seed, count=count, repeats=repeats, output_dir=root / 'suites',
+                                                   randomize_appearance=bool(args.appearance) and label == 'train')
                 pointer.write_text(str(path.resolve()) + '\n')
             suites[label] = suite
             provenance['suites'][label] = dict(suite_id=suite.suite_id, path=str(path), preflight=str(preflight(suite)))
@@ -218,7 +250,11 @@ def main():
         progress(phase='evaluation', checkpoint=str(trained.checkpoint)); assert_scene()
         nominal = bench_suite(bench, [(0, 0)], label='nominal_eval', repeats=3)
         summary = {}
-        for label, suite in [('nominal', nominal), ('heldout', suites['heldout'])]:
+        evaluations = [('nominal', nominal), ('heldout', suites['heldout'])]
+        if args.appearance:
+            evaluations.append(('heldout_appearance', appearance_product(bench, suites['heldout'], per_scenario=HELDOUT_APPEARANCE_PER_POSE,
+                                                                         seed=counts['heldout'][0], label='heldout_appearance')))
+        for label, suite in evaluations:
             policies = {}
             for black in (False, True):
                 name = 'vision_black' if black else 'vision'
@@ -238,6 +274,28 @@ def main():
                     if key != 'report':
                         tracker.summary[f'{label}/{name}/{key}'] = value
             tracker.summary[f'{label}/report'] = str(result.report_json)
+        if args.appearance and real_frame_episodes and any(p.exists() for p in real_frame_episodes):
+            # Offline real-frame gate on the new policy: recorded, never raised (the run must complete for comparison).
+            progress(phase='real_frame_check')
+            from check_policy_on_real_frames import check_policy_on_real_frames
+            from so_arm101_v2.simulation.vision_policy import VisionChunkedPolicy
+            policy = VisionChunkedPolicy(trained.checkpoint, black_image=False, clamp_channels=(5,))
+            check = check_policy_on_real_frames(policy, args.model, bench, [p for p in real_frame_episodes if p.exists()],
+                                                perturb=16, regime=bench.appearance_regime)
+            check.update(checkpoint=str(trained.checkpoint))
+            atomic_json(root / 'real_frame_check.json', check)
+            summary['real_frames/reset'] = dict(passed=check['passed'],
+                                                frames={f['label']: dict(passed=f['passed'], reasons=f['reasons'],
+                                                                         shoulder_units=f['dry_pass']['max_abs_delta_from_start_units']['shoulder_lift'],
+                                                                         elbow_units=f['dry_pass']['max_abs_delta_from_start_units']['elbow_flex'],
+                                                                         holds=f['dry_pass']['holds_in_dry_chunk'],
+                                                                         photometric_pass_fraction=f.get('photometric_sweep', {}).get('pass_fraction'))
+                                                        for f in check['frames']},
+                                                sim_reference_passed=check['sim_reference']['check']['passed'], report=str(root / 'real_frame_check.json'))
+            tracker.summary['real_frames/reset/passed'] = int(check['passed'])
+            for name, frame in summary['real_frames/reset']['frames'].items():
+                for key in ('shoulder_units', 'elbow_units', 'holds'):
+                    tracker.summary[f'real_frames/{name}/{key}'] = frame[key]
         atomic_json(root / 'evaluation_summary.json', summary)
         print(json.dumps(summary, indent=2), flush=True)
         tracker.finish(); tracker = None

@@ -80,5 +80,111 @@
     ],
     "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
     "calibration_rms_px": 1.651
+  },
+  "appearance": {
+    "name": "bench_appearance",
+    "version": 1,
+    "headlight_ambient": [
+      0.1,
+      0.55
+    ],
+    "headlight_diffuse": [
+      0.35,
+      0.85
+    ],
+    "headlight_specular": [
+      0.0,
+      0.25
+    ],
+    "key_light_cone_deg": 40.0,
+    "key_light_diffuse": [
+      0.4,
+      1.0
+    ],
+    "key_light_ambient": [
+      0.0,
+      0.15
+    ],
+    "key_light_specular": [
+      0.0,
+      0.6
+    ],
+    "shadow_probability": 0.8,
+    "arm_albedo": [
+      0.03,
+      0.2
+    ],
+    "motor_albedo": [
+      0.03,
+      0.2
+    ],
+    "ground_albedo": [
+      0.005,
+      0.12
+    ],
+    "cube_albedo": [
+      0.005,
+      0.12
+    ],
+    "material_chroma": 0.4,
+    "paper_chroma": 0.12,
+    "material_specular": [
+      0.0,
+      0.7
+    ],
+    "material_shininess": [
+      0.0,
+      0.8
+    ],
+    "material_reflectance": [
+      0.0,
+      0.25
+    ],
+    "ground_reflectance_cap": 0.3,
+    "napkin_albedo": [
+      0.65,
+      1.0
+    ],
+    "towel_probability": 0.85,
+    "towel_scale": [
+      0.9,
+      1.6
+    ],
+    "towel_yaw_deg": 10.0,
+    "towel_albedo": [
+      0.6,
+      1.0
+    ],
+    "ground_texture_probability": 0.7,
+    "ground_texture_contrast": [
+      0.0,
+      0.5
+    ],
+    "ground_texture_repeat_per_m": [
+      5.0,
+      40.0
+    ],
+    "skybox_off_probability": 0.5,
+    "camera_pos_jitter_m": 0.002,
+    "camera_pitch_jitter_deg": 4.0,
+    "camera_yaw_roll_jitter_deg": 2.0,
+    "camera_fovy_jitter_fraction": 0.02,
+    "gain": [
+      0.6,
+      1.6
+    ],
+    "gamma": [
+      0.7,
+      1.4
+    ],
+    "channel_balance": 0.1,
+    "noise_sigma": [
+      0.0,
+      2.0
+    ],
+    "blur_sigma_px": [
+      0.0,
+      1.0
+    ]
   }
 }

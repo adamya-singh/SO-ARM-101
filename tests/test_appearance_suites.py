@@ -36,7 +36,7 @@ def _regime_scene(tmp_path) -> Path:
 
 
 def test_bench_suite_and_product_carry_seeds_and_change_ids():
-    live = scene_bench_config(LIVE_SCENE)
+    live = replace(scene_bench_config(LIVE_SCENE), appearance=None)   # regime-less config
     config = replace(live, appearance=AppearanceRegime().identity())
     offsets = [(0, 0), (0.004, -0.003)]
     fixed = bench_suite(config, offsets, label="t", repeats=2)
@@ -75,7 +75,7 @@ def test_generated_suite_keeps_the_pose_stream_and_round_trips_seeds(tmp_path):
     assert "appearance" not in json.loads(Path(fixed_path).read_text())["generator"]
     assert load_suite_from_path(seeded_path) == seeded and load_suite_from_path(fixed_path) == fixed
     with pytest.raises(ValueError, match="regime"):
-        generate_bench_suite(LIVE_SCENE, scene_bench_config(LIVE_SCENE), seed=3, count=1, repeats=1, output_dir=tmp_path / "bad", randomize_appearance=True)
+        generate_bench_suite(scene, replace(config, appearance=None), seed=3, count=1, repeats=1, output_dir=tmp_path / "bad", randomize_appearance=True)
 
 
 def _json(value):

@@ -49,6 +49,39 @@ def synthetic_raw_frame(lens, render):
     return op.apply(render)
 
 
+def render_appearance_sheet(model_path, bench, output_dir, tag, count, *, physical_observation=None):
+    """Review sheet: the real reset observation (if present), the pristine sim observation, then ``count`` appearance draws."""
+    from dataclasses import replace
+    from PIL import Image
+    from so_arm101_v2.contracts.appearance import resolve_appearance
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import bench_suite
+    if bench.appearance_regime is None:
+        raise RuntimeError('--appearance-samples needs an appearance regime in bench_config.json')
+    adapter = MujocoTaskAdapter(model_path)
+    tiles, seeds = [], []
+    try:
+        nominal = bench_suite(adapter.bench, [(0, 0)], label='review', repeats=1).scenarios[0]
+        if physical_observation is not None and Path(physical_observation).is_file():
+            tiles.append(np.asarray(Image.open(physical_observation).convert('RGB')))
+        adapter.reset(nominal)
+        tiles.append(adapter.render_wrist_observation())
+        for seed in range(count):
+            adapter.reset(replace(nominal, scenario_id=f'review_a{seed}', fixed_appearance=False, appearance_seed=seed))
+            tiles.append(adapter.render_wrist_observation()); seeds.append(seed)
+    finally:
+        adapter.close()
+    columns = 4
+    rows = (len(tiles) + columns - 1) // columns
+    sheet = Image.new('RGB', (columns * 256, rows * 256))
+    for index, tile in enumerate(tiles):
+        sheet.paste(Image.fromarray(tile), ((index % columns) * 256, (index // columns) * 256))
+    path = Path(output_dir) / f'sim_reset_appearance_samples_{tag}.png'
+    sheet.save(path)
+    return path, dict(seeds=seeds, order='real reset observation (if present), pristine sim, then draws in seed order, row-major',
+                      params={seed: resolve_appearance(bench.appearance_regime, seed).as_record() for seed in seeds})
+
+
 def main(argv=None) -> int:
     from PIL import Image
     import mujoco
@@ -61,6 +94,9 @@ def main(argv=None) -> int:
     p.add_argument('--output-dir', type=Path, default=ROOT / 'artifacts/so_arm101_v2/bench_pick_replace_v1/inspection')
     p.add_argument('--width', type=int, default=1920)
     p.add_argument('--height', type=int, default=1080)
+    p.add_argument('--appearance-samples', type=int, default=0,
+                   help='also render this many random appearance draws of the reset observation (needs an appearance regime in the config) '
+                        'into a review sheet next to the real reset frame')
     args = p.parse_args(argv)
     bench = scene_bench_config(args.model)
     if bench is None or bench.viewing_qpos is None:
@@ -116,6 +152,10 @@ def main(argv=None) -> int:
             blend = Image.blend(physical, wrist, 0.5)
             blend_path = args.output_dir / f'compare_{name}_blend50_{tag}.png'
             blend.save(blend_path); outputs[blend_path.name] = hashlib.sha256(blend_path.read_bytes()).hexdigest()
+    if args.appearance_samples > 0:
+        sheet_path, sheet_record = render_appearance_sheet(args.model, bench, args.output_dir, tag, args.appearance_samples,
+                                                           physical_observation=args.output_dir / f'physical_reset_observation_{tag}.png')
+        outputs[sheet_path.name] = hashlib.sha256(sheet_path.read_bytes()).hexdigest()
     record = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, lens=bench.lens,
                   reset_evidence_sha256=bench.reset_evidence_sha256, physical_frame=str(args.physical),
                   physical_frame_sha256=hashlib.sha256(args.physical.read_bytes()).hexdigest() if args.physical.is_file() else None,

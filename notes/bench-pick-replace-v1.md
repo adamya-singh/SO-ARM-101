@@ -5,9 +5,34 @@ experiment: physical setup, recorded hardware state, active scene and
 teacher, evidence inventory, gates, open work, and resume commands. It
 absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
-## Status (2026-09-09)
+## Status (2026-09-10)
 
-**Physical inference runner built (evening): `tools/run_physical_episode.py`
+**Appearance randomization tranche implemented and rehearsed (2026-09-10);
+the third pre-registered run is ready to queue once gate 1 is re-signed on
+the regenerated scene `fcead5c7…`.** Two physical attempts on 2026-09-09
+(`physical/episode_01`, `episode_02`) showed the runner, timing, gate and
+safety stack working and the lens policy failing for one reason: it is
+brittle to appearance (on the real reset frame its first chunk retracts the
+shoulder to −94.5 units; in simulation the same chunk is a hold). The
+response, all recorded under "Appearance randomization" below: a versioned
+appearance regime in `bench_config.json` (lighting, materials with a drawn
+tint, ground speckle texture, a visual-only towel under the square, skybox,
+camera nuisance, photometric ops on the observation), applied per scenario
+from a seed that is hashed into every suite id and capture identity; the
+scene gained two render-only slots (pristine renders byte-identical to the
+2026-09-09 review images; teacher re-certified 15/15 on the new hash); an
+**offline real-frame gate** (`tools/check_policy_on_real_frames.py`) that
+the current policy fails (shoulder 25 units, elbow 21, 23 holds) and its
+simulated reset chunk passes (0.47 / 0.45); the physical runner now refuses
+motion below a 6.0 V servo supply and refuses the episode if the gate fails
+on a fresh frame at the reset pose. Recipe registered as gate 6. Full suite
+318 passed; pipeline rehearsed end to end with the recipe
+(`rehearsal/appearance_20260910/`). Pending: the bench owner's confirmation
+of `inspection/camera_review_20260910.json` (draft, images identical), then
+the queue command under "Resume commands"; the 5.4 V supply must be fixed
+before any physical trial.
+
+**Physical inference runner built (2026-09-09, evening): `tools/run_physical_episode.py`
 with `so_arm101_v2.physical` (shared gate `bench_hold_decision`, runner loop,
 simulator backend proven row-identical to the scored evaluation, real-arm
 backend, gated approach from gravity rest to the reset, read-only pan-sign
@@ -470,6 +495,87 @@ loop was disk-bound on the 37.7 GB sidecar (raw random-read ceiling ~13
 batches/s), which the lossless in-RAM frame cache removes
 (`notes/environment-switches.md`).
 
+## Appearance randomization (2026-09-10)
+
+Why: `physical/episode_02_20260909` (see `notes/vision-rung-notebook.md`).
+The lens policy trained on one exact rendered look (flat grey-10 background,
+one light, a pure-white square) and the real frame differs in background
+level and texture, towel size, cube shading and lighting; simple photometric
+edits do not recover a hold. Plan approved by the user 2026-09-09 (evening),
+implemented in five committed tranches on 2026-09-10.
+
+Design. `src/so_arm101_v2/contracts/appearance.py` (numpy only) holds the
+versioned `AppearanceRegime` (ranges; `identity()` is the block stored as
+`BenchConfig.appearance` in `bench_config.json`, so it is inside the scene
+hash), the resolver `resolve_appearance(regime, seed)` (one fixed-order
+`default_rng([seed, version, salt])` draw: headlight and key-light
+ambient/diffuse/specular, light direction in a 40° cone with 80 % cast
+shadows; per-material albedo = grey level × per-channel tint whose
+amplitude is itself drawn so near-neutral looks dominate; specular,
+shininess, reflectance; napkin colour; a visual-only towel under the square
+85 % of the time, 0.9–1.6× the square per axis, ±10° yaw; a two-octave
+ground speckle texture 70 % of the time with drawn contrast and tile
+repeat; skybox off 50 % or recoloured; wrist camera ±2 mm, pitch ±4°,
+yaw/roll ±2°, fovy ±2 %; photometric gain 0.6–1.6, gamma 0.7–1.4, channel
+balance ±10 %, Gaussian noise σ ≤ 2, blur σ ≤ 1 px), the seed streams
+(`appearance_seeds(seed, count, stream)`: stream 0 for training suites,
+stream 1 for the held-out appearance product, both separate from the pose
+RNG so the accepted poses are unchanged), and the photometric operators
+(applied to the 256×256 observation *after* the lens operator, keyed on
+`(seed, control step)` so repeated renders at a step are idempotent and the
+runner's simulator backend stays row-identical to the evaluation).
+`simulation/appearance.py` is the MuJoCo side: `resolve_scene_ids`, an
+exact `ModelAppearanceSnapshot` of every written field (materials, geom
+rgba/size, towel body pose, lights, headlight, camera pos/quat/fovy,
+texture data and binding) and `apply_appearance`. The adapter configures
+the look at `reset` (pristine → pristine never touches the model; any
+transition closes the renderers because texture binding is baked into a
+render context, restores the snapshot and applies the draw), sets the
+skybox render flag per render, and exposes `appearance_record` for
+evidence. Physics is untouched: no colliding geom, pose or contact
+parameter changes; the privileged teacher's commands are bit-identical
+under a draw (`tests/test_appearance_scene.py`).
+
+Scene: `tools/prepare_bench_scene.py` always emits the two slots (an unbound
+flat 256×256 texture `ground_speckle` and a last-in-world visual-only body
+`towel_visual`, contype/conaffinity/density 0, alpha 0, top 0.5 mm inside
+the napkin slab), so the scene hash does not depend on whether a regime is
+on; `--appearance default` writes the v1 regime block. Regenerated
+2026-09-10: hash `fcead5c72426f2927db9daf57a77418da78d96ba1c8404c6e486dface2baf8f2`
+(previous `7c765d4b…`); the pristine reset and viewing observations are
+byte-identical to the 2026-09-09 review images
+(`inspection/sim_reset_observation_fcead5c7.png` = `…_7c765d4b.png`);
+teacher certified 15/15
+(`teacher_certification/fcead5c72426f292-pad_normals_v2/`). Review sheet
+of 14 draws next to the real reset observation and the pristine sim:
+`readme-assets/bench-appearance-review-sheet-20260910.png`.
+
+Suites and evidence: `SimulationScenario.appearance_seed` (None = pristine;
+`fixed_appearance` must agree), hashed into suite ids, `suite.json`, the
+capture identity (`appearance` block, frames convention
+`…_lens_opencv_rational_8_full_frame_squash_appearance_bench_appearance_v1_…`),
+per-episode records and rollout telemetry. `bench_suite(appearance_seeds=)`,
+`generate_bench_suite(randomize_appearance=)` (poses screened exactly as
+before, then one seed each), `appearance_product()` (every held-out pose ×
+3 draws = 30 unique scenarios, repeats 1, not re-screened). Capture parity
+(workers 1 vs 2): arrays byte-identical, frames within the LUT-amplified
+raster jitter.
+
+Offline real-frame gate (`src/so_arm101_v2/physical/dry_pass.py`,
+`real_frame_gate_v1`): the policy's first chunk on a frame taken at the
+reset pose must be hold-like: shoulder_lift and elbow_flex move ≤ 3 units,
+zero gate holds, shoulder never below the floor. Calibration on the current
+lens policy (`tools/check_policy_on_real_frames.py`, frame
+`physical/episode_02_20260909/boundaries/step_000.obs.png`, anchor from
+`steps.csv` step 0, hashes verified): **FAIL** (shoulder 25.15, elbow 21.07,
+23 holds, min shoulder −94.49); simulated reset chunk **PASS** (0.47 /
+0.45, 0 holds). The pipeline runs it after evaluation and records the
+result (`real_frame_check.json`, `evaluation_summary["real_frames/reset"]`,
+plus a 16-draw photometric sweep of the real frame); the physical runner
+runs it on a fresh frame at the reset pose after the approach and refuses
+the episode on failure (torque kept), and reads `Present_Voltage` after the
+read-only connect, refusing below 6.0 V.
+
 ## Active scene and teacher
 
 Active model: `simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml`,
@@ -570,7 +676,23 @@ The earlier pad-4 preflight report at
 `artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_diagnostics/9c4cff24f78b/preflight/bench_pick_replace_v1_diagnostic_59b6ba96b593/evaluation.json`
 used the OLD incorrect distance and older code. It is superseded.
 
-## Software inventory (reviewed 2026-09-06; lens additions 2026-09-09)
+## Software inventory (reviewed 2026-09-06; lens additions 2026-09-09; appearance 2026-09-10)
+
+2026-09-10 additions: `contracts/appearance.py` (regime, resolver, seed
+streams, photometric ops, procedural textures), `simulation/appearance.py`
+(scene ids, exact snapshot, applier), adapter `_configure_appearance` /
+`appearance_record`, `SimulationScenario.appearance_seed`,
+`BenchConfig.appearance`, `bench_suite(appearance_seeds=)`,
+`generate_bench_suite(randomize_appearance=)`, `appearance_product`,
+oracle/rollout appearance evidence, `physical/dry_pass.py` (dry pass,
+real-frame gate, hash-verified boundary loader),
+`lerobot_backend.check_servo_voltage`, `tools/check_policy_on_real_frames.py`,
+`tools/prepare_bench_scene.py --appearance`, `tools/render_bench_views.py
+--appearance-samples`, `tools/run_bench_pipeline.py --appearance
+--real-frame-episode`; tests `test_appearance.py`,
+`test_appearance_scene.py`, `test_appearance_suites.py`,
+`test_real_frame_gate.py` and extensions of the runner-tool tests. Full
+suite 318 passed.
 
 2026-09-09 additions (evening): `contracts/physical.py::bench_hold_decision` (the
 shared gate; the adapter delegates to it), `so_arm101_v2.physical` (runner,
@@ -695,6 +817,20 @@ tests. Full suite 278 passed at the second launch.
 5. Nominal and held-out closed-loop evaluation with videos and black-image
    ablation; report task success, safety, and observation-prefix success.
    A single run is exploratory, not a promotion claim.
+6. **Appearance recipe (registered 2026-09-10, `--appearance`):** the scene
+   carries the `bench_appearance` v1 regime (gate 1 re-signed on the
+   regenerated scene, gate 2 re-certified); the 400 training poses (seed 12,
+   screened as in gate 3) each get one appearance seed from stream 0; the
+   held-out suite stays fixed-appearance for comparability with runs
+   `tinmahze`/`iziftplw`; an additional `heldout_appearance` evaluation
+   renders the same 10 poses under 3 draws each (stream 1, seed 8; vision and
+   black-image); the same single training run as gate 4; then the offline
+   real-frame gate on `physical/episode_02_20260909` (recorded, not raised).
+   Success for the tranche: the real-frame gate passes and held-out
+   appearance is not far below the fixed held-out score, with nominal and
+   fixed held-out comparable to `iziftplw`. Only then is a physical trial
+   authorized (after the supply voltage is fixed; the runner refuses below
+   6.0 V and refuses the episode if the gate fails live).
 
 Full physical testing, additional seeds, and arbitrary workspace placement
 are later work.
@@ -796,6 +932,17 @@ PYTHONNOUSERSITE=1 MUJOCO_GL=egl \
 
 # Full test suite (259 passed on 2026-09-08 at launch).
 PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python -m pytest -q tests
+
+# Third run (appearance recipe): after the bench owner confirms
+# inspection/camera_review_20260910.json (fill reviewer/notes/reviewed_at), queue it:
+simulation_code/queue_bench_pipeline.sh \
+  artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/camera_review_20260910.json \
+  artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910 \
+  --appearance --workers 8
+
+# Offline real-frame gate on any checkpoint (exit 2 = fails; the current lens policy fails).
+PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/check_policy_on_real_frames.py --checkpoint <model.pt> --perturb 16
 
 # Run status (read-only).
 tsp -l

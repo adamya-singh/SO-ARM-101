@@ -295,10 +295,11 @@ def test_pipeline_rehearsal_refuses_unlabelled_output_and_requires_verification(
     model = root / 'simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml'
     tool = root / 'tools/run_bench_pipeline.py'
     env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'PYTHONNOUSERSITE': '1', 'MUJOCO_GL': 'egl'}
-    plain = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'not_labelled'), '--rehearsal'],
+    # The live scene carries an appearance regime (2026-09-10), so the recipe flag must accompany it.
+    plain = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'not_labelled'), '--rehearsal', '--appearance'],
                            capture_output=True, text=True, env=env)
     assert plain.returncode != 0 and 'rehearsal' in (plain.stderr + plain.stdout)
     assert not (tmp_path / 'not_labelled' / 'experiment.json').exists()
-    missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real')],
+    missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real'), '--appearance'],
                              capture_output=True, text=True, env=env)
     assert missing.returncode != 0 and '--verification is required' in (missing.stderr + missing.stdout)

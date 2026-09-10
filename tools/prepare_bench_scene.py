@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
+from so_arm101_v2.contracts.appearance import AppearanceRegime
 from so_arm101_v2.contracts.bench import BenchConfig
 from so_arm101_v2.contracts.lens import LensModel
 
@@ -106,8 +107,14 @@ def main():
     p.add_argument('--intrinsics',type=Path,default=None,help='camera_intrinsics.json: (re)build the lens block from its selected model and set camera_fovy_deg from it')
     p.add_argument('--render-size',type=int,nargs=2,default=(1600,900),metavar=('W','H'),help='pinhole render size for the lens path (16:9)')
     p.add_argument('--render-fovy',type=float,default=None,help='pinhole render fovy; default = smallest fovy covering the whole undistorted frame + 5%% margin')
+    p.add_argument('--appearance',choices=['keep','none','default'],default='keep',
+        help='appearance randomization regime written into bench_config.json: keep the config\'s block, remove it, or write the default bench_appearance v1 regime')
     a=p.parse_args()
     config=BenchConfig.load(a.bench_config)
+    if a.appearance=='none':
+        config=replace(config,appearance=None)
+    elif a.appearance=='default':
+        config=replace(config,appearance=AppearanceRegime().identity())
     if a.intrinsics is not None:
         probe=LensModel.from_intrinsics_file(a.intrinsics,render_fovy_deg=90.0,render_size=tuple(a.render_size))
         fovy=a.render_fovy if a.render_fovy is not None else round(probe.required_render_fovy_deg(),2)

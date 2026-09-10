@@ -29,9 +29,8 @@ def _prepare_pair(tmp_path, appearance=None):
     """A freshly generated scene (with slots) and a sibling copy with the slots stripped out."""
     pytest.importorskip("mujoco")
     from tools.prepare_bench_scene import prepare
-    config = scene_bench_config(LIVE_SCENE)
-    if appearance is not None:
-        config = replace(config, appearance=appearance.identity())
+    # The live scene carries a regime since 2026-09-10; the pair is built with exactly the requested one (None = regime-less).
+    config = replace(scene_bench_config(LIVE_SCENE), appearance=None if appearance is None else appearance.identity())
     slotted = prepare(tmp_path / "slotted", config)
     stripped_dir = tmp_path / "stripped"
     shutil.copytree(tmp_path / "slotted", stripped_dir)

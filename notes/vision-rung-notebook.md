@@ -395,3 +395,34 @@ cube face shading, and the mousepad edge. Comparison image:
 timing, gate and safety all behaved as designed; the gap is visual domain
 transfer, to be addressed in the capture (appearance randomization) before
 another trial.
+
+### Appearance randomization tranche (2026-09-10): regime, slots, real-frame gate, rehearsal
+
+Response to the second physical attempt. `contracts/appearance.py` defines a
+versioned regime (stored in `bench_config.json`, hashed into the scene) and a
+pure resolver from a per-scenario seed: lights and headlight, material albedo
+as grey × drawn tint (neutral looks dominate), a ground speckle texture with
+drawn contrast and tile repeat, a visual-only towel under the square (0.9–1.6×,
+±10°), skybox off or recoloured, wrist-camera pose/fovy nuisance, and
+photometric gain/gamma/balance/noise/blur applied to the 256×256 observation
+after the lens operator, keyed on (seed, control step). `simulation/appearance.py`
+applies a draw to the MuJoCo model from an exact pristine snapshot; the adapter
+recreates its renderers on a transition (texture binding is baked into a render
+context). The scene gained two render-only slots; its pristine reset and viewing
+observations are byte-identical to the signed 2026-09-09 review images, the
+teacher is bit-identical under a draw and re-certified 15/15 on the new hash
+`fcead5c7…`. Fourteen draws next to the real reset observation:
+`readme-assets/bench-appearance-review-sheet-20260910.png` (brightness spread
+18–93 around the real 44; neutral greys with occasional tints; towel doubling;
+shadows; sky patches).
+
+Offline real-frame gate (`physical/dry_pass.py`, `tools/check_policy_on_real_frames.py`):
+the first chunk on a reset-pose frame must be hold-like (shoulder/elbow ≤ 3
+units, no holds, above the floor). Calibrated on the lens policy with the
+episode_02 frame: FAIL (shoulder 25.15, elbow 21.07, 23 holds, min shoulder
+−94.49) versus PASS on the simulated reset chunk (0.47 / 0.45). The pipeline
+records it after evaluation; the physical runner runs it live at the reset pose
+and refuses the episode on failure, and refuses motion below a 6.0 V supply.
+Pipeline rehearsed end to end with `--appearance` (toy scale, offline W&B).
+Full suite 318 passed. The third run is queued as soon as the bench owner
+confirms the camera review on the regenerated scene (images identical).
