@@ -358,3 +358,17 @@ included) is a phase inside the tool, and the pan-sign check is a read-only
 preflight step. Tool-level rehearsal on the simulator:
 `artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/physical_runner_20260909/`.
 No physical episode has been run.
+
+### First physical attempt (2026-09-09, evening): approach stalled, supply at 5.4 V
+
+Preflight passed on the hardware except the timed pan-sign check (the base was
+not rotated in its window; a manual two-point check then confirmed the sign,
+`physical/pan_sign_check_20260909.json`). The camera's 1080p mode streams at
+3–6 fps over USB-over-IP; 720p at 29 fps has the same field of view (zero
+pixel shift after resampling), so the runner captures at 720p. In the first
+motion attempt (`physical/episode_01_20260909`, user-confirmed) pan, shoulder,
+wrist and gripper reached the reset in 4 s but the elbow stalled 4 units short
+under gravity and the approach timed out. Cause found afterwards: all servos
+report a 5.3–5.4 V supply (spec 6–12 V); the gripper had flagged an input
+voltage error. The approach ramp now lets commands pass the reset by up to 6
+units, but the power supply must be fixed before the next attempt.
