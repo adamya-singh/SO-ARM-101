@@ -34,8 +34,15 @@ def test_resolver_is_deterministic_within_ranges_and_seeds_differ():
     assert tuple(m[0] for m in a.materials) == MATERIAL_NAMES
     for name, rgb, specular, shininess, reflectance in a.materials:
         lo, hi = {"white": regime.arm_albedo, "black": regime.motor_albedo, "groundplane": regime.ground_albedo, "black_pla": regime.cube_albedo}[name]
-        assert all(lo <= v <= hi for v in rgb) and 0 <= specular <= 0.7 and 0 <= reflectance <= 0.3
-    assert all(0.65 <= v <= 1.0 for v in a.napkin_rgb)
+        chroma = regime.material_chroma
+        assert all(lo * (1 - chroma) <= v <= min(1.0, hi * (1 + chroma)) for v in rgb) and 0 <= specular <= 0.7 and 0 <= reflectance <= 0.3
+        assert max(rgb) / max(min(rgb), 1e-9) <= (1 + chroma) / (1 - chroma) + 1e-9
+    assert all(0.65 * (1 - regime.paper_chroma) <= v <= 1.0 for v in a.napkin_rgb)
+    if a.ground_texture is not None:
+        assert 5.0 <= a.ground_texture[2] <= 40.0
+    # Near-neutral looks are common: over 200 seeds, at least half of the ground draws have channel spread under 25 %.
+    neutral = [max(d.materials[2][1]) / max(min(d.materials[2][1]), 1e-9) < 1.25 for d in (resolve_appearance(regime, s) for s in range(200))]
+    assert sum(neutral) >= 100
     if a.towel is not None:
         assert 0.9 <= a.towel[0] <= 1.6 and abs(np.degrees(a.towel[2])) <= 10
     assert 0.98 <= a.fovy_scale <= 1.02 and all(abs(v) <= 0.002 for v in a.camera_pos_offset)

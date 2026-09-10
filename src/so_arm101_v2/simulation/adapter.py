@@ -20,6 +20,7 @@ from so_arm101_v2.contracts import (
 )
 from so_arm101_v2.data import preprocess_wrist_image
 
+from .appearance import ModelAppearanceSnapshot, apply_appearance, resolve_scene_ids
 from .contact import check_block_face_gripped
 from .suites import SimulationScenario
 
@@ -124,6 +125,16 @@ class MujocoTaskAdapter:
         self.control_actions = 0
         self._previous_privileged_snapshot: PrivilegedStateSnapshot | None = None
         self._previous_contact_snapshot: PrivilegedContactSnapshot | None = None
+        # Appearance randomization (contracts/appearance.py + simulation/appearance.py): the pristine
+        # snapshot is captured once; a scenario with an appearance_seed writes a draw into the model
+        # at reset, a scenario without one restores the snapshot. Renderers are recreated on transitions
+        # because texture binding is baked into a render context.
+        self._appearance_ids = resolve_scene_ids(self.model) if self.bench is not None else None
+        self._appearance_pristine = ModelAppearanceSnapshot.capture(self.model) if self.bench is not None else None
+        self._appearance_applied = False
+        self.appearance_seed: int | None = None
+        self.appearance_params = None
+        self._skybox_visible = True
 
     @property
     def renderer(self) -> Any:
@@ -147,10 +158,49 @@ class MujocoTaskAdapter:
             self._lens_renderer.close()
             self._lens_renderer = None
 
+    def _configure_appearance(self, scenario: SimulationScenario) -> None:
+        seed = scenario.appearance_seed
+        if seed is None and not self._appearance_applied:
+            return  # pristine -> pristine: the fixed-appearance path never touches the model
+        if seed is not None and (self.bench is None or self.bench.appearance_regime is None):
+            raise ValueError(f"scenario {scenario.scenario_id!r} carries an appearance seed but the bench config has no appearance regime")
+        self.close()  # texture binding and texel data are baked into render contexts
+        self._appearance_pristine.restore(self.model)
+        self._appearance_applied = False
+        self.appearance_seed = None
+        self.appearance_params = None
+        self._skybox_visible = True
+        if seed is None:
+            return
+        from so_arm101_v2.contracts.appearance import resolve_appearance
+        params = resolve_appearance(self.bench.appearance_regime, seed)
+        apply_appearance(self.model, params, self._appearance_ids, self._appearance_pristine)
+        self._appearance_applied = True
+        self.appearance_seed = int(seed)
+        self.appearance_params = params
+        self._skybox_visible = params.skybox != "off"
+
+    @property
+    def appearance_record(self) -> dict[str, Any] | None:
+        """Evidence for the current scenario's look: None on the pristine path."""
+        if self.appearance_params is None:
+            return None
+        from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION
+        regime = self.bench.appearance_regime
+        return dict(seed=self.appearance_seed, resolver=APPEARANCE_RESOLVER_VERSION, regime=regime.name,
+                    regime_version=regime.version, params=self.appearance_params.as_record())
+
+    def _set_skybox_flag(self, renderer: Any, camera: str) -> None:
+        mujoco = _mujoco()
+        renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SKYBOX] = 1 if (camera != "wrist_camera" or self._skybox_visible) else 0
+
     def reset(self, scenario: SimulationScenario) -> None:
         if self.bench is not None:
             self.bench.validate_qpos(scenario.robot_qpos_mujoco)
+        elif scenario.appearance_seed is not None:
+            raise ValueError("appearance seeds require a bench scene")
         mujoco = _mujoco()
+        self._configure_appearance(scenario)
         mujoco.mj_resetData(self.model, self.data)
         for address, value, actuator in zip(
             self._joint_qpos, scenario.robot_qpos_mujoco, self._actuator_ids, strict=True
@@ -231,6 +281,7 @@ class MujocoTaskAdapter:
         self._previous_contact_snapshot = self.privileged_contact_state()
 
     def render(self, camera: str = "wrist_camera") -> np.ndarray:
+        self._set_skybox_flag(self.renderer, camera)
         self.renderer.update_scene(self.data, camera=camera)
         image = np.asarray(self.renderer.render(), dtype=np.uint8)
         if image.shape != (256, 256, 3):
@@ -241,6 +292,7 @@ class MujocoTaskAdapter:
         """The 256x256 wrist observation: the lens-resampled wider render when the bench has a lens, else the pinhole."""
         if self.lens is None:
             return self.render("wrist_camera")
+        self._set_skybox_flag(self.lens_renderer, "wrist_camera")
         self.lens_renderer.update_scene(self.data, camera="wrist_camera")
         render = np.asarray(self.lens_renderer.render(), dtype=np.uint8)
         rw, rh = self.lens.render_size
@@ -249,6 +301,11 @@ class MujocoTaskAdapter:
         image = self.lens.sim_operator().apply(render)
         if image.shape != (256, 256, 3):
             raise RuntimeError(f"lens operator produced unexpected image shape {image.shape}")
+        if self.appearance_params is not None:
+            # Photometric ops act on the observation (post-operator: the 8x5 supersampling would average
+            # pre-operator noise away) and are keyed on the control step so repeated renders are idempotent.
+            from so_arm101_v2.contracts.appearance import apply_photometric
+            image = apply_photometric(image, self.appearance_params.photometric, seed=self.appearance_seed, frame_index=self.control_actions)
         return image
 
     def observation(

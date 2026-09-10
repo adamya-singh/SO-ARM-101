@@ -10,6 +10,12 @@ from so_arm101_v2.contracts.bench import BenchConfig
 from so_arm101_v2.contracts.lens import LensModel
 
 ROOT = Path(__file__).resolve().parents[1]
+# Names shared with so_arm101_v2.simulation.appearance (the applier resolves them by name).
+APPEARANCE_TEXTURE = 'ground_speckle'
+APPEARANCE_TEXTURE_SIZE = 256
+APPEARANCE_TOWEL_BODY = 'towel_visual'
+APPEARANCE_TOWEL_GEOM = 'towel_visual_geom'
+APPEARANCE_TOWEL_HALF_THICKNESS_M = 0.0002
 
 def prepare(destination: Path, config: BenchConfig):
     source = ROOT / 'simulation_code/model/menagerie_so_arm100'
@@ -37,6 +43,12 @@ def prepare(destination: Path, config: BenchConfig):
         scale='0.001 0.001 0.001')
     ET.SubElement(assets, 'material', name='black_pla', rgba='0.025 0.025 0.025 1',
         specular='0', shininess='0')
+    # Appearance slot 1 (always present so the scene hash does not depend on whether a regime is on):
+    # an UNBOUND flat texture the adapter fills with procedural speckle and binds to the ground
+    # material at reset (texture binding is baked into a render context, so the adapter recreates
+    # its renderers on an appearance transition). Unbound, it is invisible.
+    ET.SubElement(assets, 'texture', name=APPEARANCE_TEXTURE, type='2d', builtin='flat', rgb1='1 1 1',
+        width=str(APPEARANCE_TEXTURE_SIZE), height=str(APPEARANCE_TEXTURE_SIZE))
     world = arm.find('worldbody')
     for element in baseline.find('worldbody'):
         world.append(element)
@@ -50,6 +62,17 @@ def prepare(destination: Path, config: BenchConfig):
     geom.set('rgba','0.025 0.025 0.025 0')
     ET.SubElement(body,'geom',name='xyz_visual',type='mesh',mesh='xyz_cube_visual',
         pos='-0.01 -0.01 -0.01',material='black_pla',contype='0',conaffinity='0',density='0',group='2')
+    # Appearance slot 2: a visual-only 'towel' body (the real folded paper towel is larger than the
+    # square) appended LAST so no existing body/geom id shifts. Invisible (alpha 0) until an
+    # appearance draw sizes, yaws and colours it; its top sits 0.5 mm inside the napkin slab so the
+    # napkin always wins the depth test. contype/conaffinity 0 and density 0: no contacts, no mass.
+    towel_half_thickness = APPEARANCE_TOWEL_HALF_THICKNESS_M
+    towel_z = config.square_thickness_m - 0.0005 - towel_half_thickness
+    towel = ET.SubElement(world, 'body', name=APPEARANCE_TOWEL_BODY,
+        pos=f'{config.square_center_xy[0]} {config.square_center_xy[1]} {towel_z:.6f}')
+    ET.SubElement(towel, 'geom', name=APPEARANCE_TOWEL_GEOM, type='box',
+        size=f'{config.square_edge_m / 2} {config.square_edge_m / 2} {towel_half_thickness}',
+        rgba='1 1 1 0', contype='0', conaffinity='0', density='0', group='2')
     pitch=arm.find("default/default/default[@class='Pitch']/joint")
     pitch.set('range',f'{float(config.mujoco_low[1])} 0.174')
     # Calibrated wrist camera (2026-09-08 hand-eye): pose in the gripper frame and the lens's vertical field of view.

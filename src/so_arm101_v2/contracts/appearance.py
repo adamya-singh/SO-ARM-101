@@ -50,11 +50,15 @@ class AppearanceRegime:
     key_light_ambient: tuple[float, float] = (0.0, 0.15)
     key_light_specular: tuple[float, float] = (0.0, 0.6)
     shadow_probability: float = 0.8
-    # Per-material albedo ranges (per channel, so colour casts happen), specular, shininess, reflectance.
+    # Per-material albedo: a grey level from the range times a per-channel factor in
+    # [1 - chroma, 1 + chroma] (clipped to [0, 1]), so near-neutral looks like the real bench are
+    # common and colour casts still occur.
     arm_albedo: tuple[float, float] = (0.03, 0.20)
     motor_albedo: tuple[float, float] = (0.03, 0.20)
     ground_albedo: tuple[float, float] = (0.005, 0.12)
     cube_albedo: tuple[float, float] = (0.005, 0.12)
+    material_chroma: float = 0.4
+    paper_chroma: float = 0.12
     material_specular: tuple[float, float] = (0.0, 0.7)
     material_shininess: tuple[float, float] = (0.0, 0.8)
     material_reflectance: tuple[float, float] = (0.0, 0.25)
@@ -66,6 +70,7 @@ class AppearanceRegime:
     towel_albedo: tuple[float, float] = (0.6, 1.0)
     ground_texture_probability: float = 0.7
     ground_texture_contrast: tuple[float, float] = (0.0, 0.5)
+    ground_texture_repeat_per_m: tuple[float, float] = (5.0, 40.0)   # 256-texel tiles per metre: 20 cm .. 2.5 cm
     skybox_off_probability: float = 0.5
     camera_pos_jitter_m: float = 0.002
     camera_pitch_jitter_deg: float = 4.0
@@ -83,7 +88,7 @@ class AppearanceRegime:
         for field_name in ("headlight_ambient", "headlight_diffuse", "headlight_specular", "key_light_diffuse", "key_light_ambient",
                            "key_light_specular", "arm_albedo", "motor_albedo", "ground_albedo", "cube_albedo", "material_specular",
                            "material_shininess", "material_reflectance", "napkin_albedo", "towel_scale", "towel_albedo",
-                           "ground_texture_contrast", "gain", "gamma", "noise_sigma", "blur_sigma_px"):
+                           "ground_texture_contrast", "ground_texture_repeat_per_m", "gain", "gamma", "noise_sigma", "blur_sigma_px"):
             object.__setattr__(self, field_name, _pair(getattr(self, field_name), field_name))
         for field_name in ("shadow_probability", "towel_probability", "ground_texture_probability", "skybox_off_probability"):
             value = float(getattr(self, field_name))
@@ -99,6 +104,10 @@ class AppearanceRegime:
             raise ValueError("appearance regime camera jitter out of range")
         if not 0.0 <= float(self.channel_balance) <= 0.5 or not 0.0 <= float(self.ground_reflectance_cap) <= 1.0:
             raise ValueError("appearance regime channel balance / reflectance cap out of range")
+        if not 0.0 <= float(self.material_chroma) <= 1.0 or not 0.0 <= float(self.paper_chroma) <= 1.0:
+            raise ValueError("appearance regime chroma must be within [0, 1]")
+        if self.ground_texture_repeat_per_m[0] <= 0:
+            raise ValueError("ground texture repeat must be positive")
         if self.gain[0] <= 0 or self.gamma[0] <= 0:
             raise ValueError("gain and gamma must be positive")
 
@@ -134,7 +143,7 @@ class AppearanceParams:
     materials: tuple[tuple[str, tuple[float, float, float], float, float, float], ...]   # name, rgb, specular, shininess, reflectance
     napkin_rgb: tuple[float, float, float]
     towel: tuple[float, float, float, tuple[float, float, float]] | None                    # scale_x, scale_y, yaw_rad, rgb
-    ground_texture: tuple[int, float] | None                                              # (texture seed, contrast)
+    ground_texture: tuple[int, float, float] | None                                       # (texture seed, contrast, repeat per metre)
     skybox: str | tuple[tuple[float, float, float], tuple[float, float, float]]            # "off" | (top rgb, bottom rgb)
     camera_pos_offset: tuple[float, float, float]
     camera_euler_deg: tuple[float, float, float]                                            # pitch, yaw, roll jitter
@@ -158,6 +167,14 @@ def resolve_appearance(regime: AppearanceRegime, seed: int) -> AppearanceParams:
         raise ValueError("appearance seed must be in [0, 2**31)")
     rng = np.random.default_rng([seed, regime.version, _SALT])
     u = lambda pair: float(rng.uniform(*pair))
+
+    def tinted(pair, chroma):
+        # Grey level times per-channel factors; the tint amplitude itself is drawn (squared uniform) so
+        # near-neutral looks like the real bench dominate and strong casts remain in the tail.
+        grey = rng.uniform(*pair)
+        amplitude = chroma * rng.uniform() ** 2
+        factors = 1.0 + amplitude * rng.uniform(-1.0, 1.0, size=3)
+        return tuple(float(v) for v in np.clip(grey * factors, 0.0, 1.0))
     headlight = (u(regime.headlight_ambient), u(regime.headlight_diffuse), u(regime.headlight_specular))
     # Key light direction: uniform in a cone around straight down.
     cone = np.deg2rad(regime.key_light_cone_deg)
@@ -167,21 +184,21 @@ def resolve_appearance(regime: AppearanceRegime, seed: int) -> AppearanceParams:
     light = (u(regime.key_light_diffuse), u(regime.key_light_ambient), u(regime.key_light_specular), bool(rng.uniform() < regime.shadow_probability))
     materials = []
     for name, albedo in zip(MATERIAL_NAMES, (regime.arm_albedo, regime.motor_albedo, regime.ground_albedo, regime.cube_albedo)):
-        rgb = tuple(float(v) for v in rng.uniform(albedo[0], albedo[1], size=3))
+        rgb = tinted(albedo, regime.material_chroma)
         specular, shininess, reflectance = u(regime.material_specular), u(regime.material_shininess), u(regime.material_reflectance)
         if name == "groundplane":
             reflectance = min(reflectance, regime.ground_reflectance_cap)
         materials.append((name, rgb, specular, shininess, reflectance))
-    napkin_rgb = tuple(float(v) for v in rng.uniform(regime.napkin_albedo[0], regime.napkin_albedo[1], size=3))
+    napkin_rgb = tinted(regime.napkin_albedo, regime.paper_chroma)
     towel = None
     if rng.uniform() < regime.towel_probability:
         scale = tuple(float(v) for v in rng.uniform(regime.towel_scale[0], regime.towel_scale[1], size=2))
         yaw = float(np.deg2rad(rng.uniform(-regime.towel_yaw_deg, regime.towel_yaw_deg)))
-        towel_rgb = tuple(float(v) for v in rng.uniform(regime.towel_albedo[0], regime.towel_albedo[1], size=3))
+        towel_rgb = tinted(regime.towel_albedo, regime.paper_chroma)
         towel = (scale[0], scale[1], yaw, towel_rgb)
     ground_texture = None
     if rng.uniform() < regime.ground_texture_probability:
-        ground_texture = (int(rng.integers(0, 2 ** 31)), u(regime.ground_texture_contrast))
+        ground_texture = (int(rng.integers(0, 2 ** 31)), u(regime.ground_texture_contrast), u(regime.ground_texture_repeat_per_m))
     if rng.uniform() < regime.skybox_off_probability:
         skybox: Any = "off"
     else:
