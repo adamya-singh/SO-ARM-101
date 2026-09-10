@@ -103,6 +103,8 @@ def main():
                    help='the bench_placement recipe: training and held-out squares (with the cube) drawn anywhere in the placement '
                         'rectangle with yaw, screened by the teacher and the survey-pose visibility check; certification over the '
                         'placement set; success reported by region. Requires (and is required by) a placement block in bench_config.json.')
+    p.add_argument('--train-count', type=int, default=400, help='screened training poses (the registered recipe uses 400; the placement recipe needs more coverage)')
+    p.add_argument('--max-steps', type=int, default=120000, help='optimizer steps for the single training run (registered recipe: 120000)')
     p.add_argument('--frame-store', choices=['zlib', 'gpu', 'off'], default='zlib',
                    help="where training reads frames: 'zlib' = lossless RAM cache (skipped when it would exceed half of RAM), "
                         "'gpu' = the (strided) frames as one uint8 tensor on the training device, 'off' = the memmap")
@@ -150,7 +152,7 @@ def main():
         # timestamp and notes. Refuses a bare boolean or a stale scene/reset.
         verification = load_bench_verification(args.verification, scene_hash=scene_hash,
                                                reset_evidence_sha256=bench.reset_evidence_sha256)
-        counts = dict(train=(12, 400, 1), heldout=(8, 10, 3)); max_steps, checkpoint_interval = 120000, 5000
+        counts = dict(train=(12, int(args.train_count), 1), heldout=(8, 10, 3)); max_steps, checkpoint_interval = int(args.max_steps), 5000
         wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k' + ('-appearance' if args.appearance else '') + ('-placement' if args.placement else '')
     root.mkdir(parents=True, exist_ok=True)
     identity = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, bench=asdict(bench),

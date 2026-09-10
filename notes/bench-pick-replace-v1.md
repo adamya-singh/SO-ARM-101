@@ -1032,7 +1032,14 @@ W&B run `bench-pick-replace-v1-s202-120k-appearance-placement` id `8qj8795i`:
 https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/8qj8795i.
 Verification `inspection/camera_review_20260910b.json` (scene `92f07142…`).
 Training uses the GPU frame store with stride 3 (`--frame-store gpu
---frame-stride 3`).
+--frame-stride 3`). **Result (98 min wall, training 14 min at 144 steps/s):
+nominal 0/3, held-out 3/30 (one pose 3/3), held-out appearance 0/30, prefix
+30/30 (the survey move is learned), 293/435 safety frames; failures are
+imprecise grasps (cube nudged and tilted, unsafe contacts) after a correct
+approach; full-data fit 7.7e-6 vs 1.3e-6 for the fixed-square run: an
+underfit of the far larger input distribution on the same 400 episodes.
+Next run: 1200 placements, stride 9 (chunk starts 0.3 s apart; 12.7 GB on
+the GPU), 240k steps; nothing else changes.**
 
 Third run (appearance recipe, gate 6) queued 2026-09-10 00:34 local as `tsp`
 job 1, experiment directory

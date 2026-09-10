@@ -582,3 +582,19 @@ screening; pipeline `--placement` with success by region; real-frame gate v3
 (track the simulated survey chunk); region-aware placement report. Reach map
 and coverage map in `inspection/` (`reach_scan_92f07142_retry.png`,
 `survey_pose_coverage_92f07142.png`).
+
+### Fourth run (2026-09-10, W&B `8qj8795i`): placement recipe underfits on 400 episodes
+
+Pipeline with `--appearance --placement --frame-store gpu --frame-stride 3`:
+screening accepted 400/~580 training placements and 10 held-out (rejections
+recorded), capture 400/400, training 120k steps in 14 min at 144 steps/s with
+the frames on the GPU (16.9 GB used), evaluation and the real-frame check in
+98 min end to end. Result: nominal 0/3 (pickup incomplete after a 30 mm
+lift), held-out 3/30 (one pose 3/3; 18 safety invalidations from the cube
+being nudged and tilted at 3-5 mm height, 9 incomplete pickups), held-out
+appearance 0/30; prefix 30/30, so the survey move is learned. Full-data
+normalized MSE 7.7e-6 against 1.3e-6 for the fixed-square run: the same 400
+episodes now cover positions × yaw × appearance and the network underfits.
+Frame stride is not the cause: only chunk starts at multiples of 90 occur at
+inference and all of them are multiples of the stride. Next: 1200
+placements, stride 9, 240k steps (same GPU footprint, ~28 min of training).

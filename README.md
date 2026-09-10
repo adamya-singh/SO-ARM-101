@@ -36,7 +36,9 @@ about 20 mm beyond the task pose. Next: randomize placement in the capture. That
 (September 10, later): the square and cube are placed anywhere in a 14 × 10 in
 rectangle with yaw, the policy's first chunk rises to a survey pose that sees
 the reachable area, and the yaw-aware teacher is certified 30/30; the fourth
-run is pending the camera review on the regenerated scene.
+run (September 10, 98 min end to end with the frames on the GPU) underfit
+the larger distribution on 400 episodes (held-out 3/30); a fifth run with
+1200 placements and 240k steps follows.
 
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the

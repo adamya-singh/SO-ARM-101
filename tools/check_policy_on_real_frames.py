@@ -42,7 +42,7 @@ def check_policy_on_real_frames(policy, model_path, bench, episode_dirs, *, pert
         image, anchor, evidence = load_boundary_frame(episode_dir, step=0)
         if reference is None:
             reference = sim_reference_dry_pass(policy, model_path, anchor, bench)
-            reference_check = check_reset_frame(policy, _sim_image(model_path, bench), anchor, bench, label="sim_reference")
+            reference_check = check_reset_frame(policy, _sim_image(model_path, bench), anchor, bench, label="sim_reference", reference=reference)
         result = check_reset_frame(policy, image, anchor, bench, label=Path(episode_dir).name, reference=reference)
         result["frame"] = evidence
         if perturb > 0:
@@ -52,7 +52,7 @@ def check_policy_on_real_frames(policy, model_path, bench, episode_dirs, *, pert
             for seed in range(int(perturb)):
                 params = resolve_appearance(regime, seed).photometric
                 perturbed = apply_photometric(image, params, seed=seed, frame_index=0)
-                passed.append(bool(check_reset_frame(policy, perturbed, anchor, bench, label=f"perturb_{seed}")["passed"]))
+                passed.append(bool(check_reset_frame(policy, perturbed, anchor, bench, label=f"perturb_{seed}", reference=reference)["passed"]))
             result["photometric_sweep"] = dict(draws=int(perturb), regime=regime.identity(), passed=int(sum(passed)), pass_fraction=round(sum(passed) / len(passed), 3))
         frames.append(result)
     return dict(

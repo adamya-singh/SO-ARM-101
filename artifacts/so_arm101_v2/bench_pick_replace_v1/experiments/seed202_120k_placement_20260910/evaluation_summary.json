@@ -1,0 +1,175 @@
+{
+  "nominal/vision": {
+    "successes": 0,
+    "rollouts": 3,
+    "safety_frames": 0,
+    "prefix_ok": 3,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_c6b6bbae7577/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "nominal/vision_black": {
+    "successes": 0,
+    "rollouts": 3,
+    "safety_frames": 0,
+    "prefix_ok": 3,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/nominal/policies/bench_pick_replace_v1_nominal_eval_c6b6bbae7577/evaluation.json",
+    "success_by_region": {
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "heldout/vision": {
+    "successes": 3,
+    "rollouts": 30,
+    "safety_frames": 293,
+    "prefix_ok": 30,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n10_placement_64eb139f2294/evaluation.json",
+    "success_by_region": {
+      "far/centre": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/left": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/right": {
+        "successes": 3,
+        "rollouts": 3
+      },
+      "near/left": {
+        "successes": 0,
+        "rollouts": 9
+      },
+      "near/right": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "heldout/vision_black": {
+    "successes": 0,
+    "rollouts": 30,
+    "safety_frames": 42,
+    "prefix_ok": 30,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n10_placement_64eb139f2294/evaluation.json",
+    "success_by_region": {
+      "far/centre": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/left": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/right": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "near/left": {
+        "successes": 0,
+        "rollouts": 9
+      },
+      "near/right": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "heldout_appearance/vision": {
+    "successes": 0,
+    "rollouts": 30,
+    "safety_frames": 435,
+    "prefix_ok": 30,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/heldout_appearance/policies/bench_pick_replace_v1_heldout_appearance_bd81a7ac03f3/evaluation.json",
+    "success_by_region": {
+      "far/centre": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/left": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/right": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "near/left": {
+        "successes": 0,
+        "rollouts": 9
+      },
+      "near/right": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "heldout_appearance/vision_black": {
+    "successes": 0,
+    "rollouts": 30,
+    "safety_frames": 42,
+    "prefix_ok": 30,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluations/heldout_appearance/policies/bench_pick_replace_v1_heldout_appearance_bd81a7ac03f3/evaluation.json",
+    "success_by_region": {
+      "far/centre": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "mid/centre": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/left": {
+        "successes": 0,
+        "rollouts": 6
+      },
+      "mid/right": {
+        "successes": 0,
+        "rollouts": 3
+      },
+      "near/left": {
+        "successes": 0,
+        "rollouts": 9
+      },
+      "near/right": {
+        "successes": 0,
+        "rollouts": 3
+      }
+    }
+  },
+  "real_frames/reset": {
+    "passed": true,
+    "frames": {
+      "episode_02_20260909": {
+        "passed": true,
+        "reasons": [],
+        "shoulder_units": 24.59,
+        "elbow_units": 36.62,
+        "holds": 0,
+        "photometric_pass_fraction": 0.0
+      }
+    },
+    "sim_reference_passed": false,
+    "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/real_frame_check.json"
+  }
+}
