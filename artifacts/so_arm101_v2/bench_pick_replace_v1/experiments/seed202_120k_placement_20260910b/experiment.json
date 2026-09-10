@@ -1,0 +1,543 @@
+{
+  "appearance": {
+    "heldout_appearance": {
+      "per_pose": 3,
+      "seed": 8,
+      "stream": 1
+    },
+    "regime": {
+      "arm_albedo": [
+        0.03,
+        0.2
+      ],
+      "blur_sigma_px": [
+        0.0,
+        1.0
+      ],
+      "camera_fovy_jitter_fraction": 0.02,
+      "camera_pitch_jitter_deg": 4.0,
+      "camera_pos_jitter_m": 0.002,
+      "camera_yaw_roll_jitter_deg": 2.0,
+      "channel_balance": 0.1,
+      "cube_albedo": [
+        0.005,
+        0.12
+      ],
+      "gain": [
+        0.6,
+        1.6
+      ],
+      "gamma": [
+        0.7,
+        1.4
+      ],
+      "ground_albedo": [
+        0.005,
+        0.12
+      ],
+      "ground_reflectance_cap": 0.3,
+      "ground_texture_contrast": [
+        0.0,
+        0.5
+      ],
+      "ground_texture_probability": 0.7,
+      "ground_texture_repeat_per_m": [
+        5.0,
+        40.0
+      ],
+      "headlight_ambient": [
+        0.1,
+        0.55
+      ],
+      "headlight_diffuse": [
+        0.35,
+        0.85
+      ],
+      "headlight_specular": [
+        0.0,
+        0.25
+      ],
+      "key_light_ambient": [
+        0.0,
+        0.15
+      ],
+      "key_light_cone_deg": 40.0,
+      "key_light_diffuse": [
+        0.4,
+        1.0
+      ],
+      "key_light_specular": [
+        0.0,
+        0.6
+      ],
+      "material_chroma": 0.4,
+      "material_reflectance": [
+        0.0,
+        0.25
+      ],
+      "material_shininess": [
+        0.0,
+        0.8
+      ],
+      "material_specular": [
+        0.0,
+        0.7
+      ],
+      "motor_albedo": [
+        0.03,
+        0.2
+      ],
+      "name": "bench_appearance",
+      "napkin_albedo": [
+        0.65,
+        1.0
+      ],
+      "noise_sigma": [
+        0.0,
+        2.0
+      ],
+      "paper_chroma": 0.12,
+      "shadow_probability": 0.8,
+      "skybox_off_probability": 0.5,
+      "towel_albedo": [
+        0.6,
+        1.0
+      ],
+      "towel_probability": 0.85,
+      "towel_scale": [
+        0.9,
+        1.6
+      ],
+      "towel_yaw_deg": 10.0,
+      "version": 1
+    },
+    "resolver": "bench_appearance_v1",
+    "train_suite": "per-pose appearance seeds (stream 0)"
+  },
+  "bench": {
+    "appearance": {
+      "arm_albedo": [
+        0.03,
+        0.2
+      ],
+      "blur_sigma_px": [
+        0.0,
+        1.0
+      ],
+      "camera_fovy_jitter_fraction": 0.02,
+      "camera_pitch_jitter_deg": 4.0,
+      "camera_pos_jitter_m": 0.002,
+      "camera_yaw_roll_jitter_deg": 2.0,
+      "channel_balance": 0.1,
+      "cube_albedo": [
+        0.005,
+        0.12
+      ],
+      "gain": [
+        0.6,
+        1.6
+      ],
+      "gamma": [
+        0.7,
+        1.4
+      ],
+      "ground_albedo": [
+        0.005,
+        0.12
+      ],
+      "ground_reflectance_cap": 0.3,
+      "ground_texture_contrast": [
+        0.0,
+        0.5
+      ],
+      "ground_texture_probability": 0.7,
+      "ground_texture_repeat_per_m": [
+        5.0,
+        40.0
+      ],
+      "headlight_ambient": [
+        0.1,
+        0.55
+      ],
+      "headlight_diffuse": [
+        0.35,
+        0.85
+      ],
+      "headlight_specular": [
+        0.0,
+        0.25
+      ],
+      "key_light_ambient": [
+        0.0,
+        0.15
+      ],
+      "key_light_cone_deg": 40.0,
+      "key_light_diffuse": [
+        0.4,
+        1.0
+      ],
+      "key_light_specular": [
+        0.0,
+        0.6
+      ],
+      "material_chroma": 0.4,
+      "material_reflectance": [
+        0.0,
+        0.25
+      ],
+      "material_shininess": [
+        0.0,
+        0.8
+      ],
+      "material_specular": [
+        0.0,
+        0.7
+      ],
+      "motor_albedo": [
+        0.03,
+        0.2
+      ],
+      "name": "bench_appearance",
+      "napkin_albedo": [
+        0.65,
+        1.0
+      ],
+      "noise_sigma": [
+        0.0,
+        2.0
+      ],
+      "paper_chroma": 0.12,
+      "shadow_probability": 0.8,
+      "skybox_off_probability": 0.5,
+      "towel_albedo": [
+        0.6,
+        1.0
+      ],
+      "towel_probability": 0.85,
+      "towel_scale": [
+        0.9,
+        1.6
+      ],
+      "towel_yaw_deg": 10.0,
+      "version": 1
+    },
+    "approach_pitch_deg": 5.0,
+    "base_front_edge_y_m": 0.0646353,
+    "camera_fovy_deg": 44.85,
+    "camera_pos": [
+      0.0004901,
+      0.0002011,
+      0.0783225
+    ],
+    "camera_quat_wxyz": [
+      -0.0377976,
+      0.0137259,
+      0.5475767,
+      0.8357887
+    ],
+    "cube_edge_m": 0.02,
+    "depth_lead_m": 0.0,
+    "distance_reference": "base_front_edge",
+    "grasp_offset_m": 0.003,
+    "grasp_pad": 1,
+    "joint_map": "measured_20260908b",
+    "lens": {
+      "calibration_rms_px": 1.651,
+      "cx": 867.465,
+      "cy": 531.906,
+      "dist": [
+        1.868187,
+        11.048714,
+        -0.001691,
+        0.00279,
+        1.326563,
+        2.38168,
+        12.079937,
+        6.246789
+      ],
+      "framing": "full_frame_squash",
+      "fx": 1309.354,
+      "fy": 1308.542,
+      "image_size": [
+        1920,
+        1080
+      ],
+      "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+      "model": "opencv_rational_8",
+      "observation_size": 256,
+      "render_fovy_deg": 90.34,
+      "render_size": [
+        1600,
+        900
+      ],
+      "supersample": [
+        8,
+        5
+      ]
+    },
+    "measured_forward_distance_m": 0.2159,
+    "observation_steps": 90,
+    "placement": {
+      "base_gap_m": 0.0508,
+      "cube_offset_m": 0.01,
+      "depth_m": 0.254,
+      "name": "bench_placement",
+      "survey_visibility_margin_px": 20.0,
+      "version": 1,
+      "x_range_m": [
+        -0.17779999999999999,
+        0.17779999999999999
+      ],
+      "y_range_m": [
+        0.1154353,
+        0.36943529999999997
+      ],
+      "yaw_range_deg": 45.0
+    },
+    "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+    "reset_physical": [
+      0.49315068493149283,
+      -90.83629893238434,
+      91.26126126126127,
+      43.64351245085189,
+      -1.1965811965811923,
+      13.533834586466165
+    ],
+    "schema_version": 1,
+    "shoulder_floor": -92.0,
+    "square_center_xy": [
+      0.0,
+      0.2805353
+    ],
+    "square_edge_m": 0.0508,
+    "square_thickness_m": 0.001,
+    "task_id": "bench_pick_replace_v1",
+    "viewing_qpos": [
+      2.6332525493444336e-08,
+      -2.6940388679504395,
+      2.280816078186035,
+      1.4737862348556519,
+      -1.6720390319824219,
+      0.08529800176620483
+    ]
+  },
+  "grasp_detector": "pad_normals_v2",
+  "max_steps": 240000,
+  "placement": {
+    "certification": [
+      [
+        0.0,
+        0.2805353,
+        0.0
+      ],
+      [
+        0.0,
+        0.2805353,
+        45.0
+      ],
+      [
+        0.0,
+        0.179,
+        -30.0
+      ],
+      [
+        0.119,
+        0.179,
+        0.0
+      ],
+      [
+        -0.119,
+        0.179,
+        45.0
+      ],
+      [
+        0.119,
+        0.242,
+        -45.0
+      ],
+      [
+        -0.119,
+        0.242,
+        20.0
+      ],
+      [
+        0.13,
+        0.14,
+        0.0
+      ],
+      [
+        -0.12,
+        0.15,
+        -20.0
+      ],
+      [
+        0.059,
+        0.29,
+        30.0
+      ]
+    ],
+    "heldout_suite": "same, seed 8",
+    "regime": {
+      "base_gap_m": 0.0508,
+      "cube_offset_m": 0.01,
+      "depth_m": 0.254,
+      "name": "bench_placement",
+      "survey_visibility_margin_px": 20.0,
+      "version": 1,
+      "x_range_m": [
+        -0.17779999999999999,
+        0.17779999999999999
+      ],
+      "y_range_m": [
+        0.1154353,
+        0.36943529999999997
+      ],
+      "yaw_range_deg": 45.0
+    },
+    "resolver": "bench_placement_v1",
+    "train_suite": "square centre + yaw per pose (stream 2), teacher + survey-visibility screened",
+    "viewing_qpos": [
+      2.6332525493444336e-08,
+      -2.6940388679504395,
+      2.280816078186035,
+      1.4737862348556519,
+      -1.6720390319824219,
+      0.08529800176620483
+    ]
+  },
+  "real_frame_gate": {
+    "frames": [
+      {
+        "anchor_act": [
+          0.0017209999496117234,
+          -2.856502056121826,
+          2.8529059886932373,
+          1.3711010217666626,
+          -0.034522999078035355,
+          0.23239900171756744
+        ],
+        "anchor_physical": [
+          0.055,
+          -90.925,
+          90.811,
+          43.643,
+          -1.099,
+          13.671
+        ],
+        "episode_dir": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909",
+        "observation_array_sha256": "1dae371e9de6e572be85c6ca383d588e3f2bbd11bbc8479a9530325497700c38",
+        "observation_png": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909/boundaries/step_000.obs.png",
+        "observation_png_sha256": "95ee88c2a026d344388f6723f62d6bdc8e8c8b2a6e07d34d3e511835ef8fdeda",
+        "step": 0
+      }
+    ],
+    "gate": "real_frame_gate_v2"
+  },
+  "recipe": "bench_appearance_v1+bench_placement_v1",
+  "rehearsal": false,
+  "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+  "suite_counts": {
+    "heldout": 10,
+    "train": 1200
+  },
+  "suite_seeds": {
+    "heldout": 8,
+    "train": 12
+  },
+  "training_seed": 202,
+  "verification": {
+    "camera_review": {
+      "appearance_review": {
+        "regime": "bench_appearance v1",
+        "resolver": "bench_appearance_v1",
+        "sheet": "sim_reset_appearance_samples_92f07142.png",
+        "sheet_sha256": "c1c8b64fd14128af269ba95bf63164f7ef4a282fc5f9b4c8c698d7ef1c6233bd"
+      },
+      "calibration": {
+        "hand_eye": "../camera_calibration/zero_refine_photo_anchored.json",
+        "intrinsics": "../camera_calibration/camera_intrinsics.json",
+        "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+        "joint_map": "measured_20260908b",
+        "lens": {
+          "calibration_rms_px": 1.651,
+          "cx": 867.465,
+          "cy": 531.906,
+          "dist": [
+            1.868187,
+            11.048714,
+            -0.001691,
+            0.00279,
+            1.326563,
+            2.38168,
+            12.079937,
+            6.246789
+          ],
+          "framing": "full_frame_squash",
+          "fx": 1309.354,
+          "fy": 1308.542,
+          "image_size": [
+            1920,
+            1080
+          ],
+          "intrinsics_sha256": "b2520cc5eea8147e1f4cfea1d9236e711b595fdd4e948c7a7c86a8ecd624b2eb",
+          "model": "opencv_rational_8",
+          "observation_size": 256,
+          "render_fovy_deg": 90.34,
+          "render_size": [
+            1600,
+            900
+          ],
+          "supersample": [
+            8,
+            5
+          ]
+        },
+        "previous_review": "camera_review_20260910.json",
+        "teacher_certification": "../teacher_certification/92f07142c449ca2f-pad_normals_v2"
+      },
+      "identical_to_20260909": {
+        "compare_reset_observation_physical_left_sim_right": true,
+        "physical_reset_observation": true,
+        "sim_reset_observation": true,
+        "sim_reset_wide_render": true,
+        "sim_reset_wrist_camera": true,
+        "sim_viewing_observation": true,
+        "sim_viewing_wrist_camera": true
+      },
+      "identical_to_20260910": {
+        "compare_reset_observation_physical_left_sim_right": true,
+        "physical_reset_observation": true,
+        "sim_reset_observation": true,
+        "sim_reset_wide_render": true,
+        "sim_reset_wrist_camera": true
+      },
+      "notes": "Re-confirmation on the regenerated scene 92f07142 (placement randomization: bench_placement v1 regime block, survey viewing pose = reset + shoulder_lift 0.40 / elbow -0.60 / wrist_flex 0.40 rad). Reset-pose renders byte-identical to the 2026-09-10 signed set (identical_to_20260910). New material reviewed: the survey-pose observation (camera 235 mm above the bench), the certification placement sheet (reset and survey views), the survey coverage map and the teacher reach map. User, 2026-09-10: \"looks fine, queue the run\". Accepted residuals unchanged from 2026-09-09.",
+      "observation_images": {
+        "compare_reset_observation_physical_left_sim_right_92f07142.png": "694475fe0cd7fdb2e2ccf59b9bc6fdf43c92e7a465b673a111775f86c119449a",
+        "physical_reset_observation_92f07142.png": "e5a996a1b59d464f9379ba05c5af7420dde9702b6343f99fe663ea7c04fac2ca",
+        "sim_reset_observation_92f07142.png": "a1c82c2f36811f5cc169b6ce919eeb878a12bead069a20b76a06be2816761914",
+        "sim_reset_wide_render_92f07142.png": "09257c70027e2760f355b3eb35241dab58317bf588f93d1a5e99fd72e07e8176",
+        "sim_viewing_observation_92f07142.png": "8cf6bcde5194e13cec055d4f53a54dd1e17fc73b78dc2dad43091db76081a9e5",
+        "sim_viewing_wide_render_92f07142.png": "3bdd1c58348b9d4d950331c4287883aa551a0cdce3860ba4e6fce7f8fbc5825a"
+      },
+      "physical_wrist_image": "../camera_references/2026-09-07T153309_gravity_rest_jaws_horizontal.png",
+      "physical_wrist_image_sha256": "fc15a88358d16b3ad4d6cea8f059cf7d7fa0aa4bd3aea1c4e1e9467423c06e4a",
+      "placement_review": {
+        "reach_scan": "reach_scan_92f07142_retry.png",
+        "reach_scan_sha256": "7362feccdfaddde6eadb4b958463228039ec57a9053e87b4f6f0fa961c921835",
+        "regime": "bench_placement v1 (bench_config.json placement block)",
+        "resolver": "bench_placement_v1",
+        "sheet": "sim_placement_sheet_92f07142.png",
+        "sheet_sha256": "091f7fa930a6ba2b8e68351cd14ff5732eec814067ad5d804ff01d7f91059c47",
+        "survey_coverage": "survey_pose_coverage_92f07142.png",
+        "survey_coverage_sha256": "d73be21bbeaa33473458f9658703c6bab6239c3a5085b5ac6a0a1e79cbf0b992"
+      },
+      "reviewed_at": "2026-09-10T17:16:57.466488+00:00",
+      "reviewer": "7adamyasingh@gmail.com (bench owner)",
+      "simulated_wrist_image": "sim_reset_wrist_camera_92f07142.png",
+      "simulated_wrist_image_sha256": "22d031da36f54722c9c2b6a319429266f0955cc41d33f555a7a7a7ebed4295df"
+    },
+    "reset_evidence_sha256": "9ed7de5997d0db89014ff2af0e177cd3e0a1780fab247b0eac6c26342b28d8bc",
+    "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818"
+  }
+}

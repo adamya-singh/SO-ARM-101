@@ -7,6 +7,21 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-10)
 
+**Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
+247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
+placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on
+episodes 02 and 10 with 16/16 photometric perturbations; 846 safety frames on
+the held-out suite (18 safety invalidations, 9 incomplete pickups). Train vs
+held-out at the first descent chunk (start 90): 7.0e-6 vs 2.9e-3, a 417x gap,
+worse than run 4's 136x (1.4e-5 vs 1.9e-3). Tripling the placements did not
+move the held-out loss at all: the network memorises whatever it is given and
+does not learn to read the square's position from the survey frame. NOT a
+live-trial candidate; the fixed-square policy `ytn3eygr` remains the only
+one that has succeeded on the arm. The scaling ladder (tsp job 4, running)
+tests the remaining levers directly: encoder v2/v3 against v1 at 300-2400
+placements and a steps sweep. If no encoder generalises at any size, the next
+lever is input augmentation (random shifts) rather than more data.**
+
 **Placement randomization tranche implemented (2026-09-10, later): square +
 cube anywhere in the 14 × 10 in rectangle with yaw; survey viewing pose;
 yaw-aware teacher certified 30/30 on the regenerated scene `92f07142…`;
@@ -1074,6 +1089,17 @@ Fifth run queued 2026-09-10 15:04 local as `tsp` job 3, experiment directory
 `experiments/seed202_120k_placement_20260910b/`, W&B id `pfavtk49`:
 https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/pfavtk49
 (`--train-count 1200 --frame-stride 9 --max-steps 240000`, same verification).
+**Result (247 min wall; capture ~150 min for 1200 placements at 1841
+attempts, training ~31 min at ~134 steps/s median, final batch loss 3.8e-6):
+nominal 0/3, held-out 3/30 (far/centre 3/3, every other region 0), held-out
+appearance 3/30, prefix 63/63, real-frame gate PASS (`real_frame_check_offline.json`,
+episodes 02 and 10, 16/16 perturbations each). `heldout_fit.json` (scored by
+hand against `rehearsal/analysis_run4_heldout_capture`, the run predates the
+pipeline's heldout_fit phase): start 0 6.5e-7 / 1.4e-6, start 90 7.0e-6 /
+2.9e-3 (417x), later boundaries 3.2e-6 / 1.6e-5. Held-out start-90 loss did
+not improve from run 4 (1.9e-3) despite 3x the placements: memorisation, and
+the data axis alone is exhausted at this encoder. The outcome and
+generalisation sections were back-filled onto the W&B run at step 240001.**
 
 Third run (appearance recipe, gate 6) queued 2026-09-10 00:34 local as `tsp`
 job 1, experiment directory

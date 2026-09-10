@@ -641,3 +641,32 @@ scored with `tools/heldout_fit.py` (seconds). The run 4 analysis had to build
 this by hand; from run 6 on the memorisation-versus-capacity reading is
 available before a single rollout is spent. Run 5 (already training under
 the old names) is scored by hand the same way when it finishes.
+
+### Run 5 (2026-09-10): 3x the placements, same result, larger gap
+
+`experiments/seed202_120k_placement_20260910b`, W&B `pfavtk49`, 247 min
+wall (capture 1200 placements ~150 min, training 240k steps ~31 min at ~134
+steps/s with the GPU frame store at stride 9). Closed loop: nominal 0/3,
+held-out 3/30 (far/centre 3/3, all other regions 0/27), held-out appearance
+3/30, prefix 63/63, 846 safety frames on held-out (18 safety invalidations,
+9 incomplete pickups). Real-frame gate: PASS on episodes 02 and 10, 16/16
+photometric perturbations each, so the survey move itself transfers.
+
+Train vs held-out at the chunk boundaries (the run-4 method, same held-out
+capture): start 0 6.5e-7 / 1.4e-6 (2x), **start 90 7.0e-6 / 2.9e-3 (417x)**,
+later boundaries 3.2e-6 / 1.6e-5 (5x). Run 4 had 1.4e-5 / 1.9e-3 (136x).
+Reading: the training loss halved with 3x the placements and 2x the steps,
+the held-out loss at the one chunk that must read the square's position from
+the survey frame stayed at 2-3e-3. A learner that generalised would have
+moved that number with 3x the unique scenes; this one memorises 1200 images
+as easily as 400. So the data axis is exhausted for this architecture and the
+question is capacity/representation (the 8k-parameter, stride-8 encoder
+reading a 12-25 px cube) or an ambiguity in the inputs. The scaling ladder
+(running as tsp job 4: encoders v1/v2/v3 at 300/600/1200/2400 placements,
+steps sweep at (1200, v2)) separates the two: if v2/v3 bend the held-out
+curve down with data, the encoder was the bottleneck; if every encoder is
+flat at every size, the survey frame does not determine the descent well
+enough and the next lever is input augmentation (random shifts, which force
+the network to localise instead of memorise) or a richer observation.
+Decision: no live trial with this checkpoint; `ytn3eygr` stays the live
+policy. W&B outcome and generalisation sections back-filled at step 240001.

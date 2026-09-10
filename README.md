@@ -37,8 +37,12 @@ about 20 mm beyond the task pose. Next: randomize placement in the capture. That
 rectangle with yaw, the policy's first chunk rises to a survey pose that sees
 the reachable area, and the yaw-aware teacher is certified 30/30; the fourth
 run (September 10, 98 min end to end with the frames on the GPU) underfit
-the larger distribution on 400 episodes (held-out 3/30); a fifth run with
-1200 placements and 240k steps follows.
+the larger distribution on 400 episodes (held-out 3/30); the fifth run with
+1200 placements and 240k steps (247 min) scored the same, held-out 3/30, and
+its held-out loss at the first descent chunk did not move (417x the training
+loss), so more placements alone do not help this 8k-parameter encoder. A
+scaling ladder (placements × encoder × steps, train-versus-held-out loss per
+point) is running to pick the next lever.
 
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the
