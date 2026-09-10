@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-09-09T20:55:00-04:00",
+  "method": "read-only two-point check: pan read before and after the user rotated the base by hand counter-clockwise as seen from above (gripper swings to its left)",
+  "baseline_pan_normalized": 6.082,
+  "after_pan_normalized": -28.110,
+  "delta_normalized": -34.192,
+  "model_pan_qpos_change_deg": 27.42,
+  "expectation": "counter-clockwise from above must produce a positive model pan change (camera turns left, square moves right in the image)",
+  "joint_map": "measured_20260908b",
+  "passed": true,
+  "note": "The in-tool timed check (preflight_20260909b/c) recorded delta 0.0 because the base was not rotated during its window; this manual two-point check supersedes it. Open item 'verify the shoulder-pan sign physically' is closed."
+}

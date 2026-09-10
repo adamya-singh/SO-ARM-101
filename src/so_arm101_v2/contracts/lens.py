@@ -221,8 +221,18 @@ class LensModel:
     def sim_operator(self):
         return _sim_operator(self)
 
-    def real_operator(self):
-        return _real_operator(self)
+    def real_operator(self, source_size=None):
+        """Exact area filter from a raw frame to the observation.
+
+        ``source_size`` = (width, height) of the frames actually captured; default the
+        calibrated image size. Other sizes are accepted only at the calibrated aspect ratio
+        (the camera scales the same sensor field of view; verified 2026-09-09 for 1280x720:
+        zero pixel shift vs 1080p after resampling).
+        """
+        w, h = self.image_size if source_size is None else (int(source_size[0]), int(source_size[1]))
+        if abs(w * self.image_size[1] - h * self.image_size[0]) > max(w, h):
+            raise ValueError(f"source size {w}x{h} is not the calibrated aspect ratio {self.image_size[0]}:{self.image_size[1]}")
+        return _real_operator(self.observation_size, w, h)
 
 
 class Resampler:
@@ -357,9 +367,7 @@ def _box_weights(size, count):
     return matrix
 
 
-@lru_cache(maxsize=4)
-def _real_operator(lens):
-    """Exact area (box) filter of the raw frame onto the observation grid (INTER_AREA semantics)."""
-    w, h = lens.image_size
-    n = lens.observation_size
+@lru_cache(maxsize=8)
+def _real_operator(n, w, h):
+    """Exact area (box) filter of a raw (h, w) frame onto the n x n observation grid (INTER_AREA semantics)."""
     return SeparableResampler((h, w), n, _box_weights(h, n), _box_weights(w, n))

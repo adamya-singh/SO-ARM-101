@@ -61,6 +61,18 @@ def test_bgr_frames_reach_the_policy_as_rgb():
     assert np.array_equal(fast, exact)
 
 
+def test_720p_source_takes_the_same_contract_path():
+    pytest.importorskip("cv2")
+    lens = _lens()
+    rng = np.random.default_rng(5)
+    frame = rng.integers(0, 256, (720, 1280, 3), dtype=np.uint8)
+    evidence = verify_fast_resampler(lens, [frame])
+    assert evidence["bit_identical"] and evidence["source_shape"] == [720, 1280, 3]
+    assert observation_from_bgr(frame, lens).shape == (256, 256, 3)
+    with pytest.raises(ValueError, match="aspect ratio"):
+        lens.real_operator(source_size=(1280, 960))
+
+
 def test_fast_resampler_verification_passes_on_noise_and_fails_when_perturbed():
     pytest.importorskip("cv2")
     lens = _lens()

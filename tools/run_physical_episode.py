@@ -231,12 +231,15 @@ def main(argv=None) -> int:
     p.add_argument("--run-dir", type=Path, default=None, help="new directory for the evidence (required for motion and rehearsal)")
     p.add_argument("--robot-port", default="/dev/ttyACM0")
     p.add_argument("--camera-device", type=int, default=0)
+    p.add_argument("--camera-size", type=int, nargs=2, default=(1280, 720), metavar=("W", "H"),
+                   help="capture size; the camera scales the same field of view, and 1080p cannot stream at rate over USB-over-IP (3-6 fps vs 29 at 720p; zero-shift equivalence verified 2026-09-09)")
     p.add_argument("--max-actions", type=int, default=480)
     p.add_argument("--preflight-only", action="store_true")
     p.add_argument("--enable-motion", action="store_true")
     p.add_argument("--sim-rehearsal", action="store_true")
     p.add_argument("--skip-approach", action="store_true", help="the arm is already at the reset pose")
     p.add_argument("--skip-pan-check", action="store_true", help="allowed only after a recorded pass")
+    p.add_argument("--pan-check-seconds", type=float, default=45.0, help="how long to wait for the hand rotation")
     p.add_argument("--no-preview", action="store_true")
     args = p.parse_args(argv)
     modes = int(args.preflight_only) + int(args.enable_motion) + int(args.sim_rehearsal)
@@ -257,7 +260,7 @@ def main(argv=None) -> int:
         checkpoint=str(args.checkpoint), checkpoint_sha256=sha256_file(args.checkpoint), report_content_sha256=policy.report_content_sha256,
         policy_id=policy.policy_id, chunk_horizon=policy.chunk_horizon, teacher_horizon=policy.teacher_horizon,
         scene_dependencies_sha256=scene_hash, bench=asdict(bench), lens=bench.lens,
-        observation_contract="raw 1920x1080 MJPEG -> BGR->RGB -> exact area filter -> 256x256 (no undistortion, no crop)",
+        observation_contract="raw MJPEG frame at the camera's full field of view (calibrated at 1920x1080; captured at --camera-size) -> BGR->RGB -> exact area filter -> 256x256 (no undistortion, no crop)",
         calibration=dict(resource="physical_inference_calibration_20260620.json",
                          resource_sha256=hashlib.sha256(read_resource_bytes("physical_inference_calibration_20260620.json")).hexdigest(),
                          live_file=str(LIVE_CALIBRATION), live_sha256=(sha256_file(LIVE_CALIBRATION) if LIVE_CALIBRATION.exists() else None)),
@@ -316,8 +319,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
     store = None
     status = "started"
     try:
-        grabber = FrameGrabber(args.camera_device)
-        record["camera"] = dict(device=f"/dev/video{args.camera_device}", **grabber.properties)
+        grabber = FrameGrabber(args.camera_device, width=int(args.camera_size[0]), height=int(args.camera_size[1]))
+        record["camera"] = dict(device=f"/dev/video{args.camera_device}", requested_size=list(args.camera_size), **grabber.properties)
+        if (grabber.properties["width"], grabber.properties["height"]) != tuple(int(v) for v in args.camera_size):
+            raise Refused(f"camera delivered {grabber.properties['width']}x{grabber.properties['height']}, not the requested size")
         connect_read_only(robot)
         connected = True
         current = read_measured_act(robot)
@@ -335,7 +340,8 @@ def _hardware(args, bench, contract, policy, record) -> int:
             seq, _stamp, frame = grabber.wait_for_new(seq)
             frames.append(np.array(frame, copy=True))
         record["resampler"] = verify_fast_resampler(bench.lens_model, frames)
-        observation = fast_area_resampler(bench.lens_model)(frames[-1])
+        source_size = (frames[-1].shape[1], frames[-1].shape[0])
+        observation = fast_area_resampler(bench.lens_model, source_size=source_size)(frames[-1])
         if run_dir is not None:
             from PIL import Image
             (run_dir / "preflight").mkdir(exist_ok=True)
@@ -351,7 +357,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         else:
             import threading
             outcome = {}
-            worker = threading.Thread(target=lambda: outcome.update(run_pan_sign_check(robot, grabber, bench, expectation, preview=preview)), daemon=True)
+            worker = threading.Thread(target=lambda: outcome.update(run_pan_sign_check(robot, grabber, bench, expectation, preview=preview, seconds=args.pan_check_seconds)), daemon=True)
             worker.start()
             preview.run(until=lambda: not worker.is_alive())
             worker.join(timeout=5.0)
@@ -373,7 +379,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         record["confirmations"].append(dict(phase="approach", at=now_iso(), answer=answer))
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
-        backend = LeRobotBackend(robot, grabber, lens=bench.lens_model)
+        backend = LeRobotBackend(robot, grabber, lens=bench.lens_model, source_size=source_size)
         current = read_measured_act(robot)
         backend.engage(act_to_physical_normalized(current))   # goal = present pose, then torque
         if not args.skip_approach:

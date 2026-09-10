@@ -47,8 +47,9 @@ class TrackingRobot:
 
 
 class FakeGrabber:
-    def __init__(self, device=0, **kwargs):
-        self.properties = dict(fourcc="MJPG", width=1920, height=1080, fps=30.0)
+    def __init__(self, device=0, width=1920, height=1080, **kwargs):
+        self.properties = dict(fourcc="MJPG", width=width, height=height, fps=30.0)
+        self.size = (height, width)
         self.seq = 0
         self.closed = False
         FakeGrabber.events.append("camera")
@@ -56,7 +57,7 @@ class FakeGrabber:
     def latest(self):
         import time
         self.seq += 1
-        frame = np.zeros((1080, 1920, 3), np.uint8)
+        frame = np.zeros((*self.size, 3), np.uint8)
         frame[:, :, 2] = 40
         return self.seq, time.time(), frame
 

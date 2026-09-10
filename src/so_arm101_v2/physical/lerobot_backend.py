@@ -45,17 +45,18 @@ class TimingViolation(RuntimeError):
 
 
 def observation_from_bgr(frame_bgr: np.ndarray, lens: LensModel) -> np.ndarray:
-    """Contract path: BGR frame -> RGB -> exact area filter -> (256, 256, 3) uint8."""
+    """Contract path: BGR frame (any 16:9 size) -> RGB -> exact area filter -> (256, 256, 3) uint8."""
     rgb = np.ascontiguousarray(np.asarray(frame_bgr)[:, :, ::-1])
-    return lens.real_operator().apply(rgb)
+    return lens.real_operator(source_size=(rgb.shape[1], rgb.shape[0])).apply(rgb)
 
 
-def fast_area_resampler(lens: LensModel) -> Callable[[np.ndarray], np.ndarray]:
+def fast_area_resampler(lens: LensModel, source_size=None) -> Callable[[np.ndarray], np.ndarray]:
     """cv2 INTER_AREA on the BGR frame, then the channel flip (per-channel filters commute with it)."""
     import cv2
 
     n = lens.observation_size
-    w, h = lens.image_size
+    w, h = lens.image_size if source_size is None else (int(source_size[0]), int(source_size[1]))
+    lens.real_operator(source_size=(w, h))  # validates the aspect ratio
 
     def resample(frame_bgr: np.ndarray) -> np.ndarray:
         frame = np.asarray(frame_bgr)
@@ -69,7 +70,9 @@ def fast_area_resampler(lens: LensModel) -> Callable[[np.ndarray], np.ndarray]:
 
 def verify_fast_resampler(lens: LensModel, bgr_frames: Sequence[np.ndarray], resampler=None) -> dict[str, Any]:
     """Assert the fast path equals the contract operator on every frame; returns evidence for run.json."""
-    resampler = resampler or fast_area_resampler(lens)
+    if resampler is None:
+        first = np.asarray(bgr_frames[0])
+        resampler = fast_area_resampler(lens, source_size=(first.shape[1], first.shape[0]))
     checked = []
     for index, frame in enumerate(bgr_frames):
         fast = resampler(frame)
@@ -78,7 +81,9 @@ def verify_fast_resampler(lens: LensModel, bgr_frames: Sequence[np.ndarray], res
             differing = int(np.count_nonzero(fast != exact)) if fast.shape == exact.shape else -1
             raise RuntimeError(f"fast area resampler differs from LensModel.real_operator on frame {index} ({differing} values)")
         checked.append(dict(index=index, shape=list(exact.shape), mean=float(exact.mean())))
-    return dict(method="cv2.resize INTER_AREA + BGR->RGB", frames_checked=len(checked), frames=checked, bit_identical=True)
+    source = np.asarray(bgr_frames[0]).shape if len(bgr_frames) else None
+    return dict(method="cv2.resize INTER_AREA + BGR->RGB", source_shape=(list(source) if source else None),
+                frames_checked=len(checked), frames=checked, bit_identical=True)
 
 
 class LeRobotBackend:
@@ -86,7 +91,7 @@ class LeRobotBackend:
 
     def __init__(self, robot: Any, grabber: Any, *, lens: LensModel, control_hz: float = CONTROL_HZ,
                  max_frame_age_s: float = 0.100, max_step_ms: float = 100.0, max_consecutive_overruns: int = 3,
-                 resampler: Callable[[np.ndarray], np.ndarray] | None = None,
+                 resampler: Callable[[np.ndarray], np.ndarray] | None = None, source_size=None,
                  clock: Callable[[], float] = time.monotonic, wall: Callable[[], float] = time.time,
                  sleep: Callable[[float], None] = time.sleep) -> None:
         self.robot = robot
@@ -96,7 +101,7 @@ class LeRobotBackend:
         self.max_frame_age_s = float(max_frame_age_s)
         self.max_step_ms = float(max_step_ms)
         self.max_consecutive_overruns = int(max_consecutive_overruns)
-        self.resampler = resampler or fast_area_resampler(lens)
+        self.resampler = resampler or fast_area_resampler(lens, source_size=source_size)
         self.clock, self.wall, self.sleep = clock, wall, sleep
         self.t0: float | None = None
         self.step_started: float | None = None
