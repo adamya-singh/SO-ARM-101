@@ -485,3 +485,15 @@ than the real towel" residual accepted in the camera reviews was this
 placement all along. The physical fix is to move the towel so its centre,
 not its near edge, sits 8.5 in from the base front edge, with the cube at
 the towel's centre; the runner and the policy need no change.
+
+Attempt 5 (`physical/episode_05_20260910`, after adding a cube-placement gate
+to the runner: the reset-pose frame is back-projected and the episode is
+refused beyond 15 mm with a move instruction): the approach returned the arm
+from episode 4's end pose to the reset in 7 s (residual < 1 unit), then the
+real-frame gate refused on the margin (shoulder 3.07 units, min −93.1): the
+gate frame shows the towel bunched at the top-left with no cube on it, so
+episode 4's gripper had pushed the towel and the cube off the task area. The
+bench needs a physical reset (towel centred on the 8.5 in mark, cube at the
+towel's centre); `tools/watch_cube_placement.py --until-within 15` polls the
+camera from the parked reset pose and the next attempt starts automatically
+when the cube is back in range.
