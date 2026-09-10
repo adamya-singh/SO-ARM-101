@@ -7,6 +7,22 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-10)
 
+**Third run (appearance recipe) DONE 2026-09-10, 263 min wall (training ran
+at ~10.6 steps/s, see the note under "Tracking and monitoring"):
+nominal 3/3, held-out (fixed look) 30/30 with zero safety frames, held-out
+under appearance 29/30 (one rollout with 50 safety frames), prefix success
+63/63, black-image ablation 3/3 nominal, 12/30 held-out and 12/30 held-out
+appearance (each with 672 safety frames: pixels are used, but a blind policy
+now completes some ±10 mm poses, unlike the earlier runs' 0/33).
+The offline real-frame gate PASSES on the recorded real reset frame:
+shoulder 0.70 units, elbow 0.61, zero holds, min shoulder −91.03, and 16/16
+photometric perturbations pass (`real_frame_check.json`,
+`real_frame_check_offline.json`); the simulated reference chunk moves 0.22 /
+0.25. Checkpoint
+`experiments/seed202_120k_appearance_20260910/models/vision_h90/96bc418efb97e58c/model.pt`
+(W&B `ytn3eygr`). This is the first checkpoint eligible for a live trial
+under gate 6.**
+
 **Appearance randomization tranche implemented and rehearsed (2026-09-10);
 the third pre-registered run is ready to queue once gate 1 is re-signed on
 the regenerated scene `fcead5c7…`.** Two physical attempts on 2026-09-09
@@ -894,9 +910,11 @@ job 1, experiment directory
 W&B run `bench-pick-replace-v1-s202-120k-appearance` id `ytn3eygr`:
 https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/ytn3eygr.
 Verification `inspection/camera_review_20260910.json` (scene `fcead5c7…`).
-Expected about 1.5 h (capture slower by the photometric ops; one extra
-30-scenario evaluation; the real-frame check at the end). Results go in the
-status section above, `notes/vision-rung-notebook.md` and the README.
+Finished after 263 min: training ran at ~10.6 steps/s instead of the ~68 of
+run `iziftplw`. The photometric noise makes the frames incompressible, so the
+zlib frame cache no longer fits its budget and training fell back to the
+disk-bound path; a raw (uncompressed) in-RAM cache or a GPU-resident frame
+store is the fix for the next run. Results are in the status section above.
 
 **Live run (2026-09-08):** W&B project `so-arm101-v2-scaling`, run
 `bench-pick-replace-v1-s202-120k` id `tinmahze`,

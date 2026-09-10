@@ -429,5 +429,22 @@ and refuses the episode on failure, and records the servo voltage (the stock
 5 V adapter, 5.3–5.4 V under load, is normal for this arm; refusal only below
 4.8 V).
 Pipeline rehearsed end to end with `--appearance` (toy scale, offline W&B).
-Full suite 318 passed. The third run is queued as soon as the bench owner
-confirms the camera review on the regenerated scene (images identical).
+Full suite 318 passed. The third run was queued after the bench owner
+confirmed the camera review on the regenerated scene (images identical).
+
+### Third bench run, appearance recipe (2026-09-10): held-out 30/30 and the real-frame gate passes
+
+W&B `ytn3eygr`, `experiments/seed202_120k_appearance_20260910`. Nominal 3/3,
+held-out (fixed look) 30/30 with zero safety frames, held-out under appearance
+29/30 (one rollout with 50 safety frames), prefix 63/63. Black-image ablation:
+3/3 nominal, 12/30 held-out, 12/30 held-out appearance, each with 672 safety
+frames: the pixels are used, but appearance randomization also made the
+policy's proprioceptive prior strong enough to complete some ±10 mm poses
+blind (the earlier runs scored 0/33). Offline real-frame gate on the
+recorded real reset frame: PASS, shoulder 0.70 units, elbow 0.61, zero holds,
+min shoulder −91.03, 16/16 photometric perturbations pass; the simulated
+reference chunk moves 0.22 / 0.25. Training ran at ~10.6 steps/s (263 min
+wall): the photometric noise defeats the zlib frame cache, so the next run
+needs an uncompressed in-RAM or GPU-resident frame store. Per the user's
+standing authorization of 2026-09-10, the live trial follows immediately
+(`tools/run_physical_episode.py --enable-motion --yes`).

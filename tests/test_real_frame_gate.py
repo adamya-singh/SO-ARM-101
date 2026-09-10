@@ -103,6 +103,24 @@ def test_hold_policy_passes_and_thresholds_bite():
     assert chunk_difference_units(small["dry_pass"], big["dry_pass"])["elbow_flex"] == pytest.approx(1.8, abs=0.05)
     assert policy_dry_pass(HoldPolicy(), image, anchor, bench)["chunk_len"] == 90
 
+    class Graze(HoldPolicy):
+        """Dips the shoulder `depth` units below the start on one step (the live 2026-09-10 case: 0.12 below the floor, one hold)."""
+        def __init__(self, depth):
+            self.depth = depth; self.calls = 0
+
+        def predict(self, image, current):
+            from so_arm101_v2.contracts.physical import act_to_physical_normalized, physical_normalized_to_act
+            self.calls += 1
+            physical = act_to_physical_normalized(np.asarray(current, dtype=np.float32))
+            if self.calls == 5:
+                physical[1] = bench.shoulder_floor - self.depth
+            return physical_normalized_to_act(physical)
+
+    graze = check_reset_frame(Graze(0.12), image, anchor, bench)
+    assert graze["passed"] and graze["dry_pass"]["holds_in_dry_chunk"] == 1, graze["reasons"]
+    deep = check_reset_frame(Graze(0.8), image, anchor, bench)
+    assert not deep["passed"] and any("below the floor" in r for r in deep["reasons"])
+
 
 @pytest.mark.skipif(not EPISODE_02.exists(), reason="episode_02 evidence unavailable")
 def test_tampered_evidence_is_refused(tmp_path):

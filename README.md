@@ -37,8 +37,11 @@ current policy fails and its simulated chunk passes must pass before the
 next trial; the preflight also records the servo supply voltage (the stock
 5 V adapter reads 5.4 V under load; only a brown-out below 4.8 V refuses).
 The third pre-registered run (same recipe plus the appearance draws and a
-held-out-under-appearance evaluation) was queued on September 10 after the
-camera review was re-confirmed on the regenerated scene. Details in the
+held-out-under-appearance evaluation) finished on September 10: **nominal
+3/3, held-out 30/30 with zero safety frames, held-out under appearance
+29/30**, and the offline real-frame gate **passes** on the recorded real
+reset frame (shoulder 0.7 units, elbow 0.6, no holds), the first checkpoint
+eligible for a live trial. Details in the
 [bench runbook](notes/bench-pick-replace-v1.md).
 
 Appearance review sheet (top-left: the real reset frame as the policy sees
