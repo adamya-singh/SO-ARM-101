@@ -1041,6 +1041,11 @@ underfit of the far larger input distribution on the same 400 episodes.
 Next run: 1200 placements, stride 9 (chunk starts 0.3 s apart; 12.7 GB on
 the GPU), 240k steps; nothing else changes.**
 
+Fifth run queued 2026-09-10 15:04 local as `tsp` job 3, experiment directory
+`experiments/seed202_120k_placement_20260910b/`, W&B id `pfavtk49`:
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/pfavtk49
+(`--train-count 1200 --frame-stride 9 --max-steps 240000`, same verification).
+
 Third run (appearance recipe, gate 6) queued 2026-09-10 00:34 local as `tsp`
 job 1, experiment directory
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/`,
