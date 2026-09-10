@@ -220,6 +220,7 @@ def main(argv=None) -> int:
     p.add_argument("--enable-motion", action="store_true")
     p.add_argument("--sim-rehearsal", action="store_true")
     p.add_argument("--skip-approach", action="store_true", help="the arm is already at the reset pose")
+    p.add_argument("--approach-only", action="store_true", help="with --enable-motion: torque on, gated approach to the reset pose, then stop (no gates, no episode)")
     p.add_argument("--pan-check", action="store_true", help="run the hand-rotation pan-sign check at preflight (verified 2026-09-09: physical/pan_sign_check_20260909.json; off by default)")
     p.add_argument("--skip-pan-check", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: the check is opt-in now
     p.add_argument("--pan-check-seconds", type=float, default=45.0, help="how long to wait for the hand rotation")
@@ -418,6 +419,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
         current = read_measured_act(robot)
         delta = float(np.max(np.abs(current - physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32)))))
         record["start_pose_delta_act"] = delta
+        if args.approach_only:
+            print(f"approach only: parked at the reset pose (max delta {delta:.3f} ACT), torque on", flush=True)
+            _finish(run_dir, record, "approach_ok")
+            return 0
         if delta > START_POSE_TOLERANCE_ACT:
             raise Refused(f"start pose differs from the recorded reset by {delta:.3f} ACT (> {START_POSE_TOLERANCE_ACT})")
         if act_to_physical_normalized(current)[1] < bench.shoulder_floor:
