@@ -1025,6 +1025,15 @@ are later work.
 
 ## Tracking and monitoring
 
+Fourth run (placement + appearance recipes, gate 7) queued 2026-09-10 13:19 local
+as `tsp` job 2, experiment directory
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/`,
+W&B run `bench-pick-replace-v1-s202-120k-appearance-placement` id `8qj8795i`:
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/8qj8795i.
+Verification `inspection/camera_review_20260910b.json` (scene `92f07142…`).
+Training uses the GPU frame store with stride 3 (`--frame-store gpu
+--frame-stride 3`).
+
 Third run (appearance recipe, gate 6) queued 2026-09-10 00:34 local as `tsp`
 job 1, experiment directory
 `artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/`,
