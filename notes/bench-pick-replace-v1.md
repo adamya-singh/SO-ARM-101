@@ -888,6 +888,16 @@ are later work.
 
 ## Tracking and monitoring
 
+Third run (appearance recipe, gate 6) queued 2026-09-10 00:34 local as `tsp`
+job 1, experiment directory
+`artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/`,
+W&B run `bench-pick-replace-v1-s202-120k-appearance` id `ytn3eygr`:
+https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/ytn3eygr.
+Verification `inspection/camera_review_20260910.json` (scene `fcead5c7…`).
+Expected about 1.5 h (capture slower by the photometric ops; one extra
+30-scenario evaluation; the real-frame check at the end). Results go in the
+status section above, `notes/vision-rung-notebook.md` and the README.
+
 **Live run (2026-09-08):** W&B project `so-arm101-v2-scaling`, run
 `bench-pick-replace-v1-s202-120k` id `tinmahze`,
 https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/tinmahze;
