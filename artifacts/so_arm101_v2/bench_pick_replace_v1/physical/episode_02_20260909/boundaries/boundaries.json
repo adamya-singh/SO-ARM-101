@@ -1,0 +1,11 @@
+[
+ {
+  "step": 0,
+  "observation_array_sha256": "1dae371e9de6e572be85c6ca383d588e3f2bbd11bbc8479a9530325497700c38",
+  "observation_png": "step_000.obs.png",
+  "observation_png_sha256": "95ee88c2a026d344388f6723f62d6bdc8e8c8b2a6e07d34d3e511835ef8fdeda",
+  "raw_png": "step_000.raw.png",
+  "raw_png_sha256": "51e6e48c7da12361f177829e647e7a246fdbcd854ad250ec0db39843a6940c16",
+  "raw_array_sha256": "74f4400493fb1da68a2dc101853532f748ae251e9c6d0763b3ec28b78638a214"
+ }
+]

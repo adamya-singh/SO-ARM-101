@@ -372,3 +372,26 @@ under gravity and the approach timed out. Cause found afterwards: all servos
 report a 5.3–5.4 V supply (spec 6–12 V); the gripper had flagged an input
 voltage error. The approach ramp now lets commands pass the reset by up to 6
 units, but the power supply must be fixed before the next attempt.
+
+### Second physical attempt (2026-09-09, evening): approach succeeded, policy's first chunk is off-distribution
+
+`physical/episode_02_20260909` (user-confirmed twice; supply still 5.4 V). The
+approach with the overshoot ramp reached the recorded reset in 0.6 s (max
+residual 0.72 units, start delta 0.023 ACT). The episode ran 72 actions at a
+clean 33 ms/step (0 overruns, camera 29 fps) and aborted on 15 consecutive
+holds: `physical_clip:shoulder_lift`, the policy's commands had drifted the
+shoulder below the −92 floor. In simulation the first 90-action chunk is a
+hold at the reset pose (shoulder command stays within −91.0…−90.2); on the
+real first frame the same network, anchored on the same measured pose, emits
+shoulder −94.5…−65.8, elbow 69.7…96.0, wrist 39.8…47.4: the arm retracted and
+stopped, exactly as the user saw. Simple photometric edits of the real frame
+(gray, gain/bias, contrast stretch) do not recover a hold, and even adding +25
+brightness to the *simulated* reset frame breaks the chunk (shoulder
+−93…−76). The policy is brittle to appearance: it was trained on one exact
+rendered look (background level ~10, flat lighting, exact towel size) and the
+real frame differs in background level (~30), texture, towel size and shape,
+cube face shading, and the mousepad edge. Comparison image:
+`physical/episode_02_20260909/real_vs_sim_reset_observation.png`. Runner,
+timing, gate and safety all behaved as designed; the gap is visual domain
+transfer, to be addressed in the capture (appearance randomization) before
+another trial.
