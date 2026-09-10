@@ -1,8 +1,9 @@
 """Bench suite construction and deterministic full-episode admission."""
 from __future__ import annotations
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 import numpy as np
+from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION, appearance_seeds
 from so_arm101_v2.contracts.bench import BenchConfig, scene_dependency_hash
 from so_arm101_v2.contracts.pick_place import load_pick_place_contract, evaluate_pick_place_step, PickPlaceEvaluationState
 from so_arm101_v2.data._serialization import content_sha256, write_immutable_json
@@ -50,13 +51,37 @@ def load_bench_verification(path, *, scene_hash, reset_evidence_sha256):
     return raw
 
 
-def bench_suite(config, offsets, *, label, repeats):
+def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None):
+    """Scenarios at the reset pose with cube offsets; ``appearance_seeds`` (one per offset) makes each look randomized."""
+    if appearance_seeds is not None and len(appearance_seeds)!=len(offsets):
+        raise ValueError('one appearance seed per offset is required')
+    if appearance_seeds is not None and config.appearance is None:
+        raise ValueError('appearance seeds require an appearance regime in the bench config')
     scenarios=tuple(SimulationScenario('nominal' if i==0 and dx==dy==0 else f'pose_{i:03d}',
         (config.square_center_xy[0]+dx,config.square_center_xy[1]+dy,config.cube_center[2]),
-        tuple(float(v) for v in config.reset_qpos),(1.,0.,0.,0.))
+        tuple(float(v) for v in config.reset_qpos),(1.,0.,0.,0.),
+        fixed_appearance=appearance_seeds is None,
+        appearance_seed=None if appearance_seeds is None else int(appearance_seeds[i]))
         for i,(dx,dy) in enumerate(offsets))
     digest=content_sha256(dict(config=asdict(config),scenarios=[asdict(s) for s in scenarios]))[:12]
     return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,repeats,False,scenarios)
+
+
+def appearance_product(config, suite, *, per_scenario, seed, label):
+    """Every pose of ``suite`` under ``per_scenario`` appearance draws: unique scenarios, repeats 1.
+
+    Poses are not re-screened (physics is identical under a draw); the seeds come
+    from stream 1 of the appearance seed generator so they never coincide with a
+    training suite drawn from stream 0 with the same seed.
+    """
+    if config.appearance is None:
+        raise ValueError('appearance_product requires an appearance regime in the bench config')
+    seeds=appearance_seeds(seed,per_scenario*len(suite.scenarios),stream=1)
+    scenarios=tuple(replace(s,scenario_id=f'{s.scenario_id}_a{k}',fixed_appearance=False,
+        appearance_seed=seeds[i*per_scenario+k])
+        for i,s in enumerate(suite.scenarios) for k in range(per_scenario))
+    digest=content_sha256(dict(config=asdict(config),source=suite.suite_id,scenarios=[asdict(s) for s in scenarios]))[:12]
+    return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,1,False,scenarios)
 
 
 def screen_scenario(model_path,scenario):
@@ -83,8 +108,12 @@ def screen_scenario(model_path,scenario):
     finally:adapter.close()
 
 
-def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir):
+def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,randomize_appearance=False):
+    """Screen ``count`` poses (offset stream ``seed``); with ``randomize_appearance`` each accepted pose also gets an
+    appearance seed from a separate stream, so the accepted poses equal the fixed-appearance suite's."""
     from collections import Counter
+    if randomize_appearance and config.appearance is None:
+        raise ValueError('randomize_appearance requires an appearance regime in the bench config')
     rng=np.random.default_rng(seed)
     offsets=[]
     reasons=Counter()
@@ -98,10 +127,15 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir):
         if attempt%20==0:print(f'SCREEN seed={seed} attempts={attempt+1} accepted={len(offsets)}/{count}',flush=True)
     if len(offsets)!=count:
         raise RuntimeError(f'cannot fill bench coverage: {len(offsets)}/{count}, rejections={dict(reasons)}')
-    suite=bench_suite(config,offsets,label=f'seed{seed}_n{count}',repeats=repeats)
+    seeds=appearance_seeds(seed,count,stream=0) if randomize_appearance else None
+    suite=bench_suite(config,offsets,label=f'seed{seed}_n{count}'+('_appearance' if randomize_appearance else ''),
+        repeats=repeats,appearance_seeds=seeds)
     payload=suite_payload(suite)
     payload['generator']=dict(seed=seed,requested=count,attempts=attempt+1,rejections=dict(reasons),
         offset_range_m=[-.010,.010],scene_dependencies_sha256=scene_dependency_hash(model_path))
+    if randomize_appearance:
+        payload['generator']['appearance']=dict(regime=dict(config.appearance),resolver=APPEARANCE_RESOLVER_VERSION,
+            seed_stream=dict(seed=seed,stream=0),seeds=list(seeds))
     payload['content_sha256']=content_sha256(payload)
     path=Path(output_dir)/suite.suite_id/'suite.json'
     write_immutable_json(path,payload)

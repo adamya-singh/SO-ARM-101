@@ -155,6 +155,7 @@ class _OracleScenarioResult:
     safety_counts: dict[str, int]
     final_evaluation: dict[str, Any] | None
     video_names: tuple[str, ...]
+    appearance: dict[str, Any] | None = None
 
 
 def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
@@ -182,8 +183,10 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     evaluation = None
     safety_counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
     episode_error: str | None = None
+    appearance: dict[str, Any] | None = None
     try:
         adapter.reset(item)
+        appearance = adapter.appearance_record
         controller.reset(adapter)
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
@@ -288,7 +291,7 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     return _OracleScenarioResult(
         scenario_id=item.scenario_id, error=None, columns=columns, events=event_rows,
         boundaries=tuple(controller.boundaries), solve_diagnostics=list(controller.solve_diagnostics),
-        safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names,
+        safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names, appearance=appearance,
     )
 
 
@@ -319,6 +322,16 @@ def _execute_capture_tasks(tasks: list[_OracleScenarioTask], *, workers: int) ->
         return results
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
+
+
+def _frames_convention(identity: dict[str, Any]) -> str:
+    if "lens" not in identity:
+        return "raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image"
+    lens = f"lens_{identity['lens']['model']}_{identity['lens']['framing']}"
+    if "appearance" in identity:
+        regime = identity["appearance"]["regime"]
+        lens += f"_appearance_{regime['name']}_v{regime['version']}"
+    return f"raw_wrist_hwc_uint8_{lens}_preprocess_with_preprocess_wrist_image"
 
 
 def capture_oracle_demonstrations(
@@ -390,6 +403,9 @@ def capture_oracle_demonstrations(
         identity["joint_map"] = bench.joint_map_object.provenance()
         if bench.lens is not None:
             identity["lens"] = dict(bench.lens)
+        if bench.appearance is not None:
+            from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION
+            identity["appearance"] = dict(regime=dict(bench.appearance), resolver=APPEARANCE_RESOLVER_VERSION)
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.
@@ -438,7 +454,7 @@ def capture_oracle_demonstrations(
                 frames[kept * horizon:(kept + 1) * horizon] = frames[index * horizon:(index + 1) * horizon]
             for name in _ORACLE_FIELDS:
                 arrays[name].extend(result.columns[name])
-            episode_records.append({
+            record = {
                 "scenario_id": item.scenario_id,
                 "rows": horizon,
                 "waypoint_boundaries": list(result.boundaries),
@@ -446,7 +462,10 @@ def capture_oracle_demonstrations(
                 "safety_counts": dict(result.safety_counts),
                 "events": list(result.events),
                 "final_evaluation": result.final_evaluation,
-            })
+            }
+            if result.appearance is not None:
+                record["appearance"] = result.appearance   # conditionally present: fixed-look captures are unchanged
+            episode_records.append(record)
             for name in result.video_names:
                 staged_videos.append((temporary_path / name, name))
             kept += 1
@@ -522,8 +541,7 @@ def capture_oracle_demonstrations(
             "rows": int(materialized["action_index"].shape[0]),
             "dtype": "uint8",
             "frame_shape": [256, 256, 3],
-            "convention": ("raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image" if "lens" not in identity
-                           else f"raw_wrist_hwc_uint8_lens_{identity['lens']['model']}_{identity['lens']['framing']}_preprocess_with_preprocess_wrist_image"),
+            "convention": _frames_convention(identity),
         }
     manifest_payload["content_sha256"] = content_sha256(manifest_payload)
     manifest_path = destination / "manifest.json"

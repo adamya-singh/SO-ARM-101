@@ -380,6 +380,7 @@ def _run_pick_place_rollout(
     contract = load_pick_place_contract(suite.task_contract, bench_config=adapter.bench)
     try:
         adapter.reset(scenario)
+        appearance = adapter.appearance_record
         reset_method = getattr(policy, "reset", None)
         if callable(reset_method):
             try:
@@ -480,6 +481,8 @@ def _run_pick_place_rollout(
         "reward_used": False,
         "rows": rows,
     }
+    if appearance is not None:
+        telemetry_payload["appearance"] = appearance   # conditionally present: fixed-look telemetry is unchanged
     telemetry_payload["content_sha256"] = content_sha256(telemetry_payload)
     write_immutable_json(telemetry_path, telemetry_payload)
     return PickPlaceRolloutMetrics(
