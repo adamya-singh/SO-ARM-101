@@ -1,0 +1,130 @@
+{
+  "run_dir": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910",
+  "status": "aborted",
+  "reason": null,
+  "actions": 427,
+  "hold_frames": 15,
+  "aborted_reason": "consecutive_holds",
+  "timing": {
+    "overruns": 0,
+    "reanchors": 0
+  },
+  "servo_voltage": {
+    "shoulder_pan": 5.4,
+    "shoulder_lift": 5.4,
+    "elbow_flex": 5.4,
+    "wrist_flex": 5.4,
+    "wrist_roll": 5.4,
+    "gripper": 5.4
+  },
+  "approach": {
+    "steps": 0,
+    "seconds": 0.0,
+    "residual_physical": [
+      -0.986,
+      -0.089,
+      -0.45,
+      0.087,
+      0.098,
+      -0.342
+    ]
+  },
+  "real_frame_check": {
+    "label": "reset_observation",
+    "passed": true,
+    "reasons": []
+  },
+  "start_pose_delta_act": 0.030985355377197266,
+  "prefix": {
+    "step": 89,
+    "max_abs_rad": 0.016873836517333984,
+    "ok": true
+  },
+  "steps": 427,
+  "boundaries": [
+    0,
+    90,
+    180,
+    270,
+    360
+  ],
+  "hold_reasons": {
+    "relative_limit:gripper": 15
+  },
+  "first_hold_step": 412,
+  "measured_physical_start": [
+    -0.49,
+    -90.93,
+    90.81,
+    43.73,
+    -1.1,
+    13.19
+  ],
+  "measured_physical_end": [
+    -5.21,
+    13.35,
+    15.23,
+    43.82,
+    0.56,
+    18.87
+  ],
+  "measured_physical_min": {
+    "shoulder_pan": -5.53,
+    "shoulder_lift": -90.93,
+    "elbow_flex": 13.24,
+    "wrist_flex": 43.73,
+    "wrist_roll": -1.1,
+    "gripper": 0.55
+  },
+  "measured_physical_max": {
+    "shoulder_pan": -0.49,
+    "shoulder_lift": 13.88,
+    "elbow_flex": 93.06,
+    "wrist_flex": 61.38,
+    "wrist_roll": 0.56,
+    "gripper": 50.1
+  },
+  "policy_physical_min": {
+    "shoulder_pan": -5.62,
+    "shoulder_lift": -91.38,
+    "elbow_flex": 9.22,
+    "wrist_flex": 43.41,
+    "wrist_roll": -1.16,
+    "gripper": 0.03
+  },
+  "policy_physical_max": {
+    "shoulder_pan": -0.27,
+    "shoulder_lift": 17.25,
+    "elbow_flex": 92.08,
+    "wrist_flex": 61.51,
+    "wrist_roll": 0.83,
+    "gripper": 52.85
+  },
+  "max_abs_delta_from_start_units": {
+    "shoulder_pan": 5.04,
+    "shoulder_lift": 104.8,
+    "elbow_flex": 77.57,
+    "wrist_flex": 17.65,
+    "wrist_roll": 1.66,
+    "gripper": 36.91
+  },
+  "lateness_ms_max": -5.679,
+  "step_ms_max": 33.54,
+  "frame_age_ms_at_boundaries": [
+    34.3,
+    18.9,
+    39.1,
+    59.5,
+    18.4
+  ],
+  "joints_png": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/analysis/joints.png",
+  "video_sheet_png": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/analysis/video_sheet.png",
+  "video_frames": 382,
+  "boundary_observations": [
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/boundaries/step_000.obs.png",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/boundaries/step_090.obs.png",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/boundaries/step_180.obs.png",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/boundaries/step_270.obs.png",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/boundaries/step_360.obs.png"
+  ]
+}
