@@ -32,8 +32,24 @@ from so_arm101_v2.contracts.physical_io import read_measured_act
 from .runner import CONTROL_HZ, Observation, PeriodOutcome, SendRecord
 
 
+MIN_SERVO_VOLTAGE_V = 6.0   # STS3215 rated 6-12 V; the 2026-09-09 bench supply read 5.3-5.4 V (gripper voltage error, elbow sag)
+
+
 class StaleFrame(RuntimeError):
     pass
+
+
+def read_present_voltages(robot: Any) -> dict[str, float]:
+    """Per-motor supply voltage in volts (read-only register, raw unit 0.1 V)."""
+    raw = robot.bus.sync_read("Present_Voltage", normalize=False)
+    return {name: float(raw[name]) / 10.0 for name in JOINT_NAMES}
+
+
+def check_servo_voltage(robot: Any, *, minimum_v: float = MIN_SERVO_VOLTAGE_V) -> dict[str, Any]:
+    """Preflight evidence: every motor's present voltage and whether all are at or above ``minimum_v``."""
+    volts = read_present_voltages(robot)
+    lowest = min(volts.values())
+    return dict(volts={name: round(value, 2) for name, value in volts.items()}, minimum_v=float(minimum_v), lowest_v=round(lowest, 2), ok=bool(lowest >= minimum_v))
 
 
 class DriverModifiedCommand(RuntimeError):
@@ -179,5 +195,5 @@ class LeRobotBackend:
         pass  # the tool owns the bus and the grabber lifecycle
 
 
-__all__ = ["DriverModifiedCommand", "LeRobotBackend", "StaleFrame", "TimingViolation",
-           "fast_area_resampler", "observation_from_bgr", "verify_fast_resampler"]
+__all__ = ["DriverModifiedCommand", "LeRobotBackend", "MIN_SERVO_VOLTAGE_V", "StaleFrame", "TimingViolation", "check_servo_voltage",
+           "fast_area_resampler", "observation_from_bgr", "read_present_voltages", "verify_fast_resampler"]

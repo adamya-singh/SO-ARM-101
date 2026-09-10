@@ -57,8 +57,9 @@ from so_arm101_v2.contracts.physical_io import (  # noqa: E402
 )
 from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
+from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass  # noqa: E402
 from so_arm101_v2.physical.evidence import BoundaryStore, StepLog, VideoRecorder, sha256_file, write_run_record  # noqa: E402
-from so_arm101_v2.physical.lerobot_backend import LeRobotBackend, fast_area_resampler, verify_fast_resampler  # noqa: E402
+from so_arm101_v2.physical.lerobot_backend import MIN_SERVO_VOLTAGE_V, LeRobotBackend, check_servo_voltage, fast_area_resampler, verify_fast_resampler  # noqa: E402
 from so_arm101_v2.physical.runner import (  # noqa: E402
     CONTROL_HZ,
     approach_plan,
@@ -202,26 +203,6 @@ def run_approach(robot, bench: BenchConfig, log_path: Path, *, read=read_measure
     return dict(steps=steps, seconds=round(clock() - started, 2), residual_physical=[round(float(v), 3) for v in residual])
 
 
-def policy_dry_pass(policy, image: np.ndarray, current_act: np.ndarray, bench: BenchConfig) -> dict[str, Any]:
-    """Run the network once on the live observation and summarise the first chunk without sending anything."""
-    from so_arm101_v2.contracts.physical import bench_hold_decision
-    policy.reset()
-    chunk = []
-    holds = 0
-    simulated_current = np.asarray(current_act, dtype=np.float32)
-    for k in range(policy.chunk_horizon):
-        act = policy.predict(image if k == 0 else None, simulated_current)
-        decision = bench_hold_decision(simulated_current, act, shoulder_floor=bench.shoulder_floor, joint_map=bench.joint_map_object)
-        holds += int(decision.held)
-        chunk.append(act_to_physical_normalized(act))
-        simulated_current = decision.executed_act
-    chunk = np.asarray(chunk)
-    policy.reset()
-    start = act_to_physical_normalized(current_act)
-    return dict(chunk_len=int(chunk.shape[0]), max_abs_delta_from_start_units={n: round(float(v), 2) for n, v in zip(JOINT_NAMES, np.max(np.abs(chunk - start), axis=0))},
-                holds_in_dry_chunk=int(holds), first_command=[round(float(v), 3) for v in chunk[0]])
-
-
 # ----------------------------------------------------------------------------- main
 
 def main(argv=None) -> int:
@@ -304,6 +285,23 @@ def _sim_rehearsal(args, bench, contract, policy, record) -> int:
         log.close(); backend.close()
 
 
+def _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, label: str) -> dict[str, Any]:
+    """Grab a fresh frame, resample it as the runner would, and run the real-frame gate on it (nothing is sent)."""
+    _seq, _stamp, frame = grabber.wait_for_new(-1)
+    observation = fast_area_resampler(bench.lens_model, source_size=source_size)(np.array(frame, copy=True))
+    result = check_reset_frame(policy, observation, current, bench, label=f"{label}_observation")
+    result["dry_pass"] = {k: v for k, v in result["dry_pass"].items() if k != "chunk_physical"}
+    if run_dir is not None:
+        from PIL import Image
+        (run_dir / "preflight").mkdir(exist_ok=True)
+        path = run_dir / "preflight" / f"real_frame_gate_{label}.png"
+        Image.fromarray(observation).save(path)
+        result["observation_png"] = str(path.relative_to(run_dir))
+        result["observation_array_sha256"] = hashlib.sha256(np.ascontiguousarray(observation).tobytes()).hexdigest()
+    print(f"real-frame gate ({label}): {'PASS' if result['passed'] else 'FAIL'} {result['dry_pass']['max_abs_delta_from_start_units']} holds={result['dry_pass']['holds_in_dry_chunk']} {result['reasons']}", flush=True)
+    return result
+
+
 def _hardware(args, bench, contract, policy, record) -> int:
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
     from camera_preview import PreviewWindow, _HeadlessPreview
@@ -332,6 +330,12 @@ def _hardware(args, bench, contract, policy, record) -> int:
         physical = act_to_physical_normalized(current)
         record["measured_pose_physical"] = [round(float(v), 3) for v in physical]
         print(f"measured pose (physical units): {np.round(physical, 2).tolist()}", flush=True)
+        # Servo supply (read-only register). The 2026-09-09 supply read 5.4 V: gripper voltage error, elbow sag.
+        record["servo_voltage"] = check_servo_voltage(robot)
+        print(f"servo voltage: {record['servo_voltage']}", flush=True)
+        if not record["servo_voltage"]["ok"]:
+            raise Refused(f"servo supply {record['servo_voltage']['lowest_v']:.1f} V is below {MIN_SERVO_VOLTAGE_V:.1f} V "
+                          f"(per motor: {record['servo_voltage']['volts']}); fix the power supply before any motion")
         # Camera and observation contract.
         rate = grabber.measure_rate(1.0)
         record["camera"]["measured_fps"] = round(rate, 1)
@@ -367,12 +371,19 @@ def _hardware(args, bench, contract, policy, record) -> int:
             print(f"pan-sign check: {outcome}", flush=True)
             if not outcome.get("passed"):
                 raise Refused("pan sign not confirmed (rotate the base the shown way; a mismatch means the joint map's pan sign is wrong)")
-        # Policy dry pass on the live observation (nothing is sent).
-        record["dry_pass"] = policy_dry_pass(policy, observation, current, bench)
+        # Policy dry pass on the live observation (nothing is sent; informational: the arm is usually at gravity rest here).
+        record["dry_pass"] = {k: v for k, v in policy_dry_pass(policy, observation, current, bench).items() if k != "chunk_physical"}
         print(f"policy dry pass: {record['dry_pass']}", flush=True)
         record["start_pose_delta_act"] = float(np.max(np.abs(current - physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32)))))
         record["approach_plan"] = approach_plan(current, bench)
         if args.preflight_only:
+            if record["start_pose_delta_act"] <= START_POSE_TOLERANCE_ACT:
+                # At the reset pose already: the real-frame gate applies to this frame.
+                record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "preflight")
+                if not record["real_frame_check"]["passed"]:
+                    raise Refused("policy fails the real-frame gate at the reset pose: " + "; ".join(record["real_frame_check"]["reasons"]))
+            else:
+                record["real_frame_check"] = dict(skipped="arm not at the reset pose; the gate runs after the approach in motion mode")
             _finish(run_dir, record, "preflight_ok")
             return 0
         # ---- motion
@@ -394,6 +405,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
             raise Refused(f"start pose differs from the recorded reset by {delta:.3f} ACT (> {START_POSE_TOLERANCE_ACT})")
         if act_to_physical_normalized(current)[1] < bench.shoulder_floor:
             raise Refused("shoulder is below the floor at the start of the episode")
+        # Real-frame gate on a fresh frame at the reset pose: the chunk must be hold-like (the arm keeps holding torque on refusal).
+        record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset")
+        if not record["real_frame_check"]["passed"]:
+            raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
         answer = input(f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
         record["confirmations"].append(dict(phase="episode", at=now_iso(), answer=answer))
         if answer.strip():

@@ -33,8 +33,15 @@ class TrackingRobot:
     def __init__(self, events, start_physical):
         self.events = events
         self.pose = np.asarray(start_physical, dtype=np.float64).copy()
+        self.voltage_raw = 74   # Present_Voltage in 0.1 V units: a healthy 7.4 V supply
         self.bus = Mock()
-        self.bus.sync_read.side_effect = lambda *a, **k: {n: float(v) for n, v in zip(JOINT_NAMES, self.pose)}
+
+        def sync_read(name="Present_Position", *a, **k):
+            if name == "Present_Voltage":
+                return {n: float(self.voltage_raw) for n in JOINT_NAMES}
+            return {n: float(v) for n, v in zip(JOINT_NAMES, self.pose)}
+
+        self.bus.sync_read.side_effect = sync_read
         self.bus.sync_write.side_effect = lambda *a, **k: events.append("goal")
         self.bus.enable_torque.side_effect = lambda *a, **k: events.append("torque")
         self.bus.disable_torque.side_effect = lambda *a, **k: events.append("DISABLE")
@@ -100,6 +107,10 @@ def _install(monkeypatch, events, robot):
     monkeypatch.setattr(tool, "connect_read_only", lambda r: events.append("connect"))
     monkeypatch.setattr(tool, "disconnect_read_only", lambda r: events.append("disconnect"))
     monkeypatch.setattr(tool, "run_pan_sign_check", lambda *a, **k: dict(passed=True, measured_sign=-1, expected_sign=-1))
+    # The fake camera's flat frame is not a bench frame; the real-frame gate is exercised by its own tests below.
+    monkeypatch.setattr(tool, "check_reset_frame", lambda policy, image, anchor, bench, **kw: dict(
+        gate="stub", label=kw.get("label", "frame"), passed=True, reasons=[], thresholds={},
+        dry_pass=dict(chunk_len=90, max_abs_delta_from_start_units={n: 0.0 for n in JOINT_NAMES}, holds_in_dry_chunk=0, chunk_physical=[])))
     monkeypatch.setattr(tool.time, "sleep", lambda s: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "")
     return tool
@@ -130,6 +141,9 @@ def test_motion_ordering_claims_run_dir_before_torque_and_never_disables_torque(
     assert record["approach"]["steps"] > 0 and max(abs(v) for v in record["approach"]["residual_physical"]) <= 1.0
     assert record["start_pose_delta_act"] <= tool.START_POSE_TOLERANCE_ACT
     assert record["pan_sign"]["skipped"] and record["resampler"]["bit_identical"] and record["dry_pass"]["chunk_len"] == 90
+    assert record["servo_voltage"]["ok"] and record["servo_voltage"]["lowest_v"] == 7.4
+    assert record["real_frame_check"]["passed"] and record["real_frame_check"]["label"] == "reset_observation"
+    assert (run_dir / "preflight" / "real_frame_gate_reset.png").exists()
     assert len(record["confirmations"]) == 2
     assert (run_dir / "steps.csv").exists() and (run_dir / "approach.csv").exists() and (run_dir / "boundaries" / "step_000.obs.png").exists()
     assert (run_dir / "preflight" / "observation.png").exists()
@@ -185,3 +199,35 @@ def test_sim_rehearsal_reproduces_the_nominal_success_with_evidence(tmp_path: Pa
     assert record["status"] == "completed" and record["success"] and record["hold_frames"] == 0 and record["actions"] == 427
     assert (run_dir / "steps.csv").read_text().count("\n") == 428
     assert len(record["boundaries"]) == 5 and (run_dir / "boundaries" / "step_360.obs.png").exists()
+
+
+@needs_checkpoint
+def test_real_frame_gate_failure_refuses_the_episode_after_the_approach(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+    robot = TrackingRobot(events, REST)
+    tool = _install(monkeypatch, events, robot)
+    monkeypatch.setattr(tool, "check_reset_frame", lambda policy, image, anchor, bench, **kw: dict(
+        gate="stub", label=kw.get("label", "frame"), passed=False, reasons=["shoulder_lift moves 26.0 units in the dry chunk (limit 3.0)"], thresholds={},
+        dry_pass=dict(chunk_len=90, max_abs_delta_from_start_units={n: 0.0 for n in JOINT_NAMES}, holds_in_dry_chunk=34, chunk_physical=[])))
+    run_dir = tmp_path / "gated"
+    code = tool.main(["--enable-motion", "--run-dir", str(run_dir), "--no-preview", "--max-actions", "5"])
+    assert code == 2
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["status"] == "refused" and "real-frame gate" in record["reason"] and record["real_frame_check"]["passed"] is False
+    assert record["approach"]["steps"] > 0                       # the approach ran (torque on, arm holding at the reset)
+    assert events.count("torque") == 1 and "DISABLE" not in events
+    assert not (run_dir / "steps.csv").exists() and "episode_started_at" not in record
+
+
+@needs_checkpoint
+def test_low_servo_voltage_refuses_before_any_torque(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+    robot = TrackingRobot(events, REST)
+    robot.voltage_raw = 54   # the 2026-09-09 bench supply
+    tool = _install(monkeypatch, events, robot)
+    run_dir = tmp_path / "lowv"
+    code = tool.main(["--enable-motion", "--run-dir", str(run_dir), "--no-preview"])
+    assert code == 2 and "torque" not in events and "goal" not in events and "send" not in events
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["status"] == "refused" and "5.4 V" in record["reason"] and record["servo_voltage"]["ok"] is False
+    assert record["servo_voltage"]["volts"]["gripper"] == 5.4 and record["servo_voltage"]["minimum_v"] == 6.0
