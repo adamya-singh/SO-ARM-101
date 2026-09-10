@@ -228,6 +228,9 @@ def main(argv=None) -> int:
     p.add_argument("--cube-tolerance-mm", type=float, default=DEFAULT_TOLERANCE_MM,
                    help="refuse the episode when the cube, back-projected from the reset-pose frame, is farther than this from the task pose "
                         "(the policies train on +-10 mm; on 2026-09-10 the cube sat 40 mm beyond it and the policy closed on nothing)")
+    p.add_argument("--no-cube-gate", action="store_true",
+                   help="record the cube placement reading but never refuse on it (the reading is pose-dependent: episode 10 succeeded with the "
+                        "cube read 27 mm beyond the task pose, and the same cube read 44 mm beyond from the reset pose afterwards)")
     p.add_argument("--yes", action="store_true",
                    help="do not prompt: auto-confirm the approach and the episode (bench owner's standing authorization of 2026-09-10; "
                         "recorded in run.json). Every built-in gate still applies.")
@@ -438,7 +441,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
         if gate_observation is not None:
             record["cube_placement"] = check_cube_placement(gate_observation, bench, args.model, current, tolerance_mm=args.cube_tolerance_mm)
             print(f"cube placement: {record['cube_placement']}", flush=True)
-            if not record["cube_placement"]["ok"]:
+            if not record["cube_placement"]["ok"] and args.no_cube_gate:
+                record["cube_placement"]["gate"] = "disabled by --no-cube-gate (recorded only)"
+                print("cube placement gate disabled: recorded only", flush=True)
+            elif not record["cube_placement"]["ok"]:
                 raise Refused(f"cube is not at the task pose (no episode): {record['cube_placement'].get('advice')}; "
                               f"measured {record['cube_placement'].get('cube_xy_mm')} mm vs nominal {record['cube_placement']['nominal_xy_mm']} mm")
         answer = _confirm(args, record, "episode", f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
