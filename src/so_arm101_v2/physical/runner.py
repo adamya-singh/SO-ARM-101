@@ -34,6 +34,7 @@ from so_arm101_v2.contracts import JOINT_NAMES
 from so_arm101_v2.contracts.physical import (
     HoldDecision,
     act_to_physical_normalized,
+    bench_clip_decision,
     bench_hold_decision,
     physical_normalized_to_act,
 )
@@ -119,8 +120,14 @@ def run_episode(
     max_consecutive_holds: int | None = 15,
     on_step: Callable[[StepRecord], None] | None = None,
     clock: Callable[[], float] = time.perf_counter,
+    rate_limit_continues: bool = True,
 ) -> EpisodeResult:
-    """Run one episode of ``policy`` on ``backend`` under the bench gate; see the module docstring."""
+    """Run one episode of ``policy`` on ``backend`` under the bench gate; see the module docstring.
+
+    ``rate_limit_continues`` (default, the real-servo rule since 2026-09-10) sends
+    the relative-limited target instead of holding when the only mask is the
+    per-step relative limit; range and floor clips still hold.
+    """
     joint_map = bench.joint_map_object
     shoulder_floor = bench.shoulder_floor
     reset_method = getattr(policy, "reset", None)
@@ -145,7 +152,10 @@ def run_episode(
         policy_act = policy.predict(None if observation is None else observation.image, current)
         infer_ms = (clock() - t_infer) * 1e3
         t_gate = clock()
-        decision = bench_hold_decision(current, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map)
+        if rate_limit_continues:
+            decision = bench_clip_decision(current, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map)
+        else:
+            decision = bench_hold_decision(current, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map)
         gate_ms = (clock() - t_gate) * 1e3
         if decision.held:
             holds += 1

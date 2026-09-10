@@ -318,6 +318,41 @@ def bench_hold_decision(
     )
 
 
+def bench_clip_decision(
+    current_act: Any,
+    policy_act: Any,
+    *,
+    shoulder_floor: float | None,
+    joint_map: Any | None,
+    max_relative_target: float = 20.0,
+    calibration: PhysicalCalibration | None = None,
+) -> HoldDecision:
+    """The bench gate for real servos: hold on any range/floor clip, but *rate-limit and continue* on the relative limit.
+
+    Why (2026-09-10, physical/episode_09): a chunk of absolute targets can outrun a
+    servo tracking under load; holding the current pose on a relative-limit mask
+    freezes the arm while the chunk's targets keep advancing, so the gap only grows
+    and the 15-hold abort is guaranteed. Sending the relative-limited target keeps
+    the arm moving at the driver's own per-step ceiling and the next chunk
+    re-anchors on the measured pose. The simulator's actuators never trigger the
+    relative limit, so scored rollouts are unaffected.
+    """
+    decision = bench_hold_decision(current_act, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map,
+                                   max_relative_target=max_relative_target, calibration=calibration, hold_on_any_mask=True)
+    masks = decision.evaluation
+    only_relative = (decision.held and not decision.nonfinite and bool(np.any(masks.relative_limit_mask))
+                     and not (np.any(masks.act_clip_mask) or np.any(masks.physical_clip_mask) or np.any(masks.mujoco_clip_mask)))
+    if not only_relative:
+        return decision
+    limited = masks.relative_limited_physical
+    return HoldDecision(
+        policy_act=decision.policy_act, requested_act=decision.requested_act,
+        executed_act=np.asarray(physical_normalized_to_act(limited), dtype=np.float32),
+        sent_physical=np.asarray(limited, dtype=np.float32), raw_goal_ticks=decision.raw_goal_ticks,
+        held=False, hold_reason="rate_limited:" + decision.hold_reason, nonfinite=False, evaluation=masks,
+    )
+
+
 __all__ = [
     "PHYSICAL_NORMALIZED_HIGH",
     "PHYSICAL_NORMALIZED_LOW",
@@ -326,6 +361,7 @@ __all__ = [
     "PhysicalCalibration",
     "PhysicalCommandEvaluation",
     "act_to_physical_normalized",
+    "bench_clip_decision",
     "bench_hold_decision",
     "evaluate_physical_command",
     "load_physical_calibration",

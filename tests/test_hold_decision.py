@@ -116,3 +116,29 @@ def test_black_image_rollout_reproduces_the_stored_telemetry_rows():
                 break
     finally:
         adapter.close()
+
+
+def test_clip_decision_rate_limits_instead_of_holding_but_still_holds_on_the_floor():
+    """2026-09-10 episode 9: a chunk outrunning the servo must keep the arm moving at the per-step ceiling."""
+    import numpy as np
+    import pytest
+    from conftest import REPOSITORY_ROOT
+    from so_arm101_v2.contracts.bench import scene_bench_config
+    from so_arm101_v2.contracts.physical import act_to_physical_normalized, bench_clip_decision, bench_hold_decision, physical_normalized_to_act
+    bench = scene_bench_config(REPOSITORY_ROOT / "simulation_code/model/bench_pick_replace_v1/scene_bench_pick_replace_v1.xml")
+    current = physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32))
+    far = act_to_physical_normalized(current).copy(); far[1] += 35.0        # shoulder 35 units ahead of the arm
+    target = physical_normalized_to_act(far)
+    held = bench_hold_decision(current, target, shoulder_floor=bench.shoulder_floor, joint_map=bench.joint_map_object)
+    assert held.held and "relative_limit" in held.hold_reason
+    clipped = bench_clip_decision(current, target, shoulder_floor=bench.shoulder_floor, joint_map=bench.joint_map_object)
+    assert not clipped.held and clipped.hold_reason.startswith("rate_limited:")
+    assert clipped.sent_physical[1] == pytest.approx(act_to_physical_normalized(current)[1] + 20.0, abs=1e-3)
+    assert np.allclose(clipped.executed_act, physical_normalized_to_act(clipped.sent_physical), atol=1e-5)
+    # A floor violation still holds, even when combined with a relative-limit mask.
+    low = act_to_physical_normalized(current).copy(); low[1] = bench.shoulder_floor - 30.0
+    floor = bench_clip_decision(current, physical_normalized_to_act(low), shoulder_floor=bench.shoulder_floor, joint_map=bench.joint_map_object)
+    assert floor.held and "physical_clip" in floor.hold_reason
+    # Nothing masked: identical to the hold decision.
+    same = bench_clip_decision(current, current, shoulder_floor=bench.shoulder_floor, joint_map=bench.joint_map_object)
+    assert not same.held and same.hold_reason == ""

@@ -108,12 +108,21 @@ def test_consecutive_holds_abort_with_the_present_pose_sent():
     start = physical_normalized_to_act(np.asarray(bench.reset_physical, dtype=np.float32))
     policy = FakePolicy(90, lambda current, k: current + np.array([1.0, 0, 0, 0, 0, 0], np.float32))  # a 1 rad pan jump every step
     backend = FakeBackend(start)
-    result = run_episode(backend, policy, bench=bench, max_actions=480, max_consecutive_holds=15)
+    # The pre-2026-09-10 rule (hold on any mask): the arm never moves and the run aborts after 15 holds.
+    result = run_episode(backend, policy, bench=bench, max_actions=480, max_consecutive_holds=15, rate_limit_continues=False)
     assert result.aborted_reason == "consecutive_holds" and result.actions == 15 and result.hold_frames == 15
     assert all(d.held and d.hold_reason == "relative_limit:shoulder_pan" for d in backend.decisions)
     present = act_to_physical_normalized(start)
     assert np.allclose(backend.sent[-1], present, atol=1e-4)
     assert np.array_equal(backend.act, start)  # never moved
+    # The real-servo rule (default): the same command stream is rate-limited to 20 units per step and continues.
+    backend = FakeBackend(start)
+    result = run_episode(backend, policy, bench=bench, max_actions=3, max_consecutive_holds=15)   # 3 steps: still inside the pan range
+    assert result.aborted_reason is None and result.hold_frames == 0 and result.actions == 3
+    assert all(not d.held for d in backend.decisions)
+    assert backend.decisions[0].hold_reason == "rate_limited:relative_limit:shoulder_pan"
+    assert backend.sent[0][0] == pytest.approx(present[0] + 20.0, abs=1e-3)
+    assert act_to_physical_normalized(backend.act)[0] > present[0] + 20  # the arm moved on
 
 
 def test_episode_stops_when_the_backend_reports_done():
