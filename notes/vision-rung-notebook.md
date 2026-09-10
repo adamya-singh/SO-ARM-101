@@ -532,3 +532,33 @@ carry a bias of a few degrees of pitch (the grasp succeeded with the cube
 read ~20-27 mm beyond the task pose); a ruler measurement of the cube's
 distance from the base front edge would settle it, after which either the
 tolerance or the camera pitch in the scene config should be corrected.
+
+### Episodes 11-13 (2026-09-10): the policy has no tolerance for placement error; next tranche = randomize placement
+
+After the success the user asked for another run. Attempts 11 and 12 were
+refused by the placement gate: from the reset pose the camera read the cube
+44 mm beyond the task pose although episode 10 had just set it down within
+3 mm of where it grasped it, and from the end pose the same cube read 300 mm
+forward (reset pose: 325 mm). The reading is pose-dependent, so the
+camera/joint-map geometry carries a bias of ~25 mm between those two poses;
+the gate is now optional (`--no-cube-gate`, recorded only). Episode 13 then
+ran the whole plan (480 actions, zero holds, zero overruns) in a much
+brighter daylight scene and closed beside the cube (gripper 0.55; the jaws
+closed at the towel's near edge with the cube ahead and to the right).
+
+By forward kinematics of the jaw tips at the closing step: episode 10
+(success) closed at (8, 290) mm, episode 13 (miss) at (1, 284) mm, episode 4
+(miss) at (-13, 283) mm, the simulator at (-1, 288) mm. The three real
+descents land within about 10 mm of the simulator's grasp point, and with
+the cube some 20 mm beyond the task pose (camera reading, biased) success
+hinges on that last 10 mm. The user's conclusion, adopted: the policy has no
+tolerance for placement error because it trained on ±10 mm cube offsets.
+Also recorded: the real jaws close ~15 mm higher than the simulator's (z 50-51
+vs 35 mm) in every real episode, a systematic joint-map offset the placement
+tranche should measure.
+
+Next tranche (user, 2026-09-10): **randomize placement** in the capture:
+widen the cube offset distribution well beyond ±10 mm (teacher screening at
+the wider range; the certification offsets may need to grow), keep the
+appearance regime, and retrain; the placement gate then becomes a soft
+report. The arm was parked at the reset pose (`physical/reset_pose_20260910c`).

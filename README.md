@@ -30,7 +30,9 @@ on the towel within 3 mm of where it started and retreated
 (`physical/episode_10_20260910`). Seven earlier attempts that day fixed
 what stood in the way: a live real-frame gate, a cube-placement gate that
 says how far to move the cube, and a runner gate that rate-limits instead
-of freezing when a chunk outruns the servos. Single episode, exploratory.
+of freezing when a chunk outruns the servos. Single episode, exploratory: a repeat in brighter daylight closed beside the
+cube, because the policy trained on ±10 mm cube offsets and the cube sat
+about 20 mm beyond the task pose. Next: randomize placement in the capture.
 
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the

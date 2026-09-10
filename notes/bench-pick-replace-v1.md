@@ -17,7 +17,15 @@ attempts 3 to 9 (details in `notes/vision-rung-notebook.md`): the live
 real-frame gate, a cube-placement gate, and the runner's gate changed to
 rate-limit-and-continue on the relative limit (`bench_clip_decision`), because
 a hold that freezes the arm while a chunk's targets keep advancing can never
-recover on a lagging servo. Single episode, exploratory.**
+recover on a lagging servo. Single episode, exploratory.** Episode 13 (same setup, brighter daylight)
+closed beside the cube: the three real descents land within ~10 mm of the
+simulated grasp point while the cube sits ~20 mm beyond the task pose, so
+success is marginal. Conclusion (user, 2026-09-10): the policy has no
+tolerance for placement error (trained on ±10 mm). **Next tranche: randomize
+placement in the capture** (wider cube offsets, teacher re-screened at that
+range, appearance regime kept, retrain). Also to measure in that tranche: the
+real jaws close ~15 mm higher than the simulator's, and the camera placement
+reading differs by ~25 mm between the reset and end poses (joint-map bias).
 
 **Third run (appearance recipe) DONE 2026-09-10, 263 min wall (training ran
 at ~10.6 steps/s, see the note under "Tracking and monitoring"):
