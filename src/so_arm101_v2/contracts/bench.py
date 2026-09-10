@@ -12,6 +12,7 @@ from .appearance import AppearanceRegime
 from .joint_map import KNOWN_JOINT_MAPS, load_joint_map
 from .lens import LensModel
 from .physical import physical_normalized_to_act
+from .placement import PlacementRegime
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,9 @@ class BenchConfig:
     # Appearance randomization regime (contracts/appearance.py): ranges for the per-scenario
     # look drawn at suite generation; None = every scenario renders the pristine scene.
     appearance: dict | None = None
+    # Placement randomization regime (contracts/placement.py): the rectangle the square and cube may
+    # be placed in per scenario; None = every scenario uses the nominal square below.
+    placement: dict | None = None
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -61,9 +65,12 @@ class BenchConfig:
                 or self.measured_forward_distance_m != 0.2159
                 or self.base_front_edge_y_m != 0.0646353):
             raise ValueError("bench distance must use the measured base-front-edge reference")
-        if (self.cube_edge_m, self.square_edge_m, self.square_center_xy,
-                self.square_thickness_m) != (0.020, 0.0508, (0.0, 0.2805353), 0.001):
+        if (self.cube_edge_m, self.square_edge_m, self.square_thickness_m) != (0.020, 0.0508, 0.001):
             raise ValueError("bench geometry differs from the agreed task")
+        centre = np.asarray(self.square_center_xy, dtype=np.float64)
+        if centre.shape != (2,) or not np.isfinite(centre).all():
+            raise ValueError("bench square centre must be two finite coordinates")
+        object.__setattr__(self, "square_center_xy", (float(centre[0]), float(centre[1])))
         if self.observation_steps != 90:
             raise ValueError("bench observation prefix must align with the first H90 image refresh")
         # 0 deg = jaws pointing straight down; 90 would be horizontal.
@@ -88,6 +95,10 @@ class BenchConfig:
             object.__setattr__(self, "lens", lens.identity())
         if self.appearance is not None:
             object.__setattr__(self, "appearance", AppearanceRegime.from_mapping(self.appearance).identity())
+        if self.placement is not None:
+            regime = PlacementRegime.from_mapping(self.placement)
+            regime.validate_against(self.base_front_edge_y_m, self.square_center_xy)
+            object.__setattr__(self, "placement", regime.identity())
         if self.reset_physical is not None:
             p = np.asarray(self.reset_physical, dtype=np.float64)
             if p.shape != (6,) or not np.isfinite(p).all() or p[1] < self.shoulder_floor:
@@ -107,6 +118,14 @@ class BenchConfig:
     @property
     def appearance_regime(self):
         return None if self.appearance is None else AppearanceRegime.from_mapping(self.appearance)
+
+    @property
+    def placement_regime(self):
+        return None if self.placement is None else PlacementRegime.from_mapping(self.placement)
+
+    def cube_center_at(self, square_xy):
+        """Cube centre resting on a square centred at ``square_xy``."""
+        return (float(square_xy[0]), float(square_xy[1]), self.square_thickness_m + self.cube_edge_m / 2)
 
     @property
     def mujoco_low(self):

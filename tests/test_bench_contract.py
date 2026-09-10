@@ -147,7 +147,9 @@ def test_bench_distance_uses_front_edge_not_rotation_origin():
     assert config.square_center_xy[1] == pytest.approx(
         config.base_front_edge_y_m + 8.5 * .0254)
     with pytest.raises(ValueError, match="geometry"):
-        replace(config, square_center_xy=(0., .2159))
+        replace(config, square_edge_m=0.06)
+    # The square position is per-scenario since the placement tranche (2026-09-10); the config value is the nominal.
+    assert replace(config, square_center_xy=(0., .2159)).square_center_xy == (0.0, 0.2159)
 
 
 def test_pinned_calibration_check_refuses_drift():
@@ -296,10 +298,10 @@ def test_pipeline_rehearsal_refuses_unlabelled_output_and_requires_verification(
     tool = root / 'tools/run_bench_pipeline.py'
     env = {**os.environ, 'PYTHONPATH': str(root / 'src'), 'PYTHONNOUSERSITE': '1', 'MUJOCO_GL': 'egl'}
     # The live scene carries an appearance regime (2026-09-10), so the recipe flag must accompany it.
-    plain = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'not_labelled'), '--rehearsal', '--appearance'],
+    plain = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'not_labelled'), '--rehearsal', '--appearance', '--placement'],
                            capture_output=True, text=True, env=env)
     assert plain.returncode != 0 and 'rehearsal' in (plain.stderr + plain.stdout)
     assert not (tmp_path / 'not_labelled' / 'experiment.json').exists()
-    missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real'), '--appearance'],
+    missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real'), '--appearance', '--placement'],
                              capture_output=True, text=True, env=env)
     assert missing.returncode != 0 and '--verification is required' in (missing.stderr + missing.stdout)

@@ -14,6 +14,7 @@ from so_arm101_v2.contracts import (
     MUJOCO_JOINT_LOW,
     mujoco_qpos_to_act,
 )
+from so_arm101_v2.contracts.placement import fold_cube_yaw as _fold_cube_yaw
 
 
 def _mujoco() -> Any:
@@ -113,11 +114,25 @@ class PrivilegedStagedController:
         self.solve_diagnostics: list[dict[str, float | bool]] = []
 
     def _targets(self) -> tuple[np.ndarray, np.ndarray]:
-        """World-frame targets for the pad normal and jaw depth directions."""
+        """World-frame targets for the pad normal and jaw depth directions, yawed with the cube (placement tranche, 2026-09-10)."""
         pitch = self.approach_pitch_rad
         depth_target = np.array([0.0, np.sin(pitch), -np.cos(pitch)])
         normal_target = np.array([1.0, 0.0, 0.0])
+        yaw = float(getattr(self, "grasp_yaw_rad", 0.0))
+        if yaw != 0.0:
+            # Rotate about z so the pads meet the cube's faces; the cube is 4-fold symmetric so |yaw| <= 45 deg (fold_cube_yaw).
+            c, s = np.cos(yaw), np.sin(yaw)
+            rotation = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+            normal_target = rotation @ normal_target
+            depth_target = rotation @ depth_target
         return normal_target, depth_target
+
+    @staticmethod
+    def _yaw_lead(yaw: float, lead_m: float) -> np.ndarray:
+        """The depth-lead vector (-lead along the approach's y) rotated by ``yaw`` about z; exact legacy value at yaw 0."""
+        if yaw == 0.0:
+            return np.array([0.0, -lead_m, 0.0], dtype=np.float64)
+        return np.array([np.sin(yaw) * lead_m, -np.cos(yaw) * lead_m, 0.0], dtype=np.float64)
 
     @staticmethod
     def _pocket_frame(adapter: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -250,97 +265,126 @@ class PrivilegedStagedController:
         # the exact bound flags a command_bound_violation every step.
         closed_gripper = float(MUJOCO_JOINT_LOW[5]) + 0.004
         open_gripper = self.open_gripper_rad
-        pocket_grasp = np.array([cube[0], cube[1] - self.depth_lead_m, self.grasp_height_m], dtype=np.float64)
+        # Grasp yaw from the cube's orientation (placement tranche): the cube quaternion is (w, x, y, z) in the block's
+        # free joint; a yawed square carries its cube with it. Zero for every legacy scenario (identity quaternion).
+        quat = np.asarray(adapter.data.qpos[adapter._block_qpos + 3:adapter._block_qpos + 7], dtype=np.float64)
+        cube_yaw = float(np.arctan2(2.0 * (quat[0] * quat[3] + quat[1] * quat[2]), 1.0 - 2.0 * (quat[2] ** 2 + quat[3] ** 2)))
+        folded = 0.0 if abs(cube_yaw) < 1e-9 else _fold_cube_yaw(cube_yaw)
+        # The cube is 4-fold symmetric: the grasp may use the folded yaw or the same yaw a quarter turn either way.
+        # Which one the 5-DOF arm can reach depends on the side of the bench (reach scan 2026-09-10), so the plan is
+        # built for the candidates in order of wrist roll and the first solvable one wins; legacy (yaw 0) is unchanged.
+        candidates = [0.0] if folded == 0.0 else sorted({folded, folded - np.pi / 2, folded + np.pi / 2}, key=abs)
         seed = start.astype(np.float64)
+        last_error: RuntimeError | None = None
+        for candidate in candidates:
+            self.grasp_yaw_rad = float(candidate)
+            if self.grasp_yaw_rad == 0.0:
+                pocket_grasp = np.array([cube[0], cube[1] - self.depth_lead_m, self.grasp_height_m], dtype=np.float64)
+            else:
+                pocket_grasp = np.array([cube[0], cube[1], self.grasp_height_m], dtype=np.float64) + self._yaw_lead(self.grasp_yaw_rad, self.depth_lead_m)
+            try:
 
-        def with_gripper(qpos: np.ndarray, gripper: float) -> np.ndarray:
-            result = qpos.copy()
-            result[5] = np.float32(gripper)
-            return result
+                def with_gripper(qpos: np.ndarray, gripper: float) -> np.ndarray:
+                    result = qpos.copy()
+                    result[5] = np.float32(gripper)
+                    return result
 
-        # Vertical entry: with the bill horizontal, the mouth's open bottom
-        # descends straight down around the cube at the pad-4 station (the
-        # mid-air wedge test proves the mouth hosts the full cube there).
-        # The fixed pad face has only ~0.1 mm clearance from a centered cube,
-        # so the descent runs shifted toward the (open) moving-jaw side and a
-        # final horizontal slide recenters the pocket before closing.
-        probe = self._solve(
-            adapter, seed, pocket_grasp + np.array([0.0, 0.0, 0.06]), open_gripper
-        )
-        self._set_arm(adapter, probe)
-        _, mouth_normal, _ = self._pocket_frame(adapter)
-        # Shift the pocket TARGET against the pad normal: the cube (fixed in
-        # the world) then sits displaced toward the open moving-jaw side of
-        # the mouth, giving the fixed pad clearance during the descent.
-        mouth_shift = -self.approach_clearance_m * mouth_normal
-        self._set_arm(adapter, start.astype(np.float64))
-        above = self._solve(
-            adapter, seed, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.06]), open_gripper
-        )
-        lowered = self._solve(
-            adapter, above, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.025]), open_gripper
-        )
-        descended = self._solve(
-            adapter, lowered, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.008]), open_gripper
-        )
-        engaged = self._solve(adapter, descended, pocket_grasp + mouth_shift, open_gripper)
-        seated = self._solve(adapter, engaged, pocket_grasp, open_gripper)
-        half_closed = with_gripper(seated, self.nearly_closed_gripper_rad)
-        closed = with_gripper(seated, closed_gripper)
-        lift = self._solve(
-            adapter, closed, pocket_grasp + np.array([0.0, 0.0, self.lift_command_m]),
-            closed_gripper,
-        )
-        self.waypoints = [
-            start, above, lowered, descended, engaged, seated,
-            half_closed, closed, closed, lift, lift,
-        ]
-        self.boundaries = (0, 70, 110, 145, 175, 205, 255, 285, 315, 355, 450)
+                # Vertical entry: with the bill horizontal, the mouth's open bottom
+                # descends straight down around the cube at the pad-4 station (the
+                # mid-air wedge test proves the mouth hosts the full cube there).
+                # The fixed pad face has only ~0.1 mm clearance from a centered cube,
+                # so the descent runs shifted toward the (open) moving-jaw side and a
+                # final horizontal slide recenters the pocket before closing.
+                probe = self._solve(
+                    adapter, seed, pocket_grasp + np.array([0.0, 0.0, 0.06]), open_gripper
+                )
+                self._set_arm(adapter, probe)
+                _, mouth_normal, _ = self._pocket_frame(adapter)
+                # Shift the pocket TARGET against the pad normal: the cube (fixed in
+                # the world) then sits displaced toward the open moving-jaw side of
+                # the mouth, giving the fixed pad clearance during the descent.
+                mouth_shift = -self.approach_clearance_m * mouth_normal
+                self._set_arm(adapter, start.astype(np.float64))
+                above = self._solve(
+                    adapter, seed, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.06]), open_gripper
+                )
+                lowered = self._solve(
+                    adapter, above, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.025]), open_gripper
+                )
+                descended = self._solve(
+                    adapter, lowered, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.008]), open_gripper
+                )
+                engaged = self._solve(adapter, descended, pocket_grasp + mouth_shift, open_gripper)
+                seated = self._solve(adapter, engaged, pocket_grasp, open_gripper)
+                half_closed = with_gripper(seated, self.nearly_closed_gripper_rad)
+                closed = with_gripper(seated, closed_gripper)
+                lift = self._solve(
+                    adapter, closed, pocket_grasp + np.array([0.0, 0.0, self.lift_command_m]),
+                    closed_gripper,
+                )
+                self.waypoints = [
+                    start, above, lowered, descended, engaged, seated,
+                    half_closed, closed, closed, lift, lift,
+                ]
+                self.boundaries = (0, 70, 110, 145, 175, 205, 255, 285, 315, 355, 450)
 
-        # Place phase, matching the physical dataset: carry the cube over the
-        # napkin, set it down, release, and retreat. The task contract still
-        # terminates on pickup success, so contract-evaluated episodes (and
-        # the preflight) end before these stages; the live viewer plays them.
-        mujoco = _mujoco()
-        napkin_geom = mujoco.mj_name2id(adapter.model, mujoco.mjtObj.mjOBJ_GEOM, "napkin")
-        if napkin_geom >= 0:
-            napkin = adapter.data.geom_xpos[napkin_geom].copy()
-            lift_z = self.grasp_height_m + self.lift_command_m
-            # While held, the cube center rides ~8.5 mm below the pocket, so a
-            # pocket 1.5 mm above grasp height sets the cube gently onto the
-            # 1 mm napkin before release.
-            pocket_over = np.array([napkin[0], napkin[1] - self.depth_lead_m, lift_z])
-            pocket_down = np.array([napkin[0], napkin[1] - self.depth_lead_m, self.grasp_height_m + 0.0015])
-            traverse = self._solve(adapter, lift, pocket_over, closed_gripper, loose=True)
-            set_down = self._solve(adapter, traverse, pocket_down, closed_gripper, loose=True)
-            released = with_gripper(set_down, open_gripper)
-            retreat = self._solve(
-                adapter, released, pocket_down + np.array([0.0, 0.0, 0.06]), open_gripper, loose=True
-            )
-            self.waypoints = [
-                start, above, lowered, descended, engaged, seated,
-                half_closed, closed, closed, lift, lift,
-                traverse, set_down, released, released, retreat,
-            ]
-            # The retreat gets ~26 actions: a 5-action retreat produced a
-            # ~670 mm/s snap that the phase-state oracle clone could not
-            # imitate (worst-error row of the failed offline gate). The
-            # gripper release keeps >=16 actions: opening faster trips the
-            # delta limiter through servo lag (requested-vs-current gap).
-            # The hold tail past action 450 is the stage-loop FALL-THROUGH in
-            # predict(): it returns the clamped retreat pose bit-exactly on
-            # every call, which is the pre-registered hold invariant
-            # (notes/horizon-alignment-proposal.md).  An explicit
-            # retreat->retreat stage was tried and rejected: minimum-jerk
-            # interpolation of identical endpoints wobbles the output by one
-            # ulp, and the same wobble is baked into the RECORDED hold stages
-            # (closed-closed, lift-lift, released-released), so predict()
-            # cannot special-case identical endpoints without forking legacy
-            # capture bits.
-            self.boundaries = (
-                0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
-                386, 403, 419, 424, 450,
-            )
+                # Place phase, matching the physical dataset: carry the cube over the
+                # napkin, set it down, release, and retreat. The task contract still
+                # terminates on pickup success, so contract-evaluated episodes (and
+                # the preflight) end before these stages; the live viewer plays them.
+                mujoco = _mujoco()
+                napkin_geom = mujoco.mj_name2id(adapter.model, mujoco.mjtObj.mjOBJ_GEOM, "napkin")
+                if napkin_geom >= 0:
+                    napkin = adapter.data.geom_xpos[napkin_geom].copy()
+                    lift_z = self.grasp_height_m + self.lift_command_m
+                    # While held, the cube center rides ~8.5 mm below the pocket, so a
+                    # pocket 1.5 mm above grasp height sets the cube gently onto the
+                    # 1 mm napkin before release. The depth lead follows the grasp yaw
+                    # (the square is yawed with the cube in placement scenarios).
+                    if self.grasp_yaw_rad == 0.0:
+                        pocket_over = np.array([napkin[0], napkin[1] - self.depth_lead_m, lift_z])
+                        pocket_down = np.array([napkin[0], napkin[1] - self.depth_lead_m, self.grasp_height_m + 0.0015])
+                    else:
+                        lead = self._yaw_lead(self.grasp_yaw_rad, self.depth_lead_m)
+                        pocket_over = np.array([napkin[0], napkin[1], lift_z]) + lead
+                        pocket_down = np.array([napkin[0], napkin[1], self.grasp_height_m + 0.0015]) + lead
+                    traverse = self._solve(adapter, lift, pocket_over, closed_gripper, loose=True)
+                    set_down = self._solve(adapter, traverse, pocket_down, closed_gripper, loose=True)
+                    released = with_gripper(set_down, open_gripper)
+                    retreat = self._solve(
+                        adapter, released, pocket_down + np.array([0.0, 0.0, 0.06]), open_gripper, loose=True
+                    )
+                    self.waypoints = [
+                        start, above, lowered, descended, engaged, seated,
+                        half_closed, closed, closed, lift, lift,
+                        traverse, set_down, released, released, retreat,
+                    ]
+                    # The retreat gets ~26 actions: a 5-action retreat produced a
+                    # ~670 mm/s snap that the phase-state oracle clone could not
+                    # imitate (worst-error row of the failed offline gate). The
+                    # gripper release keeps >=16 actions: opening faster trips the
+                    # delta limiter through servo lag (requested-vs-current gap).
+                    # The hold tail past action 450 is the stage-loop FALL-THROUGH in
+                    # predict(): it returns the clamped retreat pose bit-exactly on
+                    # every call, which is the pre-registered hold invariant
+                    # (notes/horizon-alignment-proposal.md).  An explicit
+                    # retreat->retreat stage was tried and rejected: minimum-jerk
+                    # interpolation of identical endpoints wobbles the output by one
+                    # ulp, and the same wobble is baked into the RECORDED hold stages
+                    # (closed-closed, lift-lift, released-released), so predict()
+                    # cannot special-case identical endpoints without forking legacy
+                    # capture bits.
+                    self.boundaries = (
+                        0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
+                        386, 403, 419, 424, 450,
+                    )
+            except RuntimeError as exc:
+                last_error = exc
+                self._set_arm(adapter, start.astype(np.float64))
+                continue
+            break
+        else:
+            raise last_error
         if bench is not None:
             # Shared look-up motion precedes any cube-conditioned action.
             # Move for 60 actions and hold until the first H90 image refresh.

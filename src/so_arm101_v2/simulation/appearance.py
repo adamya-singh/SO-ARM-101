@@ -77,7 +77,7 @@ def resolve_scene_ids(model: Any) -> SceneAppearanceIds:
 
 
 _MODEL_ARRAYS = ("mat_rgba", "mat_specular", "mat_shininess", "mat_reflectance", "mat_emission", "mat_texid",
-                 "mat_texrepeat", "mat_texuniform", "geom_rgba", "geom_size", "body_pos", "body_quat",
+                 "mat_texrepeat", "mat_texuniform", "geom_rgba", "geom_size", "geom_quat", "body_pos", "body_quat",
                  "light_dir", "light_diffuse", "light_ambient", "light_specular", "light_castshadow", "light_active",
                  "cam_pos", "cam_quat", "cam_fovy", "tex_data")
 _HEADLIGHT_FIELDS = ("ambient", "diffuse", "specular", "active")

@@ -30,6 +30,20 @@ REAL_FRAME_JOINTS = ("shoulder_lift", "elbow_flex")
 REAL_FRAME_MAX_HOLDS = 3
 REAL_FRAME_FLOOR_MARGIN_UNITS = 0.5
 REAL_FRAME_GATE_VERSION = "real_frame_gate_v2"
+# v3 (placement tranche, 2026-09-10): with a survey pose the first chunk is a deliberate move (shoulder +23 deg,
+# elbow -34 deg), identical for every scenario, so the rule becomes "the chunk on the real frame tracks the
+# simulated reference chunk" and ends near the survey pose; holds and the floor margin still apply.
+REAL_FRAME_GATE_VERSION_SURVEY = "real_frame_gate_v3"
+REAL_FRAME_SURVEY_JOINTS = ("shoulder_lift", "elbow_flex", "wrist_flex")
+REAL_FRAME_MAX_REFERENCE_DELTA_UNITS = 5.0
+REAL_FRAME_END_POSE_TOLERANCE_UNITS = 4.0
+
+
+def survey_pose_active(bench: Any) -> bool:
+    """True when the bench's viewing pose differs from the reset pose (the first chunk is a survey move)."""
+    if getattr(bench, "viewing_qpos", None) is None:
+        return False
+    return bool(np.max(np.abs(np.asarray(bench.viewing_qpos, dtype=np.float64) - np.asarray(bench.reset_qpos, dtype=np.float64))) > 1e-6)
 
 
 def policy_dry_pass(policy: Any, image: np.ndarray, current_act: np.ndarray, bench: Any) -> dict[str, Any]:
@@ -68,22 +82,46 @@ def chunk_difference_units(a: dict[str, Any], b: dict[str, Any]) -> dict[str, fl
 
 def check_reset_frame(policy: Any, image: np.ndarray, anchor_act: np.ndarray, bench: Any, *, label: str = "frame",
                       reference: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The real-frame gate: a chunk on a reset-pose frame must hold (no gate holds, tiny shoulder/elbow motion, above the floor)."""
+    """The real-frame gate on a reset-pose frame.
+
+    Fixed viewing pose (v2): the chunk must hold (tiny shoulder/elbow motion). Survey pose (v3): the chunk must
+    track the simulated reference chunk (``reference``, from ``sim_reference_dry_pass``) and end near the survey
+    pose. Both: few gate holds and no dive below the floor margin.
+    """
     dry = policy_dry_pass(policy, image, anchor_act, bench)
     reasons = []
-    for joint in REAL_FRAME_JOINTS:
-        delta = dry["max_abs_delta_from_start_units"][joint]
-        if delta > REAL_FRAME_MAX_DELTA_UNITS:
-            reasons.append(f"{joint} moves {delta:.2f} units in the dry chunk (limit {REAL_FRAME_MAX_DELTA_UNITS})")
+    survey = survey_pose_active(bench)
+    if survey:
+        if reference is None:
+            reasons.append("survey-pose gate needs the simulated reference chunk")
+        else:
+            deltas = chunk_difference_units(dry, reference)
+            for joint in REAL_FRAME_SURVEY_JOINTS:
+                if deltas[joint] > REAL_FRAME_MAX_REFERENCE_DELTA_UNITS:
+                    reasons.append(f"{joint} differs from the simulated survey chunk by {deltas[joint]:.2f} units (limit {REAL_FRAME_MAX_REFERENCE_DELTA_UNITS})")
+        target = act_to_physical_normalized(bench.joint_map_object.mujoco_to_act(np.asarray(bench.viewing_qpos, dtype=np.float32)))
+        end = np.asarray(dry["chunk_physical"][-1], dtype=np.float64)
+        for joint, index in (("shoulder_lift", 1), ("elbow_flex", 2), ("wrist_flex", 3)):
+            if abs(end[index] - float(target[index])) > REAL_FRAME_END_POSE_TOLERANCE_UNITS:
+                reasons.append(f"{joint} ends the chunk {abs(end[index] - float(target[index])):.2f} units from the survey pose (limit {REAL_FRAME_END_POSE_TOLERANCE_UNITS})")
+    else:
+        for joint in REAL_FRAME_JOINTS:
+            delta = dry["max_abs_delta_from_start_units"][joint]
+            if delta > REAL_FRAME_MAX_DELTA_UNITS:
+                reasons.append(f"{joint} moves {delta:.2f} units in the dry chunk (limit {REAL_FRAME_MAX_DELTA_UNITS})")
     if dry["holds_in_dry_chunk"] > REAL_FRAME_MAX_HOLDS:
         reasons.append(f"{dry['holds_in_dry_chunk']} gate holds in the dry chunk (limit {REAL_FRAME_MAX_HOLDS})")
     if dry["min_units"]["shoulder_lift"] < bench.shoulder_floor - REAL_FRAME_FLOOR_MARGIN_UNITS:
         reasons.append(f"shoulder would reach {dry['min_units']['shoulder_lift']:.2f} units, more than {REAL_FRAME_FLOOR_MARGIN_UNITS} below the floor {bench.shoulder_floor}")
+    thresholds = dict(max_holds=REAL_FRAME_MAX_HOLDS, shoulder_floor=float(bench.shoulder_floor), floor_margin_units=REAL_FRAME_FLOOR_MARGIN_UNITS)
+    if survey:
+        thresholds.update(max_reference_delta_units=REAL_FRAME_MAX_REFERENCE_DELTA_UNITS, joints=list(REAL_FRAME_SURVEY_JOINTS),
+                          end_pose_tolerance_units=REAL_FRAME_END_POSE_TOLERANCE_UNITS)
+    else:
+        thresholds.update(max_delta_units=REAL_FRAME_MAX_DELTA_UNITS, joints=list(REAL_FRAME_JOINTS))
     result: dict[str, Any] = dict(
-        gate=REAL_FRAME_GATE_VERSION, label=label, passed=not reasons, reasons=reasons,
-        thresholds=dict(max_delta_units=REAL_FRAME_MAX_DELTA_UNITS, joints=list(REAL_FRAME_JOINTS), max_holds=REAL_FRAME_MAX_HOLDS,
-                        shoulder_floor=float(bench.shoulder_floor), floor_margin_units=REAL_FRAME_FLOOR_MARGIN_UNITS),
-        dry_pass=dry,
+        gate=REAL_FRAME_GATE_VERSION_SURVEY if survey else REAL_FRAME_GATE_VERSION, label=label, passed=not reasons, reasons=reasons,
+        thresholds=thresholds, dry_pass=dry,
     )
     if reference is not None:
         result["delta_to_reference_units"] = chunk_difference_units(dry, reference)
@@ -130,6 +168,7 @@ def load_boundary_frame(episode_dir: str | Path, step: int = 0) -> tuple[np.ndar
     return image, anchor, evidence
 
 
-__all__ = ["REAL_FRAME_FLOOR_MARGIN_UNITS", "REAL_FRAME_GATE_VERSION", "REAL_FRAME_JOINTS", "REAL_FRAME_MAX_DELTA_UNITS", "REAL_FRAME_MAX_HOLDS",
+__all__ = ["REAL_FRAME_END_POSE_TOLERANCE_UNITS", "REAL_FRAME_FLOOR_MARGIN_UNITS", "REAL_FRAME_GATE_VERSION", "REAL_FRAME_GATE_VERSION_SURVEY",
+           "REAL_FRAME_MAX_REFERENCE_DELTA_UNITS", "REAL_FRAME_SURVEY_JOINTS", "survey_pose_active", "REAL_FRAME_JOINTS", "REAL_FRAME_MAX_DELTA_UNITS", "REAL_FRAME_MAX_HOLDS",
            "check_reset_frame", "chunk_difference_units",
            "load_boundary_frame", "policy_dry_pass", "sim_reference_dry_pass"]

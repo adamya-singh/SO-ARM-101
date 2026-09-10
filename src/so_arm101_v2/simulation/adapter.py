@@ -135,6 +135,21 @@ class MujocoTaskAdapter:
         self.appearance_seed: int | None = None
         self.appearance_params = None
         self._skybox_visible = True
+        # Placement randomization: the square (napkin geom, a static world geom) and the visual towel body
+        # are moved/yawed at every reset from the scenario or the config's nominal square (geom_pos is not
+        # part of the appearance snapshot, so it is written explicitly each time).
+        self._napkin_geom = int(mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "napkin")) if self.bench is not None else -1
+        self._towel_body = int(mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "towel_visual")) if self.bench is not None else -1
+        self._nominal_napkin_pos = self.model.geom_pos[self._napkin_geom].copy() if self._napkin_geom >= 0 else None
+        self._nominal_napkin_quat = self.model.geom_quat[self._napkin_geom].copy() if self._napkin_geom >= 0 else None
+        self._nominal_towel_pos = self.model.body_pos[self._towel_body].copy() if self._towel_body >= 0 else None
+        if self._napkin_geom >= 0:
+            # The compiler marks the axis-aligned napkin as sharing the world body's rotation
+            # (mjSAMEFRAME_BODYROT), which makes kinematics ignore geom_quat; clear it so a yawed square renders
+            # and collides as yawed. Bit-neutral for the nominal (identity) orientation.
+            self.model.geom_sameframe[self._napkin_geom] = 0
+        self.square_center_xy: tuple[float, float] | None = None
+        self.square_yaw_rad: float = 0.0
 
     @property
     def renderer(self) -> Any:
@@ -190,6 +205,50 @@ class MujocoTaskAdapter:
         return dict(seed=self.appearance_seed, resolver=APPEARANCE_RESOLVER_VERSION, regime=regime.name,
                     regime_version=regime.version, params=self.appearance_params.as_record())
 
+    def _apply_placement(self, scenario: SimulationScenario) -> None:
+        """Put the square (and the visual towel under it) where the scenario says, every reset."""
+        if self.bench is None:
+            if scenario.square_center_xy is not None or scenario.square_yaw_rad != 0.0:
+                raise ValueError("square placement requires a bench scene")
+            return
+        mujoco = _mujoco()
+        square = scenario.square_center_xy if scenario.square_center_xy is not None else tuple(self.bench.square_center_xy)
+        yaw = float(scenario.square_yaw_rad)
+        if scenario.square_center_xy is not None and self.bench.placement_regime is None and tuple(square) != tuple(self.bench.square_center_xy):
+            raise ValueError(f"scenario {scenario.scenario_id!r} moves the square but the bench config has no placement regime")
+        self.model.geom_pos[self._napkin_geom, 0] = float(square[0])
+        self.model.geom_pos[self._napkin_geom, 1] = float(square[1])
+        self.model.geom_pos[self._napkin_geom, 2] = float(self._nominal_napkin_pos[2])
+        yaw_quat = np.zeros(4)
+        mujoco.mju_axisAngle2Quat(yaw_quat, np.array([0.0, 0.0, 1.0]), yaw)
+        napkin_quat = np.zeros(4)
+        mujoco.mju_mulQuat(napkin_quat, yaw_quat, self._nominal_napkin_quat)
+        self.model.geom_quat[self._napkin_geom] = napkin_quat
+        if self._towel_body >= 0:
+            self.model.body_pos[self._towel_body, 0] = float(square[0])
+            self.model.body_pos[self._towel_body, 1] = float(square[1])
+            self.model.body_pos[self._towel_body, 2] = float(self._nominal_towel_pos[2])
+            # Compose the placement yaw onto the appearance draw's own towel yaw (or the pristine identity), never onto
+            # the current model value: the pristine->pristine appearance path leaves the model untouched between resets.
+            base_quat = self._appearance_pristine.arrays["body_quat"][self._towel_body].copy()
+            towel = getattr(self.appearance_params, "towel", None)
+            if towel is not None:
+                draw_yaw = float(towel[2])
+                base_quat = np.array([np.cos(draw_yaw / 2), 0.0, 0.0, np.sin(draw_yaw / 2)], dtype=np.float64)
+            towel_quat = np.zeros(4)
+            mujoco.mju_mulQuat(towel_quat, yaw_quat, base_quat)
+            self.model.body_quat[self._towel_body] = towel_quat
+        self.square_center_xy = (float(square[0]), float(square[1]))
+        self.square_yaw_rad = yaw
+
+    @property
+    def placement_record(self) -> dict[str, Any] | None:
+        """Evidence for a scenario that moved the square; None on the nominal square with no yaw."""
+        if self.bench is None or (self.square_center_xy == tuple(self.bench.square_center_xy) and self.square_yaw_rad == 0.0):
+            return None
+        from so_arm101_v2.contracts.placement import PLACEMENT_RESOLVER_VERSION
+        return dict(square_center_xy=list(self.square_center_xy), square_yaw_rad=self.square_yaw_rad, resolver=PLACEMENT_RESOLVER_VERSION)
+
     def _set_skybox_flag(self, renderer: Any, camera: str) -> None:
         mujoco = _mujoco()
         renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SKYBOX] = 1 if (camera != "wrist_camera" or self._skybox_visible) else 0
@@ -201,6 +260,7 @@ class MujocoTaskAdapter:
             raise ValueError("appearance seeds require a bench scene")
         mujoco = _mujoco()
         self._configure_appearance(scenario)
+        self._apply_placement(scenario)    # after the appearance restore, which rewrites body_pos/body_quat
         mujoco.mj_resetData(self.model, self.data)
         for address, value, actuator in zip(
             self._joint_qpos, scenario.robot_qpos_mujoco, self._actuator_ids, strict=True

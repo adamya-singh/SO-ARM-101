@@ -34,6 +34,55 @@ def camera_pose_at(model_path, bench, current_act) -> tuple[np.ndarray, np.ndarr
     return data.cam_xpos[cid].copy(), data.cam_xmat[cid].reshape(3, 3).copy()
 
 
+def camera_pose_at_qpos(model_path, qpos_mujoco) -> tuple[np.ndarray, np.ndarray]:
+    """World position and rotation of the wrist camera at simulator joint angles (forward kinematics only)."""
+    import mujoco
+    model = mujoco.MjModel.from_xml_path(str(model_path))
+    data = mujoco.MjData(model)
+    for name, value in zip(("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"), qpos_mujoco):
+        data.qpos[model.joint(name).qposadr[0]] = float(value)
+    mujoco.mj_forward(model, data)
+    cid = model.camera("wrist_camera").id
+    return data.cam_xpos[cid].copy(), data.cam_xmat[cid].reshape(3, 3).copy()
+
+
+def bench_to_observation(lens, cam_pos, cam_mat, point_xyz) -> tuple[float, float] | None:
+    """Bench point -> camera frame -> distorted raw pixel -> observation pixel (256 grid); None if behind the camera or beyond the lens model."""
+    d = cam_mat.T @ (np.asarray(point_xyz, dtype=np.float64) - np.asarray(cam_pos, dtype=np.float64))
+    if d[2] >= -1e-9:
+        return None
+    x, y = d[0] / -d[2], -d[1] / -d[2]           # MuJoCo camera: x right, y up, looks along -z; image y grows downward
+    try:
+        xd, yd = lens.distort(np.array([x]), np.array([y]))
+    except Exception:
+        return None
+    u_raw = lens.fx * float(xd[0]) + lens.cx
+    v_raw = lens.fy * float(yd[0]) + lens.cy
+    u_obs = (u_raw + 0.5) * lens.observation_size / lens.image_size[0] - 0.5
+    v_obs = (v_raw + 0.5) * lens.observation_size / lens.image_size[1] - 0.5
+    return float(u_obs), float(v_obs)
+
+
+def cube_visible_at(model_path, bench, qpos_mujoco, cube_center_xyz, *, yaw_rad: float = 0.0, margin_px: float = 20.0) -> dict[str, Any]:
+    """Are all four top-face corners of the cube inside the observation (with a margin) from the camera at ``qpos_mujoco``?
+
+    ``margin_px`` is in raw-frame pixels along the shorter (vertical) axis; it is converted to the 256 grid.
+    """
+    cam_pos, cam_mat = camera_pose_at_qpos(model_path, qpos_mujoco)
+    lens = bench.lens_model
+    half = bench.cube_edge_m / 2
+    c, s = np.cos(yaw_rad), np.sin(yaw_rad)
+    cx, cy, cz = (float(v) for v in cube_center_xyz)
+    top = cz + half
+    corners = [(cx + c * dx - s * dy, cy + s * dx + c * dy, top) for dx in (-half, half) for dy in (-half, half)]
+    pixels = [bench_to_observation(lens, cam_pos, cam_mat, p) for p in corners]
+    margin = float(margin_px) * lens.observation_size / lens.image_size[1]
+    limit = lens.observation_size - 1
+    inside = all(p is not None and margin <= p[0] <= limit - margin and margin <= p[1] <= limit - margin for p in pixels)
+    return dict(visible=bool(inside), corners_obs_px=[None if p is None else [round(p[0], 1), round(p[1], 1)] for p in pixels],
+                margin_obs_px=round(margin, 2))
+
+
 def observation_to_bench(lens, cam_pos, cam_mat, u_obs: float, v_obs: float, z_plane: float) -> np.ndarray:
     """Observation pixel (256-grid, full-frame squash) -> raw pixel -> undistorted ray -> bench plane point."""
     u_raw = (u_obs + 0.5) * lens.image_size[0] / lens.observation_size - 0.5
@@ -82,6 +131,20 @@ def check_cube_placement(observation: np.ndarray, bench, model_path, current_act
     result = locate_cube(observation, bench.lens_model, cam_pos, cam_mat)
     nominal = np.asarray(bench.cube_center[:2], dtype=np.float64) * 1000.0
     result.update(nominal_xy_mm=[round(float(v), 1) for v in nominal], tolerance_mm=float(tolerance_mm))
+    regime = getattr(bench, "placement_regime", None)
+    if regime is not None:
+        # Placement randomization: the task pose is the whole rectangle; a cube outside the reset-pose view is expected.
+        result["mode"] = "rectangle"
+        result["rectangle_m"] = dict(x=list(regime.x_range_m), y=list(regime.y_range_m))
+        if not result.get("found"):
+            result.update(ok=True, inside_rectangle=None, advice="cube not visible from the reset pose (expected under placement randomization; the survey frame at step 90 reports it)")
+            return result
+        xy_m = np.asarray(result["cube_xy_mm"], dtype=np.float64) / 1000.0
+        inside = bool(regime.contains(xy_m))
+        result.update(inside_rectangle=inside, distance_to_edge_mm=round(regime.distance_to_edge_mm(xy_m), 1), ok=inside)
+        result["advice"] = ("cube inside the placement rectangle" if inside else
+                            f"cube {abs(result['distance_to_edge_mm']):.0f} mm outside the placement rectangle: move it inside the taped 14 x 10 in area")
+        return result
     if not result.get("found"):
         result["ok"] = False
         result["advice"] = "the towel and cube must be visible at the reset pose"

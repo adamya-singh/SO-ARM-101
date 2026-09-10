@@ -14,6 +14,12 @@ EPISODE_04 = REPOSITORY_ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/phy
 SIM_REF = REPOSITORY_ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/sim_reset_observation_fcead5c7.png"
 
 
+def _point_bench():
+    """The pre-placement configuration (single task pose): point-mode placement checks."""
+    from dataclasses import replace
+    return replace(scene_bench_config(SCENE), placement=None)
+
+
 def _renderer_available() -> bool:
     try:
         import mujoco
@@ -35,7 +41,7 @@ def test_simulated_reset_frame_locates_the_nominal_cube():
         adapter.reset(nominal)
         image = adapter.render_wrist_observation()
         current = adapter.current_act()
-        bench = adapter.bench
+        bench = _point_bench()
     finally:
         adapter.close()
     result = check_cube_placement(image, bench, SCENE, current, tolerance_mm=15.0)
@@ -64,7 +70,7 @@ def test_simulated_reset_frame_locates_the_nominal_cube():
 def test_real_reset_frame_of_episode_04_shows_the_cube_40mm_beyond_the_task_pose():
     pytest.importorskip("mujoco")
     from so_arm101_v2.physical.dry_pass import load_boundary_frame
-    bench = scene_bench_config(SCENE)
+    bench = _point_bench()
     image, anchor, _ = load_boundary_frame(EPISODE_04, step=0)
     result = check_cube_placement(image, bench, SCENE, anchor, tolerance_mm=15.0)
     assert result["found"] and not result["ok"]
@@ -77,3 +83,19 @@ def test_no_towel_is_reported_not_guessed():
     black = np.zeros((256, 256, 3), np.uint8)
     result = locate_cube(black, bench.lens_model, np.array([0, 0.19, 0.19]), np.eye(3))
     assert not result["found"] and "towel" in result["reason"]
+
+
+def test_placement_regime_makes_the_check_region_aware():
+    from dataclasses import replace
+    from so_arm101_v2.contracts.placement import PlacementRegime
+    bench = replace(scene_bench_config(SCENE), placement=PlacementRegime().identity())
+    anchor = np.asarray([0.0017, -2.8565, 2.8529, 1.3711, -0.0345, 0.2324], dtype=np.float32)
+    black = np.zeros((256, 256, 3), np.uint8)
+    unseen = check_cube_placement(black, bench, SCENE, anchor)
+    assert unseen["mode"] == "rectangle" and unseen["ok"] is True and unseen["inside_rectangle"] is None
+    if EPISODE_04.exists():
+        from so_arm101_v2.physical.dry_pass import load_boundary_frame
+        image, act, _ = load_boundary_frame(EPISODE_04, step=0)
+        seen = check_cube_placement(image, bench, SCENE, act)
+        assert seen["found"] and seen["inside_rectangle"] is True and seen["ok"] and "inside the placement rectangle" in seen["advice"]
+        assert seen["distance_to_edge_mm"] > 0

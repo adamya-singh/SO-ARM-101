@@ -28,6 +28,13 @@ CHECKPOINT = REPOSITORY_ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/exp
 EPISODE_02 = REPOSITORY_ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909"
 
 
+def _legacy_bench():
+    """The pre-placement configuration: fixed viewing pose (= reset) and no placement regime (gate v2 semantics)."""
+    from dataclasses import replace
+    bench = scene_bench_config(SCENE)
+    return replace(bench, placement=None, viewing_qpos=tuple(float(v) for v in bench.reset_qpos))
+
+
 def _renderer_available() -> bool:
     try:
         import mujoco
@@ -57,7 +64,7 @@ def test_lens_policy_fails_the_gate_on_the_real_reset_frame_and_passes_in_sim():
     torch = pytest.importorskip("torch")
     from so_arm101_v2.simulation.vision_policy import VisionChunkedPolicy
     torch.set_num_threads(1)
-    bench = scene_bench_config(SCENE)
+    bench = _legacy_bench()
     image, anchor, evidence = load_boundary_frame(EPISODE_02, step=0)
     assert evidence["observation_array_sha256"] == "1dae371e9de6e572be85c6ca383d588e3f2bbd11bbc8479a9530325497700c38"
     assert abs(evidence["anchor_physical"][1] - (-90.6)) < 0.5     # the measured reset pose, shoulder just above the floor
@@ -77,7 +84,7 @@ def test_lens_policy_fails_the_gate_on_the_real_reset_frame_and_passes_in_sim():
 
 
 def test_hold_policy_passes_and_thresholds_bite():
-    bench = scene_bench_config(SCENE)
+    bench = _legacy_bench()
     anchor = np.asarray([0.0017, -2.8565, 2.8529, 1.3711, -0.0345, 0.2324], dtype=np.float32)
     image = np.zeros((256, 256, 3), np.uint8)
     result = check_reset_frame(HoldPolicy(), image, anchor, bench)
@@ -157,3 +164,42 @@ def test_servo_voltage_preflight_reads_the_raw_register_and_accepts_the_stock_su
     assert good["ok"] and good["lowest_v"] == 5.3 and good["volts"]["gripper"] == 5.3
     robot.bus.enable_torque.assert_not_called()
     robot.send_action.assert_not_called()
+
+
+def test_survey_pose_gate_tracks_the_simulated_reference_chunk():
+    """v3: with a survey pose the first chunk is a move; it must match the simulated reference and end at the survey pose."""
+    from dataclasses import replace
+    from so_arm101_v2.contracts.physical import act_to_physical_normalized, physical_normalized_to_act
+    from so_arm101_v2.physical.dry_pass import REAL_FRAME_GATE_VERSION_SURVEY, survey_pose_active
+    base = _legacy_bench()
+    survey_qpos = tuple(float(a + d) for a, d in zip(base.reset_qpos, (0.0, 0.40, -0.60, 0.40, 0.0, 0.0)))
+    bench = replace(base, viewing_qpos=survey_qpos)
+    assert survey_pose_active(bench) and not survey_pose_active(replace(base, viewing_qpos=tuple(float(v) for v in base.reset_qpos)))
+    anchor = physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32))
+    target = act_to_physical_normalized(bench.joint_map_object.mujoco_to_act(np.asarray(survey_qpos, np.float32)))
+    start = act_to_physical_normalized(anchor)
+
+    class Mover(HoldPolicy):
+        """Ramps from the reset pose to the survey pose over the chunk (what the trained policy does), with an optional error."""
+        def __init__(self, error_units=0.0):
+            self.error, self.calls = error_units, 0
+
+        def predict(self, image, current):
+            self.calls += 1
+            frac = min(1.0, self.calls / 60.0)
+            physical = start + frac * (target - start)
+            physical[2] += self.error * frac
+            return physical_normalized_to_act(physical)
+
+    image = np.zeros((256, 256, 3), np.uint8)
+    reference = policy_dry_pass(Mover(), image, anchor, bench)
+    good = check_reset_frame(Mover(), image, anchor, bench, reference=reference)
+    assert good["gate"] == REAL_FRAME_GATE_VERSION_SURVEY and good["passed"], good["reasons"]
+    off = check_reset_frame(Mover(8.0), image, anchor, bench, reference=reference)
+    assert not off["passed"] and any("differs from the simulated survey chunk" in r for r in off["reasons"])
+    assert any("ends the chunk" in r for r in off["reasons"])
+    missing = check_reset_frame(Mover(), image, anchor, bench)
+    assert not missing["passed"] and "needs the simulated reference" in missing["reasons"][0]
+    # A pure hold now fails: it never reaches the survey pose.
+    hold = check_reset_frame(HoldPolicy(), image, anchor, bench, reference=reference)
+    assert not hold["passed"]

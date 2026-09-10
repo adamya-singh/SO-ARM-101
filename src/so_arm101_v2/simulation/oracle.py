@@ -156,6 +156,7 @@ class _OracleScenarioResult:
     final_evaluation: dict[str, Any] | None
     video_names: tuple[str, ...]
     appearance: dict[str, Any] | None = None
+    placement: dict[str, Any] | None = None
 
 
 def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
@@ -184,9 +185,11 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     safety_counts = {"clip": 0, "limit": 0, "nonfinite": 0, "unsafe": 0}
     episode_error: str | None = None
     appearance: dict[str, Any] | None = None
+    placement: dict[str, Any] | None = None
     try:
         adapter.reset(item)
         appearance = adapter.appearance_record
+        placement = adapter.placement_record
         controller.reset(adapter)
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
@@ -291,7 +294,7 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     return _OracleScenarioResult(
         scenario_id=item.scenario_id, error=None, columns=columns, events=event_rows,
         boundaries=tuple(controller.boundaries), solve_diagnostics=list(controller.solve_diagnostics),
-        safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names, appearance=appearance,
+        safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names, appearance=appearance, placement=placement,
     )
 
 
@@ -406,6 +409,9 @@ def capture_oracle_demonstrations(
         if bench.appearance is not None:
             from so_arm101_v2.contracts.appearance import APPEARANCE_RESOLVER_VERSION
             identity["appearance"] = dict(regime=dict(bench.appearance), resolver=APPEARANCE_RESOLVER_VERSION)
+        if bench.placement is not None:
+            from so_arm101_v2.contracts.placement import PLACEMENT_RESOLVER_VERSION
+            identity["placement"] = dict(regime=dict(bench.placement), resolver=PLACEMENT_RESOLVER_VERSION)
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.
@@ -465,6 +471,8 @@ def capture_oracle_demonstrations(
             }
             if result.appearance is not None:
                 record["appearance"] = result.appearance   # conditionally present: fixed-look captures are unchanged
+            if result.placement is not None:
+                record["placement"] = result.placement
             episode_records.append(record)
             for name in result.video_names:
                 staged_videos.append((temporary_path / name, name))

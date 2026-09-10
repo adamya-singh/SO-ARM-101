@@ -17,10 +17,23 @@ class SimulationScenario:
     # Per-scenario appearance draw (contracts/appearance.py); None = the pristine scene look.
     # Kept alongside fixed_appearance (packaged suites and the task contract read that flag).
     appearance_seed: int | None = None
+    # Placement randomization (contracts/placement.py): where the white square sits and how it is yawed.
+    # None / 0.0 = the bench config's nominal square; omitted from payloads then (scenario_record).
+    square_center_xy: tuple[float, float] | None = None
+    square_yaw_rad: float = 0.0
 
     def __post_init__(self) -> None:
         if len(self.cube_position_m) != 3 or len(self.robot_qpos_mujoco) != 6 or len(self.cube_quaternion_wxyz) != 4:
             raise ValueError("simulation scenario has malformed reset dimensions")
+        if self.square_center_xy is not None:
+            xy = tuple(float(v) for v in self.square_center_xy)
+            if len(xy) != 2 or not all(abs(v) < 10.0 for v in xy):
+                raise ValueError("square_center_xy must be two finite bench coordinates")
+            object.__setattr__(self, "square_center_xy", xy)
+        yaw = float(self.square_yaw_rad)
+        if not abs(yaw) <= 3.2:
+            raise ValueError("square_yaw_rad must be a finite angle")
+        object.__setattr__(self, "square_yaw_rad", yaw)
         if self.appearance_seed is not None:
             seed = int(self.appearance_seed)
             if seed != self.appearance_seed or not 0 <= seed < 2 ** 31:
@@ -38,7 +51,21 @@ def _scenario_from_payload(item: dict) -> SimulationScenario:
         cube_quaternion_wxyz=tuple(float(value) for value in item["cube_quaternion_wxyz"]),
         fixed_appearance=bool(item["fixed_appearance"]),
         appearance_seed=(None if item.get("appearance_seed") is None else int(item["appearance_seed"])),
+        square_center_xy=(None if item.get("square_center_xy") is None else tuple(float(v) for v in item["square_center_xy"])),
+        square_yaw_rad=float(item.get("square_yaw_rad", 0.0)),
     )
+
+
+def scenario_record(scenario: SimulationScenario) -> dict:
+    """Canonical payload of one scenario; placement fields appear only when set, so fixed suites hash as before."""
+    from dataclasses import asdict
+
+    record = asdict(scenario)
+    if record["square_center_xy"] is None:
+        del record["square_center_xy"]
+    if record["square_yaw_rad"] == 0.0:
+        del record["square_yaw_rad"]
+    return record
 
 
 @dataclass(frozen=True)
@@ -71,15 +98,13 @@ def _suite_from_payload(payload: dict) -> SimulationSuite:
 
 def suite_payload(suite: SimulationSuite) -> dict:
     """Canonical JSON payload for a suite (generated-suite serialization)."""
-    from dataclasses import asdict
-
     return {
         "suite_id": suite.suite_id,
         "schema_version": suite.schema_version,
         "task_contract": suite.task_contract,
         "repeats": suite.repeats,
         "diagnostic_only": suite.diagnostic_only,
-        "scenarios": [asdict(item) for item in suite.scenarios],
+        "scenarios": [scenario_record(item) for item in suite.scenarios],
         "recovery_probe": suite.recovery_probe,
     }
 
