@@ -288,3 +288,26 @@ def test_frame_stride_restricts_the_sample_set_and_enters_the_identity(tmp_path:
     assert plain_report['run_digest'] != strided_report['run_digest']
     with pytest.raises(ValueError):
         VisionChunkedConfig(frame_stride=0)
+
+
+def test_encoder_v2_trains_and_is_identity_bearing(tmp_path: Path, monkeypatch) -> None:
+    torch = pytest.importorskip('torch')
+    torch.set_num_threads(1)
+    from so_arm101_v2.learning.vision import build_vision_chunked_model, train_vision_chunked, VisionChunkedConfig
+    v1 = build_vision_chunked_model(256, 90); v2 = build_vision_chunked_model(512, 90, encoder='v2')
+    n1, n2 = sum(p.numel() for p in v1.parameters()), sum(p.numel() for p in v2.parameters())
+    assert sum(p.numel() for p in v1.encoder.parameters()) < 10_000 and sum(p.numel() for p in v2.encoder.parameters()) > 50_000
+    assert n2 > n1
+    images = torch.zeros(2, 3, 256, 256); state = torch.zeros(2, 7)
+    assert v2(images, state).shape == (2, 540)
+    manifest = _write_tiny_frames_manifest(tmp_path, rows=12)
+    monkeypatch.setenv('SO_ARM101_V2_FRAME_CACHE', 'off')
+    plain = train_vision_chunked(manifest, tmp_path / 'plain', config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128))
+    wide = train_vision_chunked(manifest, tmp_path / 'v2', config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, encoder='v2'))
+    plain_report, wide_report = json.loads(plain.report_json.read_text()), json.loads(wide.report_json.read_text())
+    assert 'encoder' not in plain_report['config'] and wide_report['config']['encoder'] == 'v2'
+    assert plain_report['run_digest'] != wide_report['run_digest']
+    payload = torch.load(wide.checkpoint, map_location='cpu', weights_only=False)
+    assert payload['encoder'] == 'v2' and 'encoder' not in torch.load(plain.checkpoint, map_location='cpu', weights_only=False)
+    with pytest.raises(ValueError):
+        VisionChunkedConfig(encoder='v3')

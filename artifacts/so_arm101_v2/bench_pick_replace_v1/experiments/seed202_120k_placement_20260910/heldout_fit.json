@@ -1,0 +1,25 @@
+{
+  "checkpoint": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/models/vision_h90/b7515212686c72ee/model.pt",
+  "train_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/capture/oracle/bench_pick_replace_v1_seed12_n400_appearance_placement_3805422efccd/91b391a0cb50f361/manifest.json",
+  "heldout_manifest": "artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/analysis_run4_heldout_capture/oracle/bench_pick_replace_v1_seed8_n10_placement_64eb139f2294/bafc92de8e68d0b2/manifest.json",
+  "parameters": 352596,
+  "encoder": "v1",
+  "train": {
+    "start_0": 2.98701843348681e-06,
+    "start_90": 1.4127266695140861e-05,
+    "starts_180_270_360": 5.563406830333406e-06,
+    "all_rows": 1.085157782654278e-05
+  },
+  "heldout": {
+    "start_0": 1.2369234354991931e-05,
+    "start_90": 0.0019200533861294389,
+    "starts_180_270_360": 1.7664298866293393e-05,
+    "all_rows": 0.00018028185877483338
+  },
+  "ratio": {
+    "start_0": 4.1,
+    "start_90": 135.9,
+    "starts_180_270_360": 3.2,
+    "all_rows": 16.6
+  }
+}

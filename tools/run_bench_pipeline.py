@@ -105,6 +105,8 @@ def main():
                         'placement set; success reported by region. Requires (and is required by) a placement block in bench_config.json.')
     p.add_argument('--train-count', type=int, default=400, help='screened training poses (the registered recipe uses 400; the placement recipe needs more coverage)')
     p.add_argument('--max-steps', type=int, default=120000, help='optimizer steps for the single training run (registered recipe: 120000)')
+    p.add_argument('--encoder', choices=['v1', 'v2'], default='v1', help="image encoder: v1 = historical 8k-parameter trunk, v2 = stride-4 first layer, 16/32/64/64 channels (2026-09-10)")
+    p.add_argument('--hidden-width', type=int, choices=[128, 256, 512], default=256, help='width of the two hidden layers of the chunk head (registered recipe: 256)')
     p.add_argument('--frame-store', choices=['zlib', 'gpu', 'off'], default='zlib',
                    help="where training reads frames: 'zlib' = lossless RAM cache (skipped when it would exceed half of RAM), "
                         "'gpu' = the (strided) frames as one uint8 tensor on the training device, 'off' = the memmap")
@@ -255,7 +257,8 @@ def main():
 
         from so_arm101_v2.learning.vision import train_vision_chunked, VisionChunkedConfig
         os.environ['SO_ARM101_V2_FRAME_CACHE'] = args.frame_store
-        config = VisionChunkedConfig(seed=202, max_steps=max_steps, frame_stride=int(args.frame_stride))
+        config = VisionChunkedConfig(seed=202, max_steps=max_steps, frame_stride=int(args.frame_stride),
+                                     encoder=args.encoder, hidden_width=int(args.hidden_width))
         identity['training_frame_store'] = args.frame_store
         tracker.config.update(dict(training=asdict(config)), allow_val_change=True)
         progress(phase='training_initialization')

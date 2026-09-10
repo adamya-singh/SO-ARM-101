@@ -64,12 +64,18 @@ class VisionChunkedConfig:
     # duplicates). 1 = every row (the historical recipe; identities unchanged). Introduced 2026-09-10
     # so the incompressible appearance-randomized frames can live on the GPU (see SO_ARM101_V2_FRAME_CACHE=gpu).
     frame_stride: int = 1
+    # Image encoder: "v1" = the historical 8k-parameter trunk (stride-8 first layer, 8/16/32 channels, 4x4x32 map);
+    # "v2" (2026-09-10) = stride-4 first layer, 16/32/64/64 channels, 8x8x64 map (4096 features) for sub-patch
+    # localisation of a 12-25 px cube anywhere in the frame. Identity-bearing only when not "v1".
+    encoder: str = "v1"
 
     def __post_init__(self) -> None:
         if not 1 <= self.chunk_horizon <= 480:
             raise ValueError("chunk_horizon must lie in [1, 480]")
         if int(self.frame_stride) < 1 or int(self.frame_stride) != self.frame_stride:
             raise ValueError("frame_stride must be a positive integer")
+        if self.encoder not in ("v1", "v2"):
+            raise ValueError("encoder must be 'v1' or 'v2'")
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
             raise ValueError("invalid vision clone configuration")
         if self.hidden_width not in (128, 256, 512):
@@ -98,28 +104,40 @@ def _torch() -> Any:
     return torch
 
 
-def build_vision_chunked_model(hidden_width: int, chunk_horizon: int) -> Any:
-    """Conv trunk (the proven image_state encoder) + state branch + zero-init head."""
+def build_vision_chunked_model(hidden_width: int, chunk_horizon: int, encoder: str = "v1") -> Any:
+    """Conv trunk (the proven image_state encoder, or the finer v2 trunk) + state branch + zero-init head."""
     torch = _torch()
     if hidden_width not in (128, 256, 512):
         raise ValueError("vision clone hidden_width must be 128, 256, or 512")
     if not 1 <= chunk_horizon <= 480:
         raise ValueError("chunk_horizon must lie in [1, 480]")
+    if encoder not in ("v1", "v2"):
+        raise ValueError("encoder must be 'v1' or 'v2'")
+    feature_width = 512 if encoder == "v1" else 4096
 
     class VisionChunkedNetwork(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
-            self.encoder = torch.nn.Sequential(
-                torch.nn.Conv2d(3, 8, kernel_size=8, stride=8), torch.nn.ReLU(),
-                torch.nn.Conv2d(8, 16, kernel_size=4, stride=4), torch.nn.ReLU(),
-                torch.nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),
-                torch.nn.Flatten(),
-            )
+            if encoder == "v1":
+                self.encoder = torch.nn.Sequential(
+                    torch.nn.Conv2d(3, 8, kernel_size=8, stride=8), torch.nn.ReLU(),
+                    torch.nn.Conv2d(8, 16, kernel_size=4, stride=4), torch.nn.ReLU(),
+                    torch.nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),
+                    torch.nn.Flatten(),
+                )
+            else:
+                self.encoder = torch.nn.Sequential(
+                    torch.nn.Conv2d(3, 16, kernel_size=4, stride=4), torch.nn.ReLU(),                 # 256 -> 64
+                    torch.nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 64 -> 32
+                    torch.nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 32 -> 16
+                    torch.nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1), torch.nn.ReLU(),     # 16 -> 8
+                    torch.nn.Flatten(),
+                )
             self.state = torch.nn.Sequential(
                 torch.nn.Linear(VISION_STATE_DIM, 32), torch.nn.ReLU(),
             )
             self.head = torch.nn.Sequential(
-                torch.nn.Linear(512 + 32, hidden_width), torch.nn.ReLU(),
+                torch.nn.Linear(feature_width + 32, hidden_width), torch.nn.ReLU(),
                 torch.nn.Linear(hidden_width, hidden_width), torch.nn.ReLU(),
                 torch.nn.Linear(hidden_width, chunk_horizon * 6),
             )
@@ -354,7 +372,7 @@ def train_vision_chunked(
         "optimizer": "adam_minibatch",
         "source_rows": rows,
         # frame_stride enters the identity only when it changes the sample set, so every historical digest is unchanged.
-        "config": {k: v for k, v in asdict(config).items() if not (k == "frame_stride" and v == 1)},
+        "config": {k: v for k, v in asdict(config).items() if not ((k == "frame_stride" and v == 1) or (k == "encoder" and v == "v1"))},
         "input_schema": list(VISION_INPUT_SCHEMA),
         "image_convention": "preprocess_wrist_image_div255_chw",
         "target": "normalized_absolute_act_residual_on_current_pose",
@@ -381,7 +399,7 @@ def train_vision_chunked(
 
     torch = _torch()
     device = apply_numerics(torch, numerics, seed=config.seed)
-    model = build_vision_chunked_model(config.hidden_width, config.chunk_horizon).to(device)
+    model = build_vision_chunked_model(config.hidden_width, config.chunk_horizon, encoder=config.encoder).to(device)
     targets = torch.from_numpy(targets_np).to(device)
     state = torch.from_numpy(state_np).to(device)
     if stride > 1:
@@ -587,6 +605,8 @@ def train_vision_chunked(
         "state_dict": cpu_state_dict(model),
         "report_content_sha256": report["content_sha256"],
     }
+    if config.encoder != "v1":
+        checkpoint_payload["encoder"] = config.encoder   # conditionally present: v1 checkpoints are byte-identical to before
     checkpoint_buffer = io.BytesIO()
     torch.save(checkpoint_payload, checkpoint_buffer)
     _write_immutable_bytes(directory / "model.pt", checkpoint_buffer.getvalue())

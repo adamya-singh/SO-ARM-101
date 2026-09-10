@@ -46,6 +46,7 @@ class VisionChunkedPolicy:
         if payload.get("model_kind") != f"vision_h{self.chunk_horizon}":
             raise ValueError("vision clone checkpoint kind metadata is malformed")
         self.hidden_width = int(payload["hidden_width"])
+        self.encoder = str(payload.get("encoder", "v1"))
         self.teacher_horizon = int(payload["teacher_horizon"])
         self.config_seed = int(payload.get("config", {}).get("seed", 101))
         if self.teacher_horizon not in (450, 480):
@@ -58,7 +59,7 @@ class VisionChunkedPolicy:
         if stated != payload.get("report_content_sha256"):
             raise ValueError("vision clone checkpoint and report disagree")
         self.report_content_sha256 = stated
-        self.model = build_vision_chunked_model(self.hidden_width, self.chunk_horizon)
+        self.model = build_vision_chunked_model(self.hidden_width, self.chunk_horizon, encoder=self.encoder)
         self.model.load_state_dict(payload["state_dict"])
         self.model.eval()
         self.torch = torch
