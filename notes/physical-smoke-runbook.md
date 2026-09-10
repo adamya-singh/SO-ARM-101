@@ -33,6 +33,7 @@ PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
 #    step, gravity lead cap 10 units, feedback stop, 45 s timeout; this is the shoulder lift above the -92 floor)
 #    -> real-frame gate on a fresh frame at the reset (hold-like chunk: shoulder/elbow <= 3 units, no holds; refuses the
 #       episode otherwise, torque kept) -> second confirmation -> the 16 s episode at 30 Hz with the camera recorded.
+#    Add --yes to auto-confirm both prompts (bench owner's standing authorization of 2026-09-10, recorded in run.json).
 PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/run_physical_episode.py --enable-motion --run-dir artifacts/so_arm101_v2/bench_pick_replace_v1/physical/<new>
 ```

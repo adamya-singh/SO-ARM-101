@@ -223,6 +223,9 @@ def main(argv=None) -> int:
     p.add_argument("--skip-pan-check", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: the check is opt-in now
     p.add_argument("--pan-check-seconds", type=float, default=45.0, help="how long to wait for the hand rotation")
     p.add_argument("--no-preview", action="store_true")
+    p.add_argument("--yes", action="store_true",
+                   help="do not prompt: auto-confirm the approach and the episode (bench owner's standing authorization of 2026-09-10; "
+                        "recorded in run.json). Every built-in gate still applies.")
     args = p.parse_args(argv)
     modes = int(args.preflight_only) + int(args.enable_motion) + int(args.sim_rehearsal)
     if modes != 1:
@@ -283,6 +286,17 @@ def _sim_rehearsal(args, bench, contract, policy, record) -> int:
         return 0 if result.success else 2
     finally:
         log.close(); backend.close()
+
+
+def _confirm(args, record: dict[str, Any], phase: str, prompt: str) -> str:
+    """Ask on the terminal, or auto-confirm under --yes (recorded either way)."""
+    if args.yes:
+        print(f"{prompt} [auto-confirmed: --yes]", flush=True)
+        record["confirmations"].append(dict(phase=phase, at=now_iso(), answer="", auto="--yes (bench owner authorization 2026-09-10)"))
+        return ""
+    answer = input(prompt)
+    record["confirmations"].append(dict(phase=phase, at=now_iso(), answer=answer))
+    return answer
 
 
 def _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, label: str) -> dict[str, Any]:
@@ -388,8 +402,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
             return 0
         # ---- motion
         print("APPROACH PLAN: " + json.dumps(record["approach_plan"]), flush=True)
-        answer = input("Enable torque at the present pose and run the gated approach to the reset pose? Press Enter to confirm, anything else aborts: ")
-        record["confirmations"].append(dict(phase="approach", at=now_iso(), answer=answer))
+        answer = _confirm(args, record, "approach", "Enable torque at the present pose and run the gated approach to the reset pose? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
         backend = LeRobotBackend(robot, grabber, lens=bench.lens_model, source_size=source_size)
@@ -409,8 +422,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset")
         if not record["real_frame_check"]["passed"]:
             raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
-        answer = input(f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
-        record["confirmations"].append(dict(phase="episode", at=now_iso(), answer=answer))
+        answer = _confirm(args, record, "episode", f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
         recorder = VideoRecorder(grabber, run_dir / "camera.mp4")

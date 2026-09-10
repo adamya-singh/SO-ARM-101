@@ -231,3 +231,22 @@ def test_low_servo_voltage_refuses_before_any_torque(tmp_path: Path, monkeypatch
     record = json.loads((run_dir / "run.json").read_text())
     assert record["status"] == "refused" and "4.5 V" in record["reason"] and record["servo_voltage"]["ok"] is False
     assert record["servo_voltage"]["volts"]["gripper"] == 4.5 and record["servo_voltage"]["minimum_v"] == 4.8
+
+
+@needs_checkpoint
+def test_yes_flag_runs_without_reading_the_terminal(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+    robot = TrackingRobot(events, REST)
+    tool = _install(monkeypatch, events, robot)
+
+    def no_terminal(prompt=""):
+        raise AssertionError("input() must not be called under --yes")
+
+    monkeypatch.setattr("builtins.input", no_terminal)
+    run_dir = tmp_path / "auto"
+    code = tool.main(["--enable-motion", "--yes", "--run-dir", str(run_dir), "--no-preview", "--max-actions", "5"])
+    assert code == 0
+    record = json.loads((run_dir / "run.json").read_text())
+    assert record["status"] == "completed" and len(record["confirmations"]) == 2
+    assert all(c["auto"].startswith("--yes") and c["answer"] == "" for c in record["confirmations"])
+    assert events.count("torque") == 1 and "DISABLE" not in events
