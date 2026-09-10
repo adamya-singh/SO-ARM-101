@@ -256,3 +256,35 @@ def test_prefetch_is_bitwise_identical_to_synchronous(tmp_path: Path, monkeypatc
         for result in (prefetched, synchronous)
     ]
     assert checkpoint_shas[0] == checkpoint_shas[1]
+
+
+@pytest.mark.parametrize('store', ['off', 'zlib'])
+def test_gpu_frame_store_is_bitwise_identical_to_the_host_paths(tmp_path: Path, monkeypatch, store) -> None:
+    torch = pytest.importorskip('torch')
+    if not torch.cuda.is_available():
+        pytest.skip('CUDA required for the GPU frame store')
+    torch.set_num_threads(1)
+    from so_arm101_v2.learning.vision import train_vision_chunked, VisionChunkedConfig
+    manifest = _write_tiny_frames_manifest(tmp_path, rows=12)
+    config = VisionChunkedConfig(seed=7, max_steps=6, hidden_width=128)
+    monkeypatch.setenv('SO_ARM101_V2_FRAME_CACHE', store)
+    host = train_vision_chunked(manifest, tmp_path / 'host', config=config)
+    monkeypatch.setenv('SO_ARM101_V2_FRAME_CACHE', 'gpu')
+    device = train_vision_chunked(manifest, tmp_path / 'gpu', config=config)
+    assert host.checkpoint.read_bytes() == device.checkpoint.read_bytes()
+    assert json.loads(host.report_json.read_text()) == json.loads(device.report_json.read_text())
+
+
+def test_frame_stride_restricts_the_sample_set_and_enters_the_identity(tmp_path: Path, monkeypatch) -> None:
+    torch = pytest.importorskip('torch')
+    torch.set_num_threads(1)
+    from so_arm101_v2.learning.vision import train_vision_chunked, VisionChunkedConfig
+    manifest = _write_tiny_frames_manifest(tmp_path, rows=12)
+    monkeypatch.setenv('SO_ARM101_V2_FRAME_CACHE', 'off')
+    plain = train_vision_chunked(manifest, tmp_path / 'plain', config=VisionChunkedConfig(seed=7, max_steps=4, hidden_width=128))
+    strided = train_vision_chunked(manifest, tmp_path / 'strided', config=VisionChunkedConfig(seed=7, max_steps=4, hidden_width=128, frame_stride=3))
+    plain_report, strided_report = json.loads(plain.report_json.read_text()), json.loads(strided.report_json.read_text())
+    assert 'frame_stride' not in plain_report['config'] and strided_report['config']['frame_stride'] == 3
+    assert plain_report['run_digest'] != strided_report['run_digest']
+    with pytest.raises(ValueError):
+        VisionChunkedConfig(frame_stride=0)

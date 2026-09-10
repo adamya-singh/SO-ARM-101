@@ -103,6 +103,12 @@ def main():
                    help='the bench_placement recipe: training and held-out squares (with the cube) drawn anywhere in the placement '
                         'rectangle with yaw, screened by the teacher and the survey-pose visibility check; certification over the '
                         'placement set; success reported by region. Requires (and is required by) a placement block in bench_config.json.')
+    p.add_argument('--frame-store', choices=['zlib', 'gpu', 'off'], default='zlib',
+                   help="where training reads frames: 'zlib' = lossless RAM cache (skipped when it would exceed half of RAM), "
+                        "'gpu' = the (strided) frames as one uint8 tensor on the training device, 'off' = the memmap")
+    p.add_argument('--frame-stride', type=int, default=1,
+                   help='train on every N-th row of each episode (1 = the historical recipe; 3 with --frame-store gpu fits a '
+                        '400-episode capture on a 24 GB GPU and removes the disk from the training loop)')
     p.add_argument('--real-frame-episode', type=Path, action='append', default=None,
                    help='recorded physical episode directory for the real-frame gate (repeatable; default physical/episode_02_20260909)')
     args = p.parse_args()
@@ -246,7 +252,9 @@ def main():
             progress(status='complete', phase='capture_complete'); return 0
 
         from so_arm101_v2.learning.vision import train_vision_chunked, VisionChunkedConfig
-        config = VisionChunkedConfig(seed=202, max_steps=max_steps)
+        os.environ['SO_ARM101_V2_FRAME_CACHE'] = args.frame_store
+        config = VisionChunkedConfig(seed=202, max_steps=max_steps, frame_stride=int(args.frame_stride))
+        identity['training_frame_store'] = args.frame_store
         tracker.config.update(dict(training=asdict(config)), allow_val_change=True)
         progress(phase='training_initialization')
         scratch = root / 'scratch' / 'vision.pt'

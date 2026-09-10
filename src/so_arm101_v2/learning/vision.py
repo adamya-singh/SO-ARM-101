@@ -60,10 +60,16 @@ class VisionChunkedConfig:
     max_steps: int = 20_000
     batch_size: int = 64
     lr_schedule: str = "cosine_floor_v1"
+    # Train on every ``frame_stride``-th row of each episode (chunk starts 1/30 s apart are near
+    # duplicates). 1 = every row (the historical recipe; identities unchanged). Introduced 2026-09-10
+    # so the incompressible appearance-randomized frames can live on the GPU (see SO_ARM101_V2_FRAME_CACHE=gpu).
+    frame_stride: int = 1
 
     def __post_init__(self) -> None:
         if not 1 <= self.chunk_horizon <= 480:
             raise ValueError("chunk_horizon must lie in [1, 480]")
+        if int(self.frame_stride) < 1 or int(self.frame_stride) != self.frame_stride:
+            raise ValueError("frame_stride must be a positive integer")
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
             raise ValueError("invalid vision clone configuration")
         if self.hidden_width not in (128, 256, 512):
@@ -227,10 +233,10 @@ def cache_frames(frames: np.ndarray, manifest: dict[str, Any], directory: Path, 
     projected size exceeds half of physical memory.
     """
     mode = os.environ.get("SO_ARM101_V2_FRAME_CACHE", "zlib")
-    if mode not in ("zlib", "off"):
-        raise ValueError("SO_ARM101_V2_FRAME_CACHE must be 'zlib' or 'off'")
-    if mode == "off":
-        return frames
+    if mode not in ("zlib", "off", "gpu"):
+        raise ValueError("SO_ARM101_V2_FRAME_CACHE must be 'zlib', 'gpu' or 'off'")
+    if mode in ("off", "gpu"):
+        return frames   # 'gpu': the training loop moves the (strided) rows onto the device once it exists
     key = str(manifest["frames"]["sha256"])[:16]
     path = Path(directory) / f"frames_cache_{key}.npz"
     if path.exists():
@@ -249,6 +255,29 @@ def cache_frames(frames: np.ndarray, manifest: dict[str, Any], directory: Path, 
     cache.save(path)
     log(f"frame cache: built {path.name} ({cache.nbytes / 1e9:.2f} GB in RAM, {frames.nbytes / max(cache.nbytes, 1):.0f}x) in {time.time() - started:.0f}s")
     return cache
+
+
+def load_device_frames(frames: np.ndarray, rows: np.ndarray, device: Any, *, log=print, block: int = 512) -> Any:
+    """Copy the selected memmap rows onto ``device`` as one uint8 tensor (N, 256, 256, 3), read sequentially in blocks.
+
+    Why (2026-09-10): appearance-randomized frames are incompressible (zlib ~2x), so the RAM cache no
+    longer fits and training fell back to disk-bound random reads (10.6 steps/s). A 24 GB GPU holds
+    every third frame of a 400-episode capture (12.6 GB) with room to spare; a gather on the device
+    replaces the whole host read path. Pixels are the memmap's bytes, so the images handed to the
+    network are identical to the pinned host path (same permute / float / div on the device).
+    """
+    torch = _torch()
+    rows = np.asarray(rows, dtype=np.int64)
+    started = time.time()
+    store = torch.empty((int(rows.shape[0]),) + tuple(int(v) for v in frames.shape[1:]), dtype=torch.uint8, device=device)
+    for start in range(0, rows.shape[0], block):
+        picks = rows[start:start + block]
+        chunk = np.ascontiguousarray(frames[picks])          # increasing rows: near-sequential disk reads
+        store[start:start + picks.shape[0]].copy_(torch.from_numpy(chunk), non_blocking=False)
+    if hasattr(torch, "cuda") and device.type == "cuda":
+        torch.cuda.synchronize(device)
+    log(f"frame store: {rows.shape[0]} rows on {device} ({store.numel() / 1e9:.2f} GB) in {time.time() - started:.0f}s")
+    return store
 
 
 def load_vision_frames(manifest_path: str | Path) -> tuple[dict[str, Any], np.ndarray, dict[str, np.ndarray]]:
@@ -298,8 +327,13 @@ def train_vision_chunked(
     manifest, frames, arrays = load_vision_frames(manifest_path)
     # The cache is keyed by the frames digest and shared by every run under this output root.
     frames = cache_frames(frames, manifest, Path(output_dir) / "frame_cache")
+    frame_store = os.environ.get("SO_ARM101_V2_FRAME_CACHE", "zlib")
     episode_lengths = [int(item["rows"]) for item in manifest["episodes"]]
     rows = int(arrays["action_index"].shape[0])
+    # Training rows: every row (stride 1, historical) or every frame_stride-th row of each episode.
+    stride = int(config.frame_stride)
+    kept_rows = np.arange(rows, dtype=np.int64) if stride == 1 else np.flatnonzero(np.asarray(arrays["action_index"], dtype=np.int64) % stride == 0).astype(np.int64)
+    rows_train = int(kept_rows.shape[0])
     if sum(episode_lengths) != rows:
         raise ValueError("oracle manifest episode lengths disagree with its row count")
     targets_np = build_chunked_targets(
@@ -319,7 +353,8 @@ def train_vision_chunked(
         "model_kind": model_kind,
         "optimizer": "adam_minibatch",
         "source_rows": rows,
-        "config": asdict(config),
+        # frame_stride enters the identity only when it changes the sample set, so every historical digest is unchanged.
+        "config": {k: v for k, v in asdict(config).items() if not (k == "frame_stride" and v == 1)},
         "input_schema": list(VISION_INPUT_SCHEMA),
         "image_convention": "preprocess_wrist_image_div255_chw",
         "target": "normalized_absolute_act_residual_on_current_pose",
@@ -349,6 +384,12 @@ def train_vision_chunked(
     model = build_vision_chunked_model(config.hidden_width, config.chunk_horizon).to(device)
     targets = torch.from_numpy(targets_np).to(device)
     state = torch.from_numpy(state_np).to(device)
+    if stride > 1:
+        identity_note = f"frame_stride {stride}: {rows_train} of {rows} rows"
+        print(f"training rows: {identity_note}", flush=True)
+    row_map = torch.from_numpy(kept_rows)                       # sample index -> source row (identity when stride == 1)
+    row_map_device = row_map.to(device)
+    device_frames = load_device_frames(frames, kept_rows, device) if frame_store == "gpu" else None
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     generator = noise_generator(torch, config.seed)
     if checkpoint_interval <= 0:
@@ -398,7 +439,10 @@ def train_vision_chunked(
         return on_device.permute(0, 3, 1, 2).float().div_(255.0)
 
     def batch_images(indices: Any) -> Any:
-        return to_device_images(np.asarray(frames[indices.numpy()]))
+        if device_frames is not None:
+            gathered = device_frames[indices.to(device)]
+            return gathered.permute(0, 3, 1, 2).float().div_(255.0)
+        return to_device_images(np.asarray(frames[kept_rows[indices.numpy()]]))
 
     # Deterministic prefetching (see notes/vision-rung-notebook.md): the
     # per-step minibatch read is the only disk I/O in the loop and dominates
@@ -408,21 +452,21 @@ def train_vision_chunked(
     # this thread in step order, so the seeded RNG stream, every float op,
     # and the op order are unchanged — results are bitwise identical to the
     # synchronous path (pinned by test).  Identity/digests unaffected.
-    prefetch_enabled = os.environ.get("SO_ARM101_V2_PREFETCH", "1") != "0"
+    prefetch_enabled = os.environ.get("SO_ARM101_V2_PREFETCH", "1") != "0" and device_frames is None
     # Defaults raised 8/6 -> 16/12 on 2026-09-09: the 37.7 GB bench sidecar is
     # 2.5x this machine's RAM, so the disk queue depth is the throughput lever.
     prefetch_depth = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_DEPTH", "16")))
     prefetch_workers = max(1, int(os.environ.get("SO_ARM101_V2_PREFETCH_WORKERS", "12")))
 
     loss_trace: list[dict[str, float | int]] = []
-    batch = min(config.batch_size, rows)
+    batch = min(config.batch_size, rows_train)
     executor = None
     pending: "deque[tuple[Any, Any]]" = deque()
     drawn = 0
     start_step = 0
 
     def draw_indices() -> Any:
-        return torch.randperm(rows, generator=generator)[:batch]
+        return torch.randperm(rows_train, generator=generator)[:batch]
 
     if prefetch_enabled:
         executor = ThreadPoolExecutor(max_workers=prefetch_workers)
@@ -433,7 +477,7 @@ def train_vision_chunked(
         drawn = resumed["drawn"]
         loss_trace = resumed["loss_trace"]
         for indices in resumed["pending_indices"]:
-            pending.append((indices, executor.submit(_read_frame_rows, frames, indices.numpy())))
+            pending.append((indices, executor.submit(_read_frame_rows, frames, kept_rows[indices.numpy()])))
 
     def save_scratch(step):
         if scratch is None:
@@ -466,7 +510,7 @@ def train_vision_chunked(
         while drawn < config.max_steps and len(pending) < prefetch_depth:
             indices = draw_indices()
             drawn += 1
-            future = executor.submit(_read_frame_rows, frames, indices.numpy())
+            future = executor.submit(_read_frame_rows, frames, kept_rows[indices.numpy()])
             pending.append((indices, future))
         indices, future = pending.popleft()
         return indices, future.result()
@@ -485,8 +529,9 @@ def train_vision_chunked(
                 batch_images(indices) if uint8_block is None
                 else to_device_images(uint8_block)
             )
-            prediction = model(images, state[indices.to(device)])
-            loss = (prediction - targets[indices.to(device)]).square().mean()
+            source_rows = row_map_device[indices.to(device)]
+            prediction = model(images, state[source_rows])
+            loss = (prediction - targets[source_rows]).square().mean()
             if not torch.isfinite(loss):
                 raise RuntimeError("vision distillation loss became nonfinite")
             loss.backward()
@@ -509,11 +554,12 @@ def train_vision_chunked(
     model.eval()
     errors = []
     with torch.inference_mode():
-        for start in range(0, rows, 256):
-            indices = torch.arange(start, min(start + 256, rows))
-            prediction = model(batch_images(indices), state[indices.to(device)])
+        for start in range(0, rows_train, 256):
+            indices = torch.arange(start, min(start + 256, rows_train))
+            source_rows = row_map_device[indices.to(device)]
+            prediction = model(batch_images(indices), state[source_rows])
             errors.append(
-                (prediction - targets[indices.to(device)]).square().mean(dim=1).cpu().numpy()
+                (prediction - targets[source_rows]).square().mean(dim=1).cpu().numpy()
             )
     normalized_mse = float(np.mean(np.concatenate(errors)))
 

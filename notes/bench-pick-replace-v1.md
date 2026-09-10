@@ -962,7 +962,12 @@ tests. Full suite 278 passed at the second launch.
    screened by the teacher and the survey-visibility check; `nominal` stays
    the fixed-square regression; the same single training run; evaluation
    reports success by region; the offline real-frame gate v3 on the recorded
-   reset frames. Success for the tranche: held-out success over the
+   reset frames. Training for this run: `--frame-store gpu --frame-stride 3`
+   (every third row of each episode held as one uint8 tensor on the 24 GB
+   GPU; the appearance frames are incompressible and the RAM cache no longer
+   fits, which made the third run disk-bound at 10.6 steps/s). The stride is
+   part of the training identity; the store is bitwise-neutral (pinned by
+   test). Success for the tranche: held-out success over the
    rectangle well above chance across regions, nominal comparable to
    `ytn3eygr`, and a live episode with the square placed away from the
    old task pose.

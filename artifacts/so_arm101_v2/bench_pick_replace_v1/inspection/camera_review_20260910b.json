@@ -6,9 +6,9 @@
     "physical_wrist_image_sha256": "fc15a88358d16b3ad4d6cea8f059cf7d7fa0aa4bd3aea1c4e1e9467423c06e4a",
     "simulated_wrist_image": "sim_reset_wrist_camera_92f07142.png",
     "simulated_wrist_image_sha256": "22d031da36f54722c9c2b6a319429266f0955cc41d33f555a7a7a7ebed4295df",
-    "reviewed_at": "",
-    "reviewer": "",
-    "notes": "",
+    "reviewed_at": "2026-09-10T17:16:57.466488+00:00",
+    "reviewer": "7adamyasingh@gmail.com (bench owner)",
+    "notes": "Re-confirmation on the regenerated scene 92f07142 (placement randomization: bench_placement v1 regime block, survey viewing pose = reset + shoulder_lift 0.40 / elbow -0.60 / wrist_flex 0.40 rad). Reset-pose renders byte-identical to the 2026-09-10 signed set (identical_to_20260910). New material reviewed: the survey-pose observation (camera 235 mm above the bench), the certification placement sheet (reset and survey views), the survey coverage map and the teacher reach map. User, 2026-09-10: \"looks fine, queue the run\". Accepted residuals unchanged from 2026-09-09.",
     "observation_images": {
       "sim_reset_observation_92f07142.png": "a1c82c2f36811f5cc169b6ce919eeb878a12bead069a20b76a06be2816761914",
       "physical_reset_observation_92f07142.png": "e5a996a1b59d464f9379ba05c5af7420dde9702b6343f99fe663ea7c04fac2ca",
@@ -74,7 +74,6 @@
       "regime": "bench_appearance v1",
       "resolver": "bench_appearance_v1"
     },
-    "pending_user_confirmation": "DRAFT 2026-09-10 (placement tranche): the scene gained the bench_placement v1 regime block and the survey viewing pose (viewing_qpos = reset + shoulder_lift 0.40, elbow -0.60, wrist_flex 0.40 rad). The reset-pose renders are byte-identical to the signed 2026-09-10 review (identical_to_20260910); the survey-pose observation (sim_viewing_observation) is new material: the camera 235 mm above the bench looking down at the reachable rectangle. The bench owner must confirm before the pipeline accepts this record.",
     "identical_to_20260910": {
       "sim_reset_observation": true,
       "sim_reset_wrist_camera": true,
