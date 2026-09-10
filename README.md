@@ -23,6 +23,15 @@ Why this matters: if frontier robot learning is going to be practical, pretraine
 
 ## Executive Summary
 
+**First successful live episode (September 10, 2026):** the
+appearance-randomized policy ran all 480 actions on the physical arm at
+30 Hz with zero holds, closed on the cube, lifted it 18.6 mm, set it back
+on the towel within 3 mm of where it started and retreated
+(`physical/episode_10_20260910`). Seven earlier attempts that day fixed
+what stood in the way: a live real-frame gate, a cube-placement gate that
+says how far to move the cube, and a runner gate that rate-limits instead
+of freezing when a chunk outruns the servos. Single episode, exploratory.
+
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the
 lens policy is brittle to appearance: on the real reset frame its first

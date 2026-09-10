@@ -7,6 +7,18 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-10)
 
+**FIRST SUCCESSFUL LIVE EPISODE (2026-09-10, `physical/episode_10_20260910`):
+the appearance-randomized policy (run `ytn3eygr`) ran all 480 actions on the
+physical arm at 30 Hz with zero holds and zero overruns, closed on the cube
+(gripper stopped at 6 units), lifted it 18.6 mm (jaw-tip forward kinematics),
+released it back onto the towel within 3 mm of its start and retreated. Video
+and traces in `physical/episode_10_20260910/analysis/`. Getting there took
+attempts 3 to 9 (details in `notes/vision-rung-notebook.md`): the live
+real-frame gate, a cube-placement gate, and the runner's gate changed to
+rate-limit-and-continue on the relative limit (`bench_clip_decision`), because
+a hold that freezes the arm while a chunk's targets keep advancing can never
+recover on a lagging servo. Single episode, exploratory.**
+
 **Third run (appearance recipe) DONE 2026-09-10, 263 min wall (training ran
 at ~10.6 steps/s, see the note under "Tracking and monitoring"):
 nominal 3/3, held-out (fixed look) 30/30 with zero safety frames, held-out

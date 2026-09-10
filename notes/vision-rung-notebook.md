@@ -497,3 +497,38 @@ bench needs a physical reset (towel centred on the 8.5 in mark, cube at the
 towel's centre); `tools/watch_cube_placement.py --until-within 15` polls the
 camera from the parked reset pose and the next attempt starts automatically
 when the cube is back in range.
+
+### First successful live episode on the physical arm (2026-09-10, `physical/episode_10_20260910`)
+
+Attempts 5 to 8 were refused before the episode (towel bunched and cube off
+the area after episode 4; then the cube 46, 18 and 25 mm beyond the task pose
+as the user re-placed it; the runner now carries a cube-placement gate that
+back-projects the reset-pose frame and prints how far to move the cube).
+Attempt 9 ran with the placement tolerance widened to 35 mm (cube 19 mm
+beyond) and exposed a runner rule that cannot work on real servos: the lift
+chunk climbed ~4 units per step, the servo lagged, and once the gap crossed
+the 20-unit relative limit the hold-on-any-mask rule froze the arm while the
+chunk's targets kept advancing, so the abort was guaranteed (16 holds, step
+129). Fix: `bench_clip_decision`, the runner's gate since then, rate-limits
+and continues on a relative-limit-only mask (range and floor clips still
+hold; the simulator never triggers the limit, so scored rollouts are
+unchanged).
+
+Attempt 10 (cube read 27 mm beyond the task pose, 8 mm right) then completed
+all 480 actions at 30 Hz with zero holds and zero overruns: the observation
+prefix (prefix check 0.026 rad), the lift to the viewing pose, the descent,
+gripper closed at ~270 and stopped at 6 units by the cube (closing on
+nothing reaches 0.5), a lift of 18.6 mm by forward kinematics of the jaw
+tips (51 to 70 mm) held for ~4.7 s, release at ~407 (five rate-limited steps,
+no holds), retreat. The cube ended on the towel within 3 mm of where it
+started (back-projected 301.7 to 300.1 mm forward, 7.6 to 4.6 mm lateral).
+Evidence: `run.json`, `steps.csv`, `boundaries/`, `camera.mp4`,
+`analysis/joints.png`, `analysis/video_sheet.png`. The policy is the
+appearance-randomized checkpoint of run `ytn3eygr`
+(`models/vision_h90/96bc418efb97e58c/model.pt`).
+
+Open point recorded for later: the placement gate's camera reading may
+carry a bias of a few degrees of pitch (the grasp succeeded with the cube
+read ~20-27 mm beyond the task pose); a ruler measurement of the cube's
+distance from the base front edge would settle it, after which either the
+tolerance or the camera pitch in the scene config should be corrected.
