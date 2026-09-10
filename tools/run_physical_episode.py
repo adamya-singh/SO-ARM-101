@@ -238,7 +238,8 @@ def main(argv=None) -> int:
     p.add_argument("--enable-motion", action="store_true")
     p.add_argument("--sim-rehearsal", action="store_true")
     p.add_argument("--skip-approach", action="store_true", help="the arm is already at the reset pose")
-    p.add_argument("--skip-pan-check", action="store_true", help="allowed only after a recorded pass")
+    p.add_argument("--pan-check", action="store_true", help="run the hand-rotation pan-sign check at preflight (verified 2026-09-09: physical/pan_sign_check_20260909.json; off by default)")
+    p.add_argument("--skip-pan-check", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: the check is opt-in now
     p.add_argument("--pan-check-seconds", type=float, default=45.0, help="how long to wait for the hand rotation")
     p.add_argument("--no-preview", action="store_true")
     args = p.parse_args(argv)
@@ -311,6 +312,8 @@ def _hardware(args, bench, contract, policy, record) -> int:
     assert_pinned_calibration(robot)                     # before the bus opens
     run_dir = args.run_dir
     if run_dir is not None:
+        if run_dir.exists():
+            raise SystemExit(f"run directory already exists: {run_dir} (each attempt gets a new one; it may hold a previous attempt's evidence)")
         run_dir.mkdir(parents=True, exist_ok=False)      # claimed before torque
     grabber = None
     connected = False
@@ -351,9 +354,8 @@ def _hardware(args, bench, contract, policy, record) -> int:
         # Pan sign (read-only, torque off).
         expectation = pan_sign_expectation(args.model, bench)
         record["pan_sign"] = dict(expectation=expectation)
-        if args.skip_pan_check:
-            record["pan_sign"]["skipped"] = True
-            print("pan-sign check skipped by flag", flush=True)
+        if not args.pan_check:
+            record["pan_sign"]["skipped"] = "verified 2026-09-09 (physical/pan_sign_check_20260909.json); pass --pan-check to repeat"
         else:
             import threading
             outcome = {}

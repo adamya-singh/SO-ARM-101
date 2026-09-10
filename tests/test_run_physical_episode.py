@@ -129,7 +129,7 @@ def test_motion_ordering_claims_run_dir_before_torque_and_never_disables_torque(
     assert record["status"] == "completed" and record["actions"] == 5 and record["hold_frames"] == 0
     assert record["approach"]["steps"] > 0 and max(abs(v) for v in record["approach"]["residual_physical"]) <= 1.0
     assert record["start_pose_delta_act"] <= tool.START_POSE_TOLERANCE_ACT
-    assert record["pan_sign"]["passed"] and record["resampler"]["bit_identical"] and record["dry_pass"]["chunk_len"] == 90
+    assert record["pan_sign"]["skipped"] and record["resampler"]["bit_identical"] and record["dry_pass"]["chunk_len"] == 90
     assert len(record["confirmations"]) == 2
     assert (run_dir / "steps.csv").exists() and (run_dir / "approach.csv").exists() and (run_dir / "boundaries" / "step_000.obs.png").exists()
     assert (run_dir / "preflight" / "observation.png").exists()
@@ -148,7 +148,7 @@ def test_preflight_touches_no_torque_and_refuses_a_failed_pan_check(tmp_path: Pa
     assert record["status"] == "preflight_ok" and record["approach_plan"]["shoulder_below_floor"]
     events.clear()
     monkeypatch.setattr(tool, "run_pan_sign_check", lambda *a, **k: dict(passed=False, measured_sign=1, expected_sign=-1))
-    code = tool.main(["--enable-motion", "--run-dir", str(tmp_path / "refused"), "--no-preview"])
+    code = tool.main(["--enable-motion", "--run-dir", str(tmp_path / "refused"), "--no-preview", "--pan-check"])
     assert code == 2 and "torque" not in events and "send" not in events
     record = json.loads((tmp_path / "refused" / "run.json").read_text())
     assert record["status"] == "refused" and "pan sign" in record["reason"]

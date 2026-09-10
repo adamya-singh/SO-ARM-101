@@ -178,6 +178,7 @@ def run_episode(
 
 APPROACH_MAX_UNITS_PER_STEP = 0.5
 APPROACH_LEAD_CAP_UNITS = 10.0
+APPROACH_OVERSHOOT_CAP_UNITS = 6.0   # command may pass the reset by this much to beat gravity sag (elbow tool used a 6-unit floor)
 APPROACH_SETTLE_UNITS = 1.0
 APPROACH_MAX_RELATIVE_TARGET = 10.01
 
@@ -192,26 +193,32 @@ class ApproachStep:
 
 
 def next_approach_target(measured_physical, previous_target, reset_physical, *, max_step=APPROACH_MAX_UNITS_PER_STEP,
-                         lead_cap=APPROACH_LEAD_CAP_UNITS) -> np.ndarray:
+                         lead_cap=APPROACH_LEAD_CAP_UNITS, overshoot_cap=APPROACH_OVERSHOOT_CAP_UNITS,
+                         settle=APPROACH_SETTLE_UNITS) -> np.ndarray:
     """Ramp every joint's command toward the reset by at most ``max_step`` units per call.
 
-    The ramp runs on the *previous target*, not the measurement, so a joint held
-    back by gravity keeps receiving a steady command; the lead over the
-    measured value is capped at ``lead_cap`` so the command never runs far
-    ahead of the arm. A joint already within the step of the reset gets the
-    reset value exactly. Targets never move away from the reset.
+    The ramp is driven by the *measurement*: while a joint's measured value is
+    more than ``settle`` from the reset, its command moves ``max_step`` further
+    in that direction, which lets the command pass the reset by up to
+    ``overshoot_cap`` so a servo sagging under gravity (the elbow: ~4 units on
+    2026-09-09) still reaches the reset. The command never runs more than
+    ``lead_cap`` ahead of the measured value, and a joint already within
+    ``settle`` of the reset keeps its previous command (the servo holds there).
     """
     measured = np.asarray(measured_physical, dtype=np.float64)
     previous = np.asarray(previous_target, dtype=np.float64)
     reset = np.asarray(reset_physical, dtype=np.float64)
-    direction = np.sign(reset - previous)
-    target = previous + direction * np.minimum(np.abs(reset - previous), max_step)
-    # Lead cap: do not command further than lead_cap beyond what the arm has reached, in the ramp direction.
-    capped = np.where(direction > 0, np.minimum(target, measured + lead_cap), np.maximum(target, measured - lead_cap))
-    # Never move away from the reset relative to the previous target.
-    away = (direction > 0) & (capped < previous) | (direction < 0) & (capped > previous)
-    capped = np.where(away, previous, capped)
-    return capped.astype(np.float32)
+    error = reset - measured
+    direction = np.sign(error)
+    settled = np.abs(error) <= settle
+    target = previous + direction * max_step
+    # Caps apply on the far side of the travel only: the command may not lead the measurement by more
+    # than lead_cap, nor pass the reset by more than overshoot_cap; the near side is left to the ramp.
+    upper = np.where(direction > 0, np.minimum(measured + lead_cap, reset + overshoot_cap), np.inf)
+    lower = np.where(direction < 0, np.maximum(measured - lead_cap, reset - overshoot_cap), -np.inf)
+    target = np.clip(target, lower, upper)
+    target = np.where(settled, previous, target)
+    return target.astype(np.float32)
 
 
 def approach_step(measured_act, previous_target_physical, bench, *, calibration=None) -> ApproachStep:
@@ -223,6 +230,9 @@ def approach_step(measured_act, previous_target_physical, bench, *, calibration=
     target = next_approach_target(measured_physical, previous_target_physical, reset)
     if np.any(target[1] < bench.shoulder_floor):
         raise RuntimeError("approach target would command the shoulder below the floor")
+    direction = np.sign(reset - measured_physical)
+    if np.any(direction * (target - reset) > APPROACH_OVERSHOOT_CAP_UNITS + 1e-6):
+        raise RuntimeError("approach target passed the reset by more than the overshoot cap")
     decision = bench_hold_decision(
         measured_act, physical_normalized_to_act(target), shoulder_floor=bench.shoulder_floor,
         joint_map=bench.joint_map_object, max_relative_target=APPROACH_MAX_RELATIVE_TARGET, calibration=calibration,
@@ -253,12 +263,12 @@ def approach_plan(measured_act, bench) -> dict[str, Any]:
         shoulder_below_floor=bool(measured[1] < bench.shoulder_floor),
         estimated_seconds=round(steps / CONTROL_HZ, 1),
         max_units_per_step=APPROACH_MAX_UNITS_PER_STEP, lead_cap_units=APPROACH_LEAD_CAP_UNITS,
-        settle_units=APPROACH_SETTLE_UNITS,
+        overshoot_cap_units=APPROACH_OVERSHOOT_CAP_UNITS, settle_units=APPROACH_SETTLE_UNITS,
     )
 
 
 __all__ = [
-    "APPROACH_LEAD_CAP_UNITS", "APPROACH_MAX_UNITS_PER_STEP", "APPROACH_SETTLE_UNITS", "ApproachStep", "CONTROL_HZ",
+    "APPROACH_LEAD_CAP_UNITS", "APPROACH_MAX_UNITS_PER_STEP", "APPROACH_OVERSHOOT_CAP_UNITS", "APPROACH_SETTLE_UNITS", "ApproachStep", "CONTROL_HZ",
     "EpisodeBackend", "EpisodeResult", "Observation", "PeriodOutcome", "SendRecord", "StepRecord",
     "approach_plan", "approach_step", "next_approach_target", "run_episode",
 ]

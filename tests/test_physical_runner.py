@@ -10,6 +10,8 @@ from so_arm101_v2.contracts.physical import act_to_physical_normalized, physical
 from so_arm101_v2.physical.runner import (
     APPROACH_LEAD_CAP_UNITS,
     APPROACH_MAX_UNITS_PER_STEP,
+    APPROACH_OVERSHOOT_CAP_UNITS,
+    APPROACH_SETTLE_UNITS,
     Observation,
     PeriodOutcome,
     SendRecord,
@@ -129,20 +131,26 @@ def test_next_approach_target_ramps_caps_lead_and_never_backs_away():
     target = next_approach_target(rest, rest, reset)
     assert np.all(np.abs(target - rest) <= APPROACH_MAX_UNITS_PER_STEP + 1e-6)
     assert target[1] > rest[1] and target[2] < rest[2] and target[5] == reset[5]
-    # Ramp on the previous target while the arm lags: the lead is capped.
+    # Ramp while the arm does not move at all: the command never leads the measurement by more than the
+    # lead cap and never passes the reset by more than the overshoot cap.
     previous = rest.copy()
-    for _ in range(100):
+    for _ in range(200):
         previous = next_approach_target(rest, previous, reset)
-    assert previous[2] >= rest[2] - APPROACH_LEAD_CAP_UNITS - 1e-6
-    assert previous[1] <= rest[1] + APPROACH_LEAD_CAP_UNITS + 1e-6
-    # Converges to the reset once the arm follows.
+    assert previous[2] >= rest[2] - APPROACH_LEAD_CAP_UNITS - 1e-6 and previous[2] >= reset[2] - APPROACH_OVERSHOOT_CAP_UNITS - 1e-6
+    assert previous[1] <= reset[1] + APPROACH_OVERSHOOT_CAP_UNITS + 1e-6
+    # A servo that tracks exactly settles at the reset within the settle band and then holds its command.
     previous = rest.copy(); measured = rest.copy()
     for _ in range(400):
         previous = next_approach_target(measured, previous, reset); measured = previous.copy()
-    assert np.allclose(previous, reset, atol=1e-5)
-    # Overshoot in the measurement never produces a command away from the reset.
-    beyond = reset + np.array([0, 0.3, -0.3, 0, 0, 0], np.float32)
-    assert np.all(np.abs(next_approach_target(beyond, reset, reset) - reset) < 1e-6)
+    assert np.all(np.abs(measured - reset) <= APPROACH_SETTLE_UNITS + 1e-6)
+    frozen = next_approach_target(measured, previous, reset)
+    assert np.array_equal(frozen, previous)
+    # A servo sagging 4 units under gravity (the elbow on 2026-09-09) is pulled to the reset by a command past it.
+    previous = rest.copy(); measured = rest.copy()
+    for _ in range(400):
+        previous = next_approach_target(measured, previous, reset)
+        measured = previous.copy(); measured[2] = previous[2] + 4.0   # elbow sags 4 units behind its command
+    assert abs(measured[2] - reset[2]) <= APPROACH_SETTLE_UNITS + 1e-6 and previous[2] < reset[2]
 
 
 def test_approach_step_gates_each_command_and_reports_settling():
@@ -159,6 +167,7 @@ def test_approach_step_gates_each_command_and_reports_settling():
     # A previous target that would keep the shoulder below the floor is refused before any gate call.
     with pytest.raises(RuntimeError, match="below the floor"):
         approach_step(physical_normalized_to_act(rest), np.array([0.0, -93.0, 100, 40, -2, 13.5], np.float32), bench)
+    # A command far from the measurement is pulled back inside the lead cap, so the gate never sees a jump.
     huge = rest.copy(); huge[0] = 60.0
-    with pytest.raises(RuntimeError, match="approach refused"):
-        approach_step(physical_normalized_to_act(huge), np.array([0.0, -92.0, 100, 40, -2, 13.5], np.float32) - np.array([15, 0, 0, 0, 0, 0], np.float32), bench)
+    far = approach_step(physical_normalized_to_act(huge), np.array([-15.0, -92.0, 100, 40, -2, 13.5], np.float32), bench)
+    assert abs(far.target_physical[0] - 60.0) <= APPROACH_LEAD_CAP_UNITS + 1e-6 and not far.decision.held
