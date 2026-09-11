@@ -670,3 +670,67 @@ enough and the next lever is input augmentation (random shifts, which force
 the network to localise instead of memorise) or a richer observation.
 Decision: no live trial with this checkpoint; `ytn3eygr` stays the live
 policy. W&B outcome and generalisation sections back-filled at step 240001.
+
+### Scaling ladder (2026-09-11): data, encoder and steps all fail the same way; the bottleneck is perception, not scale
+
+`experiments/scaling_ladder_20260910` (tools/scaling_ladder.py, W&B
+`scaling-ladder-92f07142` id xygyhacp; the first attempt died at ENOSPC after
+its capture, see commit 796e352). One screened capture of 2400 placements
+(seed 12, 8 workers, 3.5 h; 226 GB frames sidecar), data sizes as prefixes,
+frame stride 18 (all inference-time chunk starts kept), hidden width 512,
+120k steps; scored on a 10-placement held-out capture (seed 8) with
+`tools/heldout_fit.py`; closed-loop rollouts (30) on the frontier.
+
+Held-out MSE at chunk start 90 (survey frame -> first descent chunk), train
+in brackets, ratio held-out/train:
+
+| placements | v1 (0.83M) | v2 (2.7M) | v3 (5.0M) |
+|---|---|---|---|
+| 300 | 7.5e-3 (3.6e-7) 21000x | 5.1e-3 (1.5e-7) 34000x | 6.2e-3 (1.3e-7) 50000x |
+| 600 | 5.1e-3 (8.4e-7) 6000x | 5.6e-3 (3.9e-7) 14000x | 3.9e-3 (3.0e-7) 13000x |
+| 1200 | 2.9e-3 (1.9e-6) 1550x | 4.2e-3 (8.0e-7) 5250x | 4.6e-3 (6.8e-7) 6800x |
+| 2400 | 2.3e-3 (5.4e-6) 418x, **0/30** | 3.2e-3 (1.9e-6) 1745x, **6/30** | 2.3e-3 (1.4e-6) 1580x, **3/30** |
+
+Steps sweep at (1200 placements, v2): 60k 3.6e-3 (0/30), 120k 4.2e-3, 240k
+3.6e-3 (0/30), 480k 5.6e-3 (**9/30**); train falls 1.9e-6 -> 3.3e-7 over the
+same range. Power-law fit L = E + A/N^a + B/D^b: a = 0.05 (the grid's lower
+bound: no dependence on parameters), b = 0.40, E = 5.3e-5 (20x the working
+fixed-square policy's 2.5e-6); halving the held-out loss by data alone needs
+5.7x the placements, reaching the ~2.5e-4 per-pose level at which rollouts
+succeed needs ~250x (600k placements).
+
+Decomposition per held-out pose (`analysis_per_pose.txt`,
+`analysis_lookup_baseline.txt`): every frontier checkpoint's mean is set by
+two or three poses (pose_000 at x = -0.146 m: 7e-3 to 3.8e-2; pose_006:
+4e-3 to 9e-3) while the poses it gets right sit at 4e-5 to 2e-4, and every
+closed-loop success happened at a pose with per-pose error <= 2.5e-4. A
+nearest-training-placement lookup (predict the held-out chunk with the chunk
+of the closest of the 2400 training placements, 2-9 mm away, 36-54 training
+placements within 20 mm of every held-out pose) scores 4.0e-4 mean, 2.6e-5 at
+pose_000: the network is 5x worse than a lookup table on average and 300x
+worse at its worst pose although a near-identical placement (2 mm away) is in
+its training set. The training density is not the problem; reading the
+square's position out of the survey frame is. (The held-out scenarios also
+carry their own appearance draws; a memorised image->chunk map breaks under
+both.)
+
+Ruled out: more placements (b = 0.4 with a 5e-5 floor), larger encoders
+(a = 0; v2/v3 memorise harder), more steps (flat held-out, deeper fit).
+Pipeline checks: stride 18 keeps every inference-time start (multiples of
+90), the GPU store is bitwise-neutral by test, one run produced all 15 points
+(no resume). The 480k point's 9/30 with the worst mean loss shows the mean
+is a poor judge: watch the per-pose median and the count of poses under
+2.5e-4.
+
+Decision (ordered levers): (1) make memorisation impossible for the same
+network: random-shift/crop augmentation of the training frames (a pure
+training change, ~20 min GPU at 1200 placements), judged by per-pose
+held-out start-90 (median, poses under 2.5e-4) and 30 rollouts; (2) if that
+is not enough, split perception from control: a square/cube localiser
+trained on the same captures (labels = scenario placements, heavy
+augmentation, deployable because it reads the camera image) whose (x, y,
+yaw) estimate conditions the chunk policy; the lookup baseline shows the
+control side is then easy (the fixed-position policies reach 30/30), and the
+localiser can be validated on the recorded real frames against the ruler;
+(3) data only where the localiser needs it. The number to watch: per-pose
+held-out start-90 loss, median under 2.5e-4 on all 10 poses.

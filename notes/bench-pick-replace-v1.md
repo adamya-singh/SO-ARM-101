@@ -7,6 +7,19 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-10)
 
+**Scaling ladder DONE 2026-09-11 15:18 (`experiments/scaling_ladder_20260910`,
+W&B xygyhacp): 2400 placements x encoders v1/v2/v3 x 60k-480k steps, scored
+on 10 unseen placements. Held-out loss at the first descent chunk stays at
+2.3e-3 to 7.5e-3 for every encoder and every data size (train 1e-7 to 5e-6);
+data exponent 0.4 with a 5e-5 floor, no parameter dependence, more steps
+flat; best closed loop 9/30 (v2, 1200 placements, 480k steps). Per pose, the
+network is 5x worse than a nearest-training-placement lookup and 300x worse
+at its worst pose although a placement 2 mm away is in the training set:
+the bottleneck is reading the square's position from the survey frame, not
+data, capacity or steps. Next lever: random-shift augmentation, then a
+separate square localiser conditioning the policy (notebook entry
+"Scaling ladder (2026-09-11)"). No live trial candidate from the ladder.**
+
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
 placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on
@@ -1084,6 +1097,13 @@ Rehearsed three times at toy scale (`rehearsal/scaling_ladder_20260910`,
 including the resume path). Estimated cost: ~4.7 h CPU capture, ~6-8 h GPU
 training. When it finishes, apply the experiment-analyze-explain skill to
 `ladder.json` and report.
+**Outcome:** first attempt (tsp 4, stride 9) captured 2400 episodes in 3.5 h
+and died copying the 226 GB frames sidecar (ENOSPC; fixed in commit 796e352:
+move-publish, in-place truncation, disk preflight); re-queued 03:37 as tsp 5
+at stride 18 (the stride-9 store would not fit the GPU at 2400 episodes),
+done 15:18: 15 points, ~6.5 h GPU. Results and analysis in the notebook
+(`analysis_summary.png`, `analysis_per_pose.txt`, `analysis_lookup_baseline.txt`
+next to `ladder.json`/`ladder.png`).
 
 Fifth run queued 2026-09-10 15:04 local as `tsp` job 3, experiment directory
 `experiments/seed202_120k_placement_20260910b/`, W&B id `pfavtk49`:

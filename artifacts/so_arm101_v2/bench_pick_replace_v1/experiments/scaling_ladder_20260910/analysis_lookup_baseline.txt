@@ -1,0 +1,8 @@
+train placements 2400 held-out rows 10
+prefix   300: NN mean 1.35e-03 median 1.94e-03 | per pose 2.6e-05 2.2e-03 3.3e-05 3.5e-04 4.8e-04 1.9e-03 2.3e-03 2.1e-03 2.0e-03 2.2e-03 | NN distance mm 2 16 5 7 16 7 24 17 17 14
+prefix   600: NN mean 1.27e-03 median 8.96e-04 | per pose 2.6e-05 3.2e-04 3.3e-05 3.5e-04 1.9e-04 1.9e-03 1.4e-03 2.0e-03 4.2e-03 2.2e-03 | NN distance mm 2 9 5 7 2 7 12 10 15 14
+prefix  1200: NN mean 5.95e-04 median 3.67e-04 | per pose 2.6e-05 3.2e-04 3.3e-05 2.5e-04 1.9e-04 8.5e-04 1.4e-03 2.0e-03 4.1e-04 4.8e-04 | NN distance mm 2 9 5 8 2 3 12 10 10 5
+prefix  2400: NN mean 4.04e-04 median 3.99e-04 | per pose 2.6e-05 3.2e-04 1.3e-04 5.9e-04 1.9e-04 8.5e-04 6.3e-04 2.3e-04 6.1e-04 4.8e-04 | NN distance mm 2 9 4 2 2 3 8 2 2 5
+training placements within 20 mm of each held-out pose (2400): [46, 46, 44, 54, 36, 38, 47, 42, 42, 45]
+within 40 mm: [154, 177, 129, 194, 92, 149, 167, 202, 197, 190]
+training placements with x<-0.12: 398  x>0.12: 366  y>0.27: 436  y<0.18: 713

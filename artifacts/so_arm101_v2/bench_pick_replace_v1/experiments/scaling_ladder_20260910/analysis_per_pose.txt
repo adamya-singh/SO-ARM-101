@@ -1,0 +1,11 @@
+held-out poses (square centre x,y m; yaw deg):
+  pose_000: centre (-0.146, 0.275) yaw 7
+  pose_003: centre (0.057, 0.252) yaw 27
+  pose_006: centre (0.099, 0.246) yaw -17
+  pose_009: centre (0.12, 0.168) yaw 23
+d2400_v1_s120000     median 1.7e-03 max 6.9e-03 | per pose 6.9e-03 1.2e-03 6.5e-04 4.9e-03 8.6e-04 3.5e-04 2.3e-03 2.6e-03 5.6e-04 2.3e-03 | successes 0 0 0 0 0 0 0 0 0 0
+d2400_v2_s120000     median 1.0e-03 max 1.3e-02 | per pose 1.3e-02 8.9e-04 2.4e-04 2.2e-03 9.4e-03 7.3e-05 3.9e-03 6.3e-04 6.8e-04 1.2e-03 | successes 0 0 3 0 0 3 0 0 0 0
+d2400_v3_s120000     median 9.2e-04 max 9.2e-03 | per pose 7.7e-03 2.2e-04 2.0e-04 1.4e-03 1.9e-03 5.7e-05 9.2e-03 1.1e-03 1.6e-04 7.3e-04 | successes 0 0 0 0 0 3 0 0 0 0
+d1200_v2_s60000      median 1.4e-03 max 2.0e-02 | per pose 2.0e-02 3.0e-04 1.9e-03 1.1e-03 4.5e-03 7.0e-04 4.1e-03 1.2e-03 9.1e-04 1.5e-03 | successes 0 0 0 0 0 0 0 0 0 0
+d1200_v2_s240000     median 1.5e-03 max 1.5e-02 | per pose 1.5e-02 5.1e-04 1.2e-03 2.2e-03 6.5e-03 4.4e-04 7.8e-03 1.7e-03 4.5e-04 8.9e-04 | successes 0 0 0 0 0 0 0 0 0 0
+d1200_v2_s480000     median 1.0e-03 max 3.8e-02 | per pose 3.8e-02 3.4e-03 4.2e-05 1.6e-04 6.7e-04 2.0e-04 9.3e-03 2.3e-03 2.1e-04 1.4e-03 | successes 0 0 3 3 0 0 0 0 3 0
