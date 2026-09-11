@@ -137,3 +137,41 @@ def test_write_immutable_file_streams_and_rejects_conflicts(tmp_path) -> None:
     with pytest.raises(FileExistsError, match="different content"):
         write_immutable_file(destination, shifted)
     assert not list(destination.parent.glob(".*.tmp"))
+
+
+def test_write_immutable_file_move_publishes_without_copy(tmp_path):
+    """2026-09-11: a 226 GB frames sidecar died copying itself; move=True hard-links the source into place."""
+    import os
+    from so_arm101_v2.data._serialization import write_immutable_file
+    source = tmp_path / "images.npy"; source.write_bytes(b"frames" * 1000)
+    target = tmp_path / "oracle" / "images.npy"
+    write_immutable_file(target, source, move=True)
+    assert target.read_bytes() == b"frames" * 1000 and not source.exists()
+    # Same content again: accepted, the new source is consumed.
+    again = tmp_path / "again.npy"; again.write_bytes(b"frames" * 1000)
+    write_immutable_file(target, again, move=True)
+    assert not again.exists() and target.read_bytes() == b"frames" * 1000
+    # Different content: refused, target untouched.
+    other = tmp_path / "other.npy"; other.write_bytes(b"other")
+    import pytest
+    with pytest.raises(FileExistsError):
+        write_immutable_file(target, other, move=True)
+    assert target.read_bytes() == b"frames" * 1000 and other.exists()
+    assert os.stat(target).st_nlink == 1
+
+
+def test_truncate_npy_in_place_matches_np_save_of_the_slice(tmp_path):
+    import numpy as np
+    from so_arm101_v2.simulation.oracle import truncate_npy_in_place
+    rng = np.random.default_rng(0)
+    for total, keep in ((7, 3), (480 * 4, 480 * 3), (12, 12), (1000, 1)):
+        path = tmp_path / f"frames_{total}.npy"
+        data = rng.integers(0, 255, size=(total, 4, 5, 3), dtype=np.uint8)
+        np.save(path, data)
+        expected = tmp_path / f"expected_{keep}.npy"; np.save(expected, data[:keep])
+        assert truncate_npy_in_place(path, keep)
+        assert path.read_bytes() == expected.read_bytes()
+        assert np.load(path).shape == (keep, 4, 5, 3)
+    path = tmp_path / "grow.npy"; np.save(path, data)
+    assert not truncate_npy_in_place(path, total + 1)   # cannot grow; file untouched
+    assert np.load(path).shape == (total, 4, 5, 3)

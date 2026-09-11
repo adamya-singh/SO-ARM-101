@@ -77,12 +77,19 @@ def _files_identical(first: Path, second: Path) -> bool:
 
 
 def write_immutable_file(
-    path: Path, source: Path, *, conflict_message: str | None = None
+    path: Path, source: Path, *, conflict_message: str | None = None, move: bool = False
 ) -> None:
     """Streaming variant of write_immutable_bytes for artifacts too large to
     hold in memory (e.g. multi-GB frames sidecars).  Same atomic
     create-exclusive publish and conflict semantics; content is compared by
-    streaming, never fully materialized."""
+    streaming, never fully materialized.
+
+    ``move=True`` publishes ``source`` itself (hard link + unlink, so no second
+    copy of a multi-hundred-GB file ever exists on disk; 2026-09-11 a 226 GB
+    frames capture died copying itself with 297 GB free) when it is on the
+    same filesystem; across filesystems it falls back to the copy.  The
+    caller must not use ``source`` afterwards."""
+    import errno
     import shutil
 
     def _conflict() -> FileExistsError:
@@ -94,8 +101,24 @@ def write_immutable_file(
     if path.exists():
         if not _files_identical(path, source):
             raise _conflict()
+        if move:
+            os.unlink(source)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    if move:
+        try:
+            os.link(source, path)
+        except FileExistsError:
+            if not _files_identical(path, source):
+                raise _conflict() from None
+            os.unlink(source)
+            return
+        except OSError as error:
+            if error.errno != errno.EXDEV:
+                raise
+        else:
+            os.unlink(source)
+            return
     descriptor, temp_name = tempfile.mkstemp(
         dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
     )

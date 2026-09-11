@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import multiprocessing
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -337,6 +338,61 @@ def _frames_convention(identity: dict[str, Any]) -> str:
     return f"raw_wrist_hwc_uint8_{lens}_preprocess_with_preprocess_wrist_image"
 
 
+FRAME_BYTES = 256 * 256 * 3
+
+
+def truncate_npy_in_place(path: Path, rows: int) -> bool:
+    """Shrink a C-ordered ``.npy`` file to its first ``rows`` leading-axis rows without copying it.
+
+    The rewritten file is byte-identical to ``np.save`` of the slice whenever the
+    new header pads to the same length as the old one (numpy pads headers to a
+    64-byte alignment, so this holds for every practical row count); returns
+    False without touching the file when it would not, so the caller can fall
+    back to the copy.  Added 2026-09-11 so a frames capture with skipped
+    scenarios never needs a second copy of itself on disk."""
+    import io
+    with open(path, "rb") as handle:
+        version = np.lib.format.read_magic(handle)
+        shape, fortran_order, dtype = np.lib.format._read_array_header(handle, version)
+        header_length = handle.tell()
+    if fortran_order or rows > shape[0]:
+        return False
+    buffer = io.BytesIO()
+    new_header = dict(descr=np.lib.format.dtype_to_descr(dtype), fortran_order=False, shape=(int(rows),) + tuple(shape[1:]))
+    if version == (1, 0):
+        np.lib.format.write_array_header_1_0(buffer, new_header)
+    elif version == (2, 0):
+        np.lib.format.write_array_header_2_0(buffer, new_header)
+    else:
+        return False
+    if buffer.tell() != header_length:
+        return False
+    row_bytes = int(np.prod(shape[1:])) * dtype.itemsize
+    with open(path, "r+b") as handle:
+        handle.write(buffer.getvalue())
+        handle.truncate(header_length + int(rows) * row_bytes)
+    return True
+
+
+def _check_frames_disk_space(temporary_path: Path, output_dir: Path, total_rows: int) -> None:
+    """Refuse a frames capture that cannot fit on disk before any episode is run (2026-09-11: a 2400-episode
+    capture ran 3.5 h and died at the final copy).  The sidecar is written once in the temporary directory and
+    then moved (same filesystem) or copied (different filesystem) to the destination."""
+    import shutil
+    required = total_rows * FRAME_BYTES
+    margin = 4 << 30
+    output_dir.mkdir(parents=True, exist_ok=True)
+    temp_free = shutil.disk_usage(temporary_path).free
+    same_device = os.stat(temporary_path).st_dev == os.stat(output_dir).st_dev
+    needed_on_temp = required + margin
+    if temp_free < needed_on_temp:
+        raise RuntimeError(f"frames capture needs {required / 1e9:.1f} GB (+{margin / 1e9:.0f} GB margin) on {temporary_path}'s "
+                           f"filesystem but only {temp_free / 1e9:.1f} GB are free")
+    if not same_device and shutil.disk_usage(output_dir).free < needed_on_temp:
+        raise RuntimeError(f"frames capture needs {required / 1e9:.1f} GB (+{margin / 1e9:.0f} GB margin) on {output_dir}'s "
+                           f"filesystem but only {shutil.disk_usage(output_dir).free / 1e9:.1f} GB are free")
+
+
 def capture_oracle_demonstrations(
     model_path: str | Path,
     suite: SimulationSuite | str,
@@ -434,6 +490,7 @@ def capture_oracle_demonstrations(
         frames_temp = temporary_path / "images.npy"
         if store_frames:
             total_rows = len(selected) * horizon
+            _check_frames_disk_space(temporary_path, Path(output_dir), total_rows)
             frames = np.lib.format.open_memmap(
                 frames_temp, mode="w+", dtype=np.uint8,
                 shape=(total_rows, 256, 256, 3),
@@ -490,9 +547,12 @@ def capture_oracle_demonstrations(
             frames.flush()
             kept_rows = int(materialized["action_index"].shape[0])
             if kept_rows < frames.shape[0]:
-                truncated_path = temporary_path / "images.trunc.npy"
-                np.save(truncated_path, np.asarray(frames[:kept_rows]))
-                frames_temp = truncated_path
+                del frames
+                if not truncate_npy_in_place(frames_temp, kept_rows):
+                    truncated_path = temporary_path / "images.trunc.npy"
+                    np.save(truncated_path, np.load(frames_temp, mmap_mode="r")[:kept_rows])
+                    frames_temp = truncated_path
+                frames = np.load(frames_temp, mmap_mode="r")
             digest = hashlib.sha256()
             with open(frames_temp, "rb") as handle:
                 for block in iter(lambda: handle.read(1 << 22), b""):
@@ -504,8 +564,9 @@ def capture_oracle_demonstrations(
         arrays_path = destination / "demonstrations.npz"
         _write_immutable_bytes(arrays_path, arrays_bytes)
         if frames is not None:
+            del frames
             write_immutable_file(
-                destination / "images.npy", frames_temp,
+                destination / "images.npy", frames_temp, move=True,
                 conflict_message=f"immutable oracle artifact differs: {destination / 'images.npy'}",
             )
 
