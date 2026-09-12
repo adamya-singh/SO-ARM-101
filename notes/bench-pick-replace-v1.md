@@ -30,10 +30,10 @@ worse than run 4's 136x (1.4e-5 vs 1.9e-3). Tripling the placements did not
 move the held-out loss at all: the network memorises whatever it is given and
 does not learn to read the square's position from the survey frame. NOT a
 live-trial candidate; the fixed-square policy `ytn3eygr` remains the only
-one that has succeeded on the arm. The scaling ladder (tsp job 4, running)
-tests the remaining levers directly: encoder v2/v3 against v1 at 300-2400
-placements and a steps sweep. If no encoder generalises at any size, the next
-lever is input augmentation (random shifts) rather than more data.**
+one that has succeeded on the arm. The scaling ladder (2026-09-11, see the
+status paragraph above) then tested the remaining levers directly: no encoder
+generalised at any data size or step count, so the next lever is input
+augmentation (random shifts) and a separate square localiser, not more data.**
 
 **Placement randomization tranche implemented (2026-09-10, later): square +
 cube anywhere in the 14 × 10 in rectangle with yaw; survey viewing pose;

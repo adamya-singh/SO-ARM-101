@@ -41,8 +41,14 @@ the larger distribution on 400 episodes (held-out 3/30); the fifth run with
 1200 placements and 240k steps (247 min) scored the same, held-out 3/30, and
 its held-out loss at the first descent chunk did not move (417x the training
 loss), so more placements alone do not help this 8k-parameter encoder. A
-scaling ladder (placements × encoder × steps, train-versus-held-out loss per
-point) is running to pick the next lever.
+scaling ladder (September 11: 2400 placements × three encoders × 60k-480k
+steps, scored on 10 unseen placements) then showed that data, encoder size
+and training length all fail the same way: held-out loss stays at 2e-3 to
+8e-3 while training loss reaches 1e-7, and a nearest-training-placement
+lookup beats every network. The bottleneck is reading the square's position
+from the survey image, so the next levers are random-shift augmentation and
+a separate square localiser conditioning the policy (see the notebook entry
+"Scaling ladder (2026-09-11)").
 
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the
