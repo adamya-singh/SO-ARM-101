@@ -48,6 +48,15 @@ failures (notebook entry "Shift-12 follow-ups (2026-09-12)"). Not yet a
 live-trial candidate; run the real-frame gate on the 2400/shift-12
 checkpoint first.**
 
+**Seed repeats DONE 2026-09-12 (seeds 101/303 of 2400 / 120k / shift 12, W&B
+qcxtwbdg, qiz5n9g3): held-out 5.8e-4 and 3.4e-4 (ratio 4.4x, 3.3x), rollouts
+6/30 and 12/30 against seed 202's 15/30; mean 11 +- 4.6. The loss-side data
+effect reproduces; single-run rollout counts do not rank recipes closer than
+~10 apart, so recipes are now judged by held-out loss across seeds and
+pooled rollouts (33/90 here). Disk cleaned (347 GB freed) and row-strided
+sidecars added (commit 41d8fb7); the 4800-placement capture (stride 30) and
+its shift-12 run are queued (notebook entry "Seed repeats (2026-09-12)").**
+
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
 placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on

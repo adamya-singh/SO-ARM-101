@@ -1,0 +1,16 @@
+2400 placements / 120k / shift 12, three training seeds; held-out start-90 MSE per pose and wins of 3
+pose        seed202        seed101        seed303
+pose_000   1.8e-04 0    4.4e-04 0    2.1e-04 0
+pose_001   1.0e-04 0    5.6e-05 3    6.6e-05 3
+pose_002   3.1e-04 3    1.9e-04 0    1.4e-04 3
+pose_003   6.6e-04 3    1.4e-03 0    2.4e-04 0
+pose_004   7.1e-05 3    3.6e-04 0    7.0e-05 3
+pose_005   1.1e-03 0    8.7e-04 0    6.2e-04 0
+pose_006   2.6e-04 3    2.8e-04 3    5.4e-04 0
+pose_007   2.8e-04 3    1.5e-03 0    7.9e-04 3
+pose_008   1.9e-03 0    4.7e-04 0    4.9e-04 0
+pose_009   7.9e-04 0    3.4e-04 0    2.8e-04 0
+seed 202: heldout90 5.7e-04 train90 9.8e-05 ratio 5.8x median 3.0e-04 max 1.9e-03 under 3/10 success 15/30 safety 261 train_s 1647
+seed 101: heldout90 5.8e-04 train90 1.3e-04 ratio 4.4x median 4.0e-04 max 1.5e-03 under 2/10 success 6/30 safety 455 train_s 1680
+seed 303: heldout90 3.4e-04 train90 1.1e-04 ratio 3.3x median 2.6e-04 max 7.9e-04 under 5/10 success 12/30 safety 601 train_s 1617
+rollouts mean 11.0 sd 4.6 | heldout90 mean 5.0e-04 sd 1.3e-04 | poses won by >=2 seeds: ['pose_001', 'pose_002', 'pose_004', 'pose_006', 'pose_007']

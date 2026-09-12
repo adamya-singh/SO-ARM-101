@@ -904,3 +904,37 @@ still falling with the ratio under 10x. Number to watch: per-pose held-out
 start-90 median across seeds and rollouts >= 15/30 on all three. Live
 policy unchanged (`ytn3eygr`); the 2400/shift-12 checkpoint is the first
 placement-general candidate worth a real-frame gate check.
+
+### Seed repeats (2026-09-12 evening): 2400 / 120k / shift 12 at seeds 101 and 303; loss reproduces, rollouts spread 6-15
+
+`experiments/augmentation_shift12_2400_seed101_20260912` (W&B qcxtwbdg) and
+`..._seed303_20260912` (W&B qiz5n9g3), `analysis_seeds.txt` beside the latter.
+Same capture, same recipe, only the training seed differs (minibatch order,
+initialisation, shift offsets).
+
+| seed | train 90 | held-out 90 | ratio | per-pose median | poses <= 2.5e-4 | rollouts | safety frames |
+|---|---|---|---|---|---|---|---|
+| 202 | 9.8e-5 | 5.7e-4 | 5.8x | 3.0e-4 | 3/10 | 15/30 | 261 |
+| 101 | 1.3e-4 | 5.8e-4 | 4.4x | 4.0e-4 | 2/10 | 6/30 | 455 |
+| 303 | 1.1e-4 | 3.4e-4 | 3.3x | 2.6e-4 | 5/10 | 12/30 | 601 |
+| mean +- sd | | 5.0e-4 +- 1.3e-4 | | | | 11.0 +- 4.6 | |
+
+Reading: the loss-side result is stable across seeds (every seed under
+6e-4 held-out and under 6x ratio, against 6.2e-4 / 15x for 1200 placements
+and 3.2e-3 / 1744x unaugmented on this capture), so "placements pay once
+memorisation is blocked" holds. The closed-loop count is not stable: 15, 6,
+12 of 30, sd 4.6, with pose wins that move between seeds (five poses won by
+at least two seeds: 001, 002, 004, 006, 007; 000, 005, 008, 009 lost by all
+three). Per pose the loss also moves 2-5x between seeds at the same
+placement (pose_003: 6.6e-4 / 1.4e-3 / 2.4e-4), so the per-pose profile of
+one run is a noisy estimate too. The decision rule set above (all three
+seeds >= 12/30) is not met; the mean (11/30) is above every earlier
+configuration (1200-placement shift 12: 9/30 single seed; unaugmented 2400:
+6/30) but the spread means a single 30-rollout evaluation cannot rank
+configurations closer than ~10 successes apart. Consequences: (1) judge
+configurations by held-out loss across seeds (sd 1.3e-4 here) and by
+rollouts pooled over seeds (33/90 for this recipe), not by one run's
+count; (2) the 4800-placement run (queued) is judged the same way: its loss
+must land under 3.4e-4 to be distinguishable from this recipe's best seed;
+(3) the closure-precision failures (edge-caught lifts) persist in every
+seed, which keeps the square localiser as the lever after data.
