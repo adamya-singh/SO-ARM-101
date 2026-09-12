@@ -93,6 +93,64 @@ def per_pose_summary(per_pose: dict[str, float], threshold: float = 2.5e-4) -> d
                 poses_under_threshold=int((values <= threshold).sum()), poses=int(values.shape[0]), threshold=threshold)
 
 
+class HeldoutCurveScorer:
+    """Held-out (and a fixed train sample) start-90 loss, cheap enough to run every checkpoint (2026-09-12).
+
+    Loads the start-90 rows of a held-out capture (one per pose) and ``train_samples`` start-90 rows of
+    the training prefix ONCE into host memory, so each ``score`` is one small forward pass (< 1 s) and
+    the training loop is not slowed. ``score`` returns the same held-out start-90 mean and per-pose
+    values as ``boundary_losses`` / ``per_pose_start_90`` on the final checkpoint (the 10 held-out
+    start-90 rows are scored exhaustively either way); the train value is a fixed-seed sample.
+    """
+
+    def __init__(self, heldout_manifest, train_manifest=None, *, episode_limit: int | None = None,
+                 train_samples: int = 200, seed: int = 0, threshold: float = 2.5e-4) -> None:
+        self.threshold = threshold
+        self.heldout_images, self.heldout_state, self.heldout_targets, self.heldout_poses = self._load(heldout_manifest, None, None, seed)
+        if train_manifest is not None:
+            self.train_images, self.train_state, self.train_targets, _ = self._load(train_manifest, episode_limit, train_samples, seed)
+        else:
+            self.train_images = None
+
+    @staticmethod
+    def _load(manifest_path, episode_limit, samples, seed):
+        manifest, frames, arrays = load_vision_frames(manifest_path)
+        episode_lengths = [int(e["rows"]) for e in manifest["episodes"]]
+        action_index = np.asarray(arrays["action_index"])
+        within = np.ones(frames.shape[0], dtype=bool)
+        if episode_limit is not None:
+            within = np.arange(frames.shape[0]) < int(sum(episode_lengths[:int(episode_limit)]))
+        rows = np.flatnonzero((action_index == 90) & within)
+        if samples is not None and rows.shape[0] > samples:
+            rows = np.sort(np.random.default_rng(seed).choice(rows, samples, replace=False))
+        starts = np.concatenate([[0], np.cumsum(episode_lengths)])
+        poses = [str(manifest["episodes"][int(np.searchsorted(starts, r, side="right") - 1)]["scenario_id"]) for r in rows.tolist()]
+        targets = build_chunked_targets(arrays, 90, episode_lengths=episode_lengths).reshape(frames.shape[0], -1)[rows]
+        state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
+                                np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)[rows]
+        images = np.ascontiguousarray(frames[rows])
+        return images, state, targets, poses
+
+    def _errors(self, model, images, state, targets, device):
+        import torch
+        with torch.inference_mode():
+            batch = torch.from_numpy(images).to(device).permute(0, 3, 1, 2).float().div_(255.0)
+            prediction = model(batch, torch.from_numpy(state).to(device)).cpu().numpy()
+        return ((prediction - targets) ** 2).mean(axis=1)
+
+    def score(self, model, *, device) -> dict:
+        errors = self._errors(model, self.heldout_images, self.heldout_state, self.heldout_targets, device)
+        per_pose: dict[str, float] = {}
+        for pose, error in zip(self.heldout_poses, errors.tolist()):
+            per_pose[pose] = float(error) if pose not in per_pose else float(np.mean([per_pose[pose], error]))
+        out = dict(heldout_start_90=float(errors.mean()), per_pose=per_pose, **per_pose_summary(per_pose, self.threshold))
+        if self.train_images is not None:
+            train = float(self._errors(model, self.train_images, self.train_state, self.train_targets, device).mean())
+            out["train_start_90"] = train
+            out["ratio_start_90"] = float(out["heldout_start_90"] / max(train, 1e-12))
+        return out
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--checkpoint", type=Path, required=True)

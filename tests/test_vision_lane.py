@@ -357,3 +357,22 @@ def test_random_shift_crops_exactly_and_is_identity_bearing(tmp_path: Path, monk
     assert torch.load(shifted_run.checkpoint, map_location='cpu', weights_only=False)['random_shift'] == 4
     with pytest.raises(ValueError):
         VisionChunkedConfig(random_shift=-1)
+
+
+def test_on_checkpoint_observer_is_digest_neutral(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SO_ARM101_V2_NUMERICS", "legacy")
+    manifest_path = _write_tiny_frames_manifest(tmp_path)
+    config = VisionChunkedConfig(chunk_horizon=2, max_steps=5, batch_size=2)
+    seen: list[int] = []
+
+    def observe(step, model):
+        seen.append(step)
+        assert not hasattr(model, "_orig_mod")
+        images = torch.zeros(1, 3, 256, 256); state = torch.zeros(1, VISION_STATE_DIM)
+        assert model(images, state).shape == (1, 2 * 6)   # reading the model is allowed
+    observed = train_vision_chunked(manifest_path, tmp_path / "with_observer", config=config, numerics=None,
+                                    checkpoint_interval=2, on_checkpoint=observe)
+    assert seen == [2, 4, 5]   # every checkpoint_interval and the last step
+    silent = train_vision_chunked(manifest_path, tmp_path / "without_observer", config=config, numerics=None)
+    assert observed.directory.name == silent.directory.name
+    assert observed.normalized_mse == silent.normalized_mse

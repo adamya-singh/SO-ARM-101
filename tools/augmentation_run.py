@@ -138,6 +138,9 @@ def main(argv=None) -> int:
     for section in ("01_outcome/*", "02_generalisation/*", "04_throughput/*"):
         tracker.define_metric(section, step_metric="augmentation/shift_px")
     tracker.define_metric("03_training/batch_mse_*", step_metric="03_training/step")
+    tracker.define_metric("02_generalisation/curve_*", step_metric="03_training/step")   # held-out during training (2026-09-12)
+    from heldout_fit import HeldoutCurveScorer
+    curve_scorer = HeldoutCurveScorer(heldout_manifest, train_manifest, episode_limit=args.episodes)
 
     def progress(**values):
         state.update(values); state["updated_at"] = time.time(); atomic_json(root / "progress.json", state)
@@ -192,9 +195,24 @@ def main(argv=None) -> int:
                         tracker.log({"03_training/step": step, f"03_training/batch_mse_shift{_shift}": value})
                     except Exception:
                         pass
+                def on_checkpoint(step, model, _shift=shift, _label=label):
+                    try:
+                        import torch
+                        curve = curve_scorer.score(model, device=next(model.parameters()).device)
+                        payload = {"03_training/step": step,
+                                   f"02_generalisation/curve_heldout_start_90_shift{_shift}": curve["heldout_start_90"],
+                                   f"02_generalisation/curve_train_start_90_shift{_shift}": curve["train_start_90"],
+                                   f"02_generalisation/curve_ratio_start_90_shift{_shift}": curve["ratio_start_90"],
+                                   f"02_generalisation/curve_per_pose_median_shift{_shift}": curve["median"],
+                                   f"02_generalisation/curve_poses_under_2.5e-4_shift{_shift}": curve["poses_under_threshold"]}
+                        tracker.log(payload)
+                        with open(root / "runs" / _label / "heldout_curve.jsonl", "a") as handle:
+                            handle.write(json.dumps(dict(step=step, **{k: v for k, v in curve.items()})) + "\n")
+                    except Exception as exc:   # observers must never stop training
+                        print(f"held-out curve failed at step {step}: {exc}", flush=True)
                 started = time.time()
                 trained = train_vision_chunked(train_manifest, root / "runs" / label, config=config, scratch_checkpoint=root / "runs" / label / "scratch.pt",
-                                               checkpoint_interval=5000, on_loss=on_loss)
+                                               checkpoint_interval=5000, on_loss=on_loss, on_checkpoint=on_checkpoint)
                 checkpoint = trained.checkpoint
                 point = dict(label=label, shift=shift, run_digest=json.loads(trained.report_json.read_text())["run_digest"], checkpoint=str(checkpoint),
                              train_seconds=round(time.time() - started, 1), normalized_mse=trained.normalized_mse)

@@ -368,6 +368,7 @@ def train_vision_chunked(
     config: VisionChunkedConfig,
     numerics: NumericsSpec | None | str = AUTO,
     on_loss: "Callable[[int, float], None] | None" = None,
+    on_checkpoint: "Callable[[int, Any], None] | None" = None,
     scratch_checkpoint: str | Path | None = None,
     checkpoint_interval: int = 5000,
     stop_after_steps: int | None = None,
@@ -377,6 +378,12 @@ def train_vision_chunked(
     ``on_loss`` is a pure observer called as ``on_loss(step, batch_mse)`` at
     the loss-trace cadence (external experiment tracking); it never enters
     the identity payload and must not affect training.
+
+    ``on_checkpoint`` is a pure observer called as ``on_checkpoint(step, model)``
+    every ``checkpoint_interval`` steps and at the last step, with the
+    unwrapped module (no compile wrapper) under ``torch.no_grad``; intended for
+    scoring a held-out capture during training (2026-09-12). It must only read
+    the model: it never enters the identity and must not affect training.
     """
     if isinstance(numerics, str):
         if numerics != AUTO:
@@ -620,6 +627,9 @@ def train_vision_chunked(
             if scratch is not None and (step % checkpoint_interval == 0 or step == config.max_steps
                                         or step == stop_after_steps):
                 save_scratch(step)
+            if on_checkpoint is not None and (step % checkpoint_interval == 0 or step == config.max_steps):
+                with torch.no_grad():
+                    on_checkpoint(step, getattr(model, "_orig_mod", model))
             if step == stop_after_steps:
                 raise InterruptedError(f"requested training interruption at step {step}")
     finally:
