@@ -59,6 +59,40 @@ def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: i
     return out
 
 
+def per_pose_start_90(model, manifest_path, *, device) -> dict[str, float]:
+    """Chunk-target MSE at chunk start 90 for every episode of a capture, keyed by scenario id.
+
+    The mean over poses hides which placements a policy cannot read (the ladder's frontier means were
+    set by two or three poses); the per-pose profile, its median and the count under 2.5e-4 (the
+    level at which every closed-loop success occurred) are the numbers to judge a perception change by.
+    """
+    import torch
+    manifest, frames, arrays = load_vision_frames(manifest_path)
+    episode_lengths = [int(e["rows"]) for e in manifest["episodes"]]
+    targets = build_chunked_targets(arrays, model.chunk_horizon, episode_lengths=episode_lengths).reshape(frames.shape[0], -1)
+    state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
+                            np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)
+    action_index = np.asarray(arrays["action_index"])
+    rows = np.flatnonzero(action_index == 90)
+    starts = np.concatenate([[0], np.cumsum(episode_lengths)])
+    out: dict[str, float] = {}
+    with torch.inference_mode():
+        images = torch.from_numpy(np.ascontiguousarray(frames[rows])).to(device).permute(0, 3, 1, 2).float().div_(255.0)
+        prediction = model(images, torch.from_numpy(state[rows]).to(device)).cpu().numpy()
+        errors = ((prediction - targets[rows]) ** 2).mean(axis=1)
+    for row, error in zip(rows.tolist(), errors.tolist()):
+        episode = int(np.searchsorted(starts, row, side="right") - 1)
+        scenario = str(manifest["episodes"][episode]["scenario_id"])
+        out[scenario] = float(error) if scenario not in out else float(np.mean([out[scenario], error]))
+    return out
+
+
+def per_pose_summary(per_pose: dict[str, float], threshold: float = 2.5e-4) -> dict[str, float | int]:
+    values = np.asarray(list(per_pose.values()), dtype=np.float64)
+    return dict(median=float(np.median(values)), max=float(values.max()), mean=float(values.mean()),
+                poses_under_threshold=int((values <= threshold).sum()), poses=int(values.shape[0]), threshold=threshold)
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--checkpoint", type=Path, required=True)
@@ -82,11 +116,17 @@ def main(argv=None) -> int:
         train_manifest = Path(candidates[0])
     train = boundary_losses(model, train_manifest, device=device)
     heldout = boundary_losses(model, args.heldout_manifest, device=device)
+    per_pose = per_pose_start_90(model, args.heldout_manifest, device=device)
     record = dict(checkpoint=str(args.checkpoint), train_manifest=str(train_manifest), heldout_manifest=str(args.heldout_manifest),
                   parameters=int(sum(p.numel() for p in model.parameters())), encoder=str(checkpoint.get("encoder", "v1")),
-                  train=train, heldout=heldout, ratio={k: round(heldout[k] / max(train[k], 1e-12), 1) for k in train})
+                  train=train, heldout=heldout, ratio={k: round(heldout[k] / max(train[k], 1e-12), 1) for k in train},
+                  heldout_per_pose_start_90=per_pose, heldout_per_pose_summary=per_pose_summary(per_pose))
     for k in train:
         print(f"{k:20s} train {train[k]:.2e}  held-out {heldout[k]:.2e}  ratio {record['ratio'][k]:.1f}x")
+    summary = record["heldout_per_pose_summary"]
+    print(f"per pose start 90: median {summary['median']:.1e} max {summary['max']:.1e} "
+          f"under {summary['threshold']:.1e}: {summary['poses_under_threshold']}/{summary['poses']} | "
+          + " ".join(f"{k} {v:.1e}" for k, v in per_pose.items()))
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(record, indent=2) + "\n")

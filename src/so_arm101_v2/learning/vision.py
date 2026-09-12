@@ -71,6 +71,12 @@ class VisionChunkedConfig:
     # Train on the first ``episode_limit`` episodes of the capture only (scaling ladder, 2026-09-10): the accepted
     # placements are in draw order, so a prefix is a random subset. None = all episodes (identity unchanged).
     episode_limit: int | None = None
+    # Random-shift augmentation (2026-09-12, after the scaling ladder): pad each training frame by
+    # ``random_shift`` pixels (edge replicate) and crop back to 256x256 at a per-sample uniform offset,
+    # so no frame has a fixed pixel identity to memorise; the network must read the square's position
+    # relative to the scene (DrQ, Kostrikov et al. 2020). Labels are unchanged; evaluation frames are
+    # never shifted. 0 = off (identity unchanged).
+    random_shift: int = 0
 
     def __post_init__(self) -> None:
         if not 1 <= self.chunk_horizon <= 480:
@@ -81,6 +87,8 @@ class VisionChunkedConfig:
             raise ValueError("encoder must be 'v1', 'v2' or 'v3'")
         if self.episode_limit is not None and (int(self.episode_limit) < 1 or int(self.episode_limit) != self.episode_limit):
             raise ValueError("episode_limit must be a positive integer or None")
+        if int(self.random_shift) != self.random_shift or not 0 <= int(self.random_shift) <= 64:
+            raise ValueError("random_shift must be an integer number of pixels in [0, 64]")
         if self.seed < 0 or self.learning_rate <= 0 or self.max_steps <= 0:
             raise ValueError("invalid vision clone configuration")
         if self.hidden_width not in (128, 256, 512):
@@ -162,6 +170,26 @@ def build_vision_chunked_model(hidden_width: int, chunk_horizon: int, encoder: s
             return self.head(torch.cat([self.encoder(images), self.state(state)], dim=1))
 
     return VisionChunkedNetwork()
+
+
+def random_shift_images(images: Any, shift: int, generator: Any) -> Any:
+    """Per-sample random translation of a float (B, C, H, W) batch by up to ``shift`` pixels each way.
+
+    Replicate-pads by ``shift`` and gathers an HxW window at an offset drawn uniformly from
+    [0, 2*shift] per sample (CPU ``generator``, so the draw stream is device-invariant). Pixels are
+    copied, never interpolated. ``shift == 0`` returns the input unchanged.
+    """
+    if shift <= 0:
+        return images
+    torch = _torch()
+    batch, _, height, width = images.shape
+    padded = torch.nn.functional.pad(images, (shift, shift, shift, shift), mode="replicate")
+    offsets = torch.randint(0, 2 * shift + 1, (batch, 2), generator=generator).to(images.device)
+    rows = torch.arange(height, device=images.device)[None, :] + offsets[:, 0:1]      # (B, H)
+    cols = torch.arange(width, device=images.device)[None, :] + offsets[:, 1:2]       # (B, W)
+    sample = torch.arange(batch, device=images.device)[:, None, None]
+    gathered = padded.permute(0, 2, 3, 1)[sample, rows[:, :, None], cols[:, None, :]]  # (B, H, W, C)
+    return gathered.permute(0, 3, 1, 2).contiguous()
 
 
 def _read_frame_rows(frames: Any, index_array: "np.ndarray") -> "np.ndarray":
@@ -392,7 +420,8 @@ def train_vision_chunked(
         "source_rows": rows,
         # frame_stride enters the identity only when it changes the sample set, so every historical digest is unchanged.
         "config": {k: v for k, v in asdict(config).items()
-                   if not ((k == "frame_stride" and v == 1) or (k == "encoder" and v == "v1") or (k == "episode_limit" and v is None))},
+                   if not ((k == "frame_stride" and v == 1) or (k == "encoder" and v == "v1") or (k == "episode_limit" and v is None)
+                           or (k == "random_shift" and v == 0))},
         "input_schema": list(VISION_INPUT_SCHEMA),
         "image_convention": "preprocess_wrist_image_div255_chw",
         "target": "normalized_absolute_act_residual_on_current_pose",
@@ -430,6 +459,10 @@ def train_vision_chunked(
     device_frames = load_device_frames(frames, kept_rows, device) if frame_store == "gpu" else None
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     generator = noise_generator(torch, config.seed)
+    # A separate stream for the augmentation offsets, so the minibatch index stream (and the prefetch
+    # equivalence proof) is untouched and shift draws are independent of the prefetch depth.
+    shift = int(config.random_shift)
+    shift_generator = noise_generator(torch, config.seed + 7919) if shift > 0 else None
     if checkpoint_interval <= 0:
         raise ValueError("checkpoint_interval must be positive")
     scratch = Path(scratch_checkpoint) if scratch_checkpoint else None
@@ -443,6 +476,8 @@ def train_vision_chunked(
         getattr(model, "_orig_mod", model).load_state_dict(resumed["model"])
         optimizer.load_state_dict(resumed["optimizer"])
         generator.set_state(resumed["generator"])
+        if shift_generator is not None:
+            shift_generator.set_state(resumed["shift_generator"])
         torch.set_rng_state(resumed["torch_rng"])
         if torch.cuda.is_available() and resumed["cuda_rng"] is not None:
             torch.cuda.set_rng_state_all(resumed["cuda_rng"])
@@ -524,6 +559,7 @@ def train_vision_chunked(
         payload = dict(run_digest=run_digest, step=step, drawn=drawn,
             model=cpu_state_dict(model), optimizer=optimizer.state_dict(),
             generator=generator.get_state(), torch_rng=torch.get_rng_state(),
+            shift_generator=shift_generator.get_state() if shift_generator is not None else None,
             cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
             numpy_rng=np.random.get_state(), python_rng=random.getstate(),
             pending_indices=[indices for indices, _ in pending],
@@ -567,6 +603,8 @@ def train_vision_chunked(
                 batch_images(indices) if uint8_block is None
                 else to_device_images(uint8_block)
             )
+            if shift_generator is not None:
+                images = random_shift_images(images, shift, shift_generator)
             source_rows = row_map_device[indices.to(device)]
             prediction = model(images, state[source_rows])
             loss = (prediction - targets[source_rows]).square().mean()
@@ -627,6 +665,8 @@ def train_vision_chunked(
     }
     if config.encoder != "v1":
         checkpoint_payload["encoder"] = config.encoder   # conditionally present: v1 checkpoints are byte-identical to before
+    if int(config.random_shift) > 0:
+        checkpoint_payload["random_shift"] = int(config.random_shift)   # training-time only; inference never shifts
     checkpoint_buffer = io.BytesIO()
     torch.save(checkpoint_payload, checkpoint_buffer)
     _write_immutable_bytes(directory / "model.pt", checkpoint_buffer.getvalue())

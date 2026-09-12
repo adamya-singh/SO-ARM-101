@@ -328,3 +328,32 @@ def test_episode_limit_and_encoder_v3(tmp_path: Path, monkeypatch) -> None:
     assert lr['config']['episode_limit'] == 1 and 'episode_limit' not in fr['config'] and lr['run_digest'] != fr['run_digest']
     with pytest.raises(ValueError):
         train_vision_chunked(manifest, tmp_path / 'bad', config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, episode_limit=99))
+
+
+def test_random_shift_crops_exactly_and_is_identity_bearing(tmp_path: Path, monkeypatch) -> None:
+    torch = pytest.importorskip('torch')
+    torch.set_num_threads(1)
+    from so_arm101_v2.learning.vision import random_shift_images, train_vision_chunked, VisionChunkedConfig
+    # The shifted batch is a pure window of the replicate-padded input: no interpolation, one offset per sample.
+    images = torch.rand(3, 3, 16, 16)
+    generator = torch.Generator().manual_seed(5)
+    shifted = random_shift_images(images, 4, generator)
+    assert shifted.shape == images.shape
+    padded = torch.nn.functional.pad(images, (4, 4, 4, 4), mode='replicate')
+    for b in range(3):
+        matches = [(dy, dx) for dy in range(9) for dx in range(9)
+                   if torch.equal(shifted[b], padded[b, :, dy:dy + 16, dx:dx + 16])]
+        assert matches, f'sample {b} is not a window of the padded input'
+    assert random_shift_images(images, 0, generator) is images
+    # Shift 0 leaves every historical identity unchanged; a shift enters the identity and the checkpoint.
+    manifest = _write_tiny_frames_manifest(tmp_path, rows=8)
+    monkeypatch.setenv('SO_ARM101_V2_FRAME_CACHE', 'off')
+    plain = train_vision_chunked(manifest, tmp_path / 'plain', config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128))
+    shifted_run = train_vision_chunked(manifest, tmp_path / 'shift', config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, random_shift=4))
+    plain_report, shift_report = json.loads(plain.report_json.read_text()), json.loads(shifted_run.report_json.read_text())
+    assert 'random_shift' not in plain_report['config'] and shift_report['config']['random_shift'] == 4
+    assert plain_report['run_digest'] != shift_report['run_digest']
+    assert 'random_shift' not in torch.load(plain.checkpoint, map_location='cpu', weights_only=False)
+    assert torch.load(shifted_run.checkpoint, map_location='cpu', weights_only=False)['random_shift'] == 4
+    with pytest.raises(ValueError):
+        VisionChunkedConfig(random_shift=-1)
