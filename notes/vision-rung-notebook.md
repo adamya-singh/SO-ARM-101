@@ -734,3 +734,96 @@ control side is then easy (the fixed-position policies reach 30/30), and the
 localiser can be validated on the recorded real frames against the ruler;
 (3) data only where the localiser needs it. The number to watch: per-pose
 held-out start-90 loss, median under 2.5e-4 on all 10 poses.
+
+### Random-shift augmentation (2026-09-12): the memorisation gap closes 350x, the tail failures become near-misses, closed loop stays at 9/30
+
+`experiments/augmentation_20260912` (tools/augmentation_run.py, W&B
+`random-shift-92f07142` id 8okj7i9y, tsp job 6, 1 h 25 min wall). Lever 1
+of the ladder decision, one change: each training frame is replicate-padded
+by `s` pixels and cropped back to 256x256 at a per-sample random offset
+(`VisionChunkedConfig.random_shift`, commit 6b4d936). Everything else is the
+ladder's sweep point (its 2400-placement capture as a 1200-placement prefix,
+v2 encoder, hidden 512, 120k steps, stride 18, seed 202); the ladder's
+unaugmented point is the baseline, re-scored per pose and given the 30
+rollouts it did not have. Evaluation frames are never shifted.
+
+| shift (px) | train start 90 | held-out start 90 | ratio | per-pose median | per-pose max | poses <= 2.5e-4 | rollouts | safety frames | train min |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 8.0e-7 | 4.2e-3 | 5250x | 1.1e-3 | 1.8e-2 | 0/10 | **0/30** | 525 | 20 |
+| 4 | 8.0e-6 | 1.3e-3 | 168x | 1.3e-3 | 4.4e-3 | 1/10 | **9/30** | 279 | 25 |
+| 12 | 4.1e-5 | 6.2e-4 | 15x | 2.4e-4 | 2.5e-3 | 5/10 | **9/30** | 193 | 26 |
+
+Per pose (held-out start-90 MSE; wins out of 3 at shift 0/4/12):
+
+| pose | shift 0 | shift 4 | shift 12 | wins |
+|---|---|---|---|---|
+| pose_000 (x -0.146) | 1.8e-2 | 2.1e-3 | 1.0e-3 | 0/0/0 |
+| pose_001 | 8.5e-4 | 1.1e-4 | 9.1e-5 | 0/0/3 |
+| pose_002 | 4.2e-4 | 2.8e-4 | 1.5e-4 | 0/3/0 |
+| pose_003 | 2.8e-3 | 1.3e-3 | 9.0e-4 | 0/0/0 |
+| pose_004 | 7.4e-3 | 7.3e-4 | 6.2e-5 | 0/3/3 |
+| pose_005 | 4.9e-4 | 1.3e-3 | 2.3e-4 | 0/0/0 |
+| pose_006 | 8.6e-3 | 4.4e-3 | 9.8e-4 | 0/0/0 |
+| pose_007 | 6.9e-4 | 5.4e-4 | 3.6e-5 | 0/0/3 |
+| pose_008 | 1.0e-3 | 1.3e-3 | 2.5e-3 | 0/3/0 |
+| pose_009 | 1.2e-3 | 1.4e-3 | 2.6e-4 | 0/0/0 |
+
+Readings, in the skill's order:
+
+- **Loss curves.** Batch loss at 10k/60k/120k: shift 0 2.5e-4 / 6.4e-6 /
+  6.4e-7; shift 4 1.8e-4 / 1.4e-5 / 2.7e-6; shift 12 3.5e-4 / 3.4e-5 /
+  1.0e-5. The augmented runs are still descending at 120k (2.4x and 3.4x in
+  the last half versus 1.9x for the baseline's annealing tail): with the
+  hash-table shortcut removed the network has not finished fitting.
+- **Decomposition.** All of the held-out error is still at chunk start 90
+  (survey frame -> first descent chunk). Starts 180/270/360 are 1e-7 to 1e-4
+  for every pose and every shift (`analysis_later_chunks.txt`); shift did not
+  move error downstream.
+- **Train versus held-out.** The ratio at start 90 falls 5250x -> 168x ->
+  15x. Held-out loss now follows train loss: the network reads the survey
+  frame instead of memorising it. The mean held-out loss (6.2e-4) is now
+  close to the 1200-prefix lookup baseline (6.0e-4 mean, 3.7e-4 median) and
+  the per-pose median (2.4e-4) is at the level where the ladder's successes
+  occurred, with five poses under it (none before).
+- **Where the failures went** (`analysis_rollouts.txt`, repeat 0 per pose,
+  categories from the pickup events): shift 0 = 5 collisions (unsafe contact
+  on descent, cube pushed 7-26 mm), 3 misses (no lift), 2 lifted-no-strict-
+  grasp, 0 successes. Shift 4 = 2 collisions, 2 misses, 3 lifted-no-strict-
+  grasp, 3 successes. Shift 12 = 1 collision, 2 misses, 3 lifted-no-strict-
+  grasp, 1 strict-then-lost (pose_002: strict grasp at step 259, unsafe
+  contact 312, grasp loss 316), 3 successes. "Lifted-no-strict-grasp" is a
+  cube caught by an edge or corner (interior face count 1-2, corner
+  rejections 1-2, opposition quality 0) and carried 20-30 mm, then dropped at
+  the release: the descent found the cube but landed a few millimetres or
+  degrees off a pad-centred grasp. So the gross failures of the baseline
+  (collide / miss) became precision failures, and the successes are the poses
+  whose descent was already within pad tolerance. The 2.5e-4 threshold is not
+  sharp: pose_008 won at 1.3e-3 (shift 4), pose_002/005/009 lost at 1.5e-4 to
+  2.6e-4 (shift 12); a chunk MSE averages 90 steps x 6 channels, and a few
+  millimetres at closure are a small part of it.
+- **Pipeline.** Shift 0 leaves every identity and digest unchanged (test);
+  the augmentation is a pure gather of the padded image (no interpolation,
+  pinned by test); the shift draws come from a separate seeded generator so
+  the minibatch stream and the prefetch equivalence are untouched; the
+  baseline re-scored at the ladder's value (4.18e-3) before anything else ran.
+
+Ruled in: input augmentation is the lever the ladder said it was; with it,
+data and steps start to matter again (held-out tracks train at 15x). Ruled
+out: the 9/30 plateau is not a plateau of the same kind as the ladder's
+(the ladder's 9/30 came with a 5e-3 mean and a memorised map; this one comes
+with a 6e-4 mean and per-pose errors within a factor of 2-4 of the working
+fixed-square policy on half the poses).
+
+Decision (ordered): (1) keep shift 12 and give it what the ratio now
+permits: 240k-480k steps (the curve is still descending; the baseline's
+steps sweep was flat only because it was memorising) and the full 2400
+placements (data exponent should now exceed the ladder's 0.4); one run of
+each, judged by per-pose median and the count of lifted-no-strict-grasp
+rollouts turning into successes; (2) the square localiser stays queued
+behind it, and the "lifted-no-strict" profile is its argument: the network
+knows where the cube is to within a cube width, and the last millimetres
+are a precision problem a dedicated (x, y, yaw) head is built for; (3) shift
+16-24 only if (1) stalls, since 12 px is already half a cube width. Number
+to watch: per-pose held-out start-90 median under 2.5e-4 with 8/10 poses
+under it, and rollouts above 15/30. Still no live-trial candidate;
+`ytn3eygr` remains the live policy.

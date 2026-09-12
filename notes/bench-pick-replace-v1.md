@@ -20,6 +20,20 @@ data, capacity or steps. Next lever: random-shift augmentation, then a
 separate square localiser conditioning the policy (notebook entry
 "Scaling ladder (2026-09-11)"). No live trial candidate from the ladder.**
 
+**Random-shift augmentation DONE 2026-09-12 10:41 (`experiments/augmentation_20260912`,
+W&B 8okj7i9y): the ladder's 1200-placement / v2 / 120k point retrained with
+per-sample random shifts of 4 and 12 px. Held-out start-90 loss 4.2e-3 ->
+1.3e-3 -> 6.2e-4, held-out/train ratio 5250x -> 168x -> 15x, per-pose
+median 1.1e-3 -> 2.4e-4 with 5/10 poses under 2.5e-4 (0 before); closed
+loop 0/30 -> 9/30 -> 9/30, safety frames 525 -> 193. The baseline's
+collisions and misses became "lifted but no strict grasp" near-misses (cube
+caught by an edge, carried 20-30 mm, dropped at release): the network now
+reads the survey frame, and the remaining error is millimetre precision at
+closure. Next: shift 12 at 240k-480k steps and at 2400 placements (both
+axes should pay now that memorisation is blocked), then the square
+localiser (notebook entry "Random-shift augmentation (2026-09-12)"). Not a
+live-trial candidate.**
+
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
 placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on
