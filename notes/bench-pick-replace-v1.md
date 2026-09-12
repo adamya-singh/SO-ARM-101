@@ -34,6 +34,20 @@ axes should pay now that memorisation is blocked), then the square
 localiser (notebook entry "Random-shift augmentation (2026-09-12)"). Not a
 live-trial candidate.**
 
+**Shift-12 follow-ups DONE 2026-09-12 13:20 (`experiments/augmentation_shift12_480k_20260912`
+W&B l5c6y603, `experiments/augmentation_shift12_2400_20260912` W&B u883j0tu;
+held-out loss now logged every 5000 steps inside every run). More steps
+(480k) bring memorisation back under augmentation (ratio 7x -> 77x, held-out
+flat at 1e-3, 0/30). More placements (2400) keep the ratio at 6x, put the
+ladder's worst pose at 1.8e-4, and give 15/30 closed loop (6/30 unaugmented
+on the same capture): the best held-out-placement result so far. Single-run
+rollout counts swing +-9 between checkpoints of equal loss, so next = seed
+repeats (101, 303) of 2400 / 120k / shift 12 before a 4800-placement capture;
+the square localiser remains next in line for the closure-precision
+failures (notebook entry "Shift-12 follow-ups (2026-09-12)"). Not yet a
+live-trial candidate; run the real-frame gate on the 2400/shift-12
+checkpoint first.**
+
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
 placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on

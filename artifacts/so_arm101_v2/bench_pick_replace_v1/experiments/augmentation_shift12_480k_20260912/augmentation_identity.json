@@ -1,0 +1,22 @@
+{
+  "baseline_label": "d1200_v2_s480000",
+  "encoder": "v2",
+  "episodes": 1200,
+  "frame_stride": 18,
+  "heldout_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_heldout/oracle/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/56755d99dc583c95/manifest.json",
+  "hidden_width": 512,
+  "ladder_dir": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910",
+  "lookup_baseline_1200": {
+    "mean": 0.000595,
+    "median": 0.000367
+  },
+  "pose_threshold": 0.00025,
+  "rehearsal": false,
+  "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+  "shifts": [
+    12
+  ],
+  "steps": 480000,
+  "train_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_train/oracle/bench_pick_replace_v1_seed12_n2400_appearance_placement_4adc064ea0e5/e378b543b3847ee0/manifest.json",
+  "training_seed": 202
+}

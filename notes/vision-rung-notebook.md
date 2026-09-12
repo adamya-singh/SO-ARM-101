@@ -827,3 +827,80 @@ are a precision problem a dedicated (x, y, yaw) head is built for; (3) shift
 to watch: per-pose held-out start-90 median under 2.5e-4 with 8/10 poses
 under it, and rollouts above 15/30. Still no live-trial candidate;
 `ytn3eygr` remains the live policy.
+
+### Shift-12 follow-ups (2026-09-12): steps bring memorisation back, placements do not; 2400 placements + shift 12 = 15/30
+
+Two runs of `tools/augmentation_run.py`, one change each from the shift-12
+point above (1200 placements, v2, 120k steps, stride 18, seed 202), each
+with the ladder's unaugmented point at the same settings as its baseline.
+`experiments/augmentation_shift12_480k_20260912` (W&B l5c6y603; held-out
+curve from `tools/heldout_watch.py` in W&B kspx4lgi) and
+`experiments/augmentation_shift12_2400_20260912` (W&B u883j0tu, curve in the
+run). Both runs now log held-out start-90 loss every 5000 steps
+(`heldout_curve.jsonl`; trainer `on_checkpoint` observer, commit 01977c6).
+
+| placements / steps / shift | train 90 | held-out 90 | ratio | per-pose median | poses <= 2.5e-4 | rollouts | safety | failures (repeat 0) |
+|---|---|---|---|---|---|---|---|---|
+| 1200 / 120k / 0 | 8.0e-7 | 4.2e-3 | 5250x | 1.1e-3 | 0/10 | 0/30 | 525 | 5 collide, 3 miss, 2 edge-lift |
+| 1200 / 120k / 12 | 4.1e-5 | 6.2e-4 | 15x | 2.4e-4 | 5/10 | 9/30 | 193 | 1 collide, 2 miss, 3 edge-lift, 1 lost |
+| 1200 / 480k / 0 | 3.3e-7 | 5.6e-3 | 16800x | 1.0e-3 | 4/10 | 9/30 | 279 | 3 collide, 3 miss, 1 edge-lift |
+| 1200 / 480k / 12 | 1.4e-5 | 1.1e-3 | 78x | 1.1e-3 | 1/10 | **0/30** | 382 | 3 collide, 2 miss, 5 edge-lift |
+| 2400 / 120k / 0 | 1.8e-6 | 3.2e-3 | 1744x | 1.0e-3 | 2/10 | 6/30 | 228 | 2 collide, 4 miss, 2 edge-lift |
+| 2400 / 120k / 12 | 9.8e-5 | 5.7e-4 | **6x** | 3.0e-4 | 3/10 | **15/30** | 261 | 1 collide, 2 miss, 2 edge-lift |
+
+Held-out start-90 during training (every 5000 steps; "train" is a fixed
+200-row sample of the training prefix):
+
+| step | 1200 pl., 480k: held-out / train / ratio | 2400 pl., 120k: held-out / train / ratio |
+|---|---|---|
+| 25k | (watcher attached at 95k) | 9.7e-4 / 1.1e-3 / 1x |
+| 65k | | 7.3e-4 / 2.5e-4 / 3x |
+| 95k | 1.4e-3 / 1.9e-4 / 7x | 6.0e-4 / 1.2e-4 / 5x |
+| 120k | 1.4e-3 / 1.8e-4 / 8x | 5.7e-4 / 1.0e-4 / 5x (end) |
+| 215k | 1.0e-3 / 7.2e-5 / 14x | |
+| 275k | 8.9e-4 / 4.2e-5 / 21x (best) | |
+| 335k | 9.2e-4 / 3.1e-5 / 30x | |
+| 480k | 1.1e-3 / 1.4e-5 / 77x (end) | |
+
+Readings:
+
+- **Steps (1200 placements, shift 12, 480k).** Held-out flattens at ~1e-3
+  from 150k on and never reaches the 120k run's 6.2e-4 at any checkpoint
+  (best 8.5e-4 at 260k), while the train sample falls 13x and the ratio
+  climbs 7x -> 77x. A 12 px shift leaves 625 offsets per frame; given 4x
+  the steps the network memorises those too. Steps are ruled out under
+  augmentation as they were without it; 120k with the cosine anneal is the
+  right budget. Closed loop 0/30 with the same per-pose median as the
+  shift-4 point that scored 9/30: with 10 poses x 3 repeats, a single
+  run's rollout count moves by +-9 between checkpoints of similar loss.
+  Treat single-run rollout counts accordingly.
+- **Placements (2400, shift 12, 120k).** The ratio stays at 1-5x for the
+  whole run (held-out tracks train from the first checkpoint), the final
+  held-out mean is the lowest of any point (5.7e-4), the worst ladder pose
+  (pose_000, x = -0.146) drops to 1.8e-4 from 1.8e-2, and closed loop is
+  15/30 (5 poses of 10, all three repeats each) against 6/30 for the same
+  capture unaugmented and 9/30 for the 1200-placement augmented point. The
+  mean and median are within noise of the 1200-placement augmented point,
+  so the loss alone does not prove the data effect; the ratio (15x -> 6x)
+  and the doubled rollouts do. Failures are again 2 edge-lifts, 2 misses,
+  1 collision: precision at closure, not gross localisation.
+- **Later chunks** are unaffected in every run (same as before; not
+  re-tabulated).
+
+Ruled in: with memorisation blocked, unique placements are the axis that
+pays (ratio 15x -> 6x, rollouts 9 -> 15 of 30) and the held-out curve is
+still descending at 120k on 2400 placements with the ratio at 5x. Ruled
+out: steps (memorisation returns), and reading a single run's rollout count
+as a stable level.
+
+Decision (ordered): (1) measure the noise before spending on levers: repeat
+2400 / 120k / shift 12 with seeds 101 and 303 (25 min each + rollouts); if
+the three seeds hold 12/30 or better the data effect is real and 4800
+placements (a 7 h CPU capture, overnight) is the next data point; (2) the
+square localiser stays next in line for the closure-precision failures,
+now with a capture of 2400 labelled placements to train it on; (3) shift 12
+at 240k on 2400 placements only if the seed repeats show the 120k curve
+still falling with the ratio under 10x. Number to watch: per-pose held-out
+start-90 median across seeds and rollouts >= 15/30 on all three. Live
+policy unchanged (`ytn3eygr`); the 2400/shift-12 checkpoint is the first
+placement-general candidate worth a real-frame gate check.

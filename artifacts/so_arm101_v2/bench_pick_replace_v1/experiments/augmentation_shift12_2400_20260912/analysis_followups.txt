@@ -1,0 +1,45 @@
+held-out start-90 MSE per pose (placements/steps/shift) and wins of 3
+pose      1200/120k/s0  1200/120k/s12   1200/480k/s0  1200/480k/s12   2400/120k/s0  2400/120k/s12
+pose_000     1.8e-02 0      1.0e-03 0      3.8e-02 0      6.3e-04 0      1.3e-02 0      1.8e-04 0
+pose_001     8.5e-04 0      9.1e-05 3      3.4e-03 0      4.5e-05 0      8.9e-04 0      1.0e-04 0
+pose_002     4.2e-04 0      1.5e-04 0      4.2e-05 3      4.0e-04 0      2.4e-04 3      3.1e-04 3
+pose_003     2.8e-03 0      9.0e-04 0      1.6e-04 3      2.6e-03 0      2.2e-03 0      6.6e-04 3
+pose_004     7.4e-03 0      6.2e-05 3      6.7e-04 0      4.2e-04 0      9.4e-03 0      7.1e-05 3
+pose_005     4.9e-04 0      2.3e-04 0      2.0e-04 0      1.2e-03 0      7.3e-05 3      1.1e-03 0
+pose_006     8.6e-03 0      9.8e-04 0      9.3e-03 0      1.8e-03 0      3.9e-03 0      2.6e-04 3
+pose_007     6.9e-04 0      3.6e-05 3      2.3e-03 0      1.7e-03 0      6.3e-04 0      2.8e-04 3
+pose_008     1.0e-03 0      2.5e-03 0      2.1e-04 3      1.0e-03 0      6.8e-04 0      1.9e-03 0
+pose_009     1.2e-03 0      2.6e-04 0      1.4e-03 0      1.1e-03 0      1.2e-03 0      7.9e-04 0
+1200/120k/s0   heldout90 4.2e-03 train90 8.0e-07 ratio  5250x median 1.1e-03 max 1.8e-02 under 0/10 success  0/30 safety 525
+1200/120k/s12  heldout90 6.2e-04 train90 4.1e-05 ratio    15x median 2.4e-04 max 2.5e-03 under 5/10 success  9/30 safety 193
+1200/480k/s0   heldout90 5.6e-03 train90 3.3e-07 ratio 16827x median 1.0e-03 max 3.8e-02 under 4/10 success  9/30 safety 279
+1200/480k/s12  heldout90 1.1e-03 train90 1.4e-05 ratio    78x median 1.1e-03 max 2.6e-03 under 1/10 success  0/30 safety 382
+2400/120k/s0   heldout90 3.2e-03 train90 1.8e-06 ratio  1744x median 1.0e-03 max 1.3e-02 under 2/10 success  6/30 safety 228
+2400/120k/s12  heldout90 5.7e-04 train90 9.8e-05 ratio     6x median 3.0e-04 max 1.9e-03 under 3/10 success 15/30 safety 261
+==== failure taxonomy (repeat 0 of each pose; from pickup events)
+1200/120k/s0   {'collision': 5, 'miss': 3, 'lifted_no_strict_grasp': 2}
+1200/120k/s12  {'collision': 1, 'success': 3, 'strict_then_lost': 1, 'miss': 2, 'lifted_no_strict_grasp': 3}
+1200/480k/s0   {'collision': 3, 'success': 3, 'miss': 3, 'lifted_no_strict_grasp': 1}
+1200/480k/s12  {'miss': 2, 'lifted_no_strict_grasp': 5, 'collision': 3}
+2400/120k/s0   {'collision': 2, 'lifted_no_strict_grasp': 2, 'success': 2, 'miss': 4}
+2400/120k/s12  {'collision': 1, 'lifted_no_strict_grasp': 2, 'success': 5, 'miss': 2}
+==== held-out curve during training, 2400 placements shift 12 (every 20k steps)
+  5000  heldout 5.80e-03 train 4.28e-03 ratio    1x median 5.0e-03 under 0
+ 25000  heldout 9.69e-04 train 1.14e-03 ratio    1x median 4.5e-04 under 1
+ 45000  heldout 1.03e-03 train 4.70e-04 ratio    2x median 7.1e-04 under 1
+ 65000  heldout 7.30e-04 train 2.47e-04 ratio    3x median 6.6e-04 under 2
+ 85000  heldout 6.29e-04 train 1.95e-04 ratio    3x median 4.4e-04 under 3
+105000  heldout 5.96e-04 train 1.10e-04 ratio    5x median 2.5e-04 under 5
+120000  heldout 5.70e-04 train 1.04e-04 ratio    5x median 3.0e-04 under 3
+==== held-out curve during training, 1200 placements shift 12 480k (every 40k steps, watcher from step 95k)
+ 95000  heldout 1.41e-03 train 1.90e-04 ratio    7x median 1.2e-03 under 1
+135000  heldout 1.97e-03 train 1.43e-04 ratio   14x median 1.3e-03 under 3
+175000  heldout 1.30e-03 train 2.37e-04 ratio    6x median 1.5e-03 under 1
+215000  heldout 1.03e-03 train 7.15e-05 ratio   14x median 8.1e-04 under 3
+255000  heldout 1.24e-03 train 5.27e-05 ratio   24x median 8.5e-04 under 1
+295000  heldout 1.13e-03 train 4.47e-05 ratio   25x median 8.1e-04 under 2
+335000  heldout 9.22e-04 train 3.08e-05 ratio   30x median 8.2e-04 under 1
+375000  heldout 1.10e-03 train 2.06e-05 ratio   53x median 1.1e-03 under 1
+415000  heldout 1.11e-03 train 1.86e-05 ratio   60x median 1.0e-03 under 1
+455000  heldout 1.07e-03 train 1.54e-05 ratio   70x median 1.0e-03 under 1
+480000  heldout 1.10e-03 train 1.42e-05 ratio   77x median 1.1e-03 under 1

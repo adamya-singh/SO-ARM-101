@@ -1,0 +1,137 @@
+{
+  "identity": {
+    "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+    "ladder_dir": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910",
+    "train_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_train/oracle/bench_pick_replace_v1_seed12_n2400_appearance_placement_4adc064ea0e5/e378b543b3847ee0/manifest.json",
+    "heldout_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_heldout/oracle/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/56755d99dc583c95/manifest.json",
+    "shifts": [
+      12
+    ],
+    "episodes": 1200,
+    "encoder": "v2",
+    "hidden_width": 512,
+    "steps": 480000,
+    "frame_stride": 18,
+    "baseline_label": "d1200_v2_s480000",
+    "training_seed": 202,
+    "rehearsal": false,
+    "lookup_baseline_1200": {
+      "mean": 0.000595,
+      "median": 0.000367
+    },
+    "pose_threshold": 0.00025
+  },
+  "points": [
+    {
+      "label": "baseline",
+      "shift": 0,
+      "run_digest": "fe37398ff6de88a8c1951221cc1a8cdfb480245cb9a57792705ed8d7ae3a3764",
+      "checkpoint": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/runs/d1200_v2_s480000/models/vision_h90/fe37398ff6de88a8/model.pt",
+      "train_seconds": 4704.8,
+      "normalized_mse": 2.7304216132506554e-07,
+      "source": "ladder point d1200_v2_s480000",
+      "parameters": 2714828,
+      "train": {
+        "start_0": 1.5192400226737846e-08,
+        "start_90": 3.336366205530794e-07,
+        "starts_180_270_360": 2.0360531038932095e-07,
+        "all_rows": 0.001257362891919911
+      },
+      "heldout": {
+        "start_0": 3.567607222976221e-07,
+        "start_90": 0.0056141940876841545,
+        "starts_180_270_360": 9.917179340845905e-06,
+        "all_rows": 0.001991056837141514
+      },
+      "heldout_start_90": 0.0056141940876841545,
+      "ratio_start_90": 16827.3,
+      "per_pose": {
+        "pose_000": 0.03848307579755783,
+        "pose_001": 0.0033735334873199463,
+        "pose_002": 4.242277282173745e-05,
+        "pose_003": 0.0001623259886400774,
+        "pose_004": 0.0006650634459219873,
+        "pose_005": 0.00020490387396421283,
+        "pose_006": 0.00934661366045475,
+        "pose_007": 0.0022512844298034906,
+        "pose_008": 0.00020985685114283115,
+        "pose_009": 0.0014028633013367653
+      },
+      "per_pose_summary": {
+        "median": 0.0010339633736293763,
+        "max": 0.03848307579755783,
+        "mean": 0.005614194360896363,
+        "poses_under_threshold": 4,
+        "poses": 10,
+        "threshold": 0.00025
+      },
+      "heldout_success": {
+        "successes": 9,
+        "rollouts": 30,
+        "safety_frames": 279,
+        "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/evaluations/d1200_v2_s480000/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/evaluation.json"
+      }
+    },
+    {
+      "label": "shift12",
+      "shift": 12,
+      "run_digest": "1737b45550989ea621a3287ab32753455e491968ef6dd6abd126776068b517fa",
+      "checkpoint": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_480k_20260912/runs/shift12/models/vision_h90/1737b45550989ea6/model.pt",
+      "train_seconds": 5915.1,
+      "normalized_mse": 2.698086063901428e-06,
+      "parameters": 2714828,
+      "train": {
+        "start_0": 3.716993646207811e-08,
+        "start_90": 1.4102894965617452e-05,
+        "starts_180_270_360": 1.886312929855194e-06,
+        "all_rows": 0.0014698203885927796
+      },
+      "heldout": {
+        "start_0": 3.496137068736971e-08,
+        "start_90": 0.0011010050075128675,
+        "starts_180_270_360": 4.656424607674126e-06,
+        "all_rows": 0.0017592377262189984
+      },
+      "heldout_start_90": 0.0011010050075128675,
+      "ratio_start_90": 78.1,
+      "per_pose": {
+        "pose_000": 0.0006268918514251709,
+        "pose_001": 4.5069664338370785e-05,
+        "pose_002": 0.00040192840970121324,
+        "pose_003": 0.002595961559563875,
+        "pose_004": 0.0004181730037089437,
+        "pose_005": 0.0012128953821957111,
+        "pose_006": 0.001845808234065771,
+        "pose_007": 0.0017358720069751143,
+        "pose_008": 0.0010158707154914737,
+        "pose_009": 0.001111578312702477
+      },
+      "per_pose_summary": {
+        "median": 0.0010637245140969753,
+        "max": 0.002595961559563875,
+        "mean": 0.0011010049140168122,
+        "poses_under_threshold": 1,
+        "poses": 10,
+        "threshold": 0.00025
+      },
+      "heldout_success": {
+        "successes": 0,
+        "rollouts": 30,
+        "safety_frames": 382,
+        "per_scenario": {
+          "pose_000": 0,
+          "pose_001": 0,
+          "pose_002": 0,
+          "pose_003": 0,
+          "pose_004": 0,
+          "pose_005": 0,
+          "pose_006": 0,
+          "pose_007": 0,
+          "pose_008": 0,
+          "pose_009": 0
+        },
+        "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_480k_20260912/evaluations/shift12/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/evaluation.json"
+      }
+    }
+  ]
+}
