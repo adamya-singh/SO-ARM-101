@@ -143,6 +143,12 @@ class _OracleScenarioTask:
     record_video: bool
     frames_path: str | None
     skip_failed_scenarios: bool
+    frame_row_stride: int = 1   # store only frames at action_index % stride == 0 (2026-09-12)
+
+
+def frames_per_episode(horizon: int, stride: int) -> int:
+    """Stored frames per episode for a capture-time row stride (ceil division)."""
+    return -(-int(horizon) // int(stride))
 
 
 @dataclass(frozen=True)
@@ -178,7 +184,8 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     wrist = _VideoWriter(wrist_temp)
     overview = _VideoWriter(overview_temp)
     frames = np.load(task.frames_path, mmap_mode="r+") if task.frames_path is not None else None
-    base = task.scenario_index * horizon
+    stride = int(task.frame_row_stride)
+    base = task.scenario_index * frames_per_episode(horizon, stride)
     state = PickPlaceEvaluationState()
     columns: dict[str, list[Any]] = {name: [] for name in _ORACLE_FIELDS}
     event_rows: list[dict[str, Any]] = []
@@ -195,8 +202,8 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
             raw = adapter.render_wrist_observation()
-            if frames is not None:
-                frames[base + action_index] = raw
+            if frames is not None and action_index % stride == 0:
+                frames[base + action_index // stride] = raw
             wrist.add(raw)
             if overview_temp is not None:
                 # The overview render only feeds the video writer; rendering never
@@ -405,6 +412,7 @@ def capture_oracle_demonstrations(
     store_frames: bool = False,
     skip_failed_scenarios: bool = False,
     workers: int | None = None,
+    frame_row_stride: int = 1,
 ) -> OracleDemonstrationCollection:
     """Capture one deterministic full-horizon teacher episode per scenario.
 
@@ -414,6 +422,16 @@ def capture_oracle_demonstrations(
     episode, results are assembled in scenario order, and frames are written to
     disjoint slots of the same memmap. ``None`` = auto (capture always holds an
     EGL context per worker, so the video cap applies).
+
+    ``frame_row_stride`` (2026-09-12) stores only the frames at
+    ``action_index % stride == 0`` (``frames_per_episode(horizon, stride)`` rows
+    per episode, episode-major): training reads every 18th or 30th row anyway,
+    and a full 480-frame sidecar is 88 KB/step of frames nobody reads (a
+    2400-placement capture was 211 GB). The arrays are complete regardless; the
+    manifest's ``frames`` block records ``row_stride`` and ``rows_per_episode``
+    and ``frame_store`` carries ``row_stride`` (conditionally present, so every
+    stride-1 identity is unchanged). ``load_vision_frames`` presents such a
+    sidecar as a logical full-length array that only serves stored rows.
     """
     suite = load_simulation_suite(suite) if isinstance(suite, str) else suite
     if suite.task_contract not in ("fixed_cube_pick_place_v3", "bench_pick_replace_v1"):
@@ -468,6 +486,9 @@ def capture_oracle_demonstrations(
         if bench.placement is not None:
             from so_arm101_v2.contracts.placement import PLACEMENT_RESOLVER_VERSION
             identity["placement"] = dict(regime=dict(bench.placement), resolver=PLACEMENT_RESOLVER_VERSION)
+    frame_row_stride = int(frame_row_stride)
+    if frame_row_stride < 1:
+        raise ValueError("frame_row_stride must be a positive integer")
     if store_frames:
         # Conditionally-present so every legacy capture identity (and hence
         # collection digest) stays byte-identical when frames are off.
@@ -475,6 +496,8 @@ def capture_oracle_demonstrations(
             "format": "npy_memmap_uint8_v1",
             "frame_shape": [256, 256, 3],
         }
+        if frame_row_stride > 1:
+            identity["frame_store"]["row_stride"] = frame_row_stride
 
     arrays: dict[str, list[np.ndarray | float | int | bool]] = {name: [] for name in _ORACLE_FIELDS}
     episode_records: list[dict[str, Any]] = []
@@ -488,8 +511,9 @@ def capture_oracle_demonstrations(
         staged_videos: list[tuple[Path, str]] = []
         frames = None
         frames_temp = temporary_path / "images.npy"
+        per_episode = frames_per_episode(horizon, frame_row_stride)
         if store_frames:
-            total_rows = len(selected) * horizon
+            total_rows = len(selected) * per_episode
             _check_frames_disk_space(temporary_path, Path(output_dir), total_rows)
             frames = np.lib.format.open_memmap(
                 frames_temp, mode="w+", dtype=np.uint8,
@@ -501,6 +525,7 @@ def capture_oracle_demonstrations(
                 model_path=str(model_path), scenario=item, scenario_index=index, teacher_horizon=horizon,
                 contract=contract, temporary_dir=str(temporary_path), record_video=record_video,
                 frames_path=(str(frames_temp) if store_frames else None), skip_failed_scenarios=skip_failed_scenarios,
+                frame_row_stride=frame_row_stride,
             )
             for index, item in enumerate(selected)
         ]
@@ -514,7 +539,7 @@ def capture_oracle_demonstrations(
                 # Compact kept episodes forward over skipped slots (ascending, so the
                 # destination slot is always free): identical bytes to the sequential
                 # running-row layout.
-                frames[kept * horizon:(kept + 1) * horizon] = frames[index * horizon:(index + 1) * horizon]
+                frames[kept * per_episode:(kept + 1) * per_episode] = frames[index * per_episode:(index + 1) * per_episode]
             for name in _ORACLE_FIELDS:
                 arrays[name].extend(result.columns[name])
             record = {
@@ -545,7 +570,7 @@ def capture_oracle_demonstrations(
         digest_inputs: dict[str, Any] = {**identity, "arrays_sha256": arrays_sha256}
         if frames is not None:
             frames.flush()
-            kept_rows = int(materialized["action_index"].shape[0])
+            kept_rows = kept * per_episode
             if kept_rows < frames.shape[0]:
                 del frames
                 if not truncate_npy_in_place(frames_temp, kept_rows):
@@ -607,11 +632,14 @@ def capture_oracle_demonstrations(
         manifest_payload["frames"] = {
             "path": "images.npy",
             "sha256": frames_sha256,
-            "rows": int(materialized["action_index"].shape[0]),
+            "rows": int(kept * per_episode),
             "dtype": "uint8",
             "frame_shape": [256, 256, 3],
             "convention": _frames_convention(identity),
         }
+        if frame_row_stride > 1:   # conditionally present: stride-1 manifests are byte-identical to before
+            manifest_payload["frames"]["row_stride"] = frame_row_stride
+            manifest_payload["frames"]["rows_per_episode"] = per_episode
     manifest_payload["content_sha256"] = content_sha256(manifest_payload)
     manifest_path = destination / "manifest.json"
     write_immutable_json(manifest_path, manifest_payload)

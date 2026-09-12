@@ -376,3 +376,49 @@ def test_on_checkpoint_observer_is_digest_neutral(tmp_path: Path, monkeypatch) -
     silent = train_vision_chunked(manifest_path, tmp_path / "without_observer", config=config, numerics=None)
     assert observed.directory.name == silent.directory.name
     assert observed.normalized_mse == silent.normalized_mse
+
+
+def _write_tiny_strided_manifest(directory: Path, *, episodes: int = 2, length: int = 6, stride: int = 3) -> tuple[Path, np.ndarray]:
+    """A frames capture whose sidecar stores only rows with action_index % stride == 0 (episode-major)."""
+    rows = episodes * length
+    manifest_path, _ = _write_tiny_oracle_manifest(directory, rows=rows)
+    body = json.loads(manifest_path.read_text(encoding="utf-8")); body.pop("content_sha256")
+    body["episodes"] = [dict(e, rows=length) for e in body["episodes"][:1]] * episodes if body.get("episodes") else [{"scenario_id": f"pose_{i}", "rows": length} for i in range(episodes)]
+    with np.load(directory / body["arrays"]["path"]) as handle:
+        arrays = {k: np.asarray(handle[k]) for k in handle.files}
+    arrays["action_index"] = np.tile(np.arange(length, dtype=np.int32), episodes)
+    arrays["scenario_index"] = np.repeat(np.arange(episodes, dtype=np.int32), length)
+    np.savez_compressed(directory / body["arrays"]["path"], **arrays)
+    body["arrays"]["sha256"] = hashlib.sha256((directory / body["arrays"]["path"]).read_bytes()).hexdigest()
+    full = np.zeros((rows, 256, 256, 3), dtype=np.uint8)
+    full[:, 0, 0, 0] = np.arange(rows, dtype=np.uint8) + 1
+    stored_rows = [r for r in range(rows) if (r % length) % stride == 0]
+    stored = full[stored_rows]
+    np.save(directory / "images.npy", stored)
+    body["frames"] = {"path": "images.npy", "sha256": hashlib.sha256((directory / "images.npy").read_bytes()).hexdigest(), "rows": len(stored_rows),
+                      "dtype": "uint8", "frame_shape": [256, 256, 3], "convention": "raw_wrist_hwc_uint8_preprocess_with_preprocess_wrist_image",
+                      "row_stride": stride, "rows_per_episode": -(-length // stride)}
+    body["content_sha256"] = content_sha256(body)
+    manifest_path.write_text(json.dumps(body), encoding="utf-8")
+    return manifest_path, full
+
+
+def test_strided_frames_serve_stored_rows_and_train_with_a_compatible_stride(tmp_path: Path, monkeypatch) -> None:
+    torch = pytest.importorskip("torch"); torch.set_num_threads(1)
+    from so_arm101_v2.learning.vision import StridedFrames, train_vision_chunked, VisionChunkedConfig
+    manifest_path, full = _write_tiny_strided_manifest(tmp_path, episodes=2, length=6, stride=3)
+    manifest, frames, arrays = load_vision_frames(manifest_path)
+    assert isinstance(frames, StridedFrames) and frames.shape == (12, 256, 256, 3) and frames.stored_mask.sum() == 4
+    stored = [0, 3, 6, 9]
+    assert np.array_equal(frames[np.array(stored)], full[stored])       # logical rows -> stored bytes
+    assert np.array_equal(frames[9], full[9]) and np.array_equal(frames[6:10:3], full[6:10:3])
+    with pytest.raises(ValueError):
+        frames[np.array([0, 1])]                                          # row 1 was not stored
+    monkeypatch.setenv("SO_ARM101_V2_FRAME_CACHE", "off")
+    trained = train_vision_chunked(manifest_path, tmp_path / "ok", config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, chunk_horizon=2, frame_stride=3))
+    assert trained.checkpoint.exists()
+    with pytest.raises(ValueError):                                        # stride 1 would need unstored rows
+        train_vision_chunked(manifest_path, tmp_path / "bad", config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, chunk_horizon=2))
+    monkeypatch.setenv("SO_ARM101_V2_FRAME_CACHE", "gpu")
+    gpu = train_vision_chunked(manifest_path, tmp_path / "gpu", config=VisionChunkedConfig(seed=7, max_steps=3, hidden_width=128, chunk_horizon=2, frame_stride=3))
+    assert gpu.normalized_mse == trained.normalized_mse                   # same rows either way

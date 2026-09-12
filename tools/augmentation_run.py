@@ -95,6 +95,9 @@ def main(argv=None) -> int:
     p.add_argument("--steps", type=int, default=120000)
     p.add_argument("--frame-stride", type=int, default=18)
     p.add_argument("--baseline-label", default="d1200_v2_s120000", help="ladder point trained without augmentation at the same settings")
+    p.add_argument("--no-baseline", action="store_true", help="skip the ladder baseline point (e.g. seed repeats, which have no unaugmented twin)")
+    p.add_argument("--seed", type=int, default=202, help="training seed (the ladder and the 2026-09-12 runs used 202)")
+    p.add_argument("--run-name", default=None, help="W&B run name (default random-shift-<scene>[-seed<seed>])")
     p.add_argument("--no-rollouts", action="store_true")
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--rehearsal", action="store_true", help="toy settings under a rehearsal/ directory; nothing may be quoted from it")
@@ -112,13 +115,13 @@ def main(argv=None) -> int:
     heldout_manifest = Path((ladder / "heldout_manifest.path").read_text().strip())
     heldout_suite = load_suite_from_path(Path((ladder / "heldout_suite.path").read_text().strip()))
     ladder_points = {pt["label"]: pt for pt in json.loads((ladder / "ladder.json").read_text())["points"]}
-    baseline = ladder_points.get(args.baseline_label)
-    if baseline is None and not args.rehearsal:
+    baseline = None if args.no_baseline else ladder_points.get(args.baseline_label)
+    if baseline is None and not args.rehearsal and not args.no_baseline:
         raise RuntimeError(f"baseline point {args.baseline_label} not found in {ladder / 'ladder.json'}")
     scene_hash = scene_dependency_hash(args.model)
     identity = dict(scene_dependencies_sha256=scene_hash, ladder_dir=str(ladder), train_manifest=str(train_manifest), heldout_manifest=str(heldout_manifest),
                     shifts=args.shifts, episodes=args.episodes, encoder=args.encoder, hidden_width=args.hidden_width, steps=args.steps,
-                    frame_stride=args.frame_stride, baseline_label=args.baseline_label, training_seed=202, rehearsal=bool(args.rehearsal),
+                    frame_stride=args.frame_stride, baseline_label=(None if args.no_baseline else args.baseline_label), training_seed=args.seed, rehearsal=bool(args.rehearsal),
                     lookup_baseline_1200=LOOKUP_BASELINE_1200, pose_threshold=POSE_THRESHOLD)
     write_immutable_json(root / "augmentation_identity.json", identity)
     state = dict(status="running", phase="start", started_at=time.time(), points=[])
@@ -130,7 +133,8 @@ def main(argv=None) -> int:
         if done:
             print(f"resuming: {len(done)} completed point(s) kept", flush=True)
     import wandb
-    tracker = wandb.init(project="so-arm101-v2-scaling", group="augmentation", name=("augmentation-rehearsal" if args.rehearsal else f"random-shift-{scene_hash[:8]}"),
+    default_name = f"random-shift-{scene_hash[:8]}" + (f"-seed{args.seed}" if args.seed != 202 else "")
+    tracker = wandb.init(project="so-arm101-v2-scaling", group="augmentation", name=("augmentation-rehearsal" if args.rehearsal else (args.run_name or default_name)),
                          mode=("offline" if args.rehearsal else "online"), config=identity, settings=wandb.Settings(init_timeout=120))
     # Panel order: numbered sections sort first-things-first in the workspace; every summary chart is plotted against the shift.
     tracker.define_metric("augmentation/shift_px")
@@ -187,7 +191,7 @@ def main(argv=None) -> int:
                              normalized_mse=baseline["normalized_mse"], source=f"ladder point {args.baseline_label}")
             else:
                 progress(phase=f"train {label} ({index + 1}/{len(plan)})")
-                config = VisionChunkedConfig(seed=202, max_steps=args.steps, hidden_width=args.hidden_width, frame_stride=args.frame_stride,
+                config = VisionChunkedConfig(seed=args.seed, max_steps=args.steps, hidden_width=args.hidden_width, frame_stride=args.frame_stride,
                                              encoder=args.encoder, episode_limit=args.episodes, random_shift=shift)
 
                 def on_loss(step, value, _shift=shift):

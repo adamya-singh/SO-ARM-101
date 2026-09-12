@@ -47,11 +47,12 @@ def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: i
     within = np.ones(frames.shape[0], dtype=bool)
     if episode_limit is not None:
         within = np.arange(frames.shape[0]) < int(sum(episode_lengths[:int(episode_limit)]))
+    stored = getattr(frames, "stored_mask", np.ones(frames.shape[0], dtype=bool))   # row-strided sidecars serve stored rows only
     rng = np.random.default_rng(seed)
     out = {}
     with torch.inference_mode():
         for name, predicate in BUCKETS.items():
-            index = np.flatnonzero(predicate(action_index) & within)
+            index = np.flatnonzero(predicate(action_index) & within & stored)
             pick = np.sort(rng.choice(index, min(samples, index.shape[0]), replace=False))
             images = torch.from_numpy(np.ascontiguousarray(frames[pick])).to(device).permute(0, 3, 1, 2).float().div_(255.0)
             prediction = model(images, torch.from_numpy(state[pick]).to(device)).cpu().numpy()
@@ -120,7 +121,8 @@ class HeldoutCurveScorer:
         within = np.ones(frames.shape[0], dtype=bool)
         if episode_limit is not None:
             within = np.arange(frames.shape[0]) < int(sum(episode_lengths[:int(episode_limit)]))
-        rows = np.flatnonzero((action_index == 90) & within)
+        stored = getattr(frames, "stored_mask", np.ones(frames.shape[0], dtype=bool))
+        rows = np.flatnonzero((action_index == 90) & within & stored)
         if samples is not None and rows.shape[0] > samples:
             rows = np.sort(np.random.default_rng(seed).choice(rows, samples, replace=False))
         starts = np.concatenate([[0], np.cumsum(episode_lengths)])

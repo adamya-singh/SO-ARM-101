@@ -160,3 +160,25 @@ def test_skip_compaction_keeps_frames_and_columns_in_scenario_order(tmp_path: Pa
     with pytest.raises(RuntimeError):
         capture_oracle_demonstrations(SCENE, suite, preflight, tmp_path / "strict", scenario="all", record_video=False,
                                       teacher_horizon=horizon, store_frames=True, skip_failed_scenarios=False, workers=1)
+
+
+@pytest.mark.skipif(not _renderer_available(), reason="offscreen renderer unavailable")
+def test_frame_row_stride_stores_every_nth_frame(tmp_path: Path, preflight: Path) -> None:
+    suite = _narrow_suite()
+    full = capture_oracle_demonstrations(SCENE, suite, preflight, tmp_path / "full", scenario="all", record_video=False,
+                                         teacher_horizon=450, store_frames=True, workers=2)
+    strided = capture_oracle_demonstrations(SCENE, suite, preflight, tmp_path / "strided", scenario="all", record_video=False,
+                                            teacher_horizon=450, store_frames=True, workers=2, frame_row_stride=5)
+    a = json.loads(Path(full.manifest).read_text()); b = json.loads(Path(strided.manifest).read_text())
+    assert a["arrays"]["sha256"] == b["arrays"]["sha256"] and a["episodes"] == b["episodes"]
+    assert "row_stride" not in a["frames"] and "row_stride" not in a["frame_store"]
+    assert b["frames"]["row_stride"] == 5 and b["frames"]["rows_per_episode"] == 90 and b["frames"]["rows"] == 90 * len(a["episodes"])
+    assert b["frame_store"]["row_stride"] == 5
+    fa = np.load(Path(full.directory) / "images.npy", mmap_mode="r"); fb = np.load(Path(strided.directory) / "images.npy", mmap_mode="r")
+    for episode in range(len(a["episodes"])):
+        expected = fa[episode * 450:(episode + 1) * 450:5]; got = fb[episode * 90:(episode + 1) * 90]
+        delta = np.abs(expected.astype(np.int16) - got.astype(np.int16))
+        assert int(delta.max()) <= 1 and float((delta > 0).mean()) < 1e-3
+    from so_arm101_v2.learning.vision import load_vision_frames
+    _, frames, arrays = load_vision_frames(strided.manifest)
+    assert frames.shape[0] == arrays["action_index"].shape[0] and frames.stored_mask.sum() == b["frames"]["rows"]

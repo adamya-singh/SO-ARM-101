@@ -192,6 +192,55 @@ def random_shift_images(images: Any, shift: int, generator: Any) -> Any:
     return gathered.permute(0, 3, 1, 2).contiguous()
 
 
+class StridedFrames:
+    """A frames sidecar that stores only every ``stride``-th row of each episode, presented as the logical full-length array.
+
+    ``shape[0]`` is the number of action rows (the arrays' length); ``__getitem__`` accepts the logical row
+    indices the trainer and scorers already use and serves them from the stored positions, raising for a
+    row that was not stored. ``stored_mask`` lets callers restrict a sample to stored rows. Episodes are
+    stored episode-major with ``ceil(length / stride)`` rows each (see
+    ``capture_oracle_demonstrations(frame_row_stride=...)``, 2026-09-12).
+    """
+
+    def __init__(self, stored: Any, episode_lengths: list[int], stride: int) -> None:
+        self.stored = stored
+        self.stride = int(stride)
+        self.episode_lengths = [int(v) for v in episode_lengths]
+        per_episode = [-(-length // self.stride) for length in self.episode_lengths]
+        if int(stored.shape[0]) != sum(per_episode):
+            raise ValueError("strided frames sidecar row count disagrees with the episode lengths")
+        total = sum(self.episode_lengths)
+        self.shape = (total,) + tuple(int(v) for v in stored.shape[1:])
+        self.dtype = np.dtype(np.uint8)
+        self.nbytes = int(stored.nbytes)
+        position = np.full(total, -1, dtype=np.int64)
+        row, base = 0, 0
+        for length, count in zip(self.episode_lengths, per_episode):
+            local = np.arange(0, length, self.stride)
+            position[row + local] = base + np.arange(local.shape[0])
+            row += length; base += count
+        self._position = position
+        self.stored_mask = position >= 0
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def positions(self, rows: Any) -> np.ndarray:
+        rows = np.asarray(rows, dtype=np.int64)
+        found = self._position[rows]
+        if np.any(found < 0):
+            raise ValueError(f"frames sidecar stores every {self.stride}th row of each episode only; requested rows include unstored ones "
+                             f"(use a frame_stride that is a multiple of {self.stride})")
+        return found
+
+    def __getitem__(self, index: Any) -> np.ndarray:
+        if isinstance(index, (int, np.integer)):
+            return np.asarray(self.stored[int(self.positions([int(index)])[0])])
+        if isinstance(index, slice):
+            index = np.arange(*index.indices(self.shape[0]))
+        return np.asarray(self.stored[self.positions(index)])
+
+
 def _read_frame_rows(frames: Any, index_array: "np.ndarray") -> "np.ndarray":
     """Read ``frames[index_array]`` as raw uint8, via a sorted gather.
 
@@ -296,6 +345,9 @@ def cache_frames(frames: np.ndarray, manifest: dict[str, Any], directory: Path, 
         raise ValueError("SO_ARM101_V2_FRAME_CACHE must be 'zlib', 'gpu' or 'off'")
     if mode in ("off", "gpu"):
         return frames   # 'gpu': the training loop moves the (strided) rows onto the device once it exists
+    if isinstance(frames, StridedFrames):
+        log("frame cache: skipped, the sidecar is row-strided (served from the memmap / GPU store)")
+        return frames
     key = str(manifest["frames"]["sha256"])[:16]
     path = Path(directory) / f"frames_cache_{key}.npz"
     if path.exists():
@@ -356,6 +408,9 @@ def load_vision_frames(manifest_path: str | Path) -> tuple[dict[str, Any], np.nd
         raise ValueError("frames sidecar shape/dtype mismatch")
     with np.load(manifest_path.parent / manifest["arrays"]["path"]) as handle:
         arrays = {name: np.asarray(handle[name]) for name in handle.files}
+    row_stride = int(frames_block.get("row_stride", 1))
+    if row_stride > 1:
+        frames = StridedFrames(frames, [int(e["rows"]) for e in manifest["episodes"]], row_stride)
     if arrays["action_index"].shape[0] != frames.shape[0]:
         raise ValueError("frames sidecar row count disagrees with the arrays")
     return manifest, frames, arrays
@@ -405,6 +460,8 @@ def train_vision_chunked(
             raise ValueError(f"episode_limit {limit} exceeds the capture's {len(episode_lengths)} episodes")
         keep &= np.arange(rows) < int(sum(episode_lengths[:limit]))
     kept_rows = np.flatnonzero(keep).astype(np.int64)
+    if isinstance(frames, StridedFrames):
+        frames.positions(kept_rows)   # raises unless every training row is stored (frame_stride a multiple of the capture stride)
     rows_train = int(kept_rows.shape[0])
     if sum(episode_lengths) != rows:
         raise ValueError("oracle manifest episode lengths disagree with its row count")
