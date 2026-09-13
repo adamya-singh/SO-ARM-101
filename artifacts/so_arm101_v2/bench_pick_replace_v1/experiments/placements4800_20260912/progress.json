@@ -1,0 +1,9 @@
+{
+  "status": "complete",
+  "started_at": 1789240360.223022,
+  "phase": "complete",
+  "manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/placements4800_20260912/capture_train/oracle/bench_pick_replace_v1_seed14_n4800_appearance_placement_d2e455880ad8/01f3d23cb37f6784/manifest.json",
+  "episodes": 4800,
+  "frame_rows": 76800,
+  "seconds": 51450
+}

@@ -938,3 +938,67 @@ count; (2) the 4800-placement run (queued) is judged the same way: its loss
 must land under 3.4e-4 to be distinguishable from this recipe's best seed;
 (3) the closure-precision failures (edge-caught lifts) persist in every
 seed, which keeps the square localiser as the lever after data.
+
+### 4800 placements (2026-09-13): memorisation gone (ratio 1.6x), held-out in the 2400 band, rollouts 6/30; the regime has flipped to under-fitting
+
+`experiments/placements4800_20260912` (tools/capture_placements.py: suite
+seed 14, 4800 screened placements, teacher capture at frame row stride 30,
+76,800 stored frames = 15 GB, 14.3 h CPU including a 4 h pause) and
+`experiments/augmentation_shift12_4800_20260912` (W&B 1vk19et1; shift 12,
+v2, 120k, seed 202, **frame_stride 30** because 4800 x 27 rows would not fit
+the 24 GB GPU store; `analysis_4800.txt`). Same ten held-out poses.
+
+| placements / stride | train 90 | held-out 90 | ratio | held-out all rows | per-pose median | max | poses <= 2.5e-4 | rollouts |
+|---|---|---|---|---|---|---|---|---|
+| 2400 / 18, seeds 202, 101, 303 | 1.0-1.3e-4 | 5.7e-4, 5.8e-4, 3.4e-4 | 5.8x, 4.4x, 3.3x | 1.3-1.8e-3 | 3.0e-4, 4.0e-4, 2.6e-4 | 1.9e-3, 1.5e-3, 7.9e-4 | 3, 2, 5 | 15, 6, 12 |
+| 4800 / 30, seed 202 | 2.2e-4 | 3.6e-4 | **1.6x** | 3.8e-3 | 3.2e-4 | 8.9e-4 | 3 | **6/30** |
+
+Held-out during training (4800): 5k 4.9e-3 / train 4.2e-3; 45k 7.5e-4 /
+7.6e-4 (1.0x); 85k 4.3e-4 / 3.3e-4 (1.3x); 120k 3.7e-4 / 1.9e-4 (2.0x),
+still falling at the end. The 2400 run at the same steps was at 5.5x.
+
+Readings:
+
+- **Train versus held-out.** Ratio 1.6x with both around 2-4e-4: the
+  skill's "ratio near 1, both high" case. Memorisation is finished as a
+  problem; what limits the loss now is fitting (the batch loss at 120k is
+  4.1e-5 against ~1e-5 at 2400, the train start-90 loss is 2x higher, and
+  the all-rows held-out loss is 3x higher, i.e. the other chunk starts are
+  also less fitted with 16 stored rows per episode instead of 27). Twice
+  the scenes with the same 120k steps means each scene is seen half as
+  often, and the curve is still descending: steps and capacity, useless
+  under memorisation, are live levers again at this data size.
+- **Held-out level.** 3.6e-4 sits inside the 2400 seed band (3.4-5.8e-4)
+  and is not under the 3.4e-4 bar set yesterday; at one seed the data effect
+  from 2400 to 4800 is not resolved. The per-pose profile is the flattest
+  yet (max 8.9e-4, no pose above 1e-3, the ladder's worst pose at 2.0e-4).
+- **Rollouts.** 6/30, with the failure taxonomy 5 lifted-without-strict-
+  grasp, 2 collisions, 1 strict-then-lost, 2 successes. This is the
+  clearest instance of the loss no longer predicting the outcome: every
+  pose is within 2-4x of the working fixed-square policy's loss, and half
+  the rollouts catch the cube by an edge. Chunk MSE at start 90 averages 90
+  steps x 6 joints; the few millimetres and degrees at closure that decide a
+  pad-centred grasp are a small part of it, so a policy can be "good" on
+  this metric and still fail the strict grasp at most poses.
+- **Confound.** Stride 30 versus 18 changes rows per episode (16 vs 27) at
+  a similar total row count (76.8k vs 64.8k); a 2400-placement run at
+  stride 30 (25 min) separates "twice the scenes" from "fewer rows per
+  scene". Not run yet.
+
+Ruled in: memorisation is solved at 4800 placements with shift 12 (ratio
+1.6x). Ruled out: the start-90 chunk MSE as the number to optimise past
+~3e-4; further data alone as the way to closed-loop success.
+
+Decision (ordered): (1) the closure-precision failure is now the whole
+problem and the start-90 MSE cannot see it, so build the measurement first:
+per-rollout jaw-versus-cube offset and yaw at closure from the telemetry
+(the lookup baseline of the ladder and the edge-lift taxonomy both point
+here), and use it to judge the next runs; (2) the square localiser (x, y,
+yaw from the survey frame, trained on the 4800 + 2400 labelled placements
+with heavy augmentation, validated on the recorded real frames) conditioning
+the chunk policy, since a few millimetres at closure is exactly what a
+dedicated head is for; (3) cheap fitting levers now that the ratio is 1.6x:
+240k steps and encoder v3 at 4800 (about 50 min each), plus the 2400 /
+stride-30 control, judged by held-out start-90 across seeds AND the closure
+offset; (4) pooled rollouts over seeds for any closed-loop claim. Live
+policy unchanged (`ytn3eygr`).

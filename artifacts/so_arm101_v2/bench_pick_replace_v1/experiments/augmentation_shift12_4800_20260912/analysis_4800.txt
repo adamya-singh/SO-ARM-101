@@ -1,0 +1,38 @@
+held-out start-90 MSE per pose and wins of 3 (shift 12, 120k steps)
+pose         2400 s202     2400 s101     2400 s303     4800 s202
+pose_000    1.8e-04 0     4.4e-04 0     2.1e-04 0     2.0e-04 0
+pose_001    1.0e-04 0     5.6e-05 3     6.6e-05 3     2.5e-04 3
+pose_002    3.1e-04 3     1.9e-04 0     1.4e-04 3     1.3e-04 0
+pose_003    6.6e-04 3     1.4e-03 0     2.4e-04 0     8.9e-04 0
+pose_004    7.1e-05 3     3.6e-04 0     7.0e-05 3     1.3e-04 0
+pose_005    1.1e-03 0     8.7e-04 0     6.2e-04 0     3.9e-04 0
+pose_006    2.6e-04 3     2.8e-04 3     5.4e-04 0     3.6e-04 0
+pose_007    2.8e-04 3     1.5e-03 0     7.9e-04 3     5.7e-04 0
+pose_008    1.9e-03 0     4.7e-04 0     4.9e-04 0     4.5e-04 3
+pose_009    7.9e-04 0     3.4e-04 0     2.8e-04 0     2.7e-04 0
+2400 s202: train90 9.8e-05 heldout90 5.7e-04 ratio 5.8x all_rows 1.3e-03 median 3.0e-04 max 1.9e-03 under 3/10 success 15/30 safety 261 train_s 1647
+2400 s101: train90 1.3e-04 heldout90 5.8e-04 ratio 4.4x all_rows 1.3e-03 median 4.0e-04 max 1.5e-03 under 2/10 success 6/30 safety 455 train_s 1680
+2400 s303: train90 1.1e-04 heldout90 3.4e-04 ratio 3.3x all_rows 1.8e-03 median 2.6e-04 max 7.9e-04 under 5/10 success 12/30 safety 601 train_s 1617
+4800 s202: train90 2.2e-04 heldout90 3.6e-04 ratio 1.6x all_rows 3.8e-03 median 3.2e-04 max 8.9e-04 under 3/10 success 6/30 safety 401 train_s 1533
+==== taxonomy (repeat 0)
+2400 s202 {'collision': 1, 'lifted_no_strict_grasp': 2, 'success': 5, 'miss': 2}
+2400 s101 {'strict_then_lost': 1, 'success': 2, 'collision': 2, 'miss': 2, 'lifted_no_strict_grasp': 3}
+2400 s303 {'miss': 2, 'success': 4, 'collision': 2, 'lifted_no_strict_grasp': 1, 'strict_then_lost': 1}
+4800 s202 {'strict_then_lost': 1, 'success': 2, 'collision': 2, 'lifted_no_strict_grasp': 5}
+==== held-out curve, 4800 placements (every 20k)
+  5000  heldout 4.85e-03 train 4.19e-03 ratio 1.2x median 4.0e-03 under 0
+ 25000  heldout 1.44e-03 train 1.69e-03 ratio 0.9x median 9.1e-04 under 1
+ 45000  heldout 7.45e-04 train 7.60e-04 ratio 1.0x median 4.7e-04 under 3
+ 65000  heldout 5.39e-04 train 4.88e-04 ratio 1.1x median 4.4e-04 under 3
+ 85000  heldout 4.34e-04 train 3.27e-04 ratio 1.3x median 3.6e-04 under 3
+105000  heldout 3.56e-04 train 2.00e-04 ratio 1.8x median 3.4e-04 under 3
+120000  heldout 3.65e-04 train 1.86e-04 ratio 2.0x median 3.2e-04 under 3
+==== held-out curve, 2400 placements seed 202 (every 20k), for comparison
+  5000  heldout 5.80e-03 train 4.28e-03 ratio 1.4x median 5.0e-03 under 0
+ 25000  heldout 9.69e-04 train 1.14e-03 ratio 0.9x median 4.5e-04 under 1
+ 45000  heldout 1.03e-03 train 4.70e-04 ratio 2.2x median 7.1e-04 under 1
+ 65000  heldout 7.30e-04 train 2.47e-04 ratio 3.0x median 6.6e-04 under 2
+ 85000  heldout 6.29e-04 train 1.95e-04 ratio 3.2x median 4.4e-04 under 3
+105000  heldout 5.96e-04 train 1.10e-04 ratio 5.4x median 2.5e-04 under 5
+120000  heldout 5.70e-04 train 1.04e-04 ratio 5.5x median 3.0e-04 under 3
+4800 batch loss @10k 3.8e-04 @60k 1.2e-04 @120k 4.1e-05

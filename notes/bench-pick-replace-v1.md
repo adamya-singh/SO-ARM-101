@@ -57,6 +57,18 @@ pooled rollouts (33/90 here). Disk cleaned (347 GB freed) and row-strided
 sidecars added (commit 41d8fb7); the 4800-placement capture (stride 30) and
 its shift-12 run are queued (notebook entry "Seed repeats (2026-09-12)").**
 
+**4800 placements DONE 2026-09-13 06:xx (`experiments/placements4800_20260912`,
+`experiments/augmentation_shift12_4800_20260912`, W&B 1vk19et1): shift 12 at
+frame stride 30 gives held-out 3.6e-4 with the ratio at 1.6x (memorisation
+gone, held-out tracks train the whole run) but train loss 2x higher than at
+2400 and the curve still falling: the regime flipped to under-fitting.
+Rollouts 6/30 with 5 of 10 poses lifting the cube by an edge without a
+strict grasp: the start-90 chunk MSE no longer predicts success past ~3e-4.
+Next: measure closure offset/yaw per rollout from telemetry, then the square
+localiser; steps/encoder at 4800 and a 2400/stride-30 control are the cheap
+fitting checks (notebook entry "4800 placements (2026-09-13)"). Not a
+live-trial candidate.**
+
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre
 placement), held-out appearance 3/30, prefix 63/63, real-frame gate PASS on
