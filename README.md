@@ -910,9 +910,13 @@ numbers do not transfer. The current sequence, governed by the
    first descent chunk; data, encoder size and steps all flat).
    `tools/augmentation_run.py` with random shift 12 px fixed that (ratio
    15x at 1200 placements, 3-6x at 2400, 1.6x at 4800); best pooled closed
-   loop 33/90 on unseen placements at 2400 placements. Remaining failures
-   are closure precision (edge-caught lifts), so the next work is a closure
-   offset metric and a square localiser conditioning the chunk policy.
+   loop 33/90 on unseen placements at 2400 placements. Measured in
+   millimetres (2026-09-18), the policies land about 10 mm rms from the
+   working policy's jaw position against a grasp tolerance of about 8 mm,
+   and the chunk predicted from the close-up frame at step 180 corrects none
+   of that error because no training episode shows a correction. The next
+   work is a perturbed-teacher capture so that second look learns to centre
+   on the cube; a survey-frame localiser comes after it.
    Every run logs held-out loss during training
    (`02_generalisation/curve_*` in W&B, `heldout_curve.jsonl` on disk).
 

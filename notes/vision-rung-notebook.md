@@ -996,6 +996,11 @@ Readings:
 Ruled in: memorisation is solved at 4800 placements with shift 12 (ratio
 1.6x). Ruled out: the start-90 chunk MSE as the number to optimise past
 ~3e-4; further data alone as the way to closed-loop success.
+[CORRECTED 2026-09-18: the first "ruled out" is wrong (the loss is 150x
+above the working policy's and agrees with the outcome), and the decision
+below is SUPERSEDED: the closure measurement it asks for was made on 09-18
+and points to a perturbed-teacher capture before any localiser. See
+"Tranche analysis (2026-09-18)".]
 
 Decision (ordered): (1) the closure-precision failure is now the whole
 problem and the start-90 MSE cannot see it, so build the measurement first:

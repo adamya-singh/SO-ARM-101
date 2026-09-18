@@ -21,11 +21,12 @@ chunk that mattered. Every step exists because skipping it once cost a wrong con
    bug)." Every measurement below must bear on Y. If no decision hinges on it, stop.
 2. **Establish the baseline.** Find a run that *worked* under a comparable recipe and compute
    every number you are about to compute for the failing run on that baseline too. A number
-   without a baseline is not evidence. Convert the loss into task units (here: normalised action
-   unit = pi rad, so rms joint error = sqrt(MSE) x 180 deg, then millimetres at the jaw) before
-   calling it small. Skipping this on 2026-09-13 produced the false conclusion that a loss 150x
-   above the working policy's had "stopped predicting success". In this repo: `experiments/<run>/training.jsonl`,
-   `evaluation_summary.json`, `models/vision_h90/*/report.json`.
+   without a baseline is not evidence. In this repo: `experiments/<run>/training.jsonl`,
+   `evaluation_summary.json`, `models/vision_h90/*/report.json`; the working fixed-square policy
+   scores 2.5e-6 at chunk start 90. Convert the loss into task units before calling it small
+   (here: normalised action unit = pi rad, so rms joint error = sqrt(MSE) x 180 deg, then
+   millimetres at the jaw). Skipping this on 2026-09-13 produced the false conclusion that a loss
+   150x above the working policy's had "stopped predicting success".
 3. **Loss curves over training, compared at the same steps.** Read the logged loss at fixed
    fractions of the budget (e.g. 10k / 60k / 120k) and the ratio of improvement in the second
    half. Distinguish "still learning" from "the schedule is annealing": under a cosine or decaying

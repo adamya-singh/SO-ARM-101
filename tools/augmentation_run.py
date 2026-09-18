@@ -241,7 +241,7 @@ def main(argv=None) -> int:
             axes[0].plot(shifts, [r["per_pose_summary"]["median"] for r in results], "s-", label="held-out start 90 (per-pose median)")
             axes[0].plot(shifts, [r["train"]["start_90"] for r in results], "x--", alpha=.6, label="train start 90")
             axes[0].axhline(LOOKUP_BASELINE_1200["median"], color="k", ls=":", label="lookup baseline (median)")
-            axes[0].axhline(POSE_THRESHOLD, color="g", ls=":", label="rollouts succeed below")
+            axes[0].axhline(POSE_THRESHOLD, color="g", ls=":", label="level of the ladder's successes (weak proxy; working policy 2.5e-6)")
             axes[0].set_yscale("log"); axes[0].set_xlabel("random shift (px)"); axes[0].set_ylabel("chunk-target MSE"); axes[0].legend(fontsize=7); axes[0].grid(alpha=.3)
             poses = list(results[0]["per_pose"].keys()); x = np.arange(len(poses)); width = 0.8 / max(len(results), 1)
             for k, r in enumerate(results):

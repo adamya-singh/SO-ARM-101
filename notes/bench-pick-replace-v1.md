@@ -5,7 +5,23 @@ experiment: physical setup, recorded hardware state, active scene and
 teacher, evidence inventory, gates, open work, and resume commands. It
 absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
-## Status (2026-09-13)
+## Status (2026-09-18)
+
+**Where things stand (read this first; the dated paragraphs below are the
+history in order and keep the next step as it was understood on their day).**
+The live policy is still the fixed-square appearance policy `ytn3eygr`.
+Placement generalisation: random shift 12 px removed the memorisation the
+ladder found (held-out / train 5250x -> 1.6x at 4800 placements), steps
+re-memorise, placements pay slowly. Closed loop on unseen placements is 6-15
+of 30 because the jaw lands about 10 mm rms from where the working policy
+puts it, against a grasp tolerance of about 8 mm (working policy: 1.7 mm,
+chunk loss 2.5e-6 versus 3e-4 to 6e-4 here), and the chunk predicted from
+the close-up frame at step 180 corrects none of that error: the policy is
+open-loop after the survey frame. **Next tranche: perturbed-teacher capture**
+(random lateral offset on the pre-grasp waypoint, teacher corrects in the
+180-269 segment), judged by lateral error at step 250 versus step 179,
+not-descended count and pooled rollouts. Wherever a paragraph below names
+the square localiser as the next lever, that is superseded by this.
 
 **Scaling ladder DONE 2026-09-11 15:18 (`experiments/scaling_ladder_20260910`,
 W&B xygyhacp): 2400 placements x encoders v1/v2/v3 x 60k-480k steps, scored
