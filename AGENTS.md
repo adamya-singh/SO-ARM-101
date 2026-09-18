@@ -26,6 +26,17 @@ that cannot load them as skills should read the file and follow it.
   `03_training/` (loss), `04_throughput/` (steps/s, checkpoint age), `05_phases/` (gate flags).
   Sections sort alphabetically in the run workspace; keep the numbering on every new metric.
 
+- Placement policies (adopted 2026-09-12/13, evidence in the notebook): always train with random-shift
+  augmentation (`random_shift=12`); 120k steps with the cosine schedule is the budget (more steps
+  re-memorise); every run logs held-out loss during training (`on_checkpoint` observer,
+  `02_generalisation/curve_*`); judge a recipe by held-out start-90 loss across seeds and rollouts
+  pooled over seeds, never by one run's count of 30 (it swings by about 9); read the failed rollouts'
+  pickup events before proposing the next lever.
+- Frames sidecars: capture new suites with a frame row stride (`tools/capture_placements.py
+  --frame-row-stride 30`), train with a `frame_stride` that is a multiple of it, and never delete a
+  sidecar by hand (`tools/derive_strided_frames.py` then `tools/swap_strided_capture.py`, which
+  byte-verifies first). The ladder's `train_manifest.path` points at its stride-18 copy since 2026-09-12.
+
 - Python runs with `PYTHONNOUSERSITE=1` and `MUJOCO_GL=egl` from
   `/home/win10ubuntu/miniforge3/envs/lerobot/bin/python`; MuJoCo is pinned to 3.9.0.
 - `artifacts/` is git-ignored; evidence files are force-added individually.

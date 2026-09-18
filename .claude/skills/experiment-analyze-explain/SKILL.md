@@ -55,6 +55,21 @@ chunk that mattered. Every step exists because skipping it once cost a wrong con
 8. **Rule out the pipeline.** One cheap parity check per changed component (e.g. the GPU frame
    store is bitwise identical to the host path by test; the stride keeps every inference-time
    start in the training set). State explicitly which changes were proven neutral.
+9. **Look per sample and over time, not only at the mean at the end.** Score each held-out pose
+   separately (median, max, how many are under the level where rollouts succeed): a mean is often
+   set by two or three poses. Read the held-out loss *during* training: a ratio that climbs while
+   the held-out loss is flat is memorisation returning; a ratio near 1 with both still falling is
+   under-fitting. Compare against a dumb baseline (nearest-training-sample lookup): a network that
+   loses to a lookup table has a perception problem, not a data problem.
+10. **Read the failed rollouts.** Categorise each failure from its event log (here the pickup
+   events: collision / miss / lifted without a strict grasp / strict grasp then lost). A change
+   can leave the success count where it was while turning gross failures into near-misses, and
+   that tells you what the next lever must fix. When the loss keeps improving and the success
+   count does not, the loss has stopped measuring what decides success; build the metric that
+   does before spending more compute.
+11. **Measure the noise before ranking.** Repeat the recipe with two more seeds. On 10 poses x 3
+   repeats the rollout count of one run moved by about 9 between checkpoints of equal loss
+   (2026-09-12); rank recipes by held-out loss across seeds and by rollouts pooled over seeds.
 
 ## Part 2: decide
 
@@ -106,5 +121,14 @@ generalisation; never claim a cause you did not measure.
   after 2026-09-10 already do this in their `heldout_fit` phase (`experiments/<run>/heldout_fit.json`,
   W&B section `02_generalisation/`); the shared captures live under
   `artifacts/.../heldout_fit_captures/<scene hash>_<suite id>/`.
+- Per-pose held-out loss and the in-training curve: `tools/heldout_fit.py` (`per_pose_start_90`,
+  `per_pose_summary`, `HeldoutCurveScorer`, ~20 ms per score); every `tools/augmentation_run.py`
+  run writes `runs/<label>/heldout_curve.jsonl` and W&B `02_generalisation/curve_*` through the
+  trainer's `on_checkpoint` observer; `tools/heldout_watch.py` attaches to a run already in flight.
+- Failure taxonomy and worked examples: per-rollout telemetry under `evaluations/<label>/.../telemetry/`
+  (`pickup_events`, `pickup_measurement.cube_height_gain_m`, `contact.face_corner_rejection_count`);
+  see `experiments/augmentation_20260912/analysis_rollouts.txt` and the notebook entries of
+  2026-09-12/13.
+- Lookup baseline example: `experiments/scaling_ladder_20260910/analysis_lookup_baseline.txt`.
 - Real-frame gate (sim-to-real check on recorded frames): `tools/check_policy_on_real_frames.py`.
 - Network: `src/so_arm101_v2/learning/vision.py` (`build_vision_chunked_model`, encoders v1/v2).

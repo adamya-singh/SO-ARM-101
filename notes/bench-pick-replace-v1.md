@@ -5,7 +5,7 @@ experiment: physical setup, recorded hardware state, active scene and
 teacher, evidence inventory, gates, open work, and resume commands. It
 absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
-## Status (2026-09-10)
+## Status (2026-09-13)
 
 **Scaling ladder DONE 2026-09-11 15:18 (`experiments/scaling_ladder_20260910`,
 W&B xygyhacp): 2400 placements x encoders v1/v2/v3 x 60k-480k steps, scored
@@ -775,6 +775,77 @@ pristine reset render is unchanged. Gate 1 needs a re-sign on the new hash
 ![Wrist-camera coverage of the rectangle from the reset and survey poses](../readme-assets/bench-survey-coverage-20260910.png)
 
 ![Teacher reach map over the rectangle at yaw 0 and ±45°](../readme-assets/bench-reach-map-20260910.png)
+
+## Frames sidecars, row stride and disk (2026-09-12)
+
+A frames sidecar (`images.npy`) stores one 256x256x3 uint8 frame per action
+row: 480 rows per episode, 94 MB per episode, 211 GB for the ladder's 2400
+placements. Every training since 2026-09-10 reads only every 9th, 18th or
+30th row of each episode (`VisionChunkedConfig.frame_stride`; the chunk
+starts that occur at inference are multiples of 90), so most of those bytes
+were never read, and a 4800-placement capture would not have fit the disk.
+
+- **Capture at a stride:** `capture_oracle_demonstrations(...,
+  frame_row_stride=N)` stores only rows with `action_index % N == 0`
+  (`ceil(horizon / N)` per episode, episode-major). The arrays are complete
+  regardless. The manifest's `frames` block carries `row_stride` and
+  `rows_per_episode`, and `frame_store.row_stride` enters the capture
+  identity; all three are absent at stride 1, so older identities are
+  unchanged. `tools/capture_placements.py --count N --suite-seed S
+  --frame-row-stride 30 --heldout-from <ladder dir>` generates, screens and
+  captures a suite this way and writes the pointer files
+  `tools/augmentation_run.py --ladder-dir` expects.
+- **Loading:** `load_vision_frames` returns a `StridedFrames` wrapper for
+  such a sidecar: logical full-length row indexing that serves stored rows
+  and raises for any other. The trainer therefore requires `frame_stride`
+  to be a multiple of the capture stride; the RAM zlib cache is skipped
+  (GPU store and memmap paths work); the held-out scorers restrict their
+  samples to stored rows.
+- **Converting an existing capture:** `tools/derive_strided_frames.py
+  --manifest <full> --stride N --output-dir <dir> --pointer <file>` writes a
+  new capture directory (arrays copied byte for byte, manifest with
+  `derived_from`), then `tools/swap_strided_capture.py` verifies 2000 sampled
+  rows byte-identical and only then deletes the full `images.npy`, leaves
+  `FRAMES_DELETED.txt` and repoints a pointer file. Never delete a sidecar
+  by hand.
+- **State after 2026-09-12:** the ladder's training capture is the stride-18
+  copy (`scaling_ladder_20260910/capture_train_stride18/...`, 64,800 rows,
+  12.7 GB); `scaling_ladder_20260910/train_manifest.path` points at it and
+  the previous pointer is kept as `train_manifest.path.full.bak`. Runs on it
+  from now on have new run identities (different manifest and frames
+  digests) although the pixels they read are the same bytes. The
+  4800-placement capture (`experiments/placements4800_20260912`, suite seed
+  14) was captured at stride 30: 76,800 rows, 15 GB, which also fits the
+  24 GB GPU frame store (4800 episodes at stride 18 would be 25 GB and does
+  not), so it trains at `--frame-stride 30`.
+- **Disk cleanup 2026-09-12 (user-approved, 347 GB):** deleted the run-5
+  frames sidecar (106 GB), the legacy-lane `oracle_distillation/oracle`
+  frames (69 GB; `FRAMES_DELETED.txt` beside each manifest, manifests and
+  arrays kept), the `lead3_rgb_v1` cache (6.8 GB), `outputs/train` (91 GB of
+  July ACT / SmolVLA checkpoints) and `simulation_code/outputs/train`
+  (74 GB). The swap of the ladder sidecar freed another 226 GB. Those exact
+  frame digests can no longer be re-verified from pixels; the results they
+  produced remain in the notes and in git.
+
+## Augmentation runs and the held-out curve (2026-09-12)
+
+`tools/augmentation_run.py --ladder-dir <data dir> --output-dir <dir>
+--shifts 12 --episodes N [--steps 120000] [--frame-stride 18|30]
+[--seed 202] [--no-baseline] [--run-name ...]` trains
+`VisionChunkedConfig(random_shift=...)` points on a data directory's train
+capture, scores each on the shared ten-pose held-out capture (boundary
+losses, per-pose start-90 loss with median / max / count under 2.5e-4), runs
+30 closed-loop rollouts and logs to W&B group `augmentation` under the
+numbered sections with the shift as x-axis. While training it logs held-out
+and train start-90 loss, their ratio and the per-pose median every 5000
+steps (`02_generalisation/curve_*`, `runs/<label>/heldout_curve.jsonl`)
+through the trainer's read-only `on_checkpoint` observer.
+`tools/heldout_watch.py` does the same from outside for a run already in
+flight, into its own W&B run. Rules adopted from these runs: never train a
+placement policy unaugmented; 120k steps with the cosine schedule is the
+budget (more steps re-memorise at 1200-2400 placements); judge a recipe by
+held-out start-90 loss across seeds and rollouts pooled over seeds, never
+by one run's count of 30.
 
 ## Active scene and teacher
 

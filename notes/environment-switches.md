@@ -51,6 +51,14 @@ order (`learning/vision.py:253`).
 | `SO_ARM101_V2_FRAME_CACHE` | `zlib` | On first use under an output root, the frames sidecar is read once sequentially and held in RAM as lossless zlib rows (`<output_dir>/frame_cache/frames_cache_<sha16>.npz`, reused by later runs under the same root); minibatch rows decode in ~0.1 ms instead of a 192 KiB random disk read. Rendered wrist frames compress ~40× (37.7 GB → < 1 GB), so the disk-bound vision loop (10 steps/s, 5 ms GPU step) becomes GPU-bound. Pixels are bit-identical (pinned by test). Measured 2026-09-09 on the 192k-row bench sidecar: cache built in 53 s (0.89 GB, 42×), training 57.8 steps/s vs 10.1 disk-bound (the raw random-read ceiling of this WSL disk is ~13 batches/s at 12 threads; the GPU step alone is 5.3 ms). Skipped automatically when the projected cache exceeds half of physical memory; `off` keeps the memmap. |
 | `SO_ARM101_V2_IMAGE_UPLOAD` | `device` | `device` ships the uint8 minibatch through a pinned staging buffer and does `/255` + HWC→CHW on the device (a quarter of the host-to-device bytes); `cpu` restores the historical host float path. Bitwise identical (pinned by `tests/test_vision_lane.py`, CPU and CUDA variants), so identities and digests are unaffected. |
 
+**Row-strided sidecars (2026-09-12).** A capture made with
+`frame_row_stride=N` (or converted by `tools/derive_strided_frames.py`)
+stores only every Nth frame of each episode. With such a capture
+`SO_ARM101_V2_FRAME_CACHE=zlib` is skipped with a log line (the memmap and
+the `gpu` store both work), and `VisionChunkedConfig.frame_stride` /
+`--frame-stride` must be a multiple of N or training stops with an error
+naming N. See the runbook section "Frames sidecars, row stride and disk".
+
 **These change speed only.** Prefetched and synchronous training are bitwise
 identical — `tests/test_vision_lane.py` pins the same run digest, the same
 loss trace, and the same checkpoint sha across the two paths — so the kill

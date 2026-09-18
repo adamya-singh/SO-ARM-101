@@ -50,6 +50,33 @@ from the survey image, so the next levers are random-shift augmentation and
 a separate square localiser conditioning the policy (see the notebook entry
 "Scaling ladder (2026-09-11)").
 
+**Random-shift augmentation and the augmented ladder (September 12-13,
+2026):** sliding every training frame by up to 12 px at a random per-sample
+offset (the DrQ trick; labels unchanged) removed the memorisation the ladder
+found. On the ladder's 1200-placement point the held-out / train loss ratio
+at the first descent chunk fell from 5250x to 15x and closed loop on unseen
+placements went from 0/30 to 9/30. With memorisation blocked the axes were
+re-tested one at a time, now with held-out loss logged every 5000 steps
+during training: **more steps bring memorisation back** (480k steps: ratio
+77x, 0/30; a 12 px shift has only 625 offsets per frame), **more placements
+pay** (2400 placements: ratio 3-6x, held-out 3.4e-4 to 5.8e-4 over three
+seeds, closed loop 15, 6 and 12 of 30, i.e. 33/90 pooled), and at **4800
+placements the regime flips to under-fitting** (ratio 1.6x, held-out 3.6e-4,
+train loss 2x higher and still falling at 120k steps). Two method lessons
+came out of it: single-run rollout counts on 10 poses x 3 repeats swing by
+about 9 between checkpoints of equal loss, so recipes are judged by held-out
+loss across seeds and pooled rollouts; and below about 3e-4 the chunk loss
+stops predicting success, because the remaining failures are cubes caught
+by an edge (lifted 20-30 mm without a strict grasp, dropped at release), a
+few millimetres at closure that a 90-step x 6-joint mean cannot see. Next:
+a closure offset / yaw metric from the rollout telemetry, then the square
+localiser. None of these is a live-trial candidate yet; the fixed-square
+appearance policy remains the only one that has succeeded on the arm. To
+make the 4800-placement capture fit, captures can now store only every Nth
+frame (the 2400-placement sidecar went from 211 GB to 12.7 GB). Notebook
+entries "Random-shift augmentation", "Shift-12 follow-ups", "Seed repeats"
+and "4800 placements".
+
 **Bench status (September 10, 2026):** the first two physical attempts
 (September 9) proved the runner, timing and safety stack and showed the
 lens policy is brittle to appearance: on the real reset frame its first
@@ -866,6 +893,17 @@ numbers do not transfer. The current sequence, governed by the
    undistortion. The outcome goes into the notebook with its evidence
    directory; success in simulation says nothing about the real arm until
    then.
+4. **Placement generalisation (2026-09-10 to 09-13, in progress):** square
+   and cube anywhere in a 14 x 10 in rectangle with yaw. Runs 4 and 5 and the
+   scaling ladder showed pure memorisation (held-out 100-5000x train at the
+   first descent chunk; data, encoder size and steps all flat).
+   `tools/augmentation_run.py` with random shift 12 px fixed that (ratio
+   15x at 1200 placements, 3-6x at 2400, 1.6x at 4800); best pooled closed
+   loop 33/90 on unseen placements at 2400 placements. Remaining failures
+   are closure precision (edge-caught lifts), so the next work is a closure
+   offset metric and a square localiser conditioning the chunk policy.
+   Every run logs held-out loss during training
+   (`02_generalisation/curve_*` in W&B, `heldout_curve.jsonl` on disk).
 
 ## Setup / Running the Code
 
