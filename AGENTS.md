@@ -2,7 +2,8 @@
 
 This repository trains vision policies for the SO-ARM-101 bench task in a MuJoCo simulator and
 runs them on the physical arm. The governing runbook is `notes/bench-pick-replace-v1.md`; the
-running log is `notes/vision-rung-notebook.md`.
+running log is `notes/vision-rung-notebook.md`. A plain-English account of the placement work
+(ladder, augmentation, closure analysis) for a newcomer is `notes/placement-generalisation-explained.md`.
 
 ## Skills
 
