@@ -111,6 +111,10 @@ generalisation; never claim a cause you did not measure.
 
 ## Repository pointers
 
+All paths in this skill are relative to the SO-ARM-101 repository root. The skill is also linked
+into the parent folder (`robotic-arm/.claude/skills/`), so from a session started there prefix
+them with `SO-ARM-101/`.
+
 - Loss logs: `experiments/<run>/training.jsonl` (step, loss, steps_per_second).
 - Closed-loop results: `experiments/<run>/evaluation_summary.json` (successes per suite,
   `success_by_region` for placement runs), per-rollout `evaluation.json` (failure categories,
