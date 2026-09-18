@@ -21,7 +21,10 @@ chunk that mattered. Every step exists because skipping it once cost a wrong con
    bug)." Every measurement below must bear on Y. If no decision hinges on it, stop.
 2. **Establish the baseline.** Find a run that *worked* under a comparable recipe and compute
    every number you are about to compute for the failing run on that baseline too. A number
-   without a baseline is not evidence. In this repo: `experiments/<run>/training.jsonl`,
+   without a baseline is not evidence. Convert the loss into task units (here: normalised action
+   unit = pi rad, so rms joint error = sqrt(MSE) x 180 deg, then millimetres at the jaw) before
+   calling it small. Skipping this on 2026-09-13 produced the false conclusion that a loss 150x
+   above the working policy's had "stopped predicting success". In this repo: `experiments/<run>/training.jsonl`,
    `evaluation_summary.json`, `models/vision_h90/*/report.json`.
 3. **Loss curves over training, compared at the same steps.** Read the logged loss at fixed
    fractions of the budget (e.g. 10k / 60k / 120k) and the ratio of improvement in the second
@@ -65,8 +68,15 @@ chunk that mattered. Every step exists because skipping it once cost a wrong con
    events: collision / miss / lifted without a strict grasp / strict grasp then lost). A change
    can leave the success count where it was while turning gross failures into near-misses, and
    that tells you what the next lever must fix. When the loss keeps improving and the success
-   count does not, the loss has stopped measuring what decides success; build the metric that
-   does before spending more compute.
+   count does not, first redo step 2 (is the loss really near the working baseline in task
+   units?), then measure the deciding quantity directly in the closed loop (here: jaw position
+   relative to the cube just before closure, in mm, from forward kinematics on the logged joint
+   angles, with the working policy's value as the target). Remember what an offline loss cannot
+   see: it scores the model on the *teacher's* states. In closed loop the model visits its own
+   slightly wrong states; if no training episode contains a recovery from such a state, a later
+   chunk can score 1e-6 offline and still correct nothing (2026-09-18: lateral error 11.4 mm
+   before the second chunk, 11.2 mm after). Check whether each stage of the policy reduces the
+   error left by the stage before.
 11. **Measure the noise before ranking.** Repeat the recipe with two more seeds. On 10 poses x 3
    repeats the rollout count of one run moved by about 9 between checkpoints of equal loss
    (2026-09-12); rank recipes by held-out loss across seeds and by rollouts pooled over seeds.
@@ -134,5 +144,7 @@ them with `SO-ARM-101/`.
   see `experiments/augmentation_20260912/analysis_rollouts.txt` and the notebook entries of
   2026-09-12/13.
 - Lookup baseline example: `experiments/scaling_ladder_20260910/analysis_lookup_baseline.txt`.
+- Closure error in millimetres, shrinkage test, and the before/after-second-chunk comparison:
+  `experiments/tranche_analysis_20260918/` and the notebook entry "Tranche analysis (2026-09-18)".
 - Real-frame gate (sim-to-real check on recorded frames): `tools/check_policy_on_real_frames.py`.
 - Network: `src/so_arm101_v2/learning/vision.py` (`build_vision_chunked_model`, encoders v1/v2).

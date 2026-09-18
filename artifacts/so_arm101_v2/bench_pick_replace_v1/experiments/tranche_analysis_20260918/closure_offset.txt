@@ -1,0 +1,104 @@
+working-policy telemetry dirs: ['260910/evaluations/heldout/policies/bench_pick_replace_v1_seed8_n10_7c92e78b0b47/telemetry', 'eldout_appearance/policies/bench_pick_replace_v1_heldout_appearance_88229092b435/telemetry']
+
+fixed-square working policy (30/30): 10/10 poses succeed | median |offset| 17.9 mm | median |perp| 9.7 | median |along| 15.5 | median height 32.6
+   pose_000  along   16.3  perp    8.3  dist  18.3 mm  height  32.5  yaw_err  n/a  success
+   pose_001  along   15.7  perp   10.8  dist  19.1 mm  height  32.6  yaw_err  n/a  success
+   pose_002  along   16.5  perp    7.0  dist  17.9 mm  height  32.7  yaw_err  n/a  success
+   pose_003  along   16.0  perp    9.3  dist  18.5 mm  height  32.4  yaw_err  n/a  success
+   pose_004  along   13.4  perp   10.1  dist  16.8 mm  height  32.5  yaw_err  n/a  success
+   pose_005  along   14.3  perp   10.4  dist  17.7 mm  height  32.3  yaw_err  n/a  success
+   pose_006  along   13.4  perp    8.0  dist  15.6 mm  height  33.0  yaw_err  n/a  success
+   pose_007  along   16.4  perp    7.3  dist  17.9 mm  height  32.6  yaw_err  n/a  success
+   pose_008  along   11.4  perp   11.6  dist  16.3 mm  height  32.7  yaw_err  n/a  success
+   pose_009  along   15.3  perp   11.0  dist  18.8 mm  height  32.6  yaw_err  n/a  success
+
+1200/120k/shift0: 0/10 poses succeed | median |offset| 32.8 mm | median |perp| 24.9 | median |along| 17.3 | median height 33.8 | median yaw err 15.2 deg
+   pose_000  along   26.0  perp  -19.3  dist  32.4 mm  height  30.0  yaw_err 0.0  collision
+   pose_001  along   15.2  perp    1.2  dist  15.2 mm  height  43.2  yaw_err 18.0  collision
+   pose_002  along   27.8  perp    6.7  dist  28.6 mm  height  47.6  yaw_err 19.0  miss
+   pose_003  along   13.3  perp   31.2  dist  33.9 mm  height  33.6  yaw_err 24.7  collision
+   pose_004  along   55.9  perp   49.4  dist  74.6 mm  height  33.9  yaw_err 36.7  miss
+   pose_005  along   12.3  perp   30.9  dist  33.2 mm  height  42.6  yaw_err 14.6  collision
+   pose_006  along    4.8  perp   41.3  dist  41.6 mm  height  31.5  yaw_err 3.9  miss
+   pose_007  along   16.6  perp   24.0  dist  29.2 mm  height  33.2  yaw_err 8.0  edge_lift
+   pose_008  along   18.0  perp    3.1  dist  18.2 mm  height  30.6  yaw_err 5.4  edge_lift
+   pose_009  along   39.8  perp   25.8  dist  47.5 mm  height  48.4  yaw_err 15.7  collision
+
+1200/120k/shift12: 3/10 poses succeed | median |offset| 18.4 mm | median |perp| 14.6 | median |along| 14.4 | median height 33.8 | median yaw err 13.0 deg
+   pose_000  along   15.9  perp    6.3  dist  17.1 mm  height  45.8  yaw_err 4.9  collision
+   pose_001  along   10.9  perp   10.3  dist  15.0 mm  height  32.0  yaw_err 13.7  success
+   pose_002  along   15.3  perp    9.4  dist  17.9 mm  height  32.1  yaw_err 20.8  strict_then_lost
+   pose_003  along   20.9  perp   22.7  dist  30.9 mm  height  46.8  yaw_err 13.6  miss
+   pose_004  along   18.1  perp   13.0  dist  22.2 mm  height  33.3  yaw_err 16.2  success
+   pose_005  along   14.0  perp   27.4  dist  30.7 mm  height  47.1  yaw_err 9.9  miss
+   pose_006  along    0.2  perp   18.0  dist  18.0 mm  height  34.1  yaw_err 14.8  edge_lift
+   pose_007  along   14.8  perp   11.6  dist  18.8 mm  height  32.7  yaw_err 12.2  success
+   pose_008  along    2.5  perp   16.1  dist  16.3 mm  height  34.7  yaw_err 11.1  edge_lift
+   pose_009  along   10.5  perp   21.4  dist  23.8 mm  height  33.6  yaw_err 12.3  edge_lift
+
+1200/480k/shift12: 0/10 poses succeed | median |offset| 18.8 mm | median |perp| 16.4 | median |along| 16.1 | median height 33.6 | median yaw err 14.3 deg
+   pose_000  along   12.8  perp   -3.5  dist  13.3 mm  height  30.0  yaw_err 11.5  miss
+   pose_001  along   15.9  perp    8.1  dist  17.9 mm  height  33.4  yaw_err 15.5  edge_lift
+   pose_002  along   16.4  perp    6.3  dist  17.5 mm  height  33.1  yaw_err 22.0  edge_lift
+   pose_003  along   23.6  perp   30.8  dist  38.8 mm  height  49.2  yaw_err 13.1  collision
+   pose_004  along   18.1  perp    7.4  dist  19.5 mm  height  33.8  yaw_err 21.1  edge_lift
+   pose_005  along   23.8  perp   30.7  dist  38.9 mm  height  45.1  yaw_err 16.3  collision
+   pose_006  along   -1.6  perp   22.7  dist  22.8 mm  height  35.6  yaw_err 12.6  miss
+   pose_007  along    5.1  perp   16.4  dist  17.1 mm  height  31.9  yaw_err 16.9  edge_lift
+   pose_008  along    7.5  perp   16.4  dist  18.0 mm  height  33.1  yaw_err 8.0  edge_lift
+   pose_009  along   21.3  perp   29.9  dist  36.8 mm  height  44.0  yaw_err 7.6  collision
+
+2400/s202: 5/10 poses succeed | median |offset| 20.8 mm | median |perp| 13.0 | median |along| 15.0 | median height 33.8 | median yaw err 13.8 deg
+   pose_000  along   16.3  perp   11.0  dist  19.7 mm  height  45.9  yaw_err 10.7  collision
+   pose_001  along   10.4  perp   22.6  dist  24.8 mm  height  44.6  yaw_err 13.6  edge_lift
+   pose_002  along   16.3  perp    4.5  dist  16.9 mm  height  32.1  yaw_err 14.0  success
+   pose_003  along   16.1  perp   15.0  dist  22.0 mm  height  32.2  yaw_err 5.3  success
+   pose_004  along   11.6  perp    7.8  dist  14.0 mm  height  33.4  yaw_err 9.1  success
+   pose_005  along   26.9  perp   20.1  dist  33.5 mm  height  44.6  yaw_err 17.1  miss
+   pose_006  along    4.8  perp   10.2  dist  11.3 mm  height  34.2  yaw_err 17.6  success
+   pose_007  along   14.0  perp   19.1  dist  23.7 mm  height  32.3  yaw_err 15.0  success
+   pose_008  along   -0.2  perp    2.5  dist   2.5 mm  height  33.0  yaw_err 17.0  edge_lift
+   pose_009  along   23.1  perp   19.9  dist  30.5 mm  height  45.7  yaw_err 9.2  miss
+
+2400/s101: 2/10 poses succeed | median |offset| 19.1 mm | median |perp| 13.6 | median |along| 11.5 | median height 33.5 | median yaw err 15.2 deg
+   pose_000  along   15.3  perp    8.8  dist  17.7 mm  height  30.9  yaw_err 9.2  strict_then_lost
+   pose_001  along   11.6  perp   11.7  dist  16.5 mm  height  32.0  yaw_err 14.4  success
+   pose_002  along   17.5  perp   10.8  dist  20.5 mm  height  47.6  yaw_err 19.6  collision
+   pose_003  along   21.6  perp   19.6  dist  29.2 mm  height  47.0  yaw_err 11.3  miss
+   pose_004  along   11.0  perp   21.0  dist  23.7 mm  height  33.2  yaw_err 10.3  edge_lift
+   pose_005  along    8.8  perp   23.1  dist  24.7 mm  height  43.5  yaw_err 27.3  collision
+   pose_006  along    2.1  perp   11.0  dist  11.2 mm  height  33.7  yaw_err 16.0  success
+   pose_007  along    6.9  perp   15.5  dist  17.0 mm  height  32.8  yaw_err 17.7  edge_lift
+   pose_008  along   16.0  perp   -2.1  dist  16.1 mm  height  31.8  yaw_err 16.3  miss
+   pose_009  along   11.4  perp   22.5  dist  25.3 mm  height  33.8  yaw_err 12.2  edge_lift
+
+2400/s303: 4/10 poses succeed | median |offset| 20.5 mm | median |perp| 12.4 | median |along| 14.2 | median height 33.5 | median yaw err 14.5 deg
+   pose_000  along   57.1  perp   -4.6  dist  57.3 mm  height  38.7  yaw_err 10.9  miss
+   pose_001  along   13.7  perp   12.0  dist  18.1 mm  height  33.2  yaw_err 17.2  success
+   pose_002  along   17.5  perp   12.9  dist  21.8 mm  height  36.6  yaw_err 20.1  success
+   pose_003  along   18.8  perp   19.4  dist  27.1 mm  height  46.9  yaw_err 12.2  collision
+   pose_004  along   11.6  perp   10.8  dist  15.9 mm  height  33.4  yaw_err 9.5  success
+   pose_005  along   14.8  perp   29.4  dist  33.0 mm  height  44.9  yaw_err 13.8  collision
+   pose_006  along   10.2  perp   16.3  dist  19.2 mm  height  32.6  yaw_err 15.3  edge_lift
+   pose_007  along    7.6  perp   11.4  dist  13.7 mm  height  32.9  yaw_err 19.5  success
+   pose_008  along   15.0  perp   -1.9  dist  15.1 mm  height  30.9  yaw_err 20.4  miss
+   pose_009  along   11.8  perp   19.3  dist  22.7 mm  height  33.5  yaw_err 11.7  strict_then_lost
+
+4800/s202: 2/10 poses succeed | median |offset| 20.0 mm | median |perp| 14.0 | median |along| 14.4 | median height 32.9 | median yaw err 15.4 deg
+   pose_000  along   14.0  perp    8.7  dist  16.5 mm  height  30.2  yaw_err 20.6  strict_then_lost
+   pose_001  along   14.7  perp   13.4  dist  19.9 mm  height  32.6  yaw_err 20.0  success
+   pose_002  along   16.9  perp   11.1  dist  20.2 mm  height  47.7  yaw_err 19.5  collision
+   pose_003  along   16.0  perp   21.3  dist  26.6 mm  height  32.6  yaw_err 13.7  edge_lift
+   pose_004  along   18.2  perp    6.7  dist  19.4 mm  height  34.7  yaw_err 16.2  edge_lift
+   pose_005  along   16.5  perp   14.6  dist  22.0 mm  height  42.7  yaw_err 12.8  collision
+   pose_006  along    3.1  perp   14.6  dist  14.9 mm  height  33.2  yaw_err 16.0  edge_lift
+   pose_007  along    9.9  perp   17.7  dist  20.2 mm  height  31.3  yaw_err 13.2  edge_lift
+   pose_008  along   10.2  perp    9.3  dist  13.8 mm  height  32.3  yaw_err 14.7  success
+   pose_009  along   11.9  perp   21.6  dist  24.6 mm  height  34.6  yaw_err 9.9  edge_lift
+
+==== pooled over the placement runs (shift 12 only), by outcome
+success           n=16  |offset| median  16.7 mm  max  23.7  | |perp| median 11.5  |along| median 12.6  yaw_err median 14.9
+strict_then_lost  n= 4  |offset| median  17.8 mm  max  22.7  | |perp| median  9.1  |along| median 14.7  yaw_err median 16.2
+edge_lift         n=19  |offset| median  19.2 mm  max  26.6  | |perp| median 16.4  |along| median 10.4  yaw_err median 14.8
+miss              n=10  |offset| median  29.8 mm  max  57.3  | |perp| median 19.8  |along| median 18.5  yaw_err median 12.1
+collision         n=11  |offset| median  24.7 mm  max  38.9  | |perp| median 19.4  |along| median 16.9  yaw_err median 13.1

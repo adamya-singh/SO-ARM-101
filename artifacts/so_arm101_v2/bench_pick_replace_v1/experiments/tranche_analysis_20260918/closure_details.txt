@@ -1,0 +1,21 @@
+descended rollouts within 8 mm lateral that still FAILED:
+  1200/120k/shift12    pose_002  d_along   0.4  d_perp  -0.0  lat  0.4  dz -0.5  yaw_err  5.0  strict_then_lost
+  1200/480k/shift12    pose_001  d_along   1.0  d_perp  -1.2  lat  1.6  dz  0.8  yaw_err  0.2  edge_lift
+  1200/480k/shift12    pose_002  d_along   1.5  d_perp  -3.1  lat  3.4  dz  0.5  yaw_err  6.2  edge_lift
+  1200/480k/shift12    pose_004  d_along   3.2  d_perp  -2.0  lat  3.7  dz  1.2  yaw_err  5.4  edge_lift
+  2400/shift12/s101    pose_000  d_along   0.4  d_perp  -0.6  lat  0.7  dz -1.7  yaw_err  6.5  strict_then_lost
+  4800/shift12/s202    pose_000  d_along  -0.8  d_perp  -0.7  lat  1.1  dz -2.4  yaw_err  4.9  strict_then_lost
+  4800/shift12/s202    pose_004  d_along   3.4  d_perp  -2.6  lat  4.3  dz  2.1  yaw_err  0.5  edge_lift
+descended rollouts within 8 mm lateral that SUCCEEDED: yaw_err [0.4, 1.1, 1.4, 1.4, 1.7, 2.1, 3.5, 3.7, 4.2, 4.3, 6.3, 6.6, 10.4]
+
+signed errors of edge lifts (d_along, d_perp): [(-15, 9), (-12, 7), (-4, 12), (1, -1), (1, -3), (3, -2), (-10, 7), (-7, 7), (-4, 13), (-15, -7), (-4, 12), (-8, 6), (-3, 13), (-5, 7), (1, 12), (3, -3), (-12, 5), (-5, 8), (-3, 12)]
+signed errors of successes  (d_along, d_perp): [(-4, 1), (3, 4), (0, 2), (1, -5), (1, 6), (-3, -2), (-10, 1), (-1, 10), (-3, 2), (-13, 2), (-1, 3), (3, 3), (-3, 1), (-7, 2), (0, 4), (-5, 0)]
+
+jaw height above the cube (mm) by step; first unsafe-contact step and count; limiter/bound frames
+  _shift12_4800_20260912 pose_002: {90: 121, 120: 122, 150: 71, 180: 48, 210: 47, 240: 43, 270: 40, 300: 44, 330: 70}  unsafe (274, 42)  limiter 0
+  _shift12_4800_20260912 pose_005: {90: 121, 120: 101, 150: 75, 180: 46, 210: 44, 240: 40, 270: 37, 300: 42, 330: 67}  unsafe (278, 47)  limiter 0
+  _shift12_2400_20260912 pose_000: {90: 122, 120: 133, 150: 74, 180: 47, 210: 45, 240: 42, 270: 41, 300: 44, 330: 71}  unsafe (272, 48)  limiter 20
+  _shift12_2400_20260912 pose_009: {90: 121, 120: 106, 150: 74, 180: 46, 210: 45, 240: 41, 270: 37, 300: 39, 330: 66}  unsafe (None, 0)  limiter 0
+  _shift12_2400_20260912 pose_004: {90: 121, 120: 110, 150: 73, 180: 45, 210: 34, 240: 29, 270: 26, 300: 26, 330: 54}  unsafe (None, 0)  limiter 0
+  _shift12_4800_20260912 pose_001: {90: 122, 120: 110, 150: 73, 180: 44, 210: 34, 240: 28, 270: 24, 300: 24, 330: 53}  unsafe (None, 0)  limiter 0
+  working policy          pose_004: {90: 72, 120: 114, 150: 72, 180: 43, 210: 33, 240: 28, 270: 25, 300: 25, 330: 52}

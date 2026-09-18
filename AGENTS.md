@@ -31,7 +31,10 @@ that cannot load them as skills should read the file and follow it.
   re-memorise); every run logs held-out loss during training (`on_checkpoint` observer,
   `02_generalisation/curve_*`); judge a recipe by held-out start-90 loss across seeds and rollouts
   pooled over seeds, never by one run's count of 30 (it swings by about 9); read the failed rollouts'
-  pickup events before proposing the next lever.
+  pickup events before proposing the next lever; report closure error in millimetres against the
+  working policy's jaw position (tolerance about 8 mm, working policy 1.7 mm) and read every loss in
+  task units against the working policy's 2.5e-6 (2026-09-18: the policy is open-loop after the survey
+  frame; the step-180 chunk corrects nothing because no training episode contains a correction).
 - Frames sidecars: capture new suites with a frame row stride (`tools/capture_placements.py
   --frame-row-stride 30`), train with a `frame_stride` that is a multiple of it, and never delete a
   sidecar by hand (`tools/derive_strided_frames.py` then `tools/swap_strided_capture.py`, which

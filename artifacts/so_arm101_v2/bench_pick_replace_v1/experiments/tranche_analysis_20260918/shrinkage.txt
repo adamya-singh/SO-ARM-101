@@ -1,0 +1,15 @@
+training placement centre (m): [0.002 0.217]  spread sd (m): [0.1  0.05]
+
+step 179: regress (jaw - centre) on (target - centre); slope 1 = no shrinkage, <1 = pulled toward the middle
+  1200/s12   slope  0.98 | error rms  11.4 mm | after removing the slope  11.2 mm | mean radial error  -0.5 mm (negative = toward the centre)
+  2400/s202  slope  0.98 | error rms  11.6 mm | after removing the slope  11.3 mm | mean radial error  -2.5 mm (negative = toward the centre)
+  2400/s101  slope  1.00 | error rms  11.4 mm | after removing the slope  11.4 mm | mean radial error  -0.5 mm (negative = toward the centre)
+  2400/s303  slope  0.95 | error rms  16.6 mm | after removing the slope  15.5 mm | mean radial error  -4.6 mm (negative = toward the centre)
+  4800/s202  slope  0.99 | error rms   9.7 mm | after removing the slope   9.6 mm | mean radial error  -0.8 mm (negative = toward the centre)
+
+step 250: regress (jaw - centre) on (target - centre); slope 1 = no shrinkage, <1 = pulled toward the middle
+  1200/s12   slope  0.99 | error rms  11.2 mm | after removing the slope  11.0 mm | mean radial error  -0.2 mm (negative = toward the centre)
+  2400/s202  slope  0.98 | error rms  10.9 mm | after removing the slope  10.7 mm | mean radial error  -2.1 mm (negative = toward the centre)
+  2400/s101  slope  1.00 | error rms  10.7 mm | after removing the slope  10.7 mm | mean radial error  -0.8 mm (negative = toward the centre)
+  2400/s303  slope  0.95 | error rms  17.0 mm | after removing the slope  15.8 mm | mean radial error  -5.1 mm (negative = toward the centre)
+  4800/s202  slope  0.98 | error rms   8.1 mm | after removing the slope   7.8 mm | mean radial error  -1.1 mm (negative = toward the centre)

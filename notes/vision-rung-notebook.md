@@ -813,6 +813,9 @@ out: the 9/30 plateau is not a plateau of the same kind as the ladder's
 (the ladder's 9/30 came with a 5e-3 mean and a memorised map; this one comes
 with a 6e-4 mean and per-pose errors within a factor of 2-4 of the working
 fixed-square policy on half the poses).
+[CORRECTED 2026-09-18: the last clause is wrong. The working fixed-square
+policy sits at 2.5e-6 at start 90, so these policies are 15x to 400x above
+it per pose, not 2-4x. See "Tranche analysis (2026-09-18)".]
 
 Decision (ordered): (1) keep shift 12 and give it what the ratio now
 permits: 240k-480k steps (the curve is still descending; the baseline's
@@ -980,6 +983,11 @@ Readings:
   steps x 6 joints; the few millimetres and degrees at closure that decide a
   pad-centred grasp are a small part of it, so a policy can be "good" on
   this metric and still fail the strict grasp at most poses.
+  [CORRECTED 2026-09-18: wrong baseline. The working policy's start-90 loss
+  is 2.5e-6, about 150x below these runs, so the loss had not "stopped
+  predicting": 3e-4 is about 3 degrees rms of joint error, about 10 mm at
+  the jaw, against a measured grasp tolerance of about 8 mm. The loss and
+  the outcome agree. See "Tranche analysis (2026-09-18)".]
 - **Confound.** Stride 30 versus 18 changes rows per episode (16 vs 27) at
   a similar total row count (76.8k vs 64.8k); a 2400-placement run at
   stride 30 (25 min) separates "twice the scenes" from "fewer rows per
@@ -1002,3 +1010,182 @@ dedicated head is for; (3) cheap fitting levers now that the ratio is 1.6x:
 stride-30 control, judged by held-out start-90 across seeds AND the closure
 offset; (4) pooled rollouts over seeds for any closed-loop claim. Live
 policy unchanged (`ytn3eygr`).
+
+### Tranche analysis (2026-09-18): the placement policy is open-loop after the survey frame; 10 mm scatter against an 8 mm tolerance, and the second look never corrects
+
+The experiment-analyze-explain skill applied to the whole 2026-09-12/13
+tranche (random shift 4/12, 480k steps, 2400 placements x 3 seeds, 4800
+placements). Evidence: `experiments/tranche_analysis_20260918/`
+(`closure_offset.txt`, `closure_error_vs_reference.txt`/`.json`,
+`closure_details.txt`, `shrinkage.txt`). This entry corrects two claims in
+the entries above (marked in place).
+
+**1. Decision framed.** The result: memorisation is gone (held-out / train
+1.6x at 4800 placements) and closed loop is still 6-15 of 30. The decision
+that hinges on it: spend the next tranche on more data / steps / encoder, on
+a survey-frame square localiser, or on something else.
+
+**2. Baseline (the step that was skipped, and it mattered).** The working
+fixed-square policy (`ytn3eygr` family, 30/30 held-out) scores **2.5e-6** at
+chunk start 90. The placement policies score 3.4e-4 to 6e-4: about 150x
+higher. In task units: the normalised action unit is pi radians, so a chunk
+MSE of L is sqrt(L) x 180 degrees of rms joint error. 2.5e-6 = 0.28 deg;
+3e-4 = 3.1 deg; at this arm's reach that is about 1-2 mm versus about 10 mm
+at the jaw. The earlier statements that these policies were "within 2-4x of
+the working policy" and that "the loss stops predicting success near 3e-4"
+were wrong; the loss was saying the policies are an order of magnitude too
+imprecise, and it was right.
+
+**3-5. Loss curves, decomposition, train vs held-out.** As recorded in the
+entries above: shift 12 closes the ratio 5250x -> 15x (1200) -> 3-6x (2400)
+-> 1.6x (4800); steps re-memorise; offline, all held-out error is at chunk
+start 90 and the later chunk starts score 1e-7 to 1e-4. Step 9 below shows
+why that last offline number misleads.
+
+**6-8.** Unchanged from the entries above (v2 encoder, 12-25 px cube from
+the survey pose; stride and store parity proven by test).
+
+**9-10. Per rollout, in millimetres (new).** For every held-out rollout the
+jaw midpoint (mean of the two jaw-tip sites, forward kinematics on the
+logged joint angles) relative to the cube's start position at step 250, just
+before closure. The working policy puts it at along 14.9 +- 1.6, across
+9.4 +- 1.6, height 32.6 +- 0.2 mm on all ten poses (median scatter 1.7 mm,
+max 4.1): that point is the target. Errors from it:
+
+| run (10 poses, repeat 0) | succeed | lateral error median / max (mm) | not descended | yaw error median |
+|---|---|---|---|---|
+| 1200 / 120k / shift 0 | 0 | 21.7 / 57.3 | 4 | 8.4 deg |
+| 1200 / 120k / shift 4 | 3 | 9.3 / 22.7 | 3 | 6.2 |
+| 1200 / 120k / shift 12 | 3 | 8.8 / 18.0 | 3 | 3.5 |
+| 1200 / 480k / shift 12 | 0 | 12.5 / 23.2 | 3 | 3.7 |
+| 2400 / shift 12 / seeds 202, 101, 303 | 5, 2, 4 | 10.0, 11.9, 9.4 / 16.5, 15.0, 44.5 | 4, 3, 3 | 2.0, 3.7, 3.9 |
+| 4800 / shift 12 | 2 | **5.1** / 12.9 | 2 | 2.7 |
+| working fixed-square policy | 10 | 1.7 / 4.1 | 0 | n/a |
+
+By outcome, pooled over the six shift-12 runs (60 rollouts): success n=16
+lateral median 4.6 mm; edge-lift n=19 12.0 mm; miss n=10 14.0 mm; collision
+n=11 10.8 mm, all 11 not descended. Among rollouts that did descend, the
+success rate by lateral error is 13/20 under 8 mm and 3/22 above it: **the
+grasp tolerance is about 8 mm**, and the policies' scatter is about 10 mm
+rms, so roughly a third to a half land inside it. That is the 6-15 of 30.
+Yaw is not the limiter (successes reach 10 deg; every shift-12 run is at
+2-4 deg median).
+
+Two more measurements decide the lever:
+
+- **Shrinkage test** (`shrinkage.txt`): regressing the jaw position on the
+  target position about the training-placement centre gives slopes 0.95-1.00
+  and mean radial errors of -0.2 to -5 mm. The error is scatter, not a pull
+  toward the middle of the workspace; it is not an under-fitted mean.
+- **Does the second chunk correct?** Lateral error rms at step 179 (end of
+  the first descent chunk) versus step 250 (before closure): 11.4 -> 11.2,
+  11.6 -> 10.9, 11.4 -> 10.7, 16.6 -> 17.0, 9.7 -> 8.1 mm. **The chunk
+  predicted from the close-up frame at step 180 removes almost none of the
+  error left by the survey-frame chunk.** And in the 18 of 60 rollouts that
+  never descend (jaw stalls 40-47 mm above the cube where successes reach
+  25-29 mm; zero successes, all 11 collisions among them), the first descent
+  chunk arrives at the same 45-47 mm as in the successes; it is the step-180
+  chunk that fails to go down.
+  The reason is in the data, not the network: the teacher is perfectly
+  positioned at step 180 in every training episode, so every training frame
+  at step 180 shows the cube exactly under the jaw and the label is always
+  "finish the nominal descent". The policy never sees a frame from 10 mm off
+  with a label that says "move 10 mm". Offline, the start-180 chunk scores
+  1e-6 because it is scored on the teacher's frames; in closed loop it
+  receives its own off-centre frames, which are outside its training
+  distribution. This is the standard covariate-shift failure of behaviour
+  cloning, and the offline held-out loss cannot see it by construction.
+
+**11. Noise.** As recorded: rollouts 15 / 6 / 12 across seeds at 2400. The
+closure metric is steadier than the count (lateral median 10.0 / 11.9 / 9.4).
+
+**Conclusions.** Ruled in: (a) the chunk loss and the outcome agree once
+the loss is read in task units against the working baseline; (b) the policy
+is open-loop after the survey frame: one look at a 12-25 px cube has to
+deliver the whole lateral precision, and it delivers about 10 mm (4800
+placements: 8 mm rms, 5 mm median) against an 8 mm tolerance and a working
+policy at 1.7 mm; (c) data does improve it (11 -> 8 mm from 1200 to 4800)
+but on the ladder's exponent that road to 2-3 mm is tens of thousands of
+placements. Ruled out: yaw as the limiter; regression to the mean; the
+start-90 loss as uninformative; and, as the first lever, a survey-frame
+localiser (it would attack the same single distant look).
+
+**Decision (ordered).** (1) Make the second look count: capture with
+perturbation so the step-180 chunk learns to centre on the cube. During the
+teacher's first descent add a random lateral offset (about +-15 mm, the
+measured scatter plus margin) to the pre-grasp waypoint, let the privileged
+teacher correct in the 180-269 segment as it already does when the state is
+off, and train on those episodes (DART-style; the step-90 chunk keeps the
+unperturbed label). At 46 mm the cube fills a large part of the frame, so
+millimetre centring is an easy visual task compared with the survey view.
+Judge by: lateral error rms at step 250 versus step 179 (must drop, target
+under 4 mm), not-descended count (target 0), then pooled rollouts.
+(2) Keep shift 12, 120k steps, 2400-4800 placements as the base recipe.
+(3) Only then the cheap fitting checks (v3 / 240k at 4800) and, if the
+survey chunk still limits, the localiser. (4) Closure error in mm joins
+held-out loss as the standing metric for every placement run
+(`experiments/tranche_analysis_20260918` has the script outputs; promote it
+to a tool with the next tranche).
+
+**Explained for a new intern.**
+
+*The setup.* A small network watches the arm's wrist camera and outputs the
+next 90 joint commands (a "chunk") at steps 0, 90, 180, 270 and so on. It is
+trained to copy a scripted teacher on simulated episodes in which a cube on
+a square target is placed anywhere on the table ("placements"). "Loss" is
+the mean squared difference between the network's chunk and the teacher's.
+"Held-out" means ten placements it never trained on. "Closed loop" means we
+let the network drive the simulated arm and count successful pick-and-replace
+episodes out of 30.
+
+*Step 1, compare against something that works.* Why: a number means nothing
+alone. What we did: looked up the same loss for our older policy that works
+30 of 30 when the target never moves. What it says: that policy scores
+2.5e-6; ours score 3e-4 to 6e-4. Converted to physical units, that is 0.3
+degrees of joint error against 3 degrees, or about 1.7 mm against 10 mm at
+the gripper. Conclusion: our policies are simply ten times too imprecise. We
+had earlier written that the loss "stopped predicting success"; that was a
+mistake caused by skipping this step.
+
+*Step 2, measure the thing that decides success directly.* Why: the loss
+averages 90 steps and 6 joints; a grasp depends on where the jaw is at one
+moment. What we did: from the logged joint angles we computed where the jaw
+was just before closing, relative to the cube, for all rollouts, and used
+the working policy's jaw position as the target. What it says: rollouts
+landing within 8 mm succeed 13 times out of 20; beyond 8 mm, 3 out of 22.
+Our policies scatter by about 10 mm. Conclusion: the success rate of a third
+to a half is exactly what a 10 mm scatter against an 8 mm tolerance gives.
+More data helps slowly: 11 mm at 1200 placements, 8 mm at 4800.
+
+*Step 3, ask whether the error is a bias or a scatter.* Why: a bias (always
+pulled toward the middle) means the network is under-fitted and more
+training fixes it; a scatter means it cannot see well enough. What we did:
+regressed jaw position on target position. What it says: slope 0.95 to
+1.00. Conclusion: scatter. The network's one distant look at a cube 12 to 25
+pixels wide is good to about 10 mm and no better.
+
+*Step 4, ask whether the policy uses its second look.* Why: at step 180 the
+camera is 46 mm above the cube, which now fills the frame, so correcting a
+10 mm error there should be easy. What we did: compared the lateral error
+at step 179 with the error at step 250. What it says: 11.4 mm before, 11.2
+mm after. The second chunk corrects nothing, and in 18 of 60 rollouts it
+does not even finish the descent. Conclusion: in training, the teacher is
+always perfectly centred at step 180, so the network only ever saw centred
+frames with the label "descend". It has never been shown an off-centre view
+together with the correction. Offline, that chunk scores almost zero error,
+because it is tested on the teacher's centred frames too. The test cannot
+see the problem.
+
+*What we are doing.* Deliberately disturb the teacher during the first
+descent in a share of the training episodes, so that at step 180 the arm is
+off by up to 15 mm and the teacher's correction is recorded. Then the second
+chunk learns to centre on the cube from the close-up view. We will judge it
+by the error in millimetres before and after that chunk.
+
+*The general lesson.* A model trained to imitate is only ever tested
+offline on states the expert visited. In closed loop it visits its own
+states, slightly wrong ones, and if the training data contains no recoveries
+it has nothing to say there. Always convert your loss into the units of the
+task, always compare with a system that works, and always measure the
+failing thing itself in the closed loop. We had fifteen careful loss tables
+and the answer was in one afternoon of reading the rollouts in millimetres.

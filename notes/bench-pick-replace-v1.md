@@ -63,11 +63,28 @@ frame stride 30 gives held-out 3.6e-4 with the ratio at 1.6x (memorisation
 gone, held-out tracks train the whole run) but train loss 2x higher than at
 2400 and the curve still falling: the regime flipped to under-fitting.
 Rollouts 6/30 with 5 of 10 poses lifting the cube by an edge without a
-strict grasp: the start-90 chunk MSE no longer predicts success past ~3e-4.
-Next: measure closure offset/yaw per rollout from telemetry, then the square
-localiser; steps/encoder at 4800 and a 2400/stride-30 control are the cheap
-fitting checks (notebook entry "4800 placements (2026-09-13)"). Not a
-live-trial candidate.**
+strict grasp. (The reading "the chunk MSE no longer predicts success" given
+here on 09-13 was wrong; see the next paragraph.) Notebook entry "4800
+placements (2026-09-13)". Not a live-trial candidate.**
+
+**Tranche analysis DONE 2026-09-18 (`experiments/tranche_analysis_20260918`,
+notebook entry "Tranche analysis (2026-09-18)"): the working fixed-square
+policy scores 2.5e-6 at chunk start 90, the placement policies 3e-4 to 6e-4,
+i.e. about 3 degrees of joint error and 10 mm at the jaw against 0.3 degrees
+and 1.7 mm. Measured per rollout, the grasp tolerance is about 8 mm lateral
+(13/20 succeed inside it, 3/22 outside) and the policies scatter by about
+10 mm rms (8 mm at 4800 placements): that is the 6-15 of 30. The error is
+scatter, not a pull toward the workspace centre (slope 0.95-1.00), and the
+chunk predicted from the close-up frame at step 180 corrects none of it
+(11.4 -> 11.2 mm from step 179 to 250) and fails to finish the descent in
+18 of 60 rollouts: every training frame at step 180 shows the cube centred
+under the jaw, so the policy has never seen a correction. It is open-loop
+after the survey frame. Next tranche: perturbed-teacher capture (random
+lateral offset of about +-15 mm on the pre-grasp waypoint, teacher corrects
+in the 180-269 segment) so the second look learns to centre; judged by
+lateral error at step 250 versus 179 (target under 4 mm), not-descended
+count (target 0), pooled rollouts. The survey-frame localiser moves behind
+this.**
 
 **Fifth run (1200 placements, 240k steps, `pfavtk49`) DONE 2026-09-10 19:11,
 247 min wall: nominal 0/3, held-out 3/30 (one pose 3/3, the far-centre

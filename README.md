@@ -65,12 +65,23 @@ placements the regime flips to under-fitting** (ratio 1.6x, held-out 3.6e-4,
 train loss 2x higher and still falling at 120k steps). Two method lessons
 came out of it: single-run rollout counts on 10 poses x 3 repeats swing by
 about 9 between checkpoints of equal loss, so recipes are judged by held-out
-loss across seeds and pooled rollouts; and below about 3e-4 the chunk loss
-stops predicting success, because the remaining failures are cubes caught
-by an edge (lifted 20-30 mm without a strict grasp, dropped at release), a
-few millimetres at closure that a 90-step x 6-joint mean cannot see. Next:
-a closure offset / yaw metric from the rollout telemetry, then the square
-localiser. None of these is a live-trial candidate yet; the fixed-square
+loss across seeds and pooled rollouts; and a loss has to be read in task
+units against a system that works. The working fixed-square policy scores
+2.5e-6 on the same metric, about 0.3 degrees of joint error and 1.7 mm at
+the jaw; the placement policies' 3e-4 to 6e-4 is about 3 degrees and 10 mm,
+against a measured grasp tolerance of about 8 mm, which is exactly the
+one-third to one-half success rate observed (September 18 analysis; an
+earlier reading that the loss had "stopped predicting success" was wrong and
+is corrected in the notebook). The same analysis found the cause: the chunk
+predicted from the close-up frame at step 180 removes none of the lateral
+error left by the distant survey look (11.4 mm before, 11.2 mm after) and
+in 18 of 60 rollouts does not finish the descent, because in every training
+episode the teacher is perfectly centred at that step, so the policy has
+never seen an off-centre view with its correction: it is open-loop after the
+survey frame, the covariate-shift failure of behaviour cloning, invisible to
+an offline held-out loss. Next: capture with a deliberately perturbed first
+descent so the second look learns to centre on the cube, judged in
+millimetres. None of these is a live-trial candidate yet; the fixed-square
 appearance policy remains the only one that has succeeded on the arm. To
 make the 4800-placement capture fit, captures can now store only every Nth
 frame (the 2400-placement sidecar went from 211 GB to 12.7 GB). Notebook
