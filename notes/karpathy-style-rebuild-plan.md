@@ -331,7 +331,8 @@ peak lift). Attribution: the soft penalty alone suffices; the hard feasible
 decoder eliminated clipping as designed but failed via measured-pose limiter
 lag plus degraded fit (its pre-registered residual risk); and correction
 data actively hurt chunked training in all three arms (chunk-scale label
-conflict, offline max errors 0.86-1.08). Promoted checkpoint:
+conflict, offline max errors 0.86-1.08 in the mujoco 3.11 run and
+0.876-0.883 in the authoritative 3.9.0 rerun `46de62c4`). Promoted checkpoint:
 `models/chunked_h90/2b6195d619ab531b`; gate:
 `saturation_gates/1a78ec8affead704`. Authorized next step: broader
 evaluation of the promoted policy only (five-scenario suite, then anchor
@@ -1992,8 +1993,9 @@ proposal for the safety-frame gap, with training cost no longer a constraint
 
 **Precision tranche (2026-08-06): `seeds_not_resolved`, and the mechanism is
 now clear.** Frame-level failure analysis (`notes/scaling-failure-frame-analysis.md`)
-localized every scaling-gate violation to gripper envelope spikes past the
-450-action teacher horizon. A pre-registered three-stage tranche
+localized the scaling gate's clip/limit violations to the gripper: 27 of 33
+past the 450-action teacher horizon and 6 in release (the 111 unsafe-contact
+frames of that cell were not localized; corrected 2026-09-30). A pre-registered three-stage tranche
 (`notes/precision-tranche-proposal.md`) then showed: cosine LR decay
 (`cosine_floor_v1`) removes the extrapolation spike and cuts violation mass
 ~17x (12/15 vs 9/15); larger budgets bend the wrong way (150k/300k/width1024
@@ -2087,14 +2089,16 @@ Measured 3.2x. Runs are charted in the wandb project
 
 **Where the ladder stands (updated 2026-09-08).** The August paragraph
 below stood on a simulator whose arm the real robot could not adopt: the
-joint map folded the shoulder past its physical range and the camera saw
-nearly twice the true field of view. The bench continuation fixed both
+joint map had the wrist roll a quarter turn off (plus smaller elbow, wrist
+and pan errors) and the camera saw nearly twice the true field of view. The bench continuation fixed both
 before training anything (calibrated joint map `measured_20260908b`,
 calibrated wrist camera, pad-normal grasp detector), then re-certified the
 teacher 15/15 and launched one exploratory vision run on the new task.
 What the ladder now needs is the outcome of that run, then a physical
 stage that still requires a reviewed shoulder lift above the −92 floor,
-an unverified pan sign, and frame undistortion at inference.
+an unverified pan sign, and frame undistortion at inference. *(All three
+were resolved by 2026-09-10: approach phase, pan sign verified, and the
+lens-matched scene removes undistortion; see the bench runbook.)*
 
 *August view, kept for the record:* simulation evidence is saturating: the
 privileged-state policy is perfect on held-out poses, the vision policy

@@ -97,7 +97,7 @@ Full attribution (all five ran to completion):
 | `feasible_decoder_only` | failed | 0 clipped (guarantee held) but 71 limiter + 5 unsafe frames; decode chain 4.2% clamped at convergence, fit degraded (max err 0.087) |
 | `corrections_and_feasible_decoder` | failed | 262 limiter + 13 unsafe frames; chain saturated (tanh max 1.0), max err 1.08 |
 | **`noise_penalty_only`** | **PASSED 3/3, zero safety** | — |
-| `corrections_and_noise_penalty` | failed | safe (zero safety frames) but task-inert: 0.3 mm lift, `pickup_incomplete` |
+| `corrections_and_noise_penalty` | failed | safe (zero safety frames) but task-inert: 0.3 mm lift, `pickup_incomplete` (3.11 run; in the authoritative 3.9.0 rerun `46de62c4` it fails on `safety_invalidation`, 180 clipped / 182 limited / 3 unsafe, 2.9 mm lift) |
 | `corrections_only` | failed | 184 clipped + 136 limiter frames, 0.2 mm lift |
 
 Established findings:
@@ -111,7 +111,8 @@ Established findings:
    fit. The soft mechanism beat the hard guarantee.
 2. **Correction data actively hurts chunked training.** All three
    correction-bearing candidates regressed (offline max ACT errors
-   0.86-1.08 versus 0.046 for the winner): correction episodes place
+   0.86-1.08 in the 3.11 run, 0.876-0.883 in the 3.9.0 rerun, versus 0.046
+   for the winner): correction episodes place
    near-nominal states next to entirely different 90-step futures, a far
    more severe label conflict at chunk scale than the row-level conflict
    documented in the reactive lane. The correction dataset remains valid

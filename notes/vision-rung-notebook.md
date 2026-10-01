@@ -23,7 +23,7 @@ Lens: 44.0° vertical field of view, strong barrel distortion, 1.9 px RMS from 3
 
 ## September 7: joint map corrected from encoder references; teacher re-certified top-down
 
-The user spotted in the live viewer that the sim wrist roll was a quarter turn off; two read-only encoder recordings (rest, and the model's all-zero pose held by hand) showed the June affine joint map had shoulder-lift, elbow and wrist-roll zeros each ~90° off and spans off by up to 37 %. New versioned map `measured_20260907` (4096 ticks/turn, reference zeros); legacy lane keeps `legacy_affine_v1`. Under real joint ranges the 78° approach is infeasible (the legacy sim folded the shoulder to −180°, impossible physically), so the teacher moved to a 5° near-vertical approach with a 3 mm height offset: **15/15 certified, deterministic, zero safety**. Camera comparison redone on the corrected arm: sim square now projects off the bottom of the frame vs the top physically (2.6× size ratio) — the mount pose and field of view remain the gate-1b measurement. Still no dataset, training run or W&B run.
+The user spotted in the live viewer that the sim wrist roll was a quarter turn off; two read-only encoder recordings (rest, and the model's all-zero pose held by hand) showed the June affine joint map had shoulder-lift, elbow and wrist-roll zeros each ~90° off and spans off by up to 37 %. [CORRECTED 2026-09-30: the next day's calibration found this reference pose was mis-held. Against the final map `measured_20260908b`, only the wrist roll is ~94° off; elbow ~14°, wrist flex 12-23°, shoulder lift ~2.5°, pan scale up to 30° at the ends. The real arm rests at shoulder lift −178.6°, so "folded to −180°, impossible physically" below is withdrawn.] New versioned map `measured_20260907` (4096 ticks/turn, reference zeros); legacy lane keeps `legacy_affine_v1`. Under real joint ranges the 78° approach is infeasible (the legacy sim folded the shoulder to −180°, impossible physically), so the teacher moved to a 5° near-vertical approach with a 3 mm height offset: **15/15 certified, deterministic, zero safety**. Camera comparison redone on the corrected arm: sim square now projects off the bottom of the frame vs the top physically (2.6× size ratio) — the mount pose and field of view remain the gate-1b measurement. Still no dataset, training run or W&B run.
 
 ## Methodology for this rung (recorded 2026-08-06)
 
@@ -237,8 +237,10 @@ cannot match; none of it transfers. What changed before launch, all in
 - **Grasp detector** `pad_normals_v2`: jaw axis is the pad-normal bisector,
   not the tip-site line (25.4° off). Legacy 25 mm gate re-verified unchanged.
 - **Joint map** `measured_20260908b`: tick-anchored zeros, shoulder/elbow
-  pinned by a side photo of the rest pose. The June map had three zeros a
-  quarter turn off and spans up to 37 % off.
+  pinned by a side photo of the rest pose. Against it the June map had the
+  wrist roll a quarter turn off, elbow ~14° and wrist flex 12-23° off, and
+  spans up to 37 % off (corrected 2026-09-30; "three zeros a quarter turn
+  off" was the reading under the mis-held 2026-09-07 reference).
 - **Camera** calibrated from a phone checkerboard: fovy 44.0°, k1 −0.57.
   Mount pose taken from the official SO-ARM101 part (same as the Menagerie
   mount) and refined ±10 mm by a hand-eye fit; ~1.6 cm residual at working
@@ -289,7 +291,9 @@ cells `Bl`/`Br` are permanently filled by the fixed gripper jaw and were dropped
 carry 11–29° of incidental tilt.
 
 Refit on 46 views (29 old 7×16 board + 17 new 7×14 board, object points per
-view): outer annulus (>800 px) now holds 355 corners at 1.1–1.3 px RMS.
+view): outer annulus (>800 px) now holds 235 corners at 1.1 px RMS for the
+selected free-principal-point model (355 for the fixed-principal-point
+candidates, whose annulus is centred differently; corrected 2026-09-30).
 Selected `pinhole_rational_8coef_free_principal_point`: RMS 1.651 px, fovy
 44.85°, fovx 72.5°, principal point (867.5, 531.9), valid radius 1873 px vs
 corner radius 1185 px. The fixed-principal-point rational model (1.72 px,
@@ -613,8 +617,8 @@ starts 5.6e-6, in-between starts 5-11e-6. The 30/30 fixed-square policy sits
 at 2.5e-6 / 1.3e-6 at the same points, so the first descent chunk is 5.7x
 worse and the rest 4.4x. Held-out placements (10 poses captured with the
 teacher, `rehearsal/analysis_run4_heldout_capture`): start 0 1.2e-5, **start 90
-1.9e-3 (136x the training loss)**, later boundaries 1.8e-5, all rows 1.9e-4
-(24x). Reading: the network fits the 400 training placements well and does
+1.9e-3 (136x the training loss)**, later boundaries 1.8e-5, all rows 1.8e-4
+(16.6x; first written as 24x, corrected 2026-09-30 from `heldout_fit.json`). Reading: the network fits the 400 training placements well and does
 not generalise the one mapping that matters, survey frame -> where to descend.
 That is memorisation, not a saturated loss, so longer training alone would
 not help; more placements (run 5, 1200) attacks it directly. The network is

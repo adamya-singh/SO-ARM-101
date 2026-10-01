@@ -159,11 +159,17 @@ below **−92 calibrated units**.
   off the pad normal; replaced by the pad-normal bisector (`pad_normals_v2`)
   with the legacy 25 mm gate re-verified unchanged.
 - The June physical-to-simulator joint map assumed calibration endpoints
-  coincide with model joint limits; encoder references showed three zeros a
-  quarter turn off and spans up to 37 % off. Replaced by tick-anchored maps,
-  finally `measured_20260908b`, whose shoulder/elbow zeros are pinned by a
-  side photo of the rest pose. Every August sim trajectory folded the
-  shoulder to a pose the real arm cannot reach.
+  coincide with model joint limits. Encoder references replaced it with
+  tick-anchored maps, finally `measured_20260908b`, whose shoulder/elbow
+  zeros are pinned by a side photo of the rest pose. Against that final map
+  the June map had the wrist roll about a quarter turn (94°) off, the elbow
+  about 14° and wrist flex 12-23° off, the shoulder lift within about 2.5°,
+  and a pan scale up to 30° off at the ends of travel (spans up to 37 % off).
+  (The intermediate 2026-09-07 map, built on a mis-held reference pose,
+  briefly suggested three zeros a quarter turn off and a shoulder folded to
+  an unreachable −180°; the 2026-09-08 calibration showed the real arm rests
+  at −178.6°, so that claim was withdrawn.) The August sim poses were still
+  wrong for the real arm, but not unreachable.
 - The wrist camera was calibrated from a phone-screen checkerboard: 44.0°
   vertical field of view with strong barrel distortion, not the 72° the sim
   used nor the 103° published for the module family. The mount is the
@@ -173,8 +179,11 @@ below **−92 calibrated units**.
   legacy horizontal approach is infeasible within real joint ranges;
   certified 15/15 with zero safety events on the corrected arm.
 
-**Deployment reminder:** real wrist frames must be undistorted with the
-calibrated intrinsics before a policy sees them; the simulator is a pinhole.
+**Deployment note:** since 2026-09-09 the simulator renders through the
+calibrated lens model, so policies trained on the lens-matched scene
+(`7c765d4b` and later) take the raw camera frame, squashed to 256×256 with the
+same area filter, with no undistortion. Only the earlier pinhole-scene policy
+(run `tinmahze`) would have needed undistortion.
 
 <img src="readme-assets/bench-setup-20260906-annotated.png" alt="Physical SO-101 bench: black cube on white square and mousepad; book used as a spacing guide" width="460">
 

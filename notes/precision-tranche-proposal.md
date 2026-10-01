@@ -106,8 +106,9 @@ report's content hash; seeds embeds budget's.
   targets) — a teacher/contract change explicitly out of scope here.
 - The seed sweep tests replication of the *best cell*, not of every cell;
   single-seed conclusions elsewhere in this tranche inherit that limitation.
-- The control cell is a cross-stage constant: 9/15 with 33 total safety
-  frames, immutable in the scaling gate report.
+- The control cell is a cross-stage constant: 9/15 with 210 total safety
+  frames (33 is the number of distinct clip/limit findings per unique
+  rollout; corrected 2026-09-30), immutable in the scaling gate report.
 - `policy_id` becomes seed-aware (derived from the checkpoint's stored
   config seed) so seed cells are distinguishable in reports and telemetry
   stems; every existing artifact's id string is unchanged (all stored seeds
