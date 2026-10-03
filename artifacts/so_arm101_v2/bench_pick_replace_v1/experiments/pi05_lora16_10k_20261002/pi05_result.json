@@ -1,0 +1,1369 @@
+{
+ "identity": {
+  "tool": "pi05_finetune",
+  "config": {
+   "pretrained": "lerobot/pi05_base",
+   "tokenizer": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/pretrained/paligemma_tokenizer",
+   "train_scope": "expert_lora",
+   "lora_rank": 16,
+   "lora_alpha": 16.0,
+   "batch_size": 32,
+   "micro_batch": 16,
+   "max_steps": 10000,
+   "learning_rate": 2.5e-05,
+   "lora_learning_rate": 0.0001,
+   "warmup_steps": 500,
+   "final_lr_fraction": 0.1,
+   "weight_decay": 0.01,
+   "grad_clip": 1.0,
+   "random_shift": 12,
+   "chunk_horizon": 90,
+   "tokenizer_max_length": 64,
+   "num_inference_steps": 10,
+   "gradient_checkpointing": true,
+   "seed": 202
+  },
+  "train_manifests": [
+   "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/placements4800_20260912/capture_train/oracle/bench_pick_replace_v1_seed14_n4800_appearance_placement_d2e455880ad8/01f3d23cb37f6784/manifest.json",
+   "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_train_stride18/oracle/bench_pick_replace_v1_seed12_n2400_appearance_placement_4adc064ea0e5/5cf55d3d28128108/manifest.json"
+  ],
+  "heldout_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_heldout/oracle/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/56755d99dc583c95/manifest.json",
+  "heldout_suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d",
+  "rollout_repeats": 3,
+  "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+  "execs": [
+   90,
+   30
+  ],
+  "eval_every": 500,
+  "pretrained_revision": "b211f3d44c36b6acfcf7ae94a64e8e96f75a64ba",
+  "rehearsal": false,
+  "references": {
+   "cnn4800_heldout_start_90": 0.00036,
+   "working_policy_start_90": 2.5e-06,
+   "cnn4800_successes": 6,
+   "cnn_best_pooled_rate": 0.36666666666666664,
+   "cnn4800_closure_lateral_median_mm": 5.1,
+   "working_policy_closure_lateral_median_mm": 1.7,
+   "grasp_tolerance_mm": 8.0
+  }
+ },
+ "info": {
+  "loaded": 811,
+  "skipped": [],
+  "missing": [],
+  "lora_modules": 285,
+  "parameters_total": 3380841744,
+  "parameters_trainable": 457506336
+ },
+ "final": {
+  "heldout_start_0": 1.8430657291901298e-05,
+  "heldout_start_90": 0.0002472586347721517,
+  "per_pose": {
+   "pose_000": 9.348512685392052e-05,
+   "pose_001": 4.558044020086527e-05,
+   "pose_002": 0.00018949509831145406,
+   "pose_003": 8.519604307366535e-05,
+   "pose_004": 0.0008387607522308826,
+   "pose_005": 0.0002812035090755671,
+   "pose_006": 7.820899918442592e-05,
+   "pose_007": 0.00032580961124040186,
+   "pose_008": 0.0004223884898237884,
+   "pose_009": 0.00011245820496696979
+  },
+  "median": 0.00015097665163921192,
+  "max": 0.0008387607522308826,
+  "poses_under_threshold": 6,
+  "poses": 10,
+  "heldout_starts_180_270_360": 2.046487497864291e-05,
+  "train_start_90": 0.0010085329413414001,
+  "ratio_start_90": 0.24516664219543008,
+  "heldout_start_90_deg_rms": 2.8304027569619334
+ },
+ "rollouts": {
+  "90": {
+   "execute": 90,
+   "successes": 12,
+   "rollouts": 30,
+   "safety_frames": 233,
+   "pickups": 12,
+   "categories": {
+    "safety_invalidation": 6,
+    "pickup_incomplete": 12,
+    "success": 12
+   },
+   "per_scenario": {
+    "pose_000": 0,
+    "pose_001": 0,
+    "pose_002": 3,
+    "pose_003": 3,
+    "pose_004": 0,
+    "pose_005": 0,
+    "pose_006": 3,
+    "pose_007": 0,
+    "pose_008": 0,
+    "pose_009": 3
+   },
+   "closure": {
+    "count": 30,
+    "lateral_median_mm": 3.992147877727912,
+    "lateral_rms_mm": 5.980056491459308,
+    "lateral_max_mm": 11.593158374961444,
+    "within_tolerance": 21,
+    "not_descended": 3,
+    "yaw_err_median_deg": 2.3763772250228783,
+    "dz_median_mm": 3.1254664519887747
+   },
+   "closure_rows": [
+    {
+     "along": 18.413331547724095,
+     "perp": 10.279196976028736,
+     "height": 36.81312491876207,
+     "rel_yaw": 76.97367861344439,
+     "lat": 3.650116824430997,
+     "dz": 4.224907535598739,
+     "yaw_err": 2.735316959717963,
+     "scenario_id": "pose_000",
+     "repeat": 0
+    },
+    {
+     "along": 18.413331547724095,
+     "perp": 10.279196976028736,
+     "height": 36.81312491876207,
+     "rel_yaw": 76.97367861344439,
+     "lat": 3.650116824430997,
+     "dz": 4.224907535598739,
+     "yaw_err": 2.735316959717963,
+     "scenario_id": "pose_000",
+     "repeat": 1
+    },
+    {
+     "along": 18.413331547724095,
+     "perp": 10.279196976028736,
+     "height": 36.81312491876207,
+     "rel_yaw": 76.97367861344439,
+     "lat": 3.650116824430997,
+     "dz": 4.224907535598739,
+     "yaw_err": 2.735316959717963,
+     "scenario_id": "pose_000",
+     "repeat": 2
+    },
+    {
+     "along": 15.920380420492389,
+     "perp": 13.664808164610312,
+     "height": 35.81466805600849,
+     "rel_yaw": 74.2401237366295,
+     "lat": 4.404546462858825,
+     "dz": 3.2264506728451607,
+     "yaw_err": 0.00176208290307045,
+     "scenario_id": "pose_001",
+     "repeat": 0
+    },
+    {
+     "along": 15.920380420492389,
+     "perp": 13.664808164610312,
+     "height": 35.81466805600849,
+     "rel_yaw": 74.2401237366295,
+     "lat": 4.404546462858825,
+     "dz": 3.2264506728451607,
+     "yaw_err": 0.00176208290307045,
+     "scenario_id": "pose_001",
+     "repeat": 1
+    },
+    {
+     "along": 15.920380420492389,
+     "perp": 13.664808164610312,
+     "height": 35.81466805600849,
+     "rel_yaw": 74.2401237366295,
+     "lat": 4.404546462858825,
+     "dz": 3.2264506728451607,
+     "yaw_err": 0.00176208290307045,
+     "scenario_id": "pose_001",
+     "repeat": 2
+    },
+    {
+     "along": 11.671863262955366,
+     "perp": 9.563170162472527,
+     "height": 35.61269961429572,
+     "rel_yaw": 71.46251478199557,
+     "lat": 3.207116895195888,
+     "dz": 3.0244822311323887,
+     "yaw_err": 2.775846871730863,
+     "scenario_id": "pose_002",
+     "repeat": 0
+    },
+    {
+     "along": 11.671863262955366,
+     "perp": 9.563170162472527,
+     "height": 35.61269961429572,
+     "rel_yaw": 71.46251478199557,
+     "lat": 3.207116895195888,
+     "dz": 3.0244822311323887,
+     "yaw_err": 2.775846871730863,
+     "scenario_id": "pose_002",
+     "repeat": 1
+    },
+    {
+     "along": 11.671863262955366,
+     "perp": 9.563170162472527,
+     "height": 35.61269961429572,
+     "rel_yaw": 71.46251478199557,
+     "lat": 3.207116895195888,
+     "dz": 3.0244822311323887,
+     "yaw_err": 2.775846871730863,
+     "scenario_id": "pose_002",
+     "repeat": 2
+    },
+    {
+     "along": 13.646239318287954,
+     "perp": 12.063045501092898,
+     "height": 34.22307896518564,
+     "rel_yaw": 74.58079026270086,
+     "lat": 2.944897639135771,
+     "dz": 1.6348615820223102,
+     "yaw_err": 0.34242860897442995,
+     "scenario_id": "pose_003",
+     "repeat": 0
+    },
+    {
+     "along": 13.646239318287954,
+     "perp": 12.063045501092898,
+     "height": 34.22307896518564,
+     "rel_yaw": 74.58079026270086,
+     "lat": 2.944897639135771,
+     "dz": 1.6348615820223102,
+     "yaw_err": 0.34242860897442995,
+     "scenario_id": "pose_003",
+     "repeat": 1
+    },
+    {
+     "along": 13.646239318287954,
+     "perp": 12.063045501092898,
+     "height": 34.22307896518564,
+     "rel_yaw": 74.58079026270086,
+     "lat": 2.944897639135771,
+     "dz": 1.6348615820223102,
+     "yaw_err": 0.34242860897442995,
+     "scenario_id": "pose_003",
+     "repeat": 2
+    },
+    {
+     "along": 20.20550790849889,
+     "perp": -0.9081983437619741,
+     "height": 36.089531017412625,
+     "rel_yaw": 74.97401725317951,
+     "lat": 11.593158374961444,
+     "dz": 3.5013136342492928,
+     "yaw_err": 0.7356555994530822,
+     "scenario_id": "pose_004",
+     "repeat": 0
+    },
+    {
+     "along": 20.20550790849889,
+     "perp": -0.9081983437619741,
+     "height": 36.089531017412625,
+     "rel_yaw": 74.97401725317951,
+     "lat": 11.593158374961444,
+     "dz": 3.5013136342492928,
+     "yaw_err": 0.7356555994530822,
+     "scenario_id": "pose_004",
+     "repeat": 1
+    },
+    {
+     "along": 20.20550790849889,
+     "perp": -0.9081983437619741,
+     "height": 36.089531017412625,
+     "rel_yaw": 74.97401725317951,
+     "lat": 11.593158374961444,
+     "dz": 3.5013136342492928,
+     "yaw_err": 0.7356555994530822,
+     "scenario_id": "pose_004",
+     "repeat": 2
+    },
+    {
+     "along": 16.01090050781313,
+     "perp": 19.726206767268913,
+     "height": 37.505572039926435,
+     "rel_yaw": 69.81735754919444,
+     "lat": 10.402175401316821,
+     "dz": 4.917354656763102,
+     "yaw_err": 4.421004104531988,
+     "scenario_id": "pose_005",
+     "repeat": 0
+    },
+    {
+     "along": 16.01090050781313,
+     "perp": 19.726206767268913,
+     "height": 37.505572039926435,
+     "rel_yaw": 69.81735754919444,
+     "lat": 10.402175401316821,
+     "dz": 4.917354656763102,
+     "yaw_err": 4.421004104531988,
+     "scenario_id": "pose_005",
+     "repeat": 1
+    },
+    {
+     "along": 16.01090050781313,
+     "perp": 19.726206767268913,
+     "height": 37.505572039926435,
+     "rel_yaw": 69.81735754919444,
+     "lat": 10.402175401316821,
+     "dz": 4.917354656763102,
+     "yaw_err": 4.421004104531988,
+     "scenario_id": "pose_005",
+     "repeat": 2
+    },
+    {
+     "along": 12.109999297174204,
+     "perp": 6.396246359822341,
+     "height": 33.706577813111124,
+     "rel_yaw": 77.1818006669877,
+     "lat": 4.071964141902833,
+     "dz": 1.118360429947792,
+     "yaw_err": 2.943439013261269,
+     "scenario_id": "pose_006",
+     "repeat": 0
+    },
+    {
+     "along": 11.830507855031087,
+     "perp": 6.206159790281504,
+     "height": 33.78327251465465,
+     "rel_yaw": 77.2300201927732,
+     "lat": 4.401928845268223,
+     "dz": 1.1950551314913156,
+     "yaw_err": 2.9916585390467674,
+     "scenario_id": "pose_006",
+     "repeat": 1
+    },
+    {
+     "along": 11.830507855031087,
+     "perp": 6.206159790281504,
+     "height": 33.78327251465465,
+     "rel_yaw": 77.2300201927732,
+     "lat": 4.401928845268223,
+     "dz": 1.1950551314913156,
+     "yaw_err": 2.9916585390467674,
+     "scenario_id": "pose_006",
+     "repeat": 2
+    },
+    {
+     "along": 11.911376887578673,
+     "perp": 10.039339505389359,
+     "height": 43.870417550944445,
+     "rel_yaw": 76.78529541336246,
+     "lat": 3.0338342329131116,
+     "dz": 11.282200167781113,
+     "yaw_err": 2.5469337596360333,
+     "scenario_id": "pose_007",
+     "repeat": 0
+    },
+    {
+     "along": 12.186760070804194,
+     "perp": 10.001056875674879,
+     "height": 43.96030601994798,
+     "rel_yaw": 76.791933743856,
+     "lat": 2.756752661672813,
+     "dz": 11.372088636784646,
+     "yaw_err": 2.5535720901295775,
+     "scenario_id": "pose_007",
+     "repeat": 1
+    },
+    {
+     "along": 11.844682362322668,
+     "perp": 9.917783709543937,
+     "height": 43.836542990610184,
+     "rel_yaw": 76.78403646815255,
+     "lat": 3.075681427022804,
+     "dz": 11.248325607446851,
+     "yaw_err": 2.545674814426121,
+     "scenario_id": "pose_007",
+     "repeat": 2
+    },
+    {
+     "along": 16.62585356408333,
+     "perp": 5.888092587920745,
+     "height": 33.976709958126236,
+     "rel_yaw": 76.44544128934606,
+     "lat": 3.912331613552991,
+     "dz": 1.3884925749629033,
+     "yaw_err": 2.2070796356196354,
+     "scenario_id": "pose_008",
+     "repeat": 0
+    },
+    {
+     "along": 16.62585356408333,
+     "perp": 5.888092587920745,
+     "height": 33.976709958126236,
+     "rel_yaw": 76.44544128934606,
+     "lat": 3.912331613552991,
+     "dz": 1.3884925749629033,
+     "yaw_err": 2.2070796356196354,
+     "scenario_id": "pose_008",
+     "repeat": 1
+    },
+    {
+     "along": 16.62585356408333,
+     "perp": 5.888092587920745,
+     "height": 33.976709958126236,
+     "rel_yaw": 76.44544128934606,
+     "lat": 3.912331613552991,
+     "dz": 1.3884925749629033,
+     "yaw_err": 2.2070796356196354,
+     "scenario_id": "pose_008",
+     "repeat": 2
+    },
+    {
+     "along": 11.736621142813053,
+     "perp": 12.750836546947122,
+     "height": 34.072322122584595,
+     "rel_yaw": 74.97905615953553,
+     "lat": 4.6003966912666225,
+     "dz": 1.4841047394212623,
+     "yaw_err": 0.7406945058091026,
+     "scenario_id": "pose_009",
+     "repeat": 0
+    },
+    {
+     "along": 11.674524026310952,
+     "perp": 12.75629060063836,
+     "height": 33.99485471460129,
+     "rel_yaw": 75.00219671270246,
+     "lat": 4.646922938175729,
+     "dz": 1.406637331437956,
+     "yaw_err": 0.7638350589760279,
+     "scenario_id": "pose_009",
+     "repeat": 1
+    },
+    {
+     "along": 11.763269128716056,
+     "perp": 12.551142328913468,
+     "height": 33.98895970681744,
+     "rel_yaw": 74.9202177602762,
+     "lat": 4.4377110875310954,
+     "dz": 1.4007423236541072,
+     "yaw_err": 0.6818561065497732,
+     "scenario_id": "pose_009",
+     "repeat": 2
+    }
+   ],
+   "rollout_rows": [
+    {
+     "scenario_id": "pose_000",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029784074588128588
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029784074588128588
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029784074588128588
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029919892135770607
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029919892135770607
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029919892135770607
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030021033848485257
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030021033848485257
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030021033848485257
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029328989778668137
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.02930770453959978
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.02930770453959978
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.031084002862188202
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.031084002862188202
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.031084002862188202
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0006340315392659428
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0006340315392659428
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0006340315392659428
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029780114028467662
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029643914047649732
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029643914047649732
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.004140183631907757
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.004106386532777289
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.004118790226846022
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030163185340135748
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030163185340135748
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030163185340135748
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030528831034206033
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030507284256242044
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030651722229672794
+    }
+   ],
+   "seconds": 899.8,
+   "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/pi05_lora16_10k_20261002/evaluations/exec90/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/evaluation.json"
+  },
+  "30": {
+   "execute": 30,
+   "successes": 15,
+   "rollouts": 30,
+   "safety_frames": 186,
+   "pickups": 15,
+   "categories": {
+    "safety_invalidation": 6,
+    "success": 15,
+    "pickup_incomplete": 9
+   },
+   "per_scenario": {
+    "pose_000": 0,
+    "pose_001": 3,
+    "pose_002": 3,
+    "pose_003": 3,
+    "pose_004": 0,
+    "pose_005": 0,
+    "pose_006": 3,
+    "pose_007": 3,
+    "pose_008": 0,
+    "pose_009": 0
+   },
+   "closure": {
+    "count": 30,
+    "lateral_median_mm": 4.362947740104565,
+    "lateral_rms_mm": 6.6481498886123935,
+    "lateral_max_mm": 11.35062306317389,
+    "within_tolerance": 21,
+    "not_descended": 0,
+    "yaw_err_median_deg": 2.9324925730302027,
+    "dz_median_mm": 2.4663471004078
+   },
+   "closure_rows": [
+    {
+     "along": 16.86985534520606,
+     "perp": 9.246302452307035,
+     "height": 27.484349974128992,
+     "rel_yaw": 77.55474830961238,
+     "lat": 2.0006607803145564,
+     "dz": -5.10386740903434,
+     "yaw_err": 3.3163866558859496,
+     "scenario_id": "pose_000",
+     "repeat": 0
+    },
+    {
+     "along": 16.86985534520606,
+     "perp": 9.246302452307035,
+     "height": 27.484349974128992,
+     "rel_yaw": 77.55474830961238,
+     "lat": 2.0006607803145564,
+     "dz": -5.10386740903434,
+     "yaw_err": 3.3163866558859496,
+     "scenario_id": "pose_000",
+     "repeat": 1
+    },
+    {
+     "along": 16.86985534520606,
+     "perp": 9.246302452307035,
+     "height": 27.484349974128992,
+     "rel_yaw": 77.55474830961238,
+     "lat": 2.0006607803145564,
+     "dz": -5.10386740903434,
+     "yaw_err": 3.3163866558859496,
+     "scenario_id": "pose_000",
+     "repeat": 2
+    },
+    {
+     "along": 7.234426834882303,
+     "perp": 12.983146967009894,
+     "height": 32.31313099989333,
+     "rel_yaw": 76.6573787799529,
+     "lat": 8.444032159592563,
+     "dz": -0.27508638327000057,
+     "yaw_err": 2.419017126226464,
+     "scenario_id": "pose_001",
+     "repeat": 0
+    },
+    {
+     "along": 7.234426834882303,
+     "perp": 12.983146967009894,
+     "height": 32.31313099989333,
+     "rel_yaw": 76.6573787799529,
+     "lat": 8.444032159592563,
+     "dz": -0.27508638327000057,
+     "yaw_err": 2.419017126226464,
+     "scenario_id": "pose_001",
+     "repeat": 1
+    },
+    {
+     "along": 7.234426834882303,
+     "perp": 12.983146967009894,
+     "height": 32.31313099989333,
+     "rel_yaw": 76.6573787799529,
+     "lat": 8.444032159592563,
+     "dz": -0.27508638327000057,
+     "yaw_err": 2.419017126226464,
+     "scenario_id": "pose_001",
+     "repeat": 2
+    },
+    {
+     "along": 12.609061187108162,
+     "perp": 13.115263687873796,
+     "height": 28.992833133966222,
+     "rel_yaw": 73.43372487324399,
+     "lat": 4.362947740104565,
+     "dz": -3.59538424919711,
+     "yaw_err": 0.8046367804824399,
+     "scenario_id": "pose_002",
+     "repeat": 0
+    },
+    {
+     "along": 12.609061187108162,
+     "perp": 13.115263687873796,
+     "height": 28.992833133966222,
+     "rel_yaw": 73.43372487324399,
+     "lat": 4.362947740104565,
+     "dz": -3.59538424919711,
+     "yaw_err": 0.8046367804824399,
+     "scenario_id": "pose_002",
+     "repeat": 1
+    },
+    {
+     "along": 12.609061187108162,
+     "perp": 13.115263687873796,
+     "height": 28.992833133966222,
+     "rel_yaw": 73.43372487324399,
+     "lat": 4.362947740104565,
+     "dz": -3.59538424919711,
+     "yaw_err": 0.8046367804824399,
+     "scenario_id": "pose_002",
+     "repeat": 2
+    },
+    {
+     "along": 11.699785898250191,
+     "perp": 16.07080192223177,
+     "height": 29.969120654224536,
+     "rel_yaw": 76.60463717528266,
+     "lat": 7.399889943988783,
+     "dz": -2.6190967289387963,
+     "yaw_err": 2.3662755215562328,
+     "scenario_id": "pose_003",
+     "repeat": 0
+    },
+    {
+     "along": 11.68580563872375,
+     "perp": 16.008040078330023,
+     "height": 29.965664087513417,
+     "rel_yaw": 76.6045245696638,
+     "lat": 7.3492994422760525,
+     "dz": -2.622553295649915,
+     "yaw_err": 2.366162915937366,
+     "scenario_id": "pose_003",
+     "repeat": 1
+    },
+    {
+     "along": 11.68580563872375,
+     "perp": 16.008040078330023,
+     "height": 29.965664087513417,
+     "rel_yaw": 76.6045245696638,
+     "lat": 7.3492994422760525,
+     "dz": -2.622553295649915,
+     "yaw_err": 2.366162915937366,
+     "scenario_id": "pose_003",
+     "repeat": 2
+    },
+    {
+     "along": 13.179120227235714,
+     "perp": 6.3423760069964,
+     "height": 32.71273484590477,
+     "rel_yaw": 78.30723647359588,
+     "lat": 3.484056445152453,
+     "dz": 0.12451746274143716,
+     "yaw_err": 4.06887481986945,
+     "scenario_id": "pose_004",
+     "repeat": 0
+    },
+    {
+     "along": 13.179120227235714,
+     "perp": 6.3423760069964,
+     "height": 32.71273484590477,
+     "rel_yaw": 78.30723647359588,
+     "lat": 3.484056445152453,
+     "dz": 0.12451746274143716,
+     "yaw_err": 4.06887481986945,
+     "scenario_id": "pose_004",
+     "repeat": 1
+    },
+    {
+     "along": 13.179120227235714,
+     "perp": 6.3423760069964,
+     "height": 32.71273484590477,
+     "rel_yaw": 78.30723647359588,
+     "lat": 3.484056445152453,
+     "dz": 0.12451746274143716,
+     "yaw_err": 4.06887481986945,
+     "scenario_id": "pose_004",
+     "repeat": 2
+    },
+    {
+     "along": 8.42795726293176,
+     "perp": 18.525909846995415,
+     "height": 34.88139355742591,
+     "rel_yaw": 72.72131972824403,
+     "lat": 11.184122414817889,
+     "dz": 2.2931761742625767,
+     "yaw_err": 1.5170419254824026,
+     "scenario_id": "pose_005",
+     "repeat": 0
+    },
+    {
+     "along": 8.545193067369302,
+     "perp": 18.54238562135361,
+     "height": 34.77050214176539,
+     "rel_yaw": 72.72216383026287,
+     "lat": 11.130513701202041,
+     "dz": 2.1822847586020586,
+     "yaw_err": 1.516197823463557,
+     "scenario_id": "pose_005",
+     "repeat": 1
+    },
+    {
+     "along": 8.312129657698838,
+     "perp": 18.647932018118432,
+     "height": 34.901814855040136,
+     "rel_yaw": 72.66193664291644,
+     "lat": 11.35062306317389,
+     "dz": 2.313597471876804,
+     "yaw_err": 1.5764250108099844,
+     "scenario_id": "pose_005",
+     "repeat": 2
+    },
+    {
+     "along": 11.091229073005085,
+     "perp": 10.96958703993657,
+     "height": 29.35781401156891,
+     "rel_yaw": 76.70884660316744,
+     "lat": 4.100830147041276,
+     "dz": -3.2304033715944236,
+     "yaw_err": 2.4704849494410155,
+     "scenario_id": "pose_006",
+     "repeat": 0
+    },
+    {
+     "along": 11.101310747765028,
+     "perp": 11.075232847372028,
+     "height": 29.47525603504314,
+     "rel_yaw": 76.75809316896634,
+     "lat": 4.133560571720011,
+     "dz": -3.1129613481201908,
+     "yaw_err": 2.5197315152399113,
+     "scenario_id": "pose_006",
+     "repeat": 1
+    },
+    {
+     "along": 10.178831734682626,
+     "perp": 11.112034373173314,
+     "height": 29.390738145888314,
+     "rel_yaw": 76.93713276977168,
+     "lat": 5.002358747618209,
+     "dz": -3.1974792372750187,
+     "yaw_err": 2.6987711160452506,
+     "scenario_id": "pose_006",
+     "repeat": 2
+    },
+    {
+     "along": 10.976237128324263,
+     "perp": 9.794292474964324,
+     "height": 31.238372450132687,
+     "rel_yaw": 77.41949808708083,
+     "lat": 3.9191547360848658,
+     "dz": -1.3498449330306457,
+     "yaw_err": 3.1811364333543963,
+     "scenario_id": "pose_007",
+     "repeat": 0
+    },
+    {
+     "along": 11.381991568567273,
+     "perp": 9.637505999975446,
+     "height": 31.001872736354823,
+     "rel_yaw": 77.40457568374158,
+     "lat": 3.501130793433103,
+     "dz": -1.5863446468085094,
+     "yaw_err": 3.166214030015155,
+     "scenario_id": "pose_007",
+     "repeat": 1
+    },
+    {
+     "along": 10.983579256228957,
+     "perp": 10.021891161556587,
+     "height": 31.23829194422799,
+     "rel_yaw": 77.42417864361802,
+     "lat": 3.9420924245850832,
+     "dz": -1.349925438935344,
+     "yaw_err": 3.185816989891592,
+     "scenario_id": "pose_007",
+     "repeat": 2
+    },
+    {
+     "along": 11.73750210929161,
+     "perp": 7.380861213421369,
+     "height": 29.52203911973232,
+     "rel_yaw": 77.71771418791056,
+     "lat": 3.722926383713376,
+     "dz": -3.066178263431013,
+     "yaw_err": 3.4793525341841303,
+     "scenario_id": "pose_008",
+     "repeat": 0
+    },
+    {
+     "along": 11.73750210929161,
+     "perp": 7.380861213421369,
+     "height": 29.52203911973232,
+     "rel_yaw": 77.71771418791056,
+     "lat": 3.722926383713376,
+     "dz": -3.066178263431013,
+     "yaw_err": 3.4793525341841303,
+     "scenario_id": "pose_008",
+     "repeat": 1
+    },
+    {
+     "along": 11.73750210929161,
+     "perp": 7.380861213421369,
+     "height": 29.52203911973232,
+     "rel_yaw": 77.71771418791056,
+     "lat": 3.722926383713376,
+     "dz": -3.066178263431013,
+     "yaw_err": 3.4793525341841303,
+     "scenario_id": "pose_008",
+     "repeat": 2
+    },
+    {
+     "along": 16.605450052290106,
+     "perp": 19.73230512502581,
+     "height": 31.977631093094967,
+     "rel_yaw": 79.16338458385654,
+     "lat": 10.48983597784185,
+     "dz": -0.6105862900683654,
+     "yaw_err": 4.925022930130112,
+     "scenario_id": "pose_009",
+     "repeat": 0
+    },
+    {
+     "along": 16.68790632374029,
+     "perp": 19.74905461408214,
+     "height": 32.06642514654731,
+     "rel_yaw": 79.07780973740432,
+     "lat": 10.52025850297421,
+     "dz": -0.5217922366160224,
+     "yaw_err": 4.839448083677894,
+     "scenario_id": "pose_009",
+     "repeat": 1
+    },
+    {
+     "along": 17.147984451322102,
+     "perp": 19.202730418212898,
+     "height": 32.03277992886402,
+     "rel_yaw": 78.86110519931248,
+     "lat": 10.076316615188748,
+     "dz": -0.5554374542993159,
+     "yaw_err": 4.622743545586047,
+     "scenario_id": "pose_009",
+     "repeat": 2
+    }
+   ],
+   "rollout_rows": [
+    {
+     "scenario_id": "pose_000",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.019821402576540602
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.019821402576540602
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.019821402576540602
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029810532871655165
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029810532871655165
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029810532871655165
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029605411371554237
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029605411371554237
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029605411371554237
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029082251152631487
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.02911787660793328
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029033302104005232
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029027549245406424
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029027549245406424
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029027549245406424
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029366375652586714
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.02937870424892182
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029442574571297044
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.02940624189835627
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0295333961404768
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.029398580733510093
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.03027656760273493
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030246009075706404
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.030172147222702318
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030314132785868628
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030314132785868628
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.030314132785868628
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0299709295724144
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.02989069264719118
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.029908137601512015
+    }
+   ],
+   "seconds": 1025.7,
+   "report": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/pi05_lora16_10k_20261002/evaluations/exec30/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/evaluation.json"
+  }
+ },
+ "wandb": {
+  "id": "c07me9rl",
+  "url": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/c07me9rl"
+ }
+}

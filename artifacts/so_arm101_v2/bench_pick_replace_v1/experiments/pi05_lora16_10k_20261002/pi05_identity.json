@@ -1,0 +1,49 @@
+{
+  "config": {
+    "batch_size": 32,
+    "chunk_horizon": 90,
+    "final_lr_fraction": 0.1,
+    "grad_clip": 1.0,
+    "gradient_checkpointing": true,
+    "learning_rate": 2.5e-05,
+    "lora_alpha": 16.0,
+    "lora_learning_rate": 0.0001,
+    "lora_rank": 16,
+    "max_steps": 10000,
+    "micro_batch": 16,
+    "num_inference_steps": 10,
+    "pretrained": "lerobot/pi05_base",
+    "random_shift": 12,
+    "seed": 202,
+    "tokenizer": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/pretrained/paligemma_tokenizer",
+    "tokenizer_max_length": 64,
+    "train_scope": "expert_lora",
+    "warmup_steps": 500,
+    "weight_decay": 0.01
+  },
+  "eval_every": 500,
+  "execs": [
+    90,
+    30
+  ],
+  "heldout_manifest": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_heldout/oracle/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/56755d99dc583c95/manifest.json",
+  "heldout_suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d",
+  "pretrained_revision": "b211f3d44c36b6acfcf7ae94a64e8e96f75a64ba",
+  "references": {
+    "cnn4800_closure_lateral_median_mm": 5.1,
+    "cnn4800_heldout_start_90": 0.00036,
+    "cnn4800_successes": 6,
+    "cnn_best_pooled_rate": 0.36666666666666664,
+    "grasp_tolerance_mm": 8.0,
+    "working_policy_closure_lateral_median_mm": 1.7,
+    "working_policy_start_90": 2.5e-06
+  },
+  "rehearsal": false,
+  "rollout_repeats": 3,
+  "scene_dependencies_sha256": "92f07142c449ca2f9aad45a6c678154eee6b6797b4bef07ba65384574a494818",
+  "tool": "pi05_finetune",
+  "train_manifests": [
+    "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/placements4800_20260912/capture_train/oracle/bench_pick_replace_v1_seed14_n4800_appearance_placement_d2e455880ad8/01f3d23cb37f6784/manifest.json",
+    "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/capture_train_stride18/oracle/bench_pick_replace_v1_seed12_n2400_appearance_placement_4adc064ea0e5/5cf55d3d28128108/manifest.json"
+  ]
+}

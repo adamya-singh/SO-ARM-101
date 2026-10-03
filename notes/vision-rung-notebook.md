@@ -1198,3 +1198,44 @@ it has nothing to say there. Always convert your loss into the units of the
 task, always compare with a system that works, and always measure the
 failing thing itself in the closed loop. We had fifteen careful loss tables
 and the answer was in one afternoon of reading the rollouts in millimetres.
+
+### pi0.5 fine-tune (2026-10-02/03): best held-out loss of any placement policy, 5/10 poses with replanning; failures move from aim to grasp quality
+
+Run: `tools/pi05_finetune.py` (commit 61d3b94), tsp 15, 12.9 h on the 3090, W&B
+[c07me9rl](https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/c07me9rl),
+experiments/pi05_lora16_10k_20261002. lerobot pi0.5 base (3.38B), LoRA r16 on PaliGemma (vision +
+language) plus the full 300M action expert (458M trained), 10k steps x 32 on the 4800 AND 2400
+placement captures (141,600 frames, 2.3 epochs), random shift 12 px at 256 then 224 px, the CNN
+lane's residual 90-step target and state (bit-identical by test), state as prompt tokens.
+
+**Offline (same held-out capture, same units).** Held-out start 90 fell from 1.4e-1 (base) to
+**2.5e-4** at step 10k (2.8 deg rms; best point 2.0e-4 at 9.5k), per-pose median **1.5e-4**,
+6/10 poses under 2.5e-4. Every CNN placement run sat at 3.4e-4 to 6e-4. No memorisation at all:
+the train sample scores 1e-3, above held-out, all run (the 200 training rows include edge-of-
+workspace placements the 10 held-out poses do not; read the ratio as "no gap", not as < 1).
+Still ~100x the working fixed-square policy (2.5e-6).
+
+**Closed loop, 30 held-out rollouts each.** First: **the three repeats of a pose are identical**
+(deterministic sim, deterministic policy). That holds for the CNN runs too (checked: 4800 and
+2400/s202 evaluation.json), so every "N/30" in this notebook is 3 x a count over 10 poses. Per pose:
+
+| policy | poses succeeded | closure lateral median | within 8 mm | not descended | safety-invalidated poses |
+|---|---|---|---|---|---|
+| pi0.5, execute 90 (CNN schedule) | 4/10 (12/30) | 4.0 mm | 7/10 | 1 | 2 (pose_000 clipping, pose_007 unsafe contact) |
+| pi0.5, execute 30 (re-read every 30 steps) | **5/10 (15/30)** | 4.4 mm | 7/10 | **0** | 2 (pose_000 clipping, pose_004 one contact frame) |
+| CNN v2 shift 12, 2400, seeds 202/101/303 | 5, 2, 4 | 10.0, 11.9, 9.4 mm | | 4, 3, 3 | |
+| CNN v2 shift 12, 4800 | 2 | 5.1 mm | | 2 | |
+
+What it says: pi0.5 equals the best CNN seed on count and beats the CNN mean (3.7/10), on one seed,
+so the count alone is not a decisive win. The decisive changes are in the mechanism. Aim: the
+lateral error is about half the CNN's and 7/10 poses land inside the 8 mm tolerance. Replanning
+every 30 steps fixed the one stalled descent (pose_007 succeeds at execute 30, stalls at 11 mm
+above the reference at execute 90). The remaining failures are no longer misses: pose_001 (exec 90,
+4.4 mm), pose_008 (3.7 mm) and pose_004/009 lift the cube 30 mm without a strict grasp (edge
+lifts) or touch it unsafely, so the next limit is grasp quality at closure and two safety cases,
+not localisation. pose_005 (10-11 mm) is the one real aim miss.
+
+Next, in order: read pose_001/008 closure frames (yaw and height at closure, since lateral is
+fine); a second seed of this recipe before claiming a count difference; the perturbed-teacher
+capture is still the lever for correction, and a pretrained VLA that re-reads the camera is the
+first policy here that descended on every pose, which makes that data more likely to pay.
