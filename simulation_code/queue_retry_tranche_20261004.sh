@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Retry tranche (2026-10-04): queue every job at once on the shared tsp queue (notes/retry-tranche-20261004.md).
-# Order: ACT fine-tune -> SmolVLA fine-tune -> pi0.5 ReinFlow -> SmolVLA ReinFlow (needs the SmolVLA fine-tune)
+# Order: pi0.5 ReinFlow (the most informative run first) -> ACT fine-tune -> SmolVLA fine-tune -> SmolVLA ReinFlow (needs the SmolVLA fine-tune)
 #        -> ACT PPO (needs the ACT fine-tune) -> research-log entries 03-07 under MuJoCo 3.9 -> final status/view.
 # The equal RL episode budget and each run's settings come from budget.json, written from the probes.
 # Usage: queue_retry_tranche_20261004.sh [--dry-run]
@@ -30,10 +30,10 @@ if [ $DRY = 0 ] && tsp -l | awk 'NR>1 && ($2=="running" || $2=="queued")' | grep
   note "warning: the shared tsp queue already has running/queued jobs; the tranche runs after them"
 fi
 
-J1=$(q retry-act-ft $ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --output-dir $T/act_ft $(b "['act_ft_args']"))
-J2=$(q retry-smolvla-ft $ENVV $PY -u $ROOT/tools/vla_finetune.py --model smolvla --output-dir $T/smolvla_ft $(b "['smolvla_ft_args']"))
 J3=$(q retry-rl-pi05 $ENVV $PY05 -u $ROOT/tools/rl_train.py --model pi05 --checkpoint $EXP/pi05_lora16_10k_20261002/model/pi05.pt \
       --output-dir $T/rl_pi05 --episodes $N $(b "['rl_pi05_args']"))
+J1=$(q retry-act-ft $ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --output-dir $T/act_ft $(b "['act_ft_args']"))
+J2=$(q retry-smolvla-ft $ENVV $PY -u $ROOT/tools/vla_finetune.py --model smolvla --output-dir $T/smolvla_ft $(b "['smolvla_ft_args']"))
 J4=$(q retry-rl-smolvla -D $J2 $ENVV $PY -u $ROOT/tools/rl_train.py --model smolvla --checkpoint $T/smolvla_ft/model/smolvla.pt \
       --output-dir $T/rl_smolvla --episodes $N $(b "['rl_smolvla_args']"))
 J5=$(q retry-rl-act -D $J1 $ENVV $PY -u $ROOT/tools/rl_train.py --model act --checkpoint $T/act_ft/model/act.pt \

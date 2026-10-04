@@ -43,9 +43,9 @@ DEFAULT_HELDOUT = EXPERIMENTS / "scaling_ladder_20260910/heldout_suite.path"
 PHASES = ("load", "warmup", "train", "heldout", "complete")
 TRANCHE_TAG = "retry-tranche-20261004"
 DEFAULTS = {
-    "pi05": dict(epochs=4, actor_lr=1e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=8, minibatch=32, steps=10, sigma_min=0.05, sigma_max=0.15),
-    "smolvla": dict(epochs=4, actor_lr=3e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=16, minibatch=64, steps=10, sigma_min=0.05, sigma_max=0.15),
-    "act": dict(epochs=2, actor_lr=1e-5, clip=0.1, target_kl=0.02, grad_clip=0.5, micro=64, minibatch=64, std_init=0.05),
+    "pi05": dict(epochs=4, actor_lr=1e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=8, minibatch=32, steps=10, sigma_min=0.005, sigma_max=0.015),
+    "smolvla": dict(epochs=4, actor_lr=3e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=16, minibatch=64, steps=10, sigma_min=0.005, sigma_max=0.015),
+    "act": dict(epochs=2, actor_lr=1e-5, clip=0.1, target_kl=0.02, grad_clip=0.5, micro=64, minibatch=64, std_init=0.01),
 }
 
 
@@ -74,7 +74,7 @@ def load_policy(kind: str, checkpoint: Path, args, *, amp: bool):
         model = ACTModel.from_checkpoint(checkpoint)
     if kind == "act":
         from so_arm101_v2.rl.act_ppo import GaussianChunkPolicy
-        policy = GaussianChunkPolicy(model, std_init=args.std_init, micro=args.micro)
+        policy = GaussianChunkPolicy(model, std_init=args.std_init, std_max=args.std_max, micro=args.micro)
     else:
         from so_arm101_v2.rl.reinflow import ReinFlowPolicy
         policy = ReinFlowPolicy(model, steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max, micro=args.micro, amp=amp,
@@ -96,6 +96,7 @@ def main(argv=None) -> int:
     p.add_argument("--sigma-min", type=float, default=None)
     p.add_argument("--sigma-max", type=float, default=None)
     p.add_argument("--std-init", type=float, default=None, help="ACT Gaussian std (normalised residual units)")
+    p.add_argument("--std-max", type=float, default=0.03, help="ACT std cap (noise above ~0.02 drives the shoulder through its floor)")
     p.add_argument("--actor-lr", type=float, default=None)
     p.add_argument("--critic-lr", type=float, default=1e-4)
     p.add_argument("--clip", type=float, default=None)
@@ -219,7 +220,7 @@ def main(argv=None) -> int:
     ppo = PPOConfig(clip=args.clip, epochs=args.epochs, minibatch=args.minibatch, micro=args.micro, target_kl=args.target_kl,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, grad_clip=args.grad_clip, critic_warmup_iterations=args.critic_warmup)
     policy_config = (dict(steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max, scope=args.rl_scope) if args.model != "act"
-                     else dict(std_init=args.std_init))
+                     else dict(std_init=args.std_init, std_max=args.std_max))
     identity = dict(tool="rl_train", model=args.model, start_checkpoint=str(args.checkpoint.resolve()), episodes_budget=args.episodes,
                     envs=args.envs, episodes_per_iter=args.episodes_per_iter, execute=args.execute, policy=policy_config, ppo=ppo.as_dict(),
                     reward=reward.as_dict(), amp=amp, rl_suites=str(args.rl_suites.resolve()), scenario_order_sha256=pool.order_sha256,
