@@ -92,6 +92,7 @@ def main(argv=None) -> int:
     p.add_argument("--episodes-per-iter", type=int, default=48)
     p.add_argument("--execute", type=int, default=90)
     p.add_argument("--batch-fraction", type=float, default=0.5)
+    p.add_argument("--watchdog", type=float, default=30.0, help="seconds without an answer before an env worker is restarted (a chunk takes 1-3 s)")
     p.add_argument("--steps", type=int, default=None, help="denoising steps K (flow models)")
     p.add_argument("--sigma-min", type=float, default=None)
     p.add_argument("--sigma-max", type=float, default=None)
@@ -168,7 +169,7 @@ def main(argv=None) -> int:
             for envs in args.probe_envs:
                 n = args.probe_episodes or 2 * envs
                 with SubprocChunkVecEnv(args.scene, envs, reward_kwargs=reward.as_dict()) as vec:
-                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction)
+                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
                     collector.collect([(i, pool.episode(i)) for i in range(envs)], deterministic=False, seed=args.seed)   # warm-up
                     torch.cuda.reset_peak_memory_stats()
                     t0 = time.time()
@@ -205,7 +206,7 @@ def main(argv=None) -> int:
                                 policy.log_std.fill_(math.log(level))
                         else:
                             policy.sigma_min, policy.sigma_max = level * 0.999, level * 1.001
-                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction)
+                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
                     _, summaries, _ = collector.collect([(i, s) for i, s in enumerate(monitor)], deterministic=level is None, seed=args.seed)
                     row = dict(noise=level, **summarize(summaries))
                     results.append(row)
@@ -287,7 +288,7 @@ def main(argv=None) -> int:
         vec = SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict())
         if any(info["torch_imported"] for info in vec.info):
             print("warning: env workers imported torch", flush=True)
-        collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction)
+        collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
 
         def run_monitor(episodes_done: int) -> dict:
             _, summaries, _ = collector.collect([(i, s) for i, s in enumerate(monitor)], deterministic=True, seed=10_000_000)

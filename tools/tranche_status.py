@@ -19,6 +19,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "tools/tranche_20261004.json"
+FT_SOCKET = "/tmp/tsp-retry-finetunes"
 
 
 def read_json(path: Path) -> Any:
@@ -43,18 +44,25 @@ def last_jsonl(path: Path) -> dict | None:
 
 def tsp_jobs() -> dict[str, dict[str, Any]]:
     """label -> newest job {id, state, exit}. ``tsp`` is shared with other projects: only labelled jobs count."""
-    try:
-        out = subprocess.run(["tsp", "-l"], capture_output=True, text=True, timeout=20).stdout
-    except (OSError, subprocess.SubprocessError):
-        return {}
+    import os
+    out = ""
+    for socket in (None, FT_SOCKET):       # the main queue and the fine-tune queue that shares the GPU with RL
+        env = dict(os.environ)
+        if socket:
+            env["TS_SOCKET"] = socket
+        try:
+            out += subprocess.run(["tsp", "-l"], capture_output=True, text=True, timeout=20, env=env).stdout
+        except (OSError, subprocess.SubprocessError):
+            pass
     jobs: dict[str, dict[str, Any]] = {}
     for line in out.splitlines()[1:]:
         parts = line.split()
         if len(parts) < 2 or not parts[0].isdigit():
             continue
-        label = re.search(r"\[([^\]]+)\]", line)
-        if not label:
+        labels = [m for m in re.findall(r"\[([^\]]+)\]", line) if not m.isdigit()]   # "[12]&& [label]" = depends on job 12
+        if not labels:
             continue
+        label = re.match(r"(.*)", labels[0])
         job = dict(id=int(parts[0]), state=parts[1])
         if parts[1] == "finished" and len(parts) > 3:
             try:

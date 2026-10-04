@@ -51,7 +51,7 @@ class Batch:
 
 
 class Collector:
-    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5, watchdog_s: float = 120.0) -> None:
+    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5, watchdog_s: float = 30.0) -> None:
         self.vec, self.policy, self.execute, self.batch_fraction = vec, policy, int(execute), float(batch_fraction)
         # A worker that does not answer a chunk within watchdog_s is killed and replaced, and its episode is run again
         # from the start (2026-10-04: EGL renders in 4 of 16 workers hung on WSL and the run waited forever).
@@ -89,7 +89,7 @@ class Collector:
                 waiting = []
                 continue
             t0 = time.time()
-            ready = vec.ready(timeout=self.watchdog_s / 4)
+            ready = vec.ready(timeout=min(10.0, self.watchdog_s / 3))
             timing["env_wait_seconds"] += time.time() - t0
             if not ready:
                 for env in vec.stalled(self.watchdog_s):
