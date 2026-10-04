@@ -232,7 +232,8 @@ tr.base td { color: var(--muted); }
       const c = meta.counts || {};
       const b = meta.budget;
       $("strip").innerHTML = [
-        ["Board", ago(meta.updated_at)],
+        ...(meta.stage ? [["Stage", meta.stage]] : []),
+        ["Board updated", ago(meta.updated_at)],
         ["Running", c.running ?? 0], ["Queued", c.queued ?? 0], ["Done", c.done ?? 0],
         ...(c.failed || c.aborted ? [["Failed or stopped", (c.failed || 0) + (c.aborted || 0)]] : []),
         ...(b && b.episodes ? [["RL budget", Number(b.episodes).toLocaleString() + " episodes each"]] : []),

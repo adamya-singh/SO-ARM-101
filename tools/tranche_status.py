@@ -202,6 +202,9 @@ def status(manifest_path: Path) -> dict[str, Any]:
                 baselines=manifest["baselines"], updated_at=now,
                 counts={s: sum(r["state"] == s for r in rows) for s in ("planned", "queued", "running", "done", "failed", "aborted")},
                 queue=[dict(id=r["id"], tsp_job=r["tsp_job"], state=r["state"]) for r in queue])
+    stage = read_json(root / "stage.json")
+    if stage:
+        meta["stage"] = stage.get("text")
     budget = read_json(root / "budget.json")
     if budget:
         meta["budget"] = budget
