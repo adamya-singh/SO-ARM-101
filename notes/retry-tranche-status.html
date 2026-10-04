@@ -1,0 +1,282 @@
+<title>Retry Tranche Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: lab run-board. Header + summary strip, queue rail in run order, one card per experiment, results table. */
+:root {
+  --bg: #f3f5f6;
+  --surface: #ffffff;
+  --ink: #17232b;
+  --muted: #5b6b75;
+  --rule: #d8dfe3;
+  --accent: #1d6a86;
+  --accent-soft: #e2eff4;
+  --ok: #2f7d4f;      --ok-soft: #e3f2e8;
+  --run: #1d6a86;     --run-soft: #e2eff4;
+  --wait: #8a6a12;    --wait-soft: #f6efd9;
+  --bad: #b23b2e;     --bad-soft: #f8e4e1;
+  --idle: #6f7c84;    --idle-soft: #eceff1;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181d; --surface: #182229; --ink: #e3eaee; --muted: #93a3ad; --rule: #2a3741;
+    --accent: #5fb3d3; --accent-soft: #173341;
+    --ok: #6cc28f; --ok-soft: #173326; --run: #5fb3d3; --run-soft: #173341;
+    --wait: #d9b552; --wait-soft: #332b14; --bad: #ef8577; --bad-soft: #3a1d19; --idle: #93a3ad; --idle-soft: #212d35;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181d; --surface: #182229; --ink: #e3eaee; --muted: #93a3ad; --rule: #2a3741;
+  --accent: #5fb3d3; --accent-soft: #173341;
+  --ok: #6cc28f; --ok-soft: #173326; --run: #5fb3d3; --run-soft: #173341;
+  --wait: #d9b552; --wait-soft: #332b14; --bad: #ef8577; --bad-soft: #3a1d19; --idle: #93a3ad; --idle-soft: #212d35;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.05; }
+h2 { font-size: 22px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+h3 { font-size: 22px; line-height: 1.15; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.lede { max-width: 70ch; color: var(--muted); }
+header { display: grid; gap: 12px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.strip { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; padding-block: 12px; border-block: 1px solid var(--rule); }
+.strip .item { display: flex; gap: 6px; align-items: baseline; }
+.strip .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.strip .v { font-family: var(--mono); font-size: 15px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.s-running { color: var(--run); background: var(--run-soft); }
+.s-running::before { animation: pulse 1.6s ease-in-out infinite; }
+.s-queued { color: var(--wait); background: var(--wait-soft); }
+.s-done { color: var(--ok); background: var(--ok-soft); }
+.s-failed, .s-aborted { color: var(--bad); background: var(--bad-soft); }
+.s-planned { color: var(--idle); background: var(--idle-soft); }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .s-running::before { animation: none; } }
+.rail { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.stop { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
+.stop .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.stop .t { font-family: var(--display); font-size: 18px; line-height: 1.1; }
+.bar { height: 6px; background: var(--idle-soft); border-radius: 3px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card.is-running { border-color: var(--run); }
+.card.is-failed, .card.is-aborted { border-color: var(--bad); }
+.card-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.card-head > div { min-width: 0; display: grid; gap: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--mono); font-size: 11.5px; color: var(--muted); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; }
+.q { font-weight: 600; }
+.means { color: var(--muted); font-size: 14px; }
+.prog { display: grid; gap: 6px; }
+.prog-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.metric { border-top: 1px solid var(--rule); padding-top: 6px; display: grid; gap: 2px; min-width: 0; }
+.metric .k { font-size: 12px; color: var(--muted); }
+.metric .v { font-family: var(--mono); font-size: 17px; }
+.metric .ref { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.err { font-family: var(--mono); font-size: 12px; color: var(--bad); background: var(--bad-soft); border-radius: 6px; padding: 8px; overflow-x: auto; }
+.reruns { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.rr { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 14px 18px; border-top: 1px solid var(--rule); }
+.rr:first-child { border-top: 0; }
+.rr .t { font-family: var(--display); font-size: 19px; }
+.rr .q { font-weight: 400; color: var(--muted); font-size: 14px; grid-column: 1 / -1; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--rule); white-space: nowrap; }
+th { font-family: var(--mono); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border-top: 0; }
+td.num { text-align: right; }
+th.num { text-align: right; }
+tr.base td { color: var(--muted); }
+.spark { width: 100%; height: 44px; display: block; }
+.spark .line { fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.spark .area { fill: var(--accent-soft); stroke: none; }
+.spark .refl { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; fill: none; }
+.spark .dot { fill: var(--accent); }
+.empty { background: var(--surface); border: 1px dashed var(--rule); border-radius: 10px; padding: 22px; color: var(--muted); display: grid; gap: 6px; }
+.section { display: grid; gap: 12px; }
+.note { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">SO-ARM-101 · bench pick-and-replace · tranche 2026-10-04</div>
+    <h1 id="title">Retry tranche</h1>
+    <p class="lede" id="why">Every experiment that ran on the broken simulator, run again on the fixed one. Status rows load from the run board.</p>
+    <div class="strip" id="strip" aria-live="polite">
+      <div class="item"><span class="k">Board</span><span class="v" id="updated">connecting…</span></div>
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="h-queue">
+    <h2 id="h-queue">Run order</h2>
+    <div class="rail" id="rail"></div>
+  </section>
+
+  <section class="section" aria-labelledby="h-runs">
+    <h2 id="h-runs">Training runs</h2>
+    <div class="cards" id="cards">
+      <div class="empty"><strong>No runs on the board yet.</strong><span>Each fine-tune and RL run appears here with its question, live progress and latest numbers once Claude writes the first status update.</span></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-reruns">
+    <h2 id="h-reruns">Research-log re-runs under MuJoCo 3.9</h2>
+    <p class="note">Entries 03–07 used the right arm model but a stray MuJoCo 3.11. Each re-run checks whether the entry's verdict still holds.</p>
+    <div class="reruns" id="reruns"></div>
+  </section>
+
+  <section class="section" aria-labelledby="h-results">
+    <h2 id="h-results">Results against the baselines</h2>
+    <p class="note">Held-out: 10 unseen placements × 3 rollouts. Start-90 error in normalised joint units (1 unit = π rad); lower is better.</p>
+    <div class="table-wrap"><table id="results">
+      <thead><tr><th>Policy</th><th class="num">Successes exec 90</th><th class="num">Successes exec 30</th><th class="num">Held-out start-90</th><th class="num">Closure median</th><th>State</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const state = { meta: null, rows: new Map() };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fmtNum = (v, d = 3) => (v === null || v === undefined || Number.isNaN(v)) ? "—" : (Math.abs(v) < 1e-2 && v !== 0 ? Number(v).toExponential(1) : Number(v).toFixed(d).replace(/\.?0+$/, ""));
+  const fmtPct = (v) => (v === null || v === undefined) ? "—" : Math.round(v * 100) + "%";
+  const fmtInt = (v) => (v === null || v === undefined) ? "—" : Number(v).toLocaleString();
+  const ago = (t) => {
+    if (!t) return "never";
+    const s = Math.max(0, Date.now() / 1000 - t);
+    if (s < 90) return "just now";
+    if (s < 5400) return Math.round(s / 60) + " min ago";
+    if (s < 172800) return Math.round(s / 3600) + " h ago";
+    return Math.round(s / 86400) + " d ago";
+  };
+  const pill = (s) => `<span class="pill s-${esc(s)}">${esc(s)}</span>`;
+
+  function sparkline(curve, ref) {
+    if (!curve || curve.length < 2) return "";
+    const W = 300, H = 44, P = 3;
+    const xs = curve.map((c) => c.episodes), ys = curve.map((c) => c.success_rate ?? 0);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs) || 1;
+    const X = (x) => P + (W - 2 * P) * (x - x0) / Math.max(1, x1 - x0);
+    const Y = (y) => H - P - (H - 2 * P) * Math.min(1, Math.max(0, y));
+    const pts = curve.map((c, i) => `${X(xs[i]).toFixed(1)},${Y(ys[i]).toFixed(1)}`).join(" ");
+    const area = `${X(xs[0]).toFixed(1)},${H - P} ${pts} ${X(xs[xs.length - 1]).toFixed(1)},${H - P}`;
+    const last = curve[curve.length - 1];
+    const refLine = ref === undefined || ref === null ? "" : `<line class="refl" x1="${P}" x2="${W - P}" y1="${Y(ref)}" y2="${Y(ref)}"/>`;
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Monitoring success over training episodes, latest ${fmtPct(last.success_rate)}">
+      <polygon class="area" points="${area}"/>${refLine}<polyline class="line" points="${pts}"/>
+      <circle class="dot" cx="${X(last.episodes)}" cy="${Y(last.success_rate ?? 0)}" r="3"/></svg>`;
+  }
+
+  function metricsFor(r) {
+    const m = r.metrics || {};
+    const out = [];
+    if (r.kind === "rl") {
+      out.push(["Monitor success", fmtPct(m.monitor_success_rate), `start ${fmtPct(m.monitor_start_success_rate)}`]);
+      out.push(["Train success", fmtPct(m.train_success_rate), `pickup ${fmtPct(m.train_pickup_rate)}`]);
+      out.push(["Return", fmtNum(m.return_mean), `KL ${fmtNum(m.kl)}`]);
+    } else {
+      out.push(["Held-out start-90", fmtNum(m.heldout_start_90), "CNN 3.6e-4 · pi0.5 2.5e-4"]);
+      out.push(["Memorisation ratio", m.ratio_start_90 ? fmtNum(m.ratio_start_90, 1) + "×" : "—", "held-out / train"]);
+      out.push(["Poses under 2.5e-4", m.poses_under_threshold ?? "—", "of 10"]);
+    }
+    if (m.successes_exec90 !== undefined) out.push(["Held-out exec 90", `${m.successes_exec90}/30`, r.kind === "rl" ? "pi0.5 FT 12/30" : "CNN 6/30"]);
+    if (m.successes_exec30 !== undefined) out.push(["Held-out exec 30", `${m.successes_exec30}/30`, "pi0.5 FT 15/30"]);
+    if (m.closure_median_mm_exec90 !== undefined) out.push(["Closure median", fmtNum(m.closure_median_mm_exec90, 1) + " mm", "tolerance 8 mm"]);
+    return out;
+  }
+
+  function card(r) {
+    const p = r.progress || {};
+    const pct = p.target ? Math.min(100, 100 * (p.done || 0) / p.target) : 0;
+    const eta = r.eta_hours ? `ETA ${r.eta_hours < 1 ? Math.round(r.eta_hours * 60) + " min" : r.eta_hours.toFixed(1) + " h"}` : "";
+    const ref = r.metrics ? r.metrics.monitor_start_success_rate : undefined;
+    const links = [r.wandb_url ? `<a href="${esc(r.wandb_url)}" target="_blank" rel="noopener">W&amp;B run</a>` : "", r.tsp_job !== null && r.tsp_job !== undefined ? `<span class="mono">tsp ${r.tsp_job}</span>` : ""].filter(Boolean).join(" · ");
+    return `<article class="card is-${esc(r.state)}">
+      <div class="card-head"><div><h3>${esc(r.title)}</h3>
+        <div class="chips"><span class="chip">${esc(r.model)}</span><span class="chip">${esc(r.method)}</span>${r.start_from ? `<span class="chip">from ${esc(r.start_from)}</span>` : ""}</div></div>
+        ${pill(r.state)}</div>
+      <p class="q">${esc(r.question)}</p>
+      <div class="prog"><div class="bar" aria-hidden="true"><span style="width:${pct.toFixed(1)}%"></span></div>
+        <div class="prog-line"><span class="num">${fmtInt(p.done)} / ${fmtInt(p.target)} ${esc(p.unit || "")}</span><span>${esc(r.phase || "")}${eta ? " · " + eta : ""}${r.stale ? " · no update for 30+ min" : ""}</span></div></div>
+      ${r.kind === "rl" ? sparkline(r.monitor_curve, ref) : ""}
+      <div class="nums">${metricsFor(r).map(([k, v, s]) => `<div class="metric"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span><span class="ref">${esc(s)}</span></div>`).join("")}</div>
+      <p class="means"><strong>If it works:</strong> ${esc(r.success_means)}</p>
+      ${r.error ? `<div class="err">${esc(r.error)}</div>` : ""}${r.aborted ? `<div class="err">Stopped early by its guard: ${esc(r.aborted)}</div>` : ""}
+      <div class="foot"><span>${links || "not queued yet"}</span><span>updated ${ago(r.updated_at)}</span></div>
+    </article>`;
+  }
+
+  function render() {
+    const rows = [...state.rows.values()].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+    const meta = state.meta;
+    if (meta) {
+      $("title").textContent = meta.title || "Retry tranche";
+      $("why").textContent = meta.why || "";
+      const c = meta.counts || {};
+      const b = meta.budget;
+      $("strip").innerHTML = [
+        ["Board", ago(meta.updated_at)],
+        ["Running", c.running ?? 0], ["Queued", c.queued ?? 0], ["Done", c.done ?? 0],
+        ...(c.failed || c.aborted ? [["Failed or stopped", (c.failed || 0) + (c.aborted || 0)]] : []),
+        ...(b && b.episodes ? [["RL budget", Number(b.episodes).toLocaleString() + " episodes each"]] : []),
+      ].map(([k, v]) => `<div class="item"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("");
+    }
+    if (!rows.length) return;
+    $("rail").innerHTML = rows.filter((r) => r.kind !== "rerun").concat(rows.filter((r) => r.kind === "rerun").slice(0, 1).map((r) => ({ ...r, title: "Entries 03–07 re-run" })))
+      .sort((a, b) => (a.tsp_job ?? 1e9) - (b.tsp_job ?? 1e9) || a.order - b.order)
+      .map((r, i) => {
+        const p = r.progress || {};
+        const pct = r.state === "done" ? 100 : p.target ? Math.min(100, 100 * (p.done || 0) / p.target) : 0;
+        return `<div class="stop"><span class="n">${i + 1}${r.tsp_job != null ? " · tsp " + r.tsp_job : ""}</span><span class="t">${esc(r.title)}</span>${pill(r.state)}<div class="bar"><span style="width:${pct.toFixed(0)}%"></span></div></div>`;
+      }).join("");
+    $("cards").innerHTML = rows.filter((r) => r.kind !== "rerun").map(card).join("");
+    $("reruns").innerHTML = rows.filter((r) => r.kind === "rerun").map((r) => {
+      const p = r.progress || {};
+      const m = r.metrics || {};
+      const verdict = m.verdict_3_9 ? ` · 3.9: ${esc(m.verdict_3_9)}` : "";
+      return `<div class="rr"><span class="t">${esc(r.title)}</span>${pill(r.state)}<span class="q">${esc(r.question)}${verdict}</span>
+        <span class="note num">${fmtInt(p.done)} / ${fmtInt(p.target)} steps</span></div>`;
+    }).join("");
+    const base = (meta && meta.baselines) || [];
+    const body = base.map((b) => `<tr class="base"><td>${esc(b.label)} (baseline)</td><td class="num">${b.successes_exec90 ?? "—"}${b.successes_exec90 !== undefined ? "/30" : ""}</td><td class="num">${b.successes_exec30 ?? "—"}${b.successes_exec30 !== undefined ? "/30" : ""}</td><td class="num">${fmtNum(b.heldout_start_90)}</td><td class="num">${b.closure_mm ? b.closure_mm + " mm" : "—"}</td><td>—</td></tr>`)
+      .concat(rows.filter((r) => r.kind !== "rerun").map((r) => {
+        const m = r.metrics || {};
+        return `<tr><td>${esc(r.title)}</td><td class="num">${m.successes_exec90 ?? "—"}${m.successes_exec90 !== undefined ? "/30" : ""}</td><td class="num">${m.successes_exec30 ?? "—"}${m.successes_exec30 !== undefined ? "/30" : ""}</td><td class="num">${fmtNum(m.heldout_start_90)}</td><td class="num">${m.closure_median_mm_exec90 !== undefined ? fmtNum(m.closure_median_mm_exec90, 1) + " mm" : "—"}</td><td>${pill(r.state)}</td></tr>`;
+      })).join("");
+    document.querySelector("#results tbody").innerHTML = body;
+  }
+
+  async function start() {
+    const db = window.claude ? await window.claude.use("db") : null;
+    if (!db) {
+      $("updated").textContent = "offline: open this page on claude.ai to see live status";
+      return;
+    }
+    db.doc("meta/tranche").onSnapshot((snap) => { state.meta = snap.exists ? snap.data() : null; render(); },
+      () => { $("updated").textContent = "status feed unavailable; reload the page"; });
+    db.collection("experiments").onSnapshot((snap) => {
+      state.rows = new Map(snap.docs.map((d) => [d.id, d.data()]));
+      render();
+    }, () => { $("updated").textContent = "status feed unavailable; reload the page"; });
+    setInterval(render, 60000);   // keep "updated … ago" fresh; no writes
+  }
+  start();
+})();
+</script>
