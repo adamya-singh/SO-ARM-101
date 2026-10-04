@@ -123,7 +123,14 @@ def summarize(summaries: list[Any]) -> dict[str, float]:
     closures = [s.closure for s in summaries if s.closure is not None]
     lat = np.asarray([c["lat"] for c in closures]) if closures else np.asarray([])
     descended = np.asarray([c["dz"] <= 6.0 for c in closures]) if closures else np.asarray([], bool)
-    return dict(episodes=float(len(summaries)), success_rate=sum(s.success for s in summaries) / n,
+    kinds: dict[str, float] = {}
+    for s in summaries:
+        if s.first_violation is not None:
+            for kind in s.first_violation["kinds"] + [f"{k}_j{j}" for k in ("act_clip", "mujoco_clip", "relative_limit")
+                                                      for j in s.first_violation.get(f"{k}_joints", [])]:
+                kinds[f"violation_{kind}"] = kinds.get(f"violation_{kind}", 0.0) + 1.0
+    first_chunk = [s for s in summaries if s.first_violation is not None and s.first_violation["action"] <= 90]
+    return dict(kinds, violations_in_first_chunk=float(len(first_chunk)), episodes=float(len(summaries)), success_rate=sum(s.success for s in summaries) / n,
                 pickup_rate=sum(s.pickup_completed for s in summaries) / n, grasp_rate=sum(s.strict_grasp_acquired for s in summaries) / n,
                 invalidation_rate=sum(s.invalidated for s in summaries) / n, safety_frames_mean=float(np.mean([s.safety_frames for s in summaries])) if summaries else 0.0,
                 return_mean=float(np.mean([s.return_total for s in summaries])) if summaries else 0.0,

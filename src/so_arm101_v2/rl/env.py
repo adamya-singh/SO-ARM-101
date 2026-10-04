@@ -42,6 +42,7 @@ class EpisodeSummary:
     return_total: float = 0.0
     reward_parts: dict[str, float] = field(default_factory=lambda: dict(success=0.0, safety=0.0, shaping=0.0))
     closure: dict[str, float] | None = None
+    first_violation: dict[str, Any] | None = None   # which safety rule ended the episode, where, on which joint
 
     @property
     def failure_category(self) -> str:
@@ -146,7 +147,17 @@ class ChunkEnv:
             self.state, evaluation = evaluate_pick_place_step(self.contract, measurement, self.state)
             steps += 1
             pickup = measurement.pickup
-            summary.safety_frames += int(pickup.command_bound_violation or pickup.delta_limiter_activated or pickup.nonfinite_command or pickup.unsafe_contact)
+            violated = bool(pickup.command_bound_violation or pickup.delta_limiter_activated or pickup.nonfinite_command or pickup.unsafe_contact)
+            summary.safety_frames += int(violated)
+            if violated and summary.first_violation is None:
+                summary.first_violation = dict(
+                    action=int(self.state.actions_evaluated), chunk_step=steps - 1,
+                    kinds=[k for k, v in (("command_bound", pickup.command_bound_violation), ("relative_limit", pickup.delta_limiter_activated),
+                                          ("nonfinite", pickup.nonfinite_command), ("unsafe_contact", pickup.unsafe_contact)) if v],
+                    act_clip_joints=np.flatnonzero(command.act_clip_mask).tolist(),
+                    mujoco_clip_joints=np.flatnonzero(command.mujoco_clip_mask).tolist(),
+                    relative_limit_joints=np.flatnonzero(command.relative_limit_mask).tolist(),
+                    requested_act=np.round(np.asarray(command.requested_act, np.float64), 4).tolist())
             summary.max_lift_m = max(summary.max_lift_m, float(pickup.cube_height_gain_m))
             self._qpos_rows.append(self.adapter.mujoco_qpos().tolist())
             self._last_contact = np.asarray((pickup.any_contact, pickup.bilateral_interior_contact, pickup.strict_bilateral_grasp), np.float32)

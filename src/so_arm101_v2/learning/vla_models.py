@@ -271,8 +271,10 @@ class Pi05Model(ResidualModel):
             lambda: model.denoise_step(prefix_pad_masks=ctx["prefix_pad_masks"], past_key_values=ctx["past_key_values"], x_t=x_t, timestep=t))
 
     def named_trainable(self, scope: str) -> list[tuple[str, Any]]:
+        if scope == "rl_out_head":
+            return [(n, p) for n, p in self.policy.named_parameters() if n.startswith("model.action_out_proj.")]
         if scope != "rl_heads":
-            raise ValueError("pi0.5 fine-tunes run through tools/pi05_finetune.py; only the RL scope is defined here")
+            raise ValueError("pi0.5 fine-tunes run through tools/pi05_finetune.py; only the RL scopes are defined here")
         heads = ("model.action_in_proj.", "model.action_out_proj.", "model.time_mlp_in.", "model.time_mlp_out.")
         return [(n, p) for n, p in self.policy.named_parameters() if n.startswith(heads)]
 
@@ -367,6 +369,8 @@ class SmolVLAModel(ResidualModel):
         if scope in ("default", "expert"):
             # lerobot's SmolVLA recipe: frozen VLM (train_expert_only), trained expert + projections + state_proj.
             return [(n, p) for n, p in params if not n.startswith("model.vlm_with_expert.vlm.") and not n.startswith("model.noise_mlp.")]
+        if scope == "rl_out_head":
+            return [(n, p) for n, p in params if n.startswith("model.action_out_proj.")]
         if scope == "rl_heads":
             # Legacy rl_stable_heads (README "Legacy RL stack status"): action in/out projections and time MLPs.
             heads = ("model.action_in_proj.", "model.action_out_proj.", "model.action_time_mlp_in.", "model.action_time_mlp_out.")

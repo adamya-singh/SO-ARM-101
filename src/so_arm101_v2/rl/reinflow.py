@@ -48,7 +48,10 @@ def make_noise_head(feature_dim: int):
 
 
 class ReinFlowPolicy:
-    def __init__(self, model: Any, *, steps: int, sigma_min: float, sigma_max: float, micro: int = 8, amp: bool = False) -> None:
+    SCOPES = ("out_head", "heads")
+
+    def __init__(self, model: Any, *, steps: int, sigma_min: float, sigma_max: float, micro: int = 8, amp: bool = False,
+                 scope: str = "out_head") -> None:
         import torch
         if not model.flow:
             raise ValueError("ReinFlow needs a flow-matching model (pi0.5 or SmolVLA)")
@@ -58,7 +61,13 @@ class ReinFlowPolicy:
         self.micro, self.amp = int(micro), bool(amp)
         self.device = model.device
         model.eval()                                   # dropout off for good (the KL fix)
-        self.heads = model.set_scope("rl_heads")
+        if scope not in self.SCOPES:
+            raise ValueError(f"scope must be one of {self.SCOPES}")
+        self.scope = scope
+        # out_head: only action_out_proj + the noise head train. The expert features they read do not depend on the
+        # trainable parameters, so the rollout stores them and the PPO update never runs the base model again
+        # (2026-10-04 probe: the full-head update through 10 denoising steps of pi0.5 needed 36 GB of a 24 GB card).
+        self.heads = model.set_scope("rl_out_head" if scope == "out_head" else "rl_heads")
         feature_dim = int(model.out_proj.in_features)
         self.noise_head = make_noise_head(feature_dim).to(self.device)
         self.torch = torch
@@ -106,6 +115,7 @@ class ReinFlowPolicy:
             from so_arm101_v2.learning.vla_models import HORIZON
             x = torch.randn((bsize, HORIZON, width), generator=generator, device=self.device, dtype=torch.float32)
             chain = [x]
+            feats: list[Any] = []
             logp = torch.zeros(bsize, device=self.device)
             sigmas = []
             dt = -1.0 / self.steps
@@ -113,6 +123,8 @@ class ReinFlowPolicy:
                 t = torch.full((bsize,), 1.0 + k * dt, dtype=torch.float32, device=self.device)
                 with self._autocast():
                     v, features = self.model.velocity(ctx, x, t)
+                if self.scope == "out_head" and not deterministic:
+                    feats.append(features.detach().to(torch.float16).cpu())
                 mean = x + dt * v.float()
                 if deterministic:
                     x = mean
@@ -126,12 +138,19 @@ class ReinFlowPolicy:
                 chain.append(x)
             residual = self.model.stats.unnorm_action(x[..., :ACTION_DIM]).cpu().numpy()
             chain_np = torch.stack(chain, dim=1).cpu().numpy()
-        return dict(residual=residual, records=[dict(chain=chain_np[i]) for i in range(bsize)], logp=logp.cpu().numpy(),
+        records = [dict(chain=chain_np[i]) for i in range(bsize)]
+        if feats:
+            stacked = torch.stack(feats, dim=1)          # (B, K, H, F) float16 on the CPU
+            for i in range(bsize):
+                records[i]["features"] = stacked[i]
+        return dict(residual=residual, records=records, logp=logp.cpu().numpy(),
                     sigma_mean=float(np.mean(sigmas)) if sigmas else 0.0)
 
     def logprob(self, frames: np.ndarray, states: np.ndarray, records: list[dict[str, Any]]) -> tuple[Any, dict[str, float]]:
         """(B,) log-probs with grad, microbatched (the deterministic path PPO uses for both old and new)."""
         torch = self.torch
+        if self.scope == "out_head":
+            return self._logprob_from_features(records)
         outs, sig = [], []
         for start in range(0, len(records), self.micro):
             sl = slice(start, start + self.micro)
@@ -140,6 +159,30 @@ class ReinFlowPolicy:
             chain = torch.as_tensor(np.stack([r["chain"] for r in records[sl]]), dtype=torch.float32, device=self.device)
             logp, sigma_mean = self._chain_logprob(ctx, chain)
             outs.append(logp); sig.append(sigma_mean.detach())
+        sigma_all = torch.cat(sig)
+        return torch.cat(outs), dict(sigma_mean=float(sigma_all.mean()), sigma_min=float(sigma_all.min()), sigma_max=float(sigma_all.max()))
+
+    def _logprob_from_features(self, records: list[dict[str, Any]], micro: int = 64) -> tuple[Any, dict[str, float]]:
+        """Exact chain log-prob from the stored features: velocity = action_out_proj(features), sigma = head(features)."""
+        torch = self.torch
+        out_proj = self.model.out_proj
+        dt = -1.0 / self.steps
+        outs, sig = [], []
+        for start in range(0, len(records), micro):
+            part = records[start:start + micro]
+            chain = torch.as_tensor(np.stack([r["chain"] for r in part]), dtype=torch.float32, device=self.device)
+            feats = torch.stack([r["features"] for r in part]).to(self.device)
+            logp = torch.zeros(len(part), device=self.device)
+            sigma_mean = torch.zeros(len(part), device=self.device)
+            for k in range(self.steps):
+                f = feats[:, k].float()
+                v = out_proj(f.to(out_proj.weight.dtype)).float()
+                mu = (chain[:, k] + dt * v)[..., :ACTION_DIM]
+                sigma = self.sigma(f)
+                target = chain[:, k + 1, :, :ACTION_DIM]
+                logp = logp + (-((target - mu) ** 2) / (2 * sigma ** 2) - torch.log(sigma) - 0.5 * math.log(2 * math.pi)).sum(dim=(1, 2))
+                sigma_mean = sigma_mean + sigma.mean(dim=(1, 2)).detach() / self.steps
+            outs.append(logp); sig.append(sigma_mean)
         sigma_all = torch.cat(sig)
         return torch.cat(outs), dict(sigma_mean=float(sigma_all.mean()), sigma_min=float(sigma_all.min()), sigma_max=float(sigma_all.max()))
 

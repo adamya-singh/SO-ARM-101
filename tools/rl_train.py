@@ -43,9 +43,9 @@ DEFAULT_HELDOUT = EXPERIMENTS / "scaling_ladder_20260910/heldout_suite.path"
 PHASES = ("load", "warmup", "train", "heldout", "complete")
 TRANCHE_TAG = "retry-tranche-20261004"
 DEFAULTS = {
-    "pi05": dict(actor_lr=1e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=8, minibatch=32, steps=10, sigma_min=0.05, sigma_max=0.15),
-    "smolvla": dict(actor_lr=3e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=16, minibatch=64, steps=10, sigma_min=0.05, sigma_max=0.15),
-    "act": dict(actor_lr=1e-5, clip=0.1, target_kl=0.02, grad_clip=0.5, micro=64, minibatch=64, std_init=0.05),
+    "pi05": dict(epochs=4, actor_lr=1e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=8, minibatch=32, steps=10, sigma_min=0.05, sigma_max=0.15),
+    "smolvla": dict(epochs=4, actor_lr=3e-6, clip=0.05, target_kl=0.1, grad_clip=0.25, micro=16, minibatch=64, steps=10, sigma_min=0.05, sigma_max=0.15),
+    "act": dict(epochs=2, actor_lr=1e-5, clip=0.1, target_kl=0.02, grad_clip=0.5, micro=64, minibatch=64, std_init=0.05),
 }
 
 
@@ -77,7 +77,8 @@ def load_policy(kind: str, checkpoint: Path, args, *, amp: bool):
         policy = GaussianChunkPolicy(model, std_init=args.std_init, micro=args.micro)
     else:
         from so_arm101_v2.rl.reinflow import ReinFlowPolicy
-        policy = ReinFlowPolicy(model, steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max, micro=args.micro, amp=amp)
+        policy = ReinFlowPolicy(model, steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max, micro=args.micro, amp=amp,
+                                scope=args.rl_scope)
     return model, policy
 
 
@@ -102,7 +103,9 @@ def main(argv=None) -> int:
     p.add_argument("--grad-clip", type=float, default=None)
     p.add_argument("--minibatch", type=int, default=None)
     p.add_argument("--micro", type=int, default=None)
-    p.add_argument("--epochs", type=int, default=1)
+    p.add_argument("--epochs", type=int, default=None, help="PPO epochs per batch (KL early stop still applies)")
+    p.add_argument("--rl-scope", choices=("out_head", "heads"), default="out_head",
+                   help="flow models: out_head = action_out_proj + noise head on stored features (fast); heads = legacy stable heads")
     p.add_argument("--critic-warmup", type=int, default=10)
     p.add_argument("--monitor-every", type=int, default=480)
     p.add_argument("--rl-suites", type=Path, default=DEFAULT_SUITES)
@@ -215,7 +218,8 @@ def main(argv=None) -> int:
         heldout = dataclasses.replace(heldout, suite_id=f"{heldout.suite_id}_rehearsal{args.rollout_limit}", scenarios=heldout.scenarios[: args.rollout_limit], repeats=1)
     ppo = PPOConfig(clip=args.clip, epochs=args.epochs, minibatch=args.minibatch, micro=args.micro, target_kl=args.target_kl,
                     actor_lr=args.actor_lr, critic_lr=args.critic_lr, grad_clip=args.grad_clip, critic_warmup_iterations=args.critic_warmup)
-    policy_config = (dict(steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max) if args.model != "act" else dict(std_init=args.std_init))
+    policy_config = (dict(steps=args.steps, sigma_min=args.sigma_min, sigma_max=args.sigma_max, scope=args.rl_scope) if args.model != "act"
+                     else dict(std_init=args.std_init))
     identity = dict(tool="rl_train", model=args.model, start_checkpoint=str(args.checkpoint.resolve()), episodes_budget=args.episodes,
                     envs=args.envs, episodes_per_iter=args.episodes_per_iter, execute=args.execute, policy=policy_config, ppo=ppo.as_dict(),
                     reward=reward.as_dict(), amp=amp, rl_suites=str(args.rl_suites.resolve()), scenario_order_sha256=pool.order_sha256,

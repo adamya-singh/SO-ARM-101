@@ -239,3 +239,26 @@ def test_scenario_pool_order_is_fixed_and_disjointness_is_checked():
     with pytest.raises(ValueError):
         assert_disjoint(suite.scenarios[:2], suite.scenarios[1:])
     assert scenario_key(suite.scenarios[0]) != scenario_key(suite.scenarios[1])
+
+
+def test_reinflow_out_head_logprob_from_stored_features_equals_recomputation():
+    torch = pytest.importorskip("torch")
+    from so_arm101_v2.rl.reinflow import ReinFlowPolicy
+    torch.manual_seed(0)
+    model = ToyFlow()
+    cached = ReinFlowPolicy(model, steps=4, sigma_min=0.05, sigma_max=0.2, scope="out_head")
+    full = ReinFlowPolicy(model, steps=4, sigma_min=0.05, sigma_max=0.2, scope="heads")
+    full.noise_head = cached.noise_head
+    frames = np.zeros((3, 4, 4, 3), np.uint8)
+    states = np.random.default_rng(2).uniform(-1, 1, (3, 7)).astype(np.float32)
+    out = cached.act(frames, states, seed=5)
+    assert out["records"][0]["features"].shape == (4, 90, 16)
+    with torch.no_grad():
+        a, _ = cached.logprob(frames, states, out["records"])
+        b, _ = full.logprob(frames, states, out["records"])
+    assert np.allclose(a.numpy(), out["logp"], atol=2e-2)      # features stored in float16
+    assert np.allclose(a.numpy(), b.numpy(), atol=2e-2)
+    # gradients reach only the output projection and the noise head
+    a2, _ = cached.logprob(frames, states, out["records"])
+    a2.sum().backward()
+    assert model.out_proj.weight.grad is not None and model.trunk.weight.grad is None
