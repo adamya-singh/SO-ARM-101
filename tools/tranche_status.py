@@ -43,6 +43,17 @@ def last_jsonl(path: Path) -> dict | None:
     return None
 
 
+def epoch(value: Any) -> float | None:
+    """Seconds since the epoch from a float or an ISO-8601 string (the re-run driver writes ISO)."""
+    if value is None or isinstance(value, (int, float)):
+        return value
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(str(value)).timestamp()
+    except ValueError:
+        return None
+
+
 def tsp_jobs() -> dict[str, dict[str, Any]]:
     """label -> newest job {id, state, exit}. ``tsp`` is shared with other projects: only labelled jobs count."""
     import os
@@ -195,11 +206,11 @@ def status(manifest_path: Path) -> dict[str, Any]:
             state = "running"
         row["state"] = state
         row["phase"] = progress.get("phase")
-        updated = progress.get("updated_at")
+        updated = epoch(progress.get("updated_at"))
         row["updated_at"] = updated
         row["stale"] = bool(state == "running" and updated and now - updated > 1800)
         p = row.get("progress") or {}
-        started = progress.get("started_at")
+        started = epoch(progress.get("started_at"))
         if state == "running" and p.get("done") and p.get("target") and started:
             elapsed = now - started
             row["eta_hours"] = round(elapsed / max(p["done"], 1) * max(p["target"] - p["done"], 0) / 3600, 2)
