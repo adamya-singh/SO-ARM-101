@@ -204,6 +204,8 @@ def status(manifest_path: Path) -> dict[str, Any]:
                 state = "running"          # resumed after a failure
         elif run_status == "running" and (job is None or job["state"] == "running"):
             state = "running"
+        if state == "running" and spec["kind"] != "rerun" and not progress:
+            state = "queued"           # the job is up but still waiting for its input (a fine-tune or pi0.5 to finish)
         row["state"] = state
         row["phase"] = progress.get("phase")
         updated = epoch(progress.get("updated_at"))
