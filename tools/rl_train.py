@@ -92,6 +92,7 @@ def main(argv=None) -> int:
     p.add_argument("--episodes-per-iter", type=int, default=48)
     p.add_argument("--execute", type=int, default=90)
     p.add_argument("--batch-fraction", type=float, default=0.5)
+    p.add_argument("--render", choices=("cpu", "gpu"), default="cpu", help="env workers' wrist render: Mesa software (cpu) or EGL on the GPU")
     p.add_argument("--groups", type=int, default=1, help="env groups inferred in turn (overlaps physics and inference)")
     p.add_argument("--watchdog", type=float, default=30.0, help="seconds without an answer before an env worker is restarted (a chunk takes 1-3 s)")
     p.add_argument("--steps", type=int, default=None, help="denoising steps K (flow models)")
@@ -169,7 +170,7 @@ def main(argv=None) -> int:
         if args.probe:
             for envs in args.probe_envs:
                 n = args.probe_episodes or 2 * envs
-                with SubprocChunkVecEnv(args.scene, envs, reward_kwargs=reward.as_dict()) as vec:
+                with SubprocChunkVecEnv(args.scene, envs, reward_kwargs=reward.as_dict(), render=args.render) as vec:
                     collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog,
                                           groups=args.groups)
                     collector.collect([(i, pool.episode(i)) for i in range(envs)], deterministic=False, seed=args.seed)   # warm-up
@@ -200,7 +201,7 @@ def main(argv=None) -> int:
         if args.noise_probe:
             results = []
             levels = [None] + list(args.noise_levels)
-            with SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict()) as vec:
+            with SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict(), render=args.render) as vec:
                 for level in levels:
                     if level is not None:
                         if args.model == "act":
@@ -290,7 +291,7 @@ def main(argv=None) -> int:
             else:
                 weights.push()
 
-        vec = SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict())
+        vec = SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict(), render=args.render)
         if any(info["torch_imported"] for info in vec.info):
             print("warning: env workers imported torch", flush=True)
         collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog,

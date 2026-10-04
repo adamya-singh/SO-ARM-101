@@ -312,3 +312,16 @@ def test_grouped_collection_runs_every_episode_and_alternates_groups():
         batch, summaries, timing = Collector(vec, Hold(), groups=2).collect(list(enumerate(suite.scenarios)), deterministic=True, seed=0)
     assert len(summaries) == 5 and sorted(set(batch.episode)) == [0, 1, 2, 3, 4]
     assert max(seen_batches) <= 2                      # one group (2 of 4 envs) per forward pass
+
+
+def test_software_render_workers_match_gpu_frames():
+    from so_arm101_v2.rl.vec_env import SubprocChunkVecEnv
+    config = scene_bench_config(SCENE)
+    scenario = bench_suite(config, [(0.0, 0.0)], label="render_test", repeats=1).scenarios[0]
+    frames = {}
+    for render in ("gpu", "cpu"):
+        with SubprocChunkVecEnv(SCENE, 1, render=render) as vec:
+            vec.send_reset(0, scenario, frame=True)
+            frames[render] = vec.recv(0)["frame"].astype(int)
+    diff = np.abs(frames["gpu"] - frames["cpu"])
+    assert diff.mean() < 1.0 and np.percentile(diff, 99) <= 4

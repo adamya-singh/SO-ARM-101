@@ -19,9 +19,17 @@ from typing import Any, Iterable
 import numpy as np
 
 
-def _worker(remote: Connection, model_path: str, reward_kwargs: dict, closure: bool) -> None:
+SOFTWARE_RENDER_ENV = {"GALLIUM_DRIVER": "llvmpipe", "LIBGL_ALWAYS_SOFTWARE": "1", "LP_NUM_THREADS": "1"}
+
+
+def _worker(remote: Connection, model_path: str, reward_kwargs: dict, closure: bool, render: str = "gpu") -> None:
     os.environ.setdefault("MUJOCO_GL", "egl")
     os.environ.setdefault("PYTHONNOUSERSITE", "1")
+    if render == "cpu":
+        # Mesa's software rasteriser behind the same EGL path, one thread per worker. On WSL the GPU path (d3d12)
+        # hung inside renders every few minutes once 16-20 contexts shared the card with pi0.5 (2026-10-04); the
+        # software frames differ from the GPU's by 0.2 intensity levels on average (p99 2 of 255).
+        os.environ.update(SOFTWARE_RENDER_ENV)
     env = None
     try:
         from so_arm101_v2.rl.env import ChunkEnv
@@ -60,11 +68,14 @@ class WorkerError(RuntimeError):
 
 
 class SubprocChunkVecEnv:
-    def __init__(self, model_path: str | Path, num_envs: int, *, reward_kwargs: dict | None = None, closure: bool = True) -> None:
+    def __init__(self, model_path: str | Path, num_envs: int, *, reward_kwargs: dict | None = None, closure: bool = True,
+                 render: str = "gpu") -> None:
+        if render not in ("gpu", "cpu"):
+            raise ValueError("render must be 'gpu' or 'cpu'")
         if num_envs < 1:
             raise ValueError("num_envs must be positive")
         self._ctx = mp.get_context("spawn")
-        self._args = (str(Path(model_path).resolve()), dict(reward_kwargs or {}), closure)
+        self._args = (str(Path(model_path).resolve()), dict(reward_kwargs or {}), closure, render)
         self.remotes: list[Connection] = []
         self.processes = []
         for _ in range(num_envs):
