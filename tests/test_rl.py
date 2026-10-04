@@ -293,3 +293,22 @@ def test_collector_restarts_a_stalled_worker_and_reruns_its_episode():
     for episode in set(batch.episode):
         chunks = [i for i, e in enumerate(batch.episode) if e == episode]
         assert len(chunks) == len(set(chunks))
+
+
+def test_grouped_collection_runs_every_episode_and_alternates_groups():
+    from so_arm101_v2.rl.collector import Collector
+    from so_arm101_v2.rl.vec_env import SubprocChunkVecEnv
+    config = scene_bench_config(SCENE)
+    suite = bench_suite(config, [(0.0, 0.0), (0.003, 0.0), (0.0, 0.003), (-0.003, 0.0), (0.0, -0.003)], label="group_test", repeats=1)
+    seen_batches = []
+
+    class Hold:
+        def act(self, frames, states, *, deterministic, seed):
+            seen_batches.append(len(frames))
+            n = len(frames)
+            return dict(residual=np.zeros((n, 90, 6), np.float32), records=[{} for _ in range(n)], logp=np.zeros(n))
+
+    with SubprocChunkVecEnv(SCENE, 4) as vec:
+        batch, summaries, timing = Collector(vec, Hold(), groups=2).collect(list(enumerate(suite.scenarios)), deterministic=True, seed=0)
+    assert len(summaries) == 5 and sorted(set(batch.episode)) == [0, 1, 2, 3, 4]
+    assert max(seen_batches) <= 2                      # one group (2 of 4 envs) per forward pass

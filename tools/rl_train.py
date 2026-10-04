@@ -92,6 +92,7 @@ def main(argv=None) -> int:
     p.add_argument("--episodes-per-iter", type=int, default=48)
     p.add_argument("--execute", type=int, default=90)
     p.add_argument("--batch-fraction", type=float, default=0.5)
+    p.add_argument("--groups", type=int, default=1, help="env groups inferred in turn (overlaps physics and inference)")
     p.add_argument("--watchdog", type=float, default=30.0, help="seconds without an answer before an env worker is restarted (a chunk takes 1-3 s)")
     p.add_argument("--steps", type=int, default=None, help="denoising steps K (flow models)")
     p.add_argument("--sigma-min", type=float, default=None)
@@ -169,7 +170,8 @@ def main(argv=None) -> int:
             for envs in args.probe_envs:
                 n = args.probe_episodes or 2 * envs
                 with SubprocChunkVecEnv(args.scene, envs, reward_kwargs=reward.as_dict()) as vec:
-                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
+                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog,
+                                          groups=args.groups)
                     collector.collect([(i, pool.episode(i)) for i in range(envs)], deterministic=False, seed=args.seed)   # warm-up
                     torch.cuda.reset_peak_memory_stats()
                     t0 = time.time()
@@ -206,7 +208,8 @@ def main(argv=None) -> int:
                                 policy.log_std.fill_(math.log(level))
                         else:
                             policy.sigma_min, policy.sigma_max = level * 0.999, level * 1.001
-                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
+                    collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog,
+                                          groups=args.groups)
                     _, summaries, _ = collector.collect([(i, s) for i, s in enumerate(monitor)], deterministic=level is None, seed=args.seed)
                     row = dict(noise=level, **summarize(summaries))
                     results.append(row)
@@ -230,7 +233,9 @@ def main(argv=None) -> int:
     identity_path = root / "identity.json"
     if identity_path.exists():
         old = json.loads(identity_path.read_text())
-        if {k: v for k, v in old.items() if k != "envs"} != {k: v for k, v in identity.items() if k != "envs"}:
+        # Throughput settings may change on resume (env count, episodes per update); everything that defines the experiment may not.
+        free = ("envs", "episodes_per_iter")
+        if {k: v for k, v in old.items() if k not in free} != {k: v for k, v in identity.items() if k not in free}:
             raise RuntimeError("output dir holds a different run (identity mismatch); use a new --output-dir")
     else:
         atomic_json(identity_path, identity)
@@ -288,7 +293,8 @@ def main(argv=None) -> int:
         vec = SubprocChunkVecEnv(args.scene, args.envs, reward_kwargs=reward.as_dict())
         if any(info["torch_imported"] for info in vec.info):
             print("warning: env workers imported torch", flush=True)
-        collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog)
+        collector = Collector(vec, policy, execute=args.execute, batch_fraction=args.batch_fraction, watchdog_s=args.watchdog,
+                                          groups=args.groups)
 
         def run_monitor(episodes_done: int) -> dict:
             _, summaries, _ = collector.collect([(i, s) for i, s in enumerate(monitor)], deterministic=True, seed=10_000_000)

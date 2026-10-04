@@ -51,8 +51,13 @@ class Batch:
 
 
 class Collector:
-    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5, watchdog_s: float = 30.0) -> None:
+    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5, watchdog_s: float = 30.0,
+                 groups: int = 1) -> None:
         self.vec, self.policy, self.execute, self.batch_fraction = vec, policy, int(execute), float(batch_fraction)
+        # groups > 1: env i belongs to group i % groups; a group is inferred as soon as every active env in it waits, so
+        # the GPU serves one group while the others simulate (2026-10-04: pi0.5 inference costs ~0.8 s for 6 envs and
+        # ~0.95 s for 15, so one big serial batch left the GPU idle during physics and the CPU idle during inference).
+        self.groups = max(1, int(groups))
         # A worker that does not answer a chunk within watchdog_s is killed and replaced, and its episode is run again
         # from the start (2026-10-04: EGL renders in 4 of 16 workers hung on WSL and the run waited forever).
         self.watchdog_s = float(watchdog_s)
@@ -79,14 +84,26 @@ class Collector:
                 start(env)
         while active:
             in_flight = len(vec.pending)
-            threshold = max(1, int(np.ceil(len(active) * self.batch_fraction)))
-            if waiting and (len(waiting) >= threshold or in_flight == 0):
+            group = None
+            if self.groups > 1:
+                for g in range(self.groups):
+                    if any(e % self.groups == g for e, _ in waiting) and not any(e % self.groups == g for e in vec.pending):
+                        group = g
+                        break
+                if group is None and waiting and in_flight == 0:
+                    group = waiting[0][0] % self.groups
+            else:
+                threshold = max(1, int(np.ceil(len(active) * self.batch_fraction)))
+                if waiting and (len(waiting) >= threshold or in_flight == 0):
+                    group = -1
+            if group is not None:
+                chosen = waiting if group == -1 else [(e, o) for e, o in waiting if e % self.groups == group]
                 t0 = time.time()
-                self._infer(waiting, active, batch, deterministic=deterministic, seed=seed)
+                self._infer(chosen, active, batch, deterministic=deterministic, seed=seed)
                 timing["policy_seconds"] += time.time() - t0
                 timing["batches"] += 1
-                timing["batch_size_sum"] += len(waiting)
-                waiting = []
+                timing["batch_size_sum"] += len(chosen)
+                waiting = [] if group == -1 else [(e, o) for e, o in waiting if e % self.groups != group]
                 continue
             t0 = time.time()
             ready = vec.ready(timeout=min(10.0, self.watchdog_s / 3))
