@@ -107,6 +107,7 @@ class PrivilegedStagedController:
     bench_grasp_offset_m: float = 0.0085
 
     def __post_init__(self) -> None:
+        self._comp_kp = None
         self._joint_map = None
         self.action_index = 0
         self.waypoints: list[np.ndarray] = []
@@ -385,6 +386,20 @@ class PrivilegedStagedController:
             break
         else:
             raise last_error
+        # Servo compensation (bench_config servo block): off for every scene without one, so legacy plans are unchanged.
+        self._comp_kp = None
+        if bench is not None and getattr(bench, "servo", None) is not None:
+            from so_arm101_v2.contracts.coordinates import JOINT_NAMES
+            from so_arm101_v2.simulation.servo_model import model_servo
+            servo = model_servo(adapter.model)
+            self._comp_kp = np.asarray(servo.kp, dtype=np.float64)
+            self._comp_friction = np.asarray(servo.frictionloss, dtype=np.float64)
+            self._comp_dofs = [int(adapter.model.joint(name).dofadr[0]) for name in JOINT_NAMES]
+            self._comp_scratch = _mujoco().MjData(adapter.model)
+            self._comp_direction = np.zeros(6)
+            self._comp_previous = None
+            self._comp_integral = np.zeros(6)
+            self._comp_tuning = dict(bench.servo["compensation"])
         if bench is not None:
             # Shared look-up motion precedes any cube-conditioned action.
             # Move for 60 actions and hold until the first H90 image refresh.
@@ -415,8 +430,65 @@ class PrivilegedStagedController:
         self.boundaries = compress_boundaries(self.boundaries, start_index, horizon)
         self.action_index = start_index
 
+    def _compensated(self, adapter: Any, plan_qpos: np.ndarray) -> np.ndarray:
+        """The command that makes the measured-servo arm follow ``plan_qpos`` (simulator joint angles).
+
+        The scene's position actuators have finite stiffness and the joints dry friction (bench_config ``servo``):
+        commanded exactly at a pose, a joint settles short of it by (gravity torque + friction) / stiffness, which
+        is 1.5 to 6.4 units on the real elbow depending on the direction it arrived from. The command is the planned
+        pose plus three terms per joint:
+
+        - gravity: the gravity torque at the planned pose over the stiffness (what the servo must hold);
+        - friction: the dry friction over the stiffness, in the direction the plan last moved (turned over ten
+          steps when the plan reverses, kept while it rests);
+        - a slow integral of the remaining error between the plan and the measured joint, taken only while that
+          joint's plan is nearly at rest (integrating through a move winds up and overshoots the survey pose by
+          0.05 rad) and capped: what the two model terms leave, which is what decides a strict grasp.
+
+        Tuned on the certification placements, 2026-10-04 (bench_config servo.compensation): the two feed-forward
+        terms alone certify 8 of 10 placements, with the integral 10 of 10 at gain 0.03 per step and 9 of 10 at
+        0.05 and 0.08. The result never leads the measured joint by more than ``max_lead_units`` (the bench gate
+        holds at 20). The gripper is not compensated: it is meant to stall on the cube.
+        """
+        mujoco = _mujoco()
+        plan = np.asarray(plan_qpos, dtype=np.float64)
+        measured = np.asarray(adapter.mujoco_qpos(), dtype=np.float64)
+        tuning = self._comp_tuning
+        velocity = np.zeros(6) if self._comp_previous is None else plan - self._comp_previous
+        wanted = np.where(np.abs(velocity) > 1e-5, np.sign(velocity), self._comp_direction)
+        self._comp_direction = self._comp_direction + np.clip(wanted - self._comp_direction, -tuning["direction_slew"], tuning["direction_slew"])
+        self._comp_previous = plan.copy()
+        resting = np.abs(velocity) < tuning["integral_rest_rad_per_step"]
+        self._comp_integral = np.clip(self._comp_integral + resting * tuning["integral_gain"] * (plan - measured),
+                                      -tuning["integral_cap_rad"], tuning["integral_cap_rad"])
+        scratch = self._comp_scratch
+        scratch.qpos[:] = adapter.data.qpos
+        scratch.qvel[:] = 0.0
+        for address, value in zip(adapter._joint_qpos, plan):
+            scratch.qpos[address] = value
+        mujoco.mj_forward(adapter.model, scratch)
+        gravity = np.asarray([scratch.qfrc_bias[dof] for dof in self._comp_dofs], dtype=np.float64)
+        offset = (gravity + self._comp_friction * self._comp_direction) / self._comp_kp + self._comp_integral
+        offset[5] = 0.0
+        low, high = self._bounds(adapter)
+        margin = 1e-3       # commanding an exact bound flags a command_bound_violation every step
+        command = np.clip(plan + offset, np.minimum(low + margin, plan), np.maximum(high - margin, plan))
+        # Lead cap, in the gate's own units (physical servo units between the command and the measured joint).
+        act = np.asarray(self._to_act(command.astype(np.float32)), dtype=np.float64)
+        current = np.asarray(adapter.current_act(), dtype=np.float64)
+        cap = tuning["max_lead_units"] * np.pi / 100.0
+        act[:5] = np.clip(act[:5], current[:5] - cap, current[:5] + cap)
+        return self._joint_map.act_to_mujoco(act.astype(np.float32))
+
+    def _command(self, adapter: Any | None, plan_qpos: np.ndarray) -> np.ndarray:
+        if self._comp_kp is None:
+            return plan_qpos
+        if adapter is None:
+            raise RuntimeError("the servo-compensated teacher needs the adapter at every step")
+        return self._compensated(adapter, plan_qpos)
+
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
-        del image, current_act, adapter
+        del image, current_act
         boundaries = self.boundaries
         self.action_index += 1
         for stage in range(len(boundaries) - 1):
@@ -424,15 +496,15 @@ class PrivilegedStagedController:
                 start = self.waypoints[stage]
                 stop = self.waypoints[stage + 1]
                 fraction = (self.action_index - boundaries[stage]) / (boundaries[stage + 1] - boundaries[stage])
-                result = self._to_act(
-                    (1.0 - _minimum_jerk(fraction)) * start + _minimum_jerk(fraction) * stop
-                )
+                result = self._to_act(self._command(
+                    adapter, (1.0 - _minimum_jerk(fraction)) * start + _minimum_jerk(fraction) * stop
+                ))
                 return np.clip(
                     result, ACT_DATASET_LOW + np.float32(1e-6),
                     ACT_DATASET_HIGH - np.float32(1e-6),
                 ).astype(np.float32)
         return np.clip(
-            self._to_act(self.waypoints[-1]),
+            self._to_act(self._command(adapter, self.waypoints[-1])),
             ACT_DATASET_LOW + np.float32(1e-6), ACT_DATASET_HIGH - np.float32(1e-6),
         ).astype(np.float32)
 

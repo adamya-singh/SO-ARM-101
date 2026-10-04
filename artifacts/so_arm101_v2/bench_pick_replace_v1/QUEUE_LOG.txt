@@ -16,3 +16,5 @@
 [2026-09-12 23:10:19] job 13 (4800 capture) PAUSED with SIGSTOP at the user's request; auto-resume timer set for 02:00 (timer pid 1295749)
 02:10:08 sent CONT to 10 processes: 656606 722581 722584 722585 722586 722587 722588 722589 722590 379405 
 [2026-09-13 03:09:23] job 13 RESUMED (SIGCONT) at the user's request; 02:00 timer cancelled
+[2026-10-04 04:35:06] queued tsp job servo-assist-pi05-sim: pi0.5 (pi05_lora16_10k_20261002) on the measured-servo scene with and without the runner's servo assist -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 04:47:10] queued tsp job servo-assist-pi05-sim-variants: pi0.5 on the measured-servo scene, assist terms ablated -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004

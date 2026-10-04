@@ -31,6 +31,14 @@ VARIANTS = {
     "exec30_first90": dict(execute=30, first_execute=90),
     "exec30_lagcomp": dict(execute=30, servo_response="fit_20261004"),
     "exec30_adaptive": dict(execute=30, servo_response="adaptive"),
+    "exec30_assist": dict(execute=30, assist=True),
+    "exec90_assist": dict(execute=90, assist=True),
+    "exec30_assist_gravity": dict(execute=30, assist=dict(friction_scale=0.0, integral_gain=0.0)),
+    "exec90_assist_gravity": dict(execute=90, assist=dict(friction_scale=0.0, integral_gain=0.0)),
+    "exec30_assist_gravity_integral": dict(execute=30, assist=dict(friction_scale=0.0)),
+    "exec90_assist_gravity_integral": dict(execute=90, assist=dict(friction_scale=0.0)),
+    "exec30_assist_gravity_friction": dict(execute=30, assist=dict(integral_gain=0.0)),
+    "exec90_assist_gravity_friction": dict(execute=90, assist=dict(integral_gain=0.0)),
     "exec30_hold2": dict(execute=30, hold=2),
     "exec30_hold3": dict(execute=30, hold=3),
     "exec90_hold2": dict(execute=90, hold=2),
@@ -108,7 +116,14 @@ def main(argv=None) -> int:
                 if options.get("servo_response") == "fit_20261004":       # the compensation always assumes the 2026-10-04 elbow
                     options["servo_response"] = REAL_SERVO_RESPONSE_20261004
                 hold = int(options.pop("hold", 1))
+                assisted = options.pop("assist", False)
                 policy = Pi05ChunkPolicy(model, config, stats, prompt, clamp_channels=(5,), tag="pi05", **options)
+                if assisted:
+                    # The runner's servo assist, built as the runner builds it: the certified scene's mass model and the
+                    # fitted servo resource. Meaningful with --model set to the measured-servo scene (the arm's stand-in).
+                    from so_arm101_v2.physical.servo_assist import AssistedPolicy, AssistTuning, ServoAssist
+                    tuning = AssistTuning(**assisted) if isinstance(assisted, dict) else AssistTuning()
+                    policy = AssistedPolicy(policy, ServoAssist(DEFAULT_MODEL, bench, tuning=tuning))
                 if hold > 1:
                     policy = TimeDilationPolicy(policy, hold)
                 return policy if responses[condition] is None else LagStressPolicy(policy, responses[condition])

@@ -34,9 +34,15 @@ def main(argv=None) -> int:
     p.add_argument("--count", type=int, required=True)
     p.add_argument("--suite-seed", type=int, required=True, help="placement/appearance draw seed (the ladder used 12; use a new one)")
     p.add_argument("--frame-row-stride", type=int, default=30)
-    p.add_argument("--heldout-from", type=Path, required=True, help="directory with heldout_suite.path / heldout_manifest.path / ladder.json")
+    p.add_argument("--heldout-from", type=Path, default=None, help="directory with heldout_suite.path / heldout_manifest.path / ladder.json")
+    p.add_argument("--heldout-seed", type=int, default=None,
+                   help="instead of --heldout-from: generate, preflight and capture a held-out suite on this scene here (the ladder used seed 8). "
+                        "Needed whenever the scene changed: a held-out capture is the teacher's commands on its own scene")
+    p.add_argument("--heldout-count", type=int, default=10)
     p.add_argument("--workers", type=int, default=8)
     args = p.parse_args(argv)
+    if (args.heldout_from is None) == (args.heldout_seed is None):
+        p.error("give exactly one of --heldout-from and --heldout-seed")
     import mujoco
     if mujoco.__version__ != "3.9.0":
         raise RuntimeError("bench requires MuJoCo 3.9.0")
@@ -45,14 +51,21 @@ def main(argv=None) -> int:
         raise RuntimeError("needs a bench scene with a placement regime")
     root = args.output_dir.resolve(); root.mkdir(parents=True, exist_ok=True)
     identity = dict(scene_dependencies_sha256=scene_dependency_hash(args.model), bench=bench.__dict__, count=args.count, suite_seed=args.suite_seed,
-                    frame_row_stride=args.frame_row_stride, heldout_from=str(args.heldout_from.resolve()))
+                    frame_row_stride=args.frame_row_stride,
+                    **(dict(heldout_from=str(args.heldout_from.resolve())) if args.heldout_from is not None
+                       else dict(heldout=dict(seed=args.heldout_seed, count=args.heldout_count))))
     if not (root / "capture_identity.json").exists():
         write_immutable_json(root / "capture_identity.json", identity)
     for name in ("heldout_suite.path", "heldout_manifest.path", "ladder.json"):
-        if not (root / name).exists():
-            shutil.copy2(args.heldout_from / name, root / name)
+        if args.heldout_from is not None and not (root / name).exists() and ((args.heldout_from / name).exists() or name != "ladder.json"):
+            shutil.copy2(args.heldout_from / name, root / name)     # ladder.json exists only in the ladder's own directory
     state = dict(status="running", started_at=time.time())
     try:
+        if args.heldout_from is None:
+            # Same held-out recipe as the ladder (seed 8, 10 poses, 3 repeats, every frame stored), on this scene.
+            state["phase"] = "heldout"; atomic_json(root / "progress.json", state)
+            heldout_suite, _ = get_or_generate_suite(args.model, bench, root, "heldout", seed=args.heldout_seed, count=args.heldout_count, repeats=3, workers=args.workers)
+            get_or_capture(args.model, root, "heldout", heldout_suite, preflight(args.model, root, heldout_suite, args.workers), workers=args.workers)
         state["phase"] = "suite"; atomic_json(root / "progress.json", state)
         suite, _ = get_or_generate_suite(args.model, bench, root, "train", seed=args.suite_seed, count=args.count, repeats=1, workers=args.workers)
         state["phase"] = "preflight"; atomic_json(root / "progress.json", state)

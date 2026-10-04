@@ -23,6 +23,9 @@ APPEARANCE_TOWEL_BODY = 'towel_visual'
 APPEARANCE_TOWEL_GEOM = 'towel_visual_geom'
 APPEARANCE_TOWEL_HALF_THICKNESS_M = 0.0002
 
+SERVO_CLASSES=('Rotation','Pitch','Elbow','Wrist_Pitch','Wrist_Roll','Jaw')   # joint order of JOINT_NAMES
+
+
 def prepare(destination: Path, config: BenchConfig):
     source = ROOT / 'simulation_code/model/menagerie_so_arm100'
     destination.mkdir(parents=True, exist_ok=True)
@@ -81,6 +84,18 @@ def prepare(destination: Path, config: BenchConfig):
         rgba='1 1 1 0', contype='0', conaffinity='0', density='0', group='2')
     pitch=arm.find("default/default/default[@class='Pitch']/joint")
     pitch.set('range',f'{float(config.mujoco_low[1])} 0.174')
+    if config.servo is not None:
+        # Measured servo model (2026-10-04): every joint class gets its own actuator stiffness and damping and its own
+        # dry friction. The shared default's dampratio goes (kv and dampratio cannot both be set on one actuator).
+        shared=arm.find("default/default[@class='so_arm100']/position")
+        if shared is None or shared.get('dampratio') is None:
+            raise RuntimeError('unexpected Menagerie actuator default; cannot write the servo block')
+        del shared.attrib['dampratio']
+        del shared.attrib['kp']
+        for index,name in enumerate(SERVO_CLASSES):
+            default=arm.find(f"default/default/default[@class='{name}']")
+            default.find('joint').set('frictionloss',repr(float(config.servo['frictionloss'][index])))
+            ET.SubElement(default,'position',kp=repr(float(config.servo['kp'][index])),kv=repr(float(config.servo['kv'][index])))
     # Calibrated wrist camera (2026-09-08 hand-eye): pose in the gripper frame and the lens's vertical field of view.
     if config.camera_pos is not None:
         cam = arm.find(".//camera[@name='wrist_camera']")
@@ -99,7 +114,10 @@ def prepare(destination: Path, config: BenchConfig):
     ET.indent(arm)
     scene=destination/'scene_bench_pick_replace_v1.xml'
     ET.ElementTree(arm).write(scene,encoding='unicode')
-    (destination/'bench_config.json').write_text(json.dumps(asdict(config),indent=2)+'\n')
+    payload=asdict(config)
+    if payload.get('servo') is None:
+        payload.pop('servo',None)     # a scene without a servo block keeps the bench_config.json bytes (and hash) it always had
+    (destination/'bench_config.json').write_text(json.dumps(payload,indent=2)+'\n')
     return scene
 
 def main():
@@ -116,6 +134,9 @@ def main():
         help='appearance randomization regime written into bench_config.json: keep the config\'s block, remove it, or write the default bench_appearance v1 regime')
     p.add_argument('--placement',choices=['keep','none','default'],default='keep',
         help='placement randomization regime written into bench_config.json: keep, remove, or write the default bench_placement v1 rectangle (14 x 10 in, near edge 2 in from the base front edge)')
+    p.add_argument('--servo',default='keep',
+        help="'keep' (default), 'none' (the Menagerie actuators), or a tools/fit_servo_model.py record: its fitted "
+             "per-joint stiffness, damping and dry friction are written into the scene and the bench config")
     p.add_argument('--survey-pose',choices=['keep','default','reset'],default='keep',
         help='viewing_qpos: keep, write the default raised survey pose (reset + shoulder_lift 0.40, elbow -0.60, wrist_flex 0.40 rad; camera 235 mm up, sees the reachable rectangle), or set it back to the reset pose')
     a=p.parse_args()
@@ -128,6 +149,15 @@ def main():
         config=replace(config,placement=None)
     elif a.placement=='default':
         config=replace(config,placement=PlacementRegime().identity())
+    if a.servo=='none':
+        config=replace(config,servo=None)
+    elif a.servo!='keep':
+        fit_path=Path(a.servo)
+        fitted=json.loads(fit_path.read_text())['fitted']
+        import hashlib
+        config=replace(config,servo=dict(name='bench_servo',version=1,kp=[float(v) for v in fitted['kp']],kv=[float(v) for v in fitted['kv']],
+            frictionloss=[float(v) for v in fitted['frictionloss']],
+            source=f'{fit_path.name} sha256 {hashlib.sha256(fit_path.read_bytes()).hexdigest()}'))
     if a.survey_pose=='default':
         config=replace(config,viewing_qpos=tuple(float(q+d) for q,d in zip(config.reset_qpos,SURVEY_POSE_DELTA_RAD)))
     elif a.survey_pose=='reset':

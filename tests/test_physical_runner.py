@@ -176,6 +176,13 @@ def test_approach_step_gates_each_command_and_reports_settling():
     # A previous target that would keep the shoulder below the floor is refused before any gate call.
     with pytest.raises(RuntimeError, match="below the floor"):
         approach_step(physical_normalized_to_act(rest), np.array([0.0, -93.0, 100, 40, -2, 13.5], np.float32), bench)
+    # Coming down from above the reset, a lagging shoulder lets the ramp run on: its command stops at the floor.
+    above = reset.copy(); above[1] = -70.0
+    down = approach_step(physical_normalized_to_act(above), np.array([reset[0], -91.9, reset[2], reset[3], reset[4], reset[5]], np.float32), bench)
+    assert down.target_physical[1] == pytest.approx(bench.shoulder_floor) or down.target_physical[1] > bench.shoulder_floor
+    for _ in range(40):
+        down = approach_step(physical_normalized_to_act(above), down.target_physical, bench)
+    assert down.target_physical[1] >= bench.shoulder_floor
     # A command far from the measurement is pulled back inside the lead cap, so the gate never sees a jump.
     huge = rest.copy(); huge[0] = 60.0
     far = approach_step(physical_normalized_to_act(huge), np.array([-15.0, -92.0, 100, 40, -2, 13.5], np.float32), bench)

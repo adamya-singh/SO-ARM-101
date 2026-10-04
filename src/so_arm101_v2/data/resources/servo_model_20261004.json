@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "servo_model_20261004",
+  "description": "Per-joint stiffness (N\u00b7m/rad), damping (N\u00b7m\u00b7s/rad) and dry friction (N\u00b7m) of the real STS3215 servos as position actuators, fitted by tools/fit_servo_model.py to the servo probe of 2026-10-04 (four runs within 0.2 units), two teacher replays and physical/episode_10_20260910. Joint order: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper.",
+  "source": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/servo_model_fit.json",
+  "kp": [
+    30.24,
+    56.0,
+    6.481,
+    43.2,
+    43.2,
+    50.0
+  ],
+  "kv": [
+    3.024,
+    5.04,
+    0.9333,
+    3.0,
+    4.6656,
+    4.4728
+  ],
+  "frictionloss": [
+    0.4167,
+    0.72,
+    0.3,
+    0.7776,
+    0.24,
+    0.1
+  ],
+  "fit_rms_units": {
+    "shoulder_pan": 0.986,
+    "shoulder_lift": 0.693,
+    "elbow_flex": 0.783,
+    "wrist_flex": 1.092,
+    "wrist_roll": 0.156,
+    "gripper": 3.893
+  },
+  "certified_rms_units": {
+    "shoulder_pan": 1.06,
+    "shoulder_lift": 0.745,
+    "elbow_flex": 3.382,
+    "wrist_flex": 1.272,
+    "wrist_roll": 0.178,
+    "gripper": 3.96
+  }
+}

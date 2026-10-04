@@ -18,8 +18,11 @@ Checks, in the order they run each step:
   35 mm or more and the midpoint in x -0.195..0.206, y 0.111..0.335 m; successful pi0.5 rollouts go down to
   30 mm; episode_10 (the live success) 36 mm; episode_20 commanded 4 mm.
 - ``stall:<joint>``: an arm joint has stayed more than ``stall_error_units`` from its command for
-  ``stall_steps`` steps without moving. No recorded episode trips it (the worst resting error on record is
-  5.1 units, shoulder under gravity); it is the backstop for a blocked joint.
+  ``stall_steps`` steps without moving. It is the backstop for a blocked joint. The limit is 12 units: commands
+  that compensate for the real servo (the measured-servo scene's teacher, and policies trained on it) rest up
+  to about 10 units past a loaded elbow on purpose and are capped at 18; a first limit of 7, set from
+  uncompensated episodes whose worst resting error was 5.1, stopped a teacher replay at full extension
+  (servo_probe_20261004/replay_full_3).
 
 ``stop_after_survey`` ends the episode at the survey read once those checks pass (``survey_only``): the staged
 first run for a new policy class.
@@ -46,7 +49,7 @@ class GuardLimits:
     workspace_side_margin_m: float = 0.06       # beyond the rectangle's x range
     workspace_near_margin_m: float = 0.035      # nearer the base than the rectangle's near edge
     workspace_far_margin_m: float = 0.0         # beyond the rectangle's far edge (the teacher stops 34 mm short of it)
-    stall_error_units: float = 7.0
+    stall_error_units: float = 12.0
     stall_steps: int = 10
     stall_motion_units: float = 1.5
     survey_tolerance_rad: float = 0.10

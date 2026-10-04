@@ -59,6 +59,7 @@ from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
 from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass, sim_reference_dry_pass, survey_pose_active  # noqa: E402
 from so_arm101_v2.physical.guards import SURVEY_ONLY, EpisodeGuards, frame_brightness  # noqa: E402
+from so_arm101_v2.physical.servo_assist import ServoAssist  # noqa: E402
 from so_arm101_v2.physical.evidence import BoundaryStore, StepLog, VideoRecorder, sha256_file, write_run_record  # noqa: E402
 from so_arm101_v2.physical.placement import DEFAULT_TOLERANCE_MM, check_cube_placement  # noqa: E402
 from so_arm101_v2.physical.lerobot_backend import MIN_SERVO_VOLTAGE_V, LeRobotBackend, check_servo_voltage, fast_area_resampler, verify_fast_resampler  # noqa: E402
@@ -237,12 +238,24 @@ def main(argv=None) -> int:
     p.add_argument("--pi05-execute", type=int, default=30,
                    help="with --pi05-checkpoint: commands per camera read in the episode (30 scored 5/10 held-out poses, 90 scored 4/10); "
                         "the real-frame gate always dry-runs the full 90-step survey chunk")
-    p.add_argument("--pi05-lag", choices=("adaptive", "off"), default="adaptive",
+    p.add_argument("--pi05-lag", choices=("auto", "adaptive", "off"), default="auto",
                    help="with --pi05-checkpoint: lag compensation (simulation/pi05_policy.py). adaptive = measure each joint's servo "
                         "response during the episode and correct the re-read anchor of a joint that is clearly slower than the "
-                        "simulator's; off = add every chunk to the measured pose as trained")
+                        "simulator's; off = add every chunk to the measured pose as trained. auto = adaptive for a scene with the "
+                        "Menagerie actuators, off for a scene that carries the measured servo model (the policy learned the real servo)")
     p.add_argument("--pi05-first-execute", type=int, default=None,
                    help="with --pi05-checkpoint: commands of the first chunk to run before the first re-read (90 = the whole survey move)")
+    p.add_argument("--servo-assist", choices=("auto", "on", "off"), default="auto",
+                   help="servo assist (physical/servo_assist.py): turn each policy target into the command that gets the real joint "
+                        "there (gravity and friction feed-forward from the measured servo model, plus a slow integral at rest). auto = on "
+                        "for a policy on real hardware whose scene has the simulator's stiff actuators; off for the servo probe, a "
+                        "command replay, the simulator rehearsal and a scene that carries the measured servo model")
+    p.add_argument("--servo-probe", action="store_true",
+                   help="run the scripted servo probe (physical/servo_probe.py) instead of a policy: the survey move, then each joint "
+                        "wiggled in the air around the viewing pose; no network and no camera gates. Fit the run with tools/fit_servo_lag.py")
+    p.add_argument("--replay-telemetry", type=Path, default=None,
+                   help="replay the executed_act commands of a simulator telemetry file instead of running a policy "
+                        "(physical/replay_policy.py): the teacher's own commands on the real arm. No real-frame or cube gate; guards on")
     p.add_argument("--survey-only", action="store_true",
                    help="stop at the survey read (step 90) once the arm is at the viewing pose and the towel and cube are in the frame: "
                         "the staged first run for a new policy class")
@@ -265,11 +278,39 @@ def main(argv=None) -> int:
     scene_hash = scene_dependency_hash(args.model)
     import torch
     torch.set_num_threads(1)
-    if args.pi05_checkpoint is not None:
+    args.no_survey_gate_requested = bool(args.no_survey_gate)
+    args.pi05_lag_requested = args.pi05_lag
+    args.scripted = None
+    if args.servo_probe:
+        args.scripted = "servo_probe"
+        from so_arm101_v2.physical.servo_probe import ServoProbePolicy
+        policy = ServoProbePolicy(bench)
+        args.gate_policy = policy
+        args.checkpoint = None
+        args.max_actions = policy.teacher_horizon
+        args.no_survey_gate = True          # the probe passes through the viewing pose on a slow servo by design: record only
+    elif args.replay_telemetry is not None:
+        from so_arm101_v2.physical.replay_policy import ReplayPolicy
+        policy = ReplayPolicy(args.replay_telemetry, bench)
+        args.gate_policy = policy
+        args.checkpoint = args.replay_telemetry
+        args.max_actions = min(int(args.max_actions), policy.teacher_horizon)
+        args.scripted = "replay"
+        args.servo_probe = True             # same flow as the probe: no network gates
+        args.no_survey_gate = args.no_survey_gate_requested
+    elif args.pi05_checkpoint is not None:
         # pi0.5 on the GPU: one model, two views of it. The episode re-reads the camera every --pi05-execute steps;
         # the gates dry-run the full 90-step chunk (the survey move) exactly like the CNN policies'.
         from so_arm101_v2.learning.pi05 import PromptTokenizer, load_checkpoint
         from so_arm101_v2.simulation.pi05_policy import Pi05ChunkPolicy
+        identity_path = args.pi05_checkpoint.resolve().parent.parent / "pi05_identity.json"
+        if identity_path.is_file():
+            trained_on = json.loads(identity_path.read_text()).get("scene_dependencies_sha256")
+            if trained_on is not None and trained_on != scene_hash:
+                raise SystemExit(f"checkpoint was trained on scene {trained_on[:16]} but --model is scene {scene_hash[:16]}: pass the scene it was trained on "
+                                 "(the measured-servo scene and the Menagerie scene need different commands)")
+        if args.pi05_lag == "auto":
+            args.pi05_lag = "off" if bench.servo is not None else "adaptive"
         model, pi_config, pi_stats, _payload = load_checkpoint(args.pi05_checkpoint)
         prompt = PromptTokenizer(pi_config.tokenizer, pi_config.tokenizer_max_length)
         policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=args.pi05_execute, clamp_channels=(5,),
@@ -280,9 +321,17 @@ def main(argv=None) -> int:
     else:
         policy = VisionChunkedPolicy(args.checkpoint, black_image=False, clamp_channels=(5,))
         args.gate_policy = policy
+    if args.servo_assist == "auto":
+        args.servo_assist = "off" if (args.scripted is not None or args.sim_rehearsal or bench.servo is not None) else "on"
+    args.assist = ServoAssist(args.model, bench) if args.servo_assist == "on" else None
+    if args.pi05_checkpoint is not None and args.scripted is None and args.assist is not None and args.pi05_lag_requested == "auto":
+        policy.servo_response = None            # the assisted arm follows a command as the simulator's does: nothing to correct
+        policy.compensate = policy.adaptive = False
+        args.pi05_lag = "off (servo assist)"
     record: dict[str, Any] = dict(
         status="started", started_at=now_iso(), mode=("sim_rehearsal" if args.sim_rehearsal else "preflight" if args.preflight_only else "motion"),
-        checkpoint=str(args.checkpoint), checkpoint_sha256=sha256_file(args.checkpoint), report_content_sha256=getattr(policy, "report_content_sha256", None),
+        checkpoint=(None if args.checkpoint is None else str(args.checkpoint)),
+        checkpoint_sha256=(None if args.checkpoint is None else sha256_file(args.checkpoint)), report_content_sha256=getattr(policy, "report_content_sha256", None),
         policy_id=policy.policy_id, chunk_horizon=policy.chunk_horizon, teacher_horizon=policy.teacher_horizon,
         scene_dependencies_sha256=scene_hash, bench=asdict(bench), lens=bench.lens,
         observation_contract="raw MJPEG frame at the camera's full field of view (calibrated at 1920x1080; captured at --camera-size) -> BGR->RGB -> exact area filter -> 256x256 (no undistortion, no crop)",
@@ -318,7 +367,10 @@ def _sim_rehearsal(args, bench, contract, policy, record) -> int:
     store = BoundaryStore()
     try:
         guards = EpisodeGuards(args.model, bench, survey_gate=not args.no_survey_gate, stop_after_survey=args.survey_only)
-        result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=lambda r: (log.write(r), store.add(r)), guard=guards)
+        result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=lambda r: (log.write(r), store.add(r)), guard=guards,
+                             assist=args.assist)
+        if args.assist is not None:
+            record["servo_assist"] = args.assist.record()
         boundaries = store.write(run_dir / "boundaries")
         record["guards"] = guards.record()
         if result.aborted_reason == f"guard:{SURVEY_ONLY}":
@@ -326,6 +378,12 @@ def _sim_rehearsal(args, bench, contract, policy, record) -> int:
                     steps_csv_sha256=sha256_file(run_dir / "steps.csv"))
             print(f"rehearsal survey only: {guards.survey}")
             return 0
+        if args.servo_probe:
+            _finish(run_dir, record, "probe_ok" if result.aborted_reason is None else "aborted", backend="simulation", actions=result.actions,
+                    hold_frames=result.hold_frames, aborted_reason=result.aborted_reason, boundaries=boundaries,
+                    probe_segments=getattr(policy, "segments", None), steps_csv_sha256=sha256_file(run_dir / "steps.csv"))
+            print(f"rehearsal probe: actions={result.actions} holds={result.hold_frames} aborted={result.aborted_reason} guards={guards.record()['trip']}")
+            return 0 if result.aborted_reason is None and result.hold_frames == 0 else 2
         _finish(run_dir, record, "completed", backend="simulation", actions=result.actions, success=result.success,
                 invalidated=result.invalidated, hold_frames=result.hold_frames, aborted_reason=result.aborted_reason,
                 boundaries=boundaries, safety_counts=backend.counts, steps_csv_sha256=sha256_file(run_dir / "steps.csv"))
@@ -453,7 +511,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         record["start_pose_delta_act"] = float(np.max(np.abs(current - physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32)))))
         record["approach_plan"] = approach_plan(current, bench)
         if args.preflight_only:
-            if record["start_pose_delta_act"] <= START_POSE_TOLERANCE_ACT:
+            if record["start_pose_delta_act"] <= START_POSE_TOLERANCE_ACT and not args.servo_probe:
                 # At the reset pose already: the real-frame gate applies to this frame.
                 record["real_frame_check"] = _real_frame_gate(args.gate_policy, grabber, bench, source_size, current, run_dir, "preflight", args.model)
                 if not record["real_frame_check"]["passed"]:
@@ -485,23 +543,24 @@ def _hardware(args, bench, contract, policy, record) -> int:
             raise Refused(f"start pose differs from the recorded reset by {delta:.3f} ACT (> {START_POSE_TOLERANCE_ACT})")
         if act_to_physical_normalized(current)[1] < bench.shoulder_floor:
             raise Refused("shoulder is below the floor at the start of the episode")
-        # Real-frame gate on a fresh frame at the reset pose: the chunk must be hold-like (the arm keeps holding torque on refusal).
-        record["real_frame_check"] = _real_frame_gate(args.gate_policy, grabber, bench, source_size, current, run_dir, "reset", args.model)
-        if not record["real_frame_check"]["passed"]:
-            raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
-        # Cube placement gate on the same reset-pose observation: the policy cannot win outside its +-10 mm training range.
-        gate_png = run_dir / record["real_frame_check"]["observation_png"] if run_dir is not None else None
-        from PIL import Image
-        gate_observation = np.asarray(Image.open(gate_png).convert("RGB")) if gate_png is not None else None
-        if gate_observation is not None:
-            record["cube_placement"] = check_cube_placement(gate_observation, bench, args.model, current, tolerance_mm=args.cube_tolerance_mm)
-            print(f"cube placement: {record['cube_placement']}", flush=True)
-            if not record["cube_placement"]["ok"] and args.no_cube_gate:
-                record["cube_placement"]["gate"] = "disabled by --no-cube-gate (recorded only)"
-                print("cube placement gate disabled: recorded only", flush=True)
-            elif not record["cube_placement"]["ok"]:
-                raise Refused(f"cube is not at the task pose (no episode): {record['cube_placement'].get('advice')}; "
-                              f"measured {record['cube_placement'].get('cube_xy_mm')} mm vs nominal {record['cube_placement']['nominal_xy_mm']} mm")
+        if not args.servo_probe:
+            # Real-frame gate on a fresh frame at the reset pose: the chunk must be hold-like (the arm keeps holding torque on refusal).
+            record["real_frame_check"] = _real_frame_gate(args.gate_policy, grabber, bench, source_size, current, run_dir, "reset", args.model)
+            if not record["real_frame_check"]["passed"]:
+                raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
+            # Cube placement gate on the same reset-pose observation: the policy cannot win outside its +-10 mm training range.
+            gate_png = run_dir / record["real_frame_check"]["observation_png"] if run_dir is not None else None
+            from PIL import Image
+            gate_observation = np.asarray(Image.open(gate_png).convert("RGB")) if gate_png is not None else None
+            if gate_observation is not None:
+                record["cube_placement"] = check_cube_placement(gate_observation, bench, args.model, current, tolerance_mm=args.cube_tolerance_mm)
+                print(f"cube placement: {record['cube_placement']}", flush=True)
+                if not record["cube_placement"]["ok"] and args.no_cube_gate:
+                    record["cube_placement"]["gate"] = "disabled by --no-cube-gate (recorded only)"
+                    print("cube placement gate disabled: recorded only", flush=True)
+                elif not record["cube_placement"]["ok"]:
+                    raise Refused(f"cube is not at the task pose (no episode): {record['cube_placement'].get('advice')}; "
+                                  f"measured {record['cube_placement'].get('cube_xy_mm')} mm vs nominal {record['cube_placement']['nominal_xy_mm']} mm")
         answer = _confirm(args, record, "episode", f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
@@ -532,14 +591,19 @@ def _hardware(args, bench, contract, policy, record) -> int:
         guards = EpisodeGuards(args.model, bench, survey_gate=not args.no_survey_gate, stop_after_survey=args.survey_only)
         episode_ran = True
         try:
-            result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=on_step, guard=guards)
+            result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=on_step, guard=guards, assist=args.assist)
         finally:
             log.close()
             record["guards"] = guards.record()
+            if args.assist is not None:
+                record["servo_assist"] = args.assist.record()     # the logged policy_act columns are the assisted commands
             if getattr(policy, "response_estimates", None):
                 record["servo_response_estimates"] = policy.response_estimates      # lag compensation: what each re-read measured
         survey_only = result.aborted_reason == f"guard:{SURVEY_ONLY}"
-        status = "survey_ok" if survey_only else "completed" if result.aborted_reason is None else "aborted"
+        status = ("survey_ok" if survey_only else "aborted" if result.aborted_reason is not None
+                  else "probe_ok" if args.scripted == "servo_probe" else "replay_ok" if args.scripted == "replay" else "completed")
+        if args.scripted == "servo_probe":
+            record["probe_segments"] = policy.segments
         if guards.trip is not None:
             print(f"guard: {guards.trip}", flush=True)
         record.update(actions=result.actions, hold_frames=result.hold_frames, aborted_reason=result.aborted_reason,

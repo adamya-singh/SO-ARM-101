@@ -122,12 +122,17 @@ def run_episode(
     clock: Callable[[], float] = time.perf_counter,
     rate_limit_continues: bool = True,
     guard: Any | None = None,
+    assist: Any | None = None,
 ) -> EpisodeResult:
     """Run one episode of ``policy`` on ``backend`` under the bench gate; see the module docstring.
 
     ``rate_limit_continues`` (default, the real-servo rule since 2026-09-10) sends
     the relative-limited target instead of holding when the only mask is the
     per-step relative limit; range and floor clips still hold.
+
+    ``assist`` (``physical.servo_assist.ServoAssist``) turns each policy target into
+    the command that gets the measured joint there; the gate, the guards and the
+    log then see that command.
 
     ``guard`` (``physical.guards.EpisodeGuards``) may end the episode before a
     command is sent: the measured pose is sent instead, so the servos stop
@@ -140,6 +145,8 @@ def run_episode(
         reset_method()
     if guard is not None:
         guard.reset()
+    if assist is not None:
+        assist.reset()
     steps: list[StepRecord] = []
     boundaries: list[int] = []
     consecutive = 0
@@ -157,6 +164,8 @@ def run_episode(
             boundaries.append(step)
         t_infer = clock()
         policy_act = policy.predict(None if observation is None else observation.image, current)
+        if assist is not None:
+            policy_act = assist.command(policy_act, current)
         infer_ms = (clock() - t_infer) * 1e3
         t_gate = clock()
         if rate_limit_continues:
@@ -204,6 +213,7 @@ APPROACH_LEAD_CAP_UNITS = 10.0
 APPROACH_OVERSHOOT_CAP_UNITS = 6.0   # command may pass the reset by this much to beat gravity sag (elbow tool used a 6-unit floor)
 APPROACH_SETTLE_UNITS = 1.0
 APPROACH_MAX_RELATIVE_TARGET = 10.01
+APPROACH_FLOOR_MARGIN_UNITS = 0.3    # a downward approach never commands the shoulder closer to the floor than this
 
 
 @dataclass(frozen=True)
@@ -251,6 +261,12 @@ def approach_step(measured_act, previous_target_physical, bench, *, calibration=
     if not np.all(np.isfinite(measured_physical)):
         raise RuntimeError("nonfinite measured pose during approach")
     target = next_approach_target(measured_physical, previous_target_physical, reset)
+    floor_stop = bench.shoulder_floor + APPROACH_FLOOR_MARGIN_UNITS
+    if measured_physical[1] > reset[1] and target[1] < floor_stop:
+        # Coming down to the reset from above (after an episode): the overshoot allowance stops just above the
+        # floor (reset -90.8, floor -92) instead of refusing the approach (episode_17 and servo probe run_2, 2026-10-04).
+        target = target.copy()
+        target[1] = np.float32(floor_stop)
     if np.any(target[1] < bench.shoulder_floor):
         raise RuntimeError("approach target would command the shoulder below the floor")
     direction = np.sign(reset - measured_physical)

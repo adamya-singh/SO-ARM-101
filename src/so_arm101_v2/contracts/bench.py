@@ -15,6 +15,14 @@ from .physical import physical_normalized_to_act
 from .placement import PlacementRegime
 
 
+# direction_slew: per step, how fast the friction term turns when the plan reverses; integral_gain: per step, on the
+# plan-minus-measured joint error (rad); integral_cap_rad: its bound; integral_rest_rad_per_step: a joint's error is
+# integrated only while its plan moves slower than this (no wind-up during a move); max_lead_units: the command never
+# leads the measured joint by more than this (the bench gate holds at 20). Tuned 2026-10-04 on the certification placements.
+SERVO_COMPENSATION_V1 = dict(version=1, direction_slew=0.1, integral_gain=0.03, integral_cap_rad=0.05,
+                             integral_rest_rad_per_step=0.002, max_lead_units=18.0)
+
+
 @dataclass(frozen=True)
 class BenchConfig:
     schema_version: int = 1
@@ -55,6 +63,11 @@ class BenchConfig:
     # Placement randomization regime (contracts/placement.py): the rectangle the square and cube may
     # be placed in per scenario; None = every scenario uses the nominal square below.
     placement: dict | None = None
+    # Measured servo model (simulation/servo_model.py): per-joint actuator stiffness and damping and joint dry
+    # friction written into the scene, from tools/fit_servo_model.py on the physical servo probe; None = the
+    # Menagerie actuators (kp 50, critical damping, 0.1 N·m friction on every joint). With a servo block the
+    # teacher adds gravity and friction compensation to its commands (simulation/privileged.py).
+    servo: dict | None = None
 
     def __post_init__(self):
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
@@ -106,6 +119,22 @@ class BenchConfig:
             self.validate_qpos(self.joint_map_object.act_to_mujoco(physical_normalized_to_act(p)))
         if self.viewing_qpos is not None:
             self.validate_qpos(self.viewing_qpos)
+        if self.servo is not None:
+            servo = dict(self.servo)
+            for key in ("kp", "kv", "frictionloss"):
+                values = [float(v) for v in servo[key]]
+                if len(values) != 6 or any(not np.isfinite(v) or v < 0 for v in values) or (key == "kp" and min(values) <= 0):
+                    raise ValueError(f"servo.{key} must be six finite non-negative values (kp positive)")
+                servo[key] = values
+            if not servo.get("source"):
+                raise ValueError("servo block needs a source (the fit record it came from)")
+            # Teacher compensation tuning (simulation/privileged.py). It changes the captured commands, so it is part
+            # of the block (and of the scene hash) rather than a code default.
+            compensation = {**SERVO_COMPENSATION_V1, **dict(servo.get("compensation") or {})}
+            if set(compensation) != set(SERVO_COMPENSATION_V1) or any(not np.isfinite(float(v)) or float(v) <= 0 for v in compensation.values()):
+                raise ValueError("servo.compensation must carry exactly the positive v1 fields")
+            servo["compensation"] = {key: (int(value) if key == "version" else float(value)) for key, value in compensation.items()}
+            object.__setattr__(self, "servo", servo)
 
     @property
     def joint_map_object(self):

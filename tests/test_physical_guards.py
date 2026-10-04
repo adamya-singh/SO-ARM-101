@@ -89,7 +89,7 @@ def test_stall_needs_a_large_error_that_is_not_closing():
     bench = _bench()
     reset = np.asarray(bench.reset_physical, np.float32)
     measured = physical_normalized_to_act(reset)
-    command = reset.copy(); command[2] -= 9.0                       # elbow commanded 9 units away, arm never moves
+    command = reset.copy(); command[2] -= 14.0                      # elbow commanded 14 units away, arm never moves
     guards = EpisodeGuards(SCENE, bench)
     reasons = [guards.before_send(step, measured, _decision(command), None) for step in range(12)]
     assert reasons[:10] == [None] * 10 and reasons[10] == "stall:elbow_flex"
@@ -97,11 +97,11 @@ def test_stall_needs_a_large_error_that_is_not_closing():
     guards.reset()
     for step in range(30):
         pose = reset.copy(); pose[2] -= 1.0 * step
-        command = pose.copy(); command[2] -= 9.0
+        command = pose.copy(); command[2] -= 14.0
         assert guards.before_send(step, physical_normalized_to_act(pose), _decision(command), None) is None
-    # A resting error under the limit (gravity sag, 5 units on record) never trips.
+    # A resting error under the limit (a compensated command resting 10 units past a loaded elbow) never trips.
     guards.reset()
-    sag = reset.copy(); sag[1] += 5.0
+    sag = reset.copy(); sag[2] -= 10.0
     assert all(guards.before_send(step, measured, _decision(sag), None) is None for step in range(40))
 
 
@@ -144,3 +144,27 @@ def test_relax_reseeds_the_goal_at_the_present_pose_without_touching_torque():
     robot.bus.sync_write.assert_called_once_with("Goal_Position", present)
     robot.bus.disable_torque.assert_not_called()
     assert out.tolist() == pytest.approx(list(present.values()))
+
+
+def test_runner_passes_every_policy_target_through_the_assist_before_the_gate():
+    bench = _bench()
+    start = physical_normalized_to_act(np.asarray(bench.reset_physical, dtype=np.float32))
+
+    class Offset:
+        def __init__(self):
+            self.resets, self.seen = 0, []
+
+        def reset(self):
+            self.resets += 1
+
+        def command(self, target, measured):
+            self.seen.append(np.asarray(target).copy())
+            out = np.asarray(target, np.float32).copy()
+            out[0] += np.float32(0.01)
+            return out
+
+    assist = Offset()
+    backend = FakeBackend(start)
+    result = run_episode(backend, FakePolicy(4, lambda current, k: current.copy()), bench=bench, max_actions=6, assist=assist)
+    assert assist.resets == 1 and len(assist.seen) == 6 and result.aborted_reason is None
+    assert all(d.policy_act[0] == pytest.approx(s[0] + 0.01, abs=1e-6) for d, s in zip(backend.decisions, assist.seen))
