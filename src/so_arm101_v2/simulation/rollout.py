@@ -398,6 +398,10 @@ def _run_pick_place_rollout(
     wrist_writer = _VideoWriter(wrist_path)
     overview_writer = _VideoWriter(overview_path)
     render_wrist = record_video or bool(getattr(policy, "requires_pixels", True))
+    # A chunk policy reads a frame only at its chunk boundaries (``needs_frame``); without a video the other
+    # steps skip the lens render, which is most of a rollout's time (2026-10-04: 33 s -> 8 s per episode, 30-step chunks).
+    # Rendering has no effect on the physics, so the rollout is identical (tests/test_rollout_frame_skip.py).
+    frame_gated = render_wrist and not record_video and hasattr(policy, "needs_frame")
     state = PickPlaceEvaluationState()
     rows: list[dict[str, Any]] = []
     all_events: set[str] = set()
@@ -406,7 +410,8 @@ def _run_pick_place_rollout(
     evaluation = None
     try:
         for action in range(contract.max_actions):
-            raw, _, current = adapter.observation(render_pixels=render_wrist)
+            render_now = render_wrist and (not frame_gated or bool(policy.needs_frame))
+            raw, _, current = adapter.observation(render_pixels=render_now)
             if raw is None:
                 raw = _BLANK_WRIST_IMAGE
             wrist_writer.add(raw)
