@@ -26,6 +26,10 @@ that cannot load them as skills should read the file and follow it.
   gate results), `02_generalisation/` (train vs held-out loss at chunk start 90 and the ratio),
   `03_training/` (loss), `04_throughput/` (steps/s, checkpoint age), `05_phases/` (gate flags).
   Sections sort alphabetically in the run workspace; keep the numbering on every new metric.
+  The full standard (project, group/name/tags, step axes, summaries, fixed key names, reference
+  lines, `wandb.json`, saved views) is `notes/wandb-standard.md`; new tools log through
+  `src/so_arm101_v2/tracking.py`, which refuses unnumbered keys, and save a view with
+  `tools/wandb_workspace.py --family <family>`.
 
 - Placement policies (adopted 2026-09-12/13, evidence in the notebook): always train with random-shift
   augmentation (`random_shift=12`); 120k steps with the cosine schedule is the budget (more steps

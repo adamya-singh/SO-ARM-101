@@ -211,7 +211,7 @@ def main(argv=None) -> int:
     tracker.define_metric("03_training/step")
     for section in ("01_outcome/*", "02_generalisation/*", "03_training/*", "04_throughput/*", "05_phases/*"):
         tracker.define_metric(section, step_metric="03_training/step")
-    for key in ("02_generalisation/heldout_start_90", "02_generalisation/per_pose_median"):
+    for key in ("02_generalisation/heldout_start_90", "02_generalisation/median"):   # the per-pose median is logged as "median"
         tracker.define_metric(key, step_metric="03_training/step", summary="min")
 
     def log(payload):
