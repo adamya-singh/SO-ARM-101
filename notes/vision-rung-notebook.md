@@ -1385,8 +1385,8 @@ The stand-in reproduces the live failure to the number, and the assist repairs t
 run, but the policy still misses the grasp: the arm is not down when the gripper closes. The scripted
 teacher through the same assist succeeds on 9 of 10 placements, so the remaining gap is in how the
 policy re-plans (each chunk is added to the measured pose, and the soft elbow is further behind at steps
-180 and 270 than the stiff simulator's). Queued, not yet run (the machine restarted and cleared the queue
-once): the assist together with the adaptive lag compensation.
+180 and 270 than the stiff simulator's). The assist together with the adaptive lag compensation changes
+nothing: 0/10 at execute 30 (lateral 22 mm, 4 not descended) and 0/10 at execute 90 (9.8 mm, 8 not descended).
 
 **Runner changes that came out of this.** Stall guard limit 7 -> 12 units (a compensated command rests up to
 10 units past a loaded elbow; the old limit stopped a teacher replay at full extension). A downward
@@ -1395,5 +1395,6 @@ approach stops its shoulder command just above the floor instead of refusing (ep
 it and torque was cut with the arm extended over the bench (the arm held its pose; nothing fell).
 
 **State.** Arm parked at rest, torque off. No pi0.5 episode has been run on the arm since episode 20.
-Next: the queued assist + lag compensation run; if the policy still misses in the stand-in, the lever is
-the one already recorded on 2026-09-18 (a policy that corrects from the close-up frame), not more servo work.
+Next: no run-time setting tried makes this checkpoint grasp in the stand-in (twelve result sets, 0-1 of 10).
+The lever is the one already recorded on 2026-09-18 (a policy that corrects from the close-up frame), or
+training on the measured-servo scene; neither is started.
