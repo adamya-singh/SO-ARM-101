@@ -183,3 +183,27 @@ def test_timing_schedule_sleeps_to_absolute_deadlines_and_aborts_on_violations()
     backend2.read_act(); advance2(0.120)
     with pytest.raises(TimingViolation, match="took"):
         backend2.wait_next_period(0)
+
+
+def test_slow_policy_budget_applies_only_to_camera_boundary_steps():
+    lens = _lens()
+    bench = scene_bench_config(SCENE)
+    robot = _robot(np.asarray(bench.reset_physical, dtype=np.float32))
+    frame = np.zeros((1080, 1920, 3), np.uint8)
+    grabber = FakeGrabber([frame, frame], [1000.0, 1000.0])
+    backend, advance, _, wall = _backend(lens, robot, grabber, max_boundary_step_ms=1500.0)
+    # Boundary step with a 574 ms inference: allowed, re-anchored, not counted as consecutive.
+    backend.read_act(); backend.observe(0); advance(0.574)
+    outcome = backend.wait_next_period(0)
+    assert outcome.overrun and outcome.reanchored and backend.consecutive_overruns == 0
+    # The next off-boundary step is back on schedule and keeps the 100 ms limit.
+    backend.read_act(); advance(0.010)
+    assert not backend.wait_next_period(1).overrun
+    backend.read_act(); advance(0.120)
+    with pytest.raises(TimingViolation, match="limit 100 ms"):
+        backend.wait_next_period(2)
+    # Even a boundary step aborts past its own budget.
+    grabber.advance(); grabber.stamps[1] = wall[0]
+    backend.read_act(); backend.observe(3); advance(1.6)
+    with pytest.raises(TimingViolation, match="limit 1500 ms"):
+        backend.wait_next_period(3)

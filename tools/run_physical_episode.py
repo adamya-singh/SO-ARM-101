@@ -231,6 +231,11 @@ def main(argv=None) -> int:
     p.add_argument("--no-cube-gate", action="store_true",
                    help="record the cube placement reading but never refuse on it (the reading is pose-dependent: episode 10 succeeded with the "
                         "cube read 27 mm beyond the task pose, and the same cube read 44 mm beyond from the reset pose afterwards)")
+    p.add_argument("--pi05-checkpoint", type=Path, default=None,
+                   help="run a pi0.5 residual-chunk checkpoint (learning/pi05.py; lerobot-pi05 env) instead of a vision CNN --checkpoint")
+    p.add_argument("--pi05-execute", type=int, default=30,
+                   help="with --pi05-checkpoint: commands per camera read in the episode (30 scored 5/10 held-out poses, 90 scored 4/10); "
+                        "the real-frame gate always dry-runs the full 90-step survey chunk")
     p.add_argument("--yes", action="store_true",
                    help="do not prompt: auto-confirm the approach and the episode (bench owner's standing authorization of 2026-09-10; "
                         "recorded in run.json). Every built-in gate still applies.")
@@ -247,10 +252,22 @@ def main(argv=None) -> int:
     scene_hash = scene_dependency_hash(args.model)
     import torch
     torch.set_num_threads(1)
-    policy = VisionChunkedPolicy(args.checkpoint, black_image=False, clamp_channels=(5,))
+    if args.pi05_checkpoint is not None:
+        # pi0.5 on the GPU: one model, two views of it. The episode re-reads the camera every --pi05-execute steps;
+        # the gates dry-run the full 90-step chunk (the survey move) exactly like the CNN policies'.
+        from so_arm101_v2.learning.pi05 import PromptTokenizer, load_checkpoint
+        from so_arm101_v2.simulation.pi05_policy import Pi05ChunkPolicy
+        model, pi_config, pi_stats, _payload = load_checkpoint(args.pi05_checkpoint)
+        prompt = PromptTokenizer(pi_config.tokenizer, pi_config.tokenizer_max_length)
+        policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=args.pi05_execute, clamp_channels=(5,))
+        args.gate_policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=pi_config.chunk_horizon, clamp_channels=(5,))
+        args.checkpoint = args.pi05_checkpoint
+    else:
+        policy = VisionChunkedPolicy(args.checkpoint, black_image=False, clamp_channels=(5,))
+        args.gate_policy = policy
     record: dict[str, Any] = dict(
         status="started", started_at=now_iso(), mode=("sim_rehearsal" if args.sim_rehearsal else "preflight" if args.preflight_only else "motion"),
-        checkpoint=str(args.checkpoint), checkpoint_sha256=sha256_file(args.checkpoint), report_content_sha256=policy.report_content_sha256,
+        checkpoint=str(args.checkpoint), checkpoint_sha256=sha256_file(args.checkpoint), report_content_sha256=getattr(policy, "report_content_sha256", None),
         policy_id=policy.policy_id, chunk_horizon=policy.chunk_horizon, teacher_horizon=policy.teacher_horizon,
         scene_dependencies_sha256=scene_hash, bench=asdict(bench), lens=bench.lens,
         observation_contract="raw MJPEG frame at the camera's full field of view (calibrated at 1920x1080; captured at --camera-size) -> BGR->RGB -> exact area filter -> 256x256 (no undistortion, no crop)",
@@ -349,6 +366,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
     status = "started"
     try:
         grabber = FrameGrabber(args.camera_device, width=int(args.camera_size[0]), height=int(args.camera_size[1]))
+        if run_dir is not None and not args.preflight_only:
+            # Record from the moment the camera is up, so a refusal or abort still leaves the video (2026-10-04).
+            recorder = VideoRecorder(grabber, run_dir / "camera.mp4")
+            recorder.start()
         record["camera"] = dict(device=f"/dev/video{args.camera_device}", requested_size=list(args.camera_size), **grabber.properties)
         if (grabber.properties["width"], grabber.properties["height"]) != tuple(int(v) for v in args.camera_size):
             raise Refused(f"camera delivered {grabber.properties['width']}x{grabber.properties['height']}, not the requested size")
@@ -400,14 +421,14 @@ def _hardware(args, bench, contract, policy, record) -> int:
             if not outcome.get("passed"):
                 raise Refused("pan sign not confirmed (rotate the base the shown way; a mismatch means the joint map's pan sign is wrong)")
         # Policy dry pass on the live observation (nothing is sent; informational: the arm is usually at gravity rest here).
-        record["dry_pass"] = {k: v for k, v in policy_dry_pass(policy, observation, current, bench).items() if k != "chunk_physical"}
+        record["dry_pass"] = {k: v for k, v in policy_dry_pass(args.gate_policy, observation, current, bench).items() if k != "chunk_physical"}
         print(f"policy dry pass: {record['dry_pass']}", flush=True)
         record["start_pose_delta_act"] = float(np.max(np.abs(current - physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32)))))
         record["approach_plan"] = approach_plan(current, bench)
         if args.preflight_only:
             if record["start_pose_delta_act"] <= START_POSE_TOLERANCE_ACT:
                 # At the reset pose already: the real-frame gate applies to this frame.
-                record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "preflight", args.model)
+                record["real_frame_check"] = _real_frame_gate(args.gate_policy, grabber, bench, source_size, current, run_dir, "preflight", args.model)
                 if not record["real_frame_check"]["passed"]:
                     raise Refused("policy fails the real-frame gate at the reset pose: " + "; ".join(record["real_frame_check"]["reasons"]))
             else:
@@ -419,7 +440,8 @@ def _hardware(args, bench, contract, policy, record) -> int:
         answer = _confirm(args, record, "approach", "Enable torque at the present pose and run the gated approach to the reset pose? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
-        backend = LeRobotBackend(robot, grabber, lens=bench.lens_model, source_size=source_size)
+        backend = LeRobotBackend(robot, grabber, lens=bench.lens_model, source_size=source_size,
+                                 max_boundary_step_ms=(1500.0 if args.pi05_checkpoint is not None else None))
         current = read_measured_act(robot)
         backend.engage(act_to_physical_normalized(current))   # goal = present pose, then torque
         if not args.skip_approach:
@@ -437,7 +459,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         if act_to_physical_normalized(current)[1] < bench.shoulder_floor:
             raise Refused("shoulder is below the floor at the start of the episode")
         # Real-frame gate on a fresh frame at the reset pose: the chunk must be hold-like (the arm keeps holding torque on refusal).
-        record["real_frame_check"] = _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, "reset", args.model)
+        record["real_frame_check"] = _real_frame_gate(args.gate_policy, grabber, bench, source_size, current, run_dir, "reset", args.model)
         if not record["real_frame_check"]["passed"]:
             raise Refused("policy fails the real-frame gate at the reset pose (no episode): " + "; ".join(record["real_frame_check"]["reasons"]))
         # Cube placement gate on the same reset-pose observation: the policy cannot win outside its +-10 mm training range.
@@ -456,8 +478,10 @@ def _hardware(args, bench, contract, policy, record) -> int:
         answer = _confirm(args, record, "episode", f"Arm is at the reset pose (max delta {delta:.3f} ACT). Run the {args.max_actions}-action episode? Press Enter to confirm, anything else aborts: ")
         if answer.strip():
             _finish(run_dir, record, "aborted_by_user"); return 0
-        recorder = VideoRecorder(grabber, run_dir / "camera.mp4")
-        recorder.start()
+        if recorder is None:
+            recorder = VideoRecorder(grabber, run_dir / "camera.mp4")
+            recorder.start()
+        record["episode_video_offset_frames"] = len(recorder.frames)
         log = StepLog(run_dir / "steps.csv")
         store = BoundaryStore()
         prefix = {}

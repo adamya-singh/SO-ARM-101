@@ -27,6 +27,8 @@ class Pi05ChunkPolicy:
             raise ValueError("execute must be in [1, chunk_horizon]")
         self.policy, self.config, self.stats, self.prompt = policy, config, stats, prompt
         self.execute = int(execute)
+        self.chunk_horizon = self.execute          # commands per camera read (what the physical dry-pass gate iterates)
+        self.report_content_sha256 = None
         self.teacher_horizon = 480
         self.noise_seed = int(noise_seed)
         self.tag = tag

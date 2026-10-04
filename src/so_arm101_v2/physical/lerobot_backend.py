@@ -109,6 +109,7 @@ class LeRobotBackend:
 
     def __init__(self, robot: Any, grabber: Any, *, lens: LensModel, control_hz: float = CONTROL_HZ,
                  max_frame_age_s: float = 0.100, max_step_ms: float = 100.0, max_consecutive_overruns: int = 3,
+                 max_boundary_step_ms: float | None = None,
                  resampler: Callable[[np.ndarray], np.ndarray] | None = None, source_size=None,
                  clock: Callable[[], float] = time.monotonic, wall: Callable[[], float] = time.time,
                  sleep: Callable[[float], None] = time.sleep) -> None:
@@ -118,6 +119,10 @@ class LeRobotBackend:
         self.period = 1.0 / float(control_hz)
         self.max_frame_age_s = float(max_frame_age_s)
         self.max_step_ms = float(max_step_ms)
+        # Camera-boundary steps run the network; a slow policy (pi0.5: ~0.5 s per chunk) gets its own budget there.
+        # The servos hold the previous goal meanwhile, as the simulator pauses during inference. Default: same limit.
+        self.max_boundary_step_ms = float(max_step_ms if max_boundary_step_ms is None else max_boundary_step_ms)
+        self.boundary_step = False
         self.max_consecutive_overruns = int(max_consecutive_overruns)
         self.resampler = resampler or fast_area_resampler(lens, source_size=source_size)
         self.clock, self.wall, self.sleep = clock, wall, sleep
@@ -139,12 +144,14 @@ class LeRobotBackend:
     # ---- backend protocol ---------------------------------------------------
     def read_act(self) -> np.ndarray:
         self.step_started = self.clock()
+        self.boundary_step = False
         if self.t0 is None:
             self.t0 = self.step_started
         return read_measured_act(self.robot)
 
     def observe(self, step: int) -> Observation:
         started = self.clock()
+        self.boundary_step = True
         seq, stamp, frame = self.grabber.latest()
         age = self.wall() - stamp
         if age > self.max_frame_age_s:
@@ -176,8 +183,15 @@ class LeRobotBackend:
         lateness = now - deadline
         overrun = lateness > 0
         reanchored = False
-        if step_ms > self.max_step_ms:
-            raise TimingViolation(f"step {step} took {step_ms:.0f} ms (limit {self.max_step_ms:.0f} ms)")
+        limit_ms = self.max_boundary_step_ms if self.boundary_step else self.max_step_ms
+        if step_ms > limit_ms:
+            raise TimingViolation(f"step {step} took {step_ms:.0f} ms (limit {limit_ms:.0f} ms)")
+        if overrun and self.boundary_step and self.max_boundary_step_ms > self.max_step_ms:
+            # Expected inference pause: restart the schedule from now (not a timing fault, never counted as consecutive).
+            self.t0 += lateness
+            self.reanchors += 1
+            return PeriodOutcome(done=False, success=None, invalidated=False, lateness_ms=lateness * 1e3,
+                                 overrun=True, reanchored=True)
         if overrun:
             self.overruns += 1
             self.consecutive_overruns += 1
