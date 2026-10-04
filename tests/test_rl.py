@@ -262,3 +262,34 @@ def test_reinflow_out_head_logprob_from_stored_features_equals_recomputation():
     a2, _ = cached.logprob(frames, states, out["records"])
     a2.sum().backward()
     assert model.out_proj.weight.grad is not None and model.trunk.weight.grad is None
+
+
+def test_collector_restarts_a_stalled_worker_and_reruns_its_episode():
+    from so_arm101_v2.rl.collector import Collector
+    from so_arm101_v2.rl.vec_env import SubprocChunkVecEnv
+    config = scene_bench_config(SCENE)
+    suite = bench_suite(config, [(0.0, 0.0), (0.003, 0.0)], label="stall_test", repeats=1)
+
+    class RampAgent:
+        stalled = False
+
+        def __init__(self, vec):
+            self.vec = vec
+
+        def act(self, frames, states, *, deterministic, seed):
+            if not RampAgent.stalled:          # first boundary: make worker 0 hang on its next message
+                RampAgent.stalled = True
+                self.vec.remotes[0].send(("_stall", None))
+                self.vec.pending.add(0)
+                self.vec.sent_at[0] = 0.0
+            n = len(frames)
+            return dict(residual=np.zeros((n, 90, 6), np.float32), records=[{} for _ in range(n)], logp=np.zeros(n))
+
+    with SubprocChunkVecEnv(SCENE, 2) as vec:
+        collector = Collector(vec, RampAgent(vec), batch_fraction=1.0, watchdog_s=25.0)
+        batch, summaries, timing = collector.collect([(0, suite.scenarios[0]), (1, suite.scenarios[1])], deterministic=True, seed=0)
+    assert timing.get("restarts", 0) >= 1
+    assert sorted(s.scenario_id for s in summaries) == sorted(sc.scenario_id for sc in suite.scenarios)
+    for episode in set(batch.episode):
+        chunks = [i for i, e in enumerate(batch.episode) if e == episode]
+        assert len(chunks) == len(set(chunks))

@@ -36,6 +36,9 @@ def _worker(remote: Connection, model_path: str, reward_kwargs: dict, closure: b
             elif command == "step":
                 commands, frame = payload
                 remote.send(("ok", env.step_chunk(commands, frame=frame)))
+            elif command == "_stall":         # tests only: a worker that never answers (the EGL hang of 2026-10-04)
+                import time
+                time.sleep(10 ** 6)
             elif command == "close":
                 remote.send(("ok", None))
                 break
@@ -60,18 +63,47 @@ class SubprocChunkVecEnv:
     def __init__(self, model_path: str | Path, num_envs: int, *, reward_kwargs: dict | None = None, closure: bool = True) -> None:
         if num_envs < 1:
             raise ValueError("num_envs must be positive")
-        ctx = mp.get_context("spawn")
+        self._ctx = mp.get_context("spawn")
+        self._args = (str(Path(model_path).resolve()), dict(reward_kwargs or {}), closure)
         self.remotes: list[Connection] = []
         self.processes = []
         for _ in range(num_envs):
-            parent, child = ctx.Pipe()
-            process = ctx.Process(target=_worker, args=(child, str(Path(model_path).resolve()), dict(reward_kwargs or {}), closure), daemon=True)
-            process.start()
-            child.close()
+            parent, process = self._spawn()
             self.remotes.append(parent)
             self.processes.append(process)
         self.info = [self._receive(i) for i in range(num_envs)]
         self.pending: set[int] = set()
+        self.sent_at: dict[int, float] = {}
+        self.restarts = 0
+
+    def _spawn(self):
+        parent, child = self._ctx.Pipe()
+        process = self._ctx.Process(target=_worker, args=(child, *self._args), daemon=True)
+        process.start()
+        child.close()
+        return parent, process
+
+    def restart(self, index: int) -> None:
+        """Kill a worker that stopped answering and start a fresh one in its place (its episode is lost)."""
+        try:
+            self.processes[index].kill()
+            self.processes[index].join(timeout=10)
+        except Exception:
+            pass
+        try:
+            self.remotes[index].close()
+        except Exception:
+            pass
+        self.remotes[index], self.processes[index] = self._spawn()
+        self.info[index] = self._receive(index)
+        self.pending.discard(index)
+        self.sent_at.pop(index, None)
+        self.restarts += 1
+
+    def stalled(self, timeout_s: float) -> list[int]:
+        import time
+        now = time.time()
+        return sorted(i for i in self.pending if now - self.sent_at.get(i, now) > timeout_s)
 
     @property
     def num_envs(self) -> int:
@@ -89,10 +121,12 @@ class SubprocChunkVecEnv:
     def send_reset(self, index: int, scenario: Any, *, frame: bool = True) -> None:
         self.remotes[index].send(("reset", (scenario, frame)))
         self.pending.add(index)
+        self.sent_at[index] = __import__("time").time()
 
     def send_step(self, index: int, commands: np.ndarray, *, frame: bool = True) -> None:
         self.remotes[index].send(("step", (np.asarray(commands, np.float32), frame)))
         self.pending.add(index)
+        self.sent_at[index] = __import__("time").time()
 
     def recv(self, index: int) -> Any:
         payload = self._receive(index)

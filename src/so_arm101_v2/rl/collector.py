@@ -35,6 +35,15 @@ class Batch:
     def __len__(self) -> int:
         return len(self.episode)
 
+    def drop_episode(self, episode_id: int) -> dict[int, int]:
+        """Remove one episode's samples; returns old index -> new index for the samples kept."""
+        keep = [i for i, e in enumerate(self.episode) if e != episode_id]
+        for name in ("episode", "frames", "states", "privileged", "records", "logp_rollout", "reward", "reward_success",
+                     "reward_safety", "reward_shaping"):
+            values = getattr(self, name)
+            setattr(self, name, [values[i] for i in keep])
+        return {old: new for new, old in enumerate(keep)}
+
     def arrays(self) -> dict[str, Any]:
         return dict(episode=np.asarray(self.episode), frames=np.stack(self.frames), states=np.stack(self.states),
                     privileged=np.stack(self.privileged), records=self.records, logp_rollout=np.asarray(self.logp_rollout, np.float32),
@@ -42,8 +51,11 @@ class Batch:
 
 
 class Collector:
-    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5) -> None:
+    def __init__(self, vec: Any, policy: Any, *, execute: int = 90, batch_fraction: float = 0.5, watchdog_s: float = 120.0) -> None:
         self.vec, self.policy, self.execute, self.batch_fraction = vec, policy, int(execute), float(batch_fraction)
+        # A worker that does not answer a chunk within watchdog_s is killed and replaced, and its episode is run again
+        # from the start (2026-10-04: EGL renders in 4 of 16 workers hung on WSL and the run waited forever).
+        self.watchdog_s = float(watchdog_s)
         self.inferences = 0
 
     def collect(self, episodes: list[tuple[int, Any]], *, deterministic: bool, seed: int) -> tuple[Batch, list[Any], dict[str, float]]:
@@ -59,7 +71,7 @@ class Collector:
 
         def start(env: int) -> None:
             episode_id, scenario = queue.popleft()
-            active[env] = dict(id=episode_id, last=None)
+            active[env] = dict(id=episode_id, last=None, scenario=scenario)
             vec.send_reset(env, scenario)
 
         for env in range(vec.num_envs):
@@ -77,8 +89,22 @@ class Collector:
                 waiting = []
                 continue
             t0 = time.time()
-            ready = vec.ready()
+            ready = vec.ready(timeout=self.watchdog_s / 4)
             timing["env_wait_seconds"] += time.time() - t0
+            if not ready:
+                for env in vec.stalled(self.watchdog_s):
+                    state = active.pop(env)
+                    remap = batch.drop_episode(state["id"])
+                    for other in active.values():
+                        if other["last"] is not None:
+                            other["last"] = remap[other["last"]]
+                    waiting = [(e, o) for e, o in waiting if e != env]
+                    vec.restart(env)
+                    timing["restarts"] = timing.get("restarts", 0) + 1
+                    print(f"collector: env {env} stalled > {self.watchdog_s:.0f} s; worker restarted, episode {state['id']} re-run", flush=True)
+                    queue.appendleft((state["id"], state["scenario"]))
+                    start(env)
+                continue
             for env in ready:
                 payload = vec.recv(env)
                 state = active[env]
