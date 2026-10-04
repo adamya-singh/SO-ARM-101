@@ -121,18 +121,25 @@ def run_episode(
     on_step: Callable[[StepRecord], None] | None = None,
     clock: Callable[[], float] = time.perf_counter,
     rate_limit_continues: bool = True,
+    guard: Any | None = None,
 ) -> EpisodeResult:
     """Run one episode of ``policy`` on ``backend`` under the bench gate; see the module docstring.
 
     ``rate_limit_continues`` (default, the real-servo rule since 2026-09-10) sends
     the relative-limited target instead of holding when the only mask is the
     per-step relative limit; range and floor clips still hold.
+
+    ``guard`` (``physical.guards.EpisodeGuards``) may end the episode before a
+    command is sent: the measured pose is sent instead, so the servos stop
+    pushing, and the result's ``aborted_reason`` is ``guard:<reason>``.
     """
     joint_map = bench.joint_map_object
     shoulder_floor = bench.shoulder_floor
     reset_method = getattr(policy, "reset", None)
     if callable(reset_method):
         reset_method()
+    if guard is not None:
+        guard.reset()
     steps: list[StepRecord] = []
     boundaries: list[int] = []
     consecutive = 0
@@ -156,6 +163,9 @@ def run_episode(
             decision = bench_clip_decision(current, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map)
         else:
             decision = bench_hold_decision(current, policy_act, shoulder_floor=shoulder_floor, joint_map=joint_map)
+        tripped = None if guard is None else guard.before_send(step, current, decision, observation)
+        if tripped is not None:
+            decision = bench_hold_decision(current, current, shoulder_floor=shoulder_floor, joint_map=joint_map)
         gate_ms = (clock() - t_gate) * 1e3
         if decision.held:
             holds += 1
@@ -174,6 +184,9 @@ def run_episode(
             on_step(record)
         if outcome.invalidated:
             invalidated = True
+        if tripped is not None:
+            aborted = f"guard:{tripped}"
+            break
         if outcome.done:
             success = outcome.success
             break

@@ -58,6 +58,7 @@ from so_arm101_v2.contracts.physical_io import (  # noqa: E402
 from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
 from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass, sim_reference_dry_pass, survey_pose_active  # noqa: E402
+from so_arm101_v2.physical.guards import SURVEY_ONLY, EpisodeGuards, frame_brightness  # noqa: E402
 from so_arm101_v2.physical.evidence import BoundaryStore, StepLog, VideoRecorder, sha256_file, write_run_record  # noqa: E402
 from so_arm101_v2.physical.placement import DEFAULT_TOLERANCE_MM, check_cube_placement  # noqa: E402
 from so_arm101_v2.physical.lerobot_backend import MIN_SERVO_VOLTAGE_V, LeRobotBackend, check_servo_voltage, fast_area_resampler, verify_fast_resampler  # noqa: E402
@@ -236,6 +237,17 @@ def main(argv=None) -> int:
     p.add_argument("--pi05-execute", type=int, default=30,
                    help="with --pi05-checkpoint: commands per camera read in the episode (30 scored 5/10 held-out poses, 90 scored 4/10); "
                         "the real-frame gate always dry-runs the full 90-step survey chunk")
+    p.add_argument("--pi05-lag-response", type=float, nargs=6, default=None, metavar="R",
+                   help="with --pi05-checkpoint: lag compensation, the per-joint servo response from tools/fit_servo_lag.py "
+                        "(simulation/pi05_policy.py); default off")
+    p.add_argument("--pi05-first-execute", type=int, default=None,
+                   help="with --pi05-checkpoint: commands of the first chunk to run before the first re-read (90 = the whole survey move)")
+    p.add_argument("--survey-only", action="store_true",
+                   help="stop at the survey read (step 90) once the arm is at the viewing pose and the towel and cube are in the frame: "
+                        "the staged first run for a new policy class")
+    p.add_argument("--no-survey-gate", action="store_true",
+                   help="record the survey checks (arm at the viewing pose, towel and cube in the frame) without stopping on them: for a "
+                        "fixed-view policy that never makes the survey move. The workspace limits and the stall check still apply")
     p.add_argument("--yes", action="store_true",
                    help="do not prompt: auto-confirm the approach and the episode (bench owner's standing authorization of 2026-09-10; "
                         "recorded in run.json). Every built-in gate still applies.")
@@ -259,7 +271,8 @@ def main(argv=None) -> int:
         from so_arm101_v2.simulation.pi05_policy import Pi05ChunkPolicy
         model, pi_config, pi_stats, _payload = load_checkpoint(args.pi05_checkpoint)
         prompt = PromptTokenizer(pi_config.tokenizer, pi_config.tokenizer_max_length)
-        policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=args.pi05_execute, clamp_channels=(5,))
+        policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=args.pi05_execute, clamp_channels=(5,),
+                                 first_execute=args.pi05_first_execute, servo_response=args.pi05_lag_response)
         args.gate_policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=pi_config.chunk_horizon, clamp_channels=(5,))
         args.checkpoint = args.pi05_checkpoint
     else:
@@ -302,8 +315,15 @@ def _sim_rehearsal(args, bench, contract, policy, record) -> int:
     log = StepLog(run_dir / "steps.csv")
     store = BoundaryStore()
     try:
-        result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=lambda r: (log.write(r), store.add(r)))
+        guards = EpisodeGuards(args.model, bench, survey_gate=not args.no_survey_gate, stop_after_survey=args.survey_only)
+        result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=lambda r: (log.write(r), store.add(r)), guard=guards)
         boundaries = store.write(run_dir / "boundaries")
+        record["guards"] = guards.record()
+        if result.aborted_reason == f"guard:{SURVEY_ONLY}":
+            _finish(run_dir, record, "survey_ok", backend="simulation", actions=result.actions, boundaries=boundaries,
+                    steps_csv_sha256=sha256_file(run_dir / "steps.csv"))
+            print(f"rehearsal survey only: {guards.survey}")
+            return 0
         _finish(run_dir, record, "completed", backend="simulation", actions=result.actions, success=result.success,
                 invalidated=result.invalidated, hold_frames=result.hold_frames, aborted_reason=result.aborted_reason,
                 boundaries=boundaries, safety_counts=backend.counts, steps_csv_sha256=sha256_file(run_dir / "steps.csv"))
@@ -333,6 +353,10 @@ def _real_frame_gate(policy, grabber, bench, source_size, current, run_dir, labe
         # v3: the first chunk is the survey move; the real chunk must track the simulated reference chunk.
         reference = sim_reference_dry_pass(policy, model_path, current, bench)
     result = check_reset_frame(policy, observation, current, bench, label=f"{label}_observation", reference=reference)
+    result["brightness"] = frame_brightness(observation)
+    if not result["brightness"]["ok"]:
+        result["passed"] = False
+        result["reasons"].append(f"camera frame is too dark (mean {result['brightness']['mean']}, p99 {result['brightness']['p99']}): lights off or the lens is covered")
     if reference is not None:
         result["reference"] = {k: v for k, v in reference.items() if k != "chunk_physical"}
     result["dry_pass"] = {k: v for k, v in result["dry_pass"].items() if k != "chunk_physical"}
@@ -363,6 +387,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
     recorder = None
     backend = None
     store = None
+    episode_ran = False
     status = "started"
     try:
         grabber = FrameGrabber(args.camera_device, width=int(args.camera_size[0]), height=int(args.camera_size[1]))
@@ -502,16 +527,22 @@ def _hardware(args, bench, contract, policy, record) -> int:
                 except Exception as exc:  # evidence must never stop the episode
                     record["cube_placement_survey"] = dict(error=f"{type(exc).__name__}: {exc}")
 
+        guards = EpisodeGuards(args.model, bench, survey_gate=not args.no_survey_gate, stop_after_survey=args.survey_only)
+        episode_ran = True
         try:
-            result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=on_step)
+            result = run_episode(backend, policy, bench=bench, max_actions=args.max_actions, on_step=on_step, guard=guards)
         finally:
             log.close()
-        status = "completed" if result.aborted_reason is None else "aborted"
+            record["guards"] = guards.record()
+        survey_only = result.aborted_reason == f"guard:{SURVEY_ONLY}"
+        status = "survey_ok" if survey_only else "completed" if result.aborted_reason is None else "aborted"
+        if guards.trip is not None:
+            print(f"guard: {guards.trip}", flush=True)
         record.update(actions=result.actions, hold_frames=result.hold_frames, aborted_reason=result.aborted_reason,
                       boundaries_steps=result.boundaries, prefix=prefix,
                       timing=dict(overruns=backend.overruns, reanchors=backend.reanchors))
         print(f"episode: actions={result.actions} holds={result.hold_frames} aborted={result.aborted_reason} overruns={backend.overruns}", flush=True)
-        return 0 if result.aborted_reason is None else 2
+        return 0 if result.aborted_reason is None or survey_only else 2
     except Refused as exc:
         status = "refused"; record["reason"] = str(exc); print(f"REFUSED: {exc}", flush=True); return 2
     except KeyboardInterrupt:
@@ -525,6 +556,12 @@ def _hardware(args, bench, contract, policy, record) -> int:
             record["boundaries"] = store.write(run_dir / "boundaries")
             if (run_dir / "steps.csv").exists():
                 record["steps_csv_sha256"] = sha256_file(run_dir / "steps.csv")
+        if episode_ran and backend is not None and backend.engaged:
+            # Stop pushing toward the last command (a jaw on the table, a blocked joint): goal = present pose, torque stays on.
+            try:
+                record["relaxed_to_physical"] = [round(float(v), 2) for v in backend.relax()]
+            except Exception as exc:  # the bus may be the reason the episode ended
+                record["relax_error"] = f"{type(exc).__name__}: {exc}"
         if connected:
             disconnect_read_only(robot)    # torque preserved
         if grabber is not None:

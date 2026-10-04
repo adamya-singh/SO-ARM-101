@@ -54,6 +54,8 @@ class TrackingRobot:
 
 
 class FakeGrabber:
+    level = 120
+
     def __init__(self, device=0, width=1920, height=1080, **kwargs):
         self.properties = dict(fourcc="MJPG", width=width, height=height, fps=30.0)
         self.size = (height, width)
@@ -64,8 +66,8 @@ class FakeGrabber:
     def latest(self):
         import time
         self.seq += 1
-        frame = np.zeros((*self.size, 3), np.uint8)
-        frame[:, :, 2] = 40
+        frame = np.full((*self.size, 3), self.level, np.uint8)     # a lit, flat frame (the brightness floor refuses a dark one)
+        frame[:, :, 2] = self.level + 40
         return self.seq, time.time(), frame
 
     def wait_for_new(self, after_seq, timeout=1.0):
@@ -82,6 +84,7 @@ class FakeGrabber:
 class FakeRecorder:
     def __init__(self, grabber, path, fps=30):
         self.path = Path(path)
+        self.frames: list = []
 
     def start(self):
         pass
@@ -196,11 +199,33 @@ def test_sim_rehearsal_reproduces_the_nominal_success_with_evidence(tmp_path: Pa
         pytest.skip("offscreen renderer unavailable")
     tool = _tool()
     run_dir = tmp_path / "rehearsal"
-    assert tool.main(["--sim-rehearsal", "--run-dir", str(run_dir)]) == 0
+    # The default checkpoint is a fixed-view policy (2026-09-09): it never makes the survey move, so that gate is record-only.
+    assert tool.main(["--sim-rehearsal", "--run-dir", str(run_dir), "--no-survey-gate"]) == 0
     record = json.loads((run_dir / "run.json").read_text())
     assert record["status"] == "completed" and record["success"] and record["hold_frames"] == 0 and record["actions"] == 427
+    assert record["guards"]["trip"] is None and record["guards"]["survey"]["pose_ok"] is False
+    assert record["guards"]["min_commanded_tip_height_m"] > 0.022
     assert (run_dir / "steps.csv").read_text().count("\n") == 428
     assert len(record["boundaries"]) == 5 and (run_dir / "boundaries" / "step_360.obs.png").exists()
+
+
+@needs_checkpoint
+def test_dark_camera_refuses_the_episode_and_a_run_relaxes_the_goal_afterwards(tmp_path: Path, monkeypatch) -> None:
+    events: list[str] = []
+    robot = TrackingRobot(events, REST)
+    tool = _install(monkeypatch, events, robot)
+    monkeypatch.setattr(FakeGrabber, "level", 2)                 # lights off (episode_16, 2026-10-04: mean 1.4)
+    dark = tmp_path / "dark"
+    assert tool.main(["--enable-motion", "--run-dir", str(dark), "--no-preview", "--max-actions", "5"]) == 2
+    record = json.loads((dark / "run.json").read_text())
+    assert record["status"] == "refused" and "too dark" in record["reason"] and not (dark / "steps.csv").exists()
+    assert "relaxed_to_physical" not in record                   # no episode ran: the approach's goal is left alone
+    monkeypatch.setattr(FakeGrabber, "level", 120)
+    lit = tmp_path / "lit"
+    assert tool.main(["--enable-motion", "--run-dir", str(lit), "--no-preview", "--max-actions", "5"]) == 0
+    record = json.loads((lit / "run.json").read_text())
+    assert record["status"] == "completed" and record["guards"]["trip"] is None
+    assert len(record["relaxed_to_physical"]) == 6 and "DISABLE" not in events
 
 
 @needs_checkpoint

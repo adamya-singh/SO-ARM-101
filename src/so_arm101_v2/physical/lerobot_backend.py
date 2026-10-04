@@ -141,6 +141,18 @@ class LeRobotBackend:
         self.robot.bus.enable_torque()
         self.engaged = True
 
+    def relax(self) -> np.ndarray:
+        """Set every goal to the present position (torque stays on) and return it, in physical units.
+
+        After an episode the last command can sit a few units past where the arm is (a jaw resting on the
+        table, a blocked joint): the servos keep pushing toward it until the goal is moved (episode_20,
+        2026-10-04). Re-seeding the goal removes that push without dropping the arm.
+        """
+        present = self.robot.bus.sync_read("Present_Position")
+        values = {name: float(present[name]) for name in JOINT_NAMES}
+        self.robot.bus.sync_write("Goal_Position", values)
+        return np.asarray([values[name] for name in JOINT_NAMES], dtype=np.float32)
+
     # ---- backend protocol ---------------------------------------------------
     def read_act(self) -> np.ndarray:
         self.step_started = self.clock()
