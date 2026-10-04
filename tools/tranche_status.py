@@ -20,6 +20,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "tools/tranche_20261004.json"
 FT_SOCKET = "/tmp/tsp-retry-finetunes"
+CPU_SOCKET = "/tmp/tsp-retry-cpu"
 
 
 def read_json(path: Path) -> Any:
@@ -46,7 +47,7 @@ def tsp_jobs() -> dict[str, dict[str, Any]]:
     """label -> newest job {id, state, exit}. ``tsp`` is shared with other projects: only labelled jobs count."""
     import os
     out = ""
-    for socket in (None, FT_SOCKET):       # the main queue and the fine-tune queue that shares the GPU with RL
+    for socket in (None, FT_SOCKET, CPU_SOCKET):       # the main queue and the fine-tune queue that shares the GPU with RL
         env = dict(os.environ)
         if socket:
             env["TS_SOCKET"] = socket
