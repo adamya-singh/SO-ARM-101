@@ -94,6 +94,9 @@ class MujocoTaskAdapter:
         self.data = mujoco.MjData(self.model)
         self._renderer: Any | None = None
         self._lens_renderer: Any | None = None
+        # Stress evaluations only (simulation/lag_stress.py): per-joint first-order response in front of the
+        # actuators, so the simulated servos lag like the measured real ones. None = the certified scene, untouched.
+        self.command_response: np.ndarray | None = None
         self.lens = self.bench.lens_model if self.bench is not None else None
         if self.lens is not None:
             # The lens render needs an offscreen buffer at least as large as itself.
@@ -392,6 +395,9 @@ class MujocoTaskAdapter:
         )
         evaluation = decision.evaluation
         qpos = self.joint_map.act_to_mujoco(decision.executed_act)
+        if self.command_response is not None:
+            previous = np.asarray([self.data.ctrl[actuator] for actuator in self._actuator_ids], dtype=np.float64)
+            qpos = previous + np.asarray(self.command_response, dtype=np.float64) * (np.asarray(qpos, dtype=np.float64) - previous)
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
             self.data.ctrl[actuator] = float(value)
         return CommandApplication(
