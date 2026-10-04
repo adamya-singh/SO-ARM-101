@@ -237,9 +237,10 @@ def main(argv=None) -> int:
     p.add_argument("--pi05-execute", type=int, default=30,
                    help="with --pi05-checkpoint: commands per camera read in the episode (30 scored 5/10 held-out poses, 90 scored 4/10); "
                         "the real-frame gate always dry-runs the full 90-step survey chunk")
-    p.add_argument("--pi05-lag-response", type=float, nargs=6, default=None, metavar="R",
-                   help="with --pi05-checkpoint: lag compensation, the per-joint servo response from tools/fit_servo_lag.py "
-                        "(simulation/pi05_policy.py); default off")
+    p.add_argument("--pi05-lag", choices=("adaptive", "off"), default="adaptive",
+                   help="with --pi05-checkpoint: lag compensation (simulation/pi05_policy.py). adaptive = measure each joint's servo "
+                        "response during the episode and correct the re-read anchor of a joint that is clearly slower than the "
+                        "simulator's; off = add every chunk to the measured pose as trained")
     p.add_argument("--pi05-first-execute", type=int, default=None,
                    help="with --pi05-checkpoint: commands of the first chunk to run before the first re-read (90 = the whole survey move)")
     p.add_argument("--survey-only", action="store_true",
@@ -272,7 +273,8 @@ def main(argv=None) -> int:
         model, pi_config, pi_stats, _payload = load_checkpoint(args.pi05_checkpoint)
         prompt = PromptTokenizer(pi_config.tokenizer, pi_config.tokenizer_max_length)
         policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=args.pi05_execute, clamp_channels=(5,),
-                                 first_execute=args.pi05_first_execute, servo_response=args.pi05_lag_response)
+                                 first_execute=args.pi05_first_execute,
+                                 servo_response=("adaptive" if args.pi05_lag == "adaptive" else None))
         args.gate_policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=pi_config.chunk_horizon, clamp_channels=(5,))
         args.checkpoint = args.pi05_checkpoint
     else:
@@ -534,6 +536,8 @@ def _hardware(args, bench, contract, policy, record) -> int:
         finally:
             log.close()
             record["guards"] = guards.record()
+            if getattr(policy, "response_estimates", None):
+                record["servo_response_estimates"] = policy.response_estimates      # lag compensation: what each re-read measured
         survey_only = result.aborted_reason == f"guard:{SURVEY_ONLY}"
         status = "survey_ok" if survey_only else "completed" if result.aborted_reason is None else "aborted"
         if guards.trip is not None:

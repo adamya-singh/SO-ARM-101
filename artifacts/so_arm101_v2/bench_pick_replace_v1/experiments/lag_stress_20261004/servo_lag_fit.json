@@ -1,0 +1,139 @@
+{
+  "tool": "fit_servo_lag",
+  "grid": [
+    0.06,
+    0.08,
+    0.1,
+    0.12,
+    0.14,
+    0.16,
+    0.18,
+    0.2,
+    0.22,
+    0.24,
+    0.26,
+    0.28,
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7,
+    0.75,
+    0.8,
+    0.85,
+    0.9,
+    0.95,
+    1.0
+  ],
+  "steps": 240,
+  "episodes": {
+    "episode_20_20261004_pi05": {
+      "shoulder_pan": {
+        "response": 0.75,
+        "rms_units": 0.72,
+        "rms_units_certified_scene": 0.75
+      },
+      "shoulder_lift": {
+        "response": 0.85,
+        "rms_units": 2.07,
+        "rms_units_certified_scene": 2.07
+      },
+      "elbow_flex": {
+        "response": 0.16,
+        "rms_units": 2.31,
+        "rms_units_certified_scene": 3.15
+      },
+      "wrist_flex": {
+        "response": 0.7,
+        "rms_units": 2.44,
+        "rms_units_certified_scene": 2.44
+      },
+      "wrist_roll": {
+        "response": 0.65,
+        "rms_units": 0.35,
+        "rms_units_certified_scene": 0.4
+      },
+      "gripper": {
+        "response": 0.6,
+        "rms_units": 0.3,
+        "rms_units_certified_scene": 0.41
+      }
+    },
+    "episode_10_20260910": {
+      "shoulder_pan": {
+        "response": 0.4,
+        "rms_units": 0.17,
+        "rms_units_certified_scene": 0.38
+      },
+      "shoulder_lift": {
+        "response": 0.8,
+        "rms_units": 0.82,
+        "rms_units_certified_scene": 0.87
+      },
+      "elbow_flex": {
+        "response": 0.45,
+        "rms_units": 1.51,
+        "rms_units_certified_scene": 2.46
+      },
+      "wrist_flex": {
+        "response": 0.6,
+        "rms_units": 0.48,
+        "rms_units_certified_scene": 0.51
+      },
+      "wrist_roll": {
+        "response": 1.0,
+        "rms_units": 0.17,
+        "rms_units_certified_scene": 0.17
+      },
+      "gripper": {
+        "response": 0.6,
+        "rms_units": 0.17,
+        "rms_units_certified_scene": 0.34
+      }
+    },
+    "episode_13_20260910": {
+      "shoulder_pan": {
+        "response": 0.4,
+        "rms_units": 0.28,
+        "rms_units_certified_scene": 0.3
+      },
+      "shoulder_lift": {
+        "response": 1.0,
+        "rms_units": 1.42,
+        "rms_units_certified_scene": 1.42
+      },
+      "elbow_flex": {
+        "response": 0.4,
+        "rms_units": 1.23,
+        "rms_units_certified_scene": 2.18
+      },
+      "wrist_flex": {
+        "response": 0.55,
+        "rms_units": 0.64,
+        "rms_units_certified_scene": 0.67
+      },
+      "wrist_roll": {
+        "response": 0.55,
+        "rms_units": 0.12,
+        "rms_units_certified_scene": 0.12
+      },
+      "gripper": {
+        "response": 0.65,
+        "rms_units": 0.21,
+        "rms_units_certified_scene": 0.31
+      }
+    }
+  },
+  "pooled_response": {
+    "shoulder_pan": 0.75,
+    "shoulder_lift": 0.9,
+    "elbow_flex": 0.45,
+    "wrist_flex": 0.6,
+    "wrist_roll": 0.65,
+    "gripper": 0.65
+  }
+}

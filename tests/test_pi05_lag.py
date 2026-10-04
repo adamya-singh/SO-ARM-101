@@ -96,12 +96,33 @@ def test_correction_is_capped_and_the_gripper_is_never_corrected(monkeypatch):
     image = np.zeros((256, 256, 3), np.uint8)
     for _ in range(30):                                  # the arm is blocked: the measurement never moves
         policy.predict(image if policy.needs_frame else None, start)
-    simulated, real, _ = policy._models
-    assert abs(simulated[2] - real[2]) > 0.0             # the models have diverged on the moving joint
     anchor = policy._anchor(start.copy())
+    assert abs(anchor[2] - start[2]) > 0.0               # the models have diverged on the moving joint
     assert np.all(np.abs(anchor - start) <= ANCHOR_LEAD_CAP_ACT + 1e-6) and anchor[5] == start[5]
     with pytest.raises(ValueError):
         _policy(monkeypatch, execute=30, servo_response=(1.0, 1.0, 0.0, 1.0, 1.0, 1.0))
+
+
+def test_adaptive_compensation_measures_a_slow_joint_and_leaves_a_normal_servo_alone(monkeypatch):
+    from so_arm101_v2.simulation.pi05_policy import estimate_servo_response
+
+    fast = _drive(_policy(monkeypatch, execute=30), 1.0)
+    # A servo like the simulator's: the estimate is 1.0 everywhere and the commands are the plain ones, bit for bit.
+    policy = _policy(monkeypatch, execute=30, servo_response="adaptive")
+    assert np.array_equal(_drive(policy, 1.0), fast)
+    assert all(e["response"] == [1.0] * 6 for e in policy.response_estimates) and len(policy.response_estimates) == 2
+    # The 2026-10-04 elbow: found at the first re-read (step 30), and the plan is restored.
+    policy = _policy(monkeypatch, execute=30, servo_response="adaptive")
+    slow = _drive(policy, 0.16)
+    assert policy.response_estimates[0] == dict(step=30, response=[1.0, 1.0, 0.16, 1.0, 1.0, 1.0])
+    assert np.allclose(slow, fast, atol=2e-3)
+    assert policy.policy_id == "pi05.exec30.lagadapt.gripper_clamp_v1"
+    # A joint that has not moved enough to judge, or a short history, is never called slow.
+    still = np.tile(np.array([0.0, -2.8, 2.8, 1.4, 0.0, 0.2]), (60, 1))
+    assert estimate_servo_response(still, still).tolist() == [1.0] * 6
+    assert estimate_servo_response(still[:5], still[:5]).tolist() == [1.0] * 6
+    with pytest.raises(ValueError):
+        _policy(monkeypatch, execute=30, servo_response="auto")
 
 
 def test_first_execute_runs_the_whole_first_chunk_from_one_read(monkeypatch):
@@ -158,3 +179,48 @@ def test_lag_stress_switch_slows_the_simulated_joints_and_defaults_off():
     assert LagStressPolicy(Ramp()).policy_id == "ramp.lagstress"
     with pytest.raises(ValueError):
         LagStressPolicy(Ramp(), (1.0, 1.0, 0.0, 1.0, 1.0, 1.0))
+
+
+def test_time_dilation_holds_each_command_and_brings_a_slow_servo_closer():
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import bench_suite
+    from so_arm101_v2.simulation.lag_stress import LagStressPolicy, TimeDilationPolicy
+
+    class Ramp:
+        policy_id = "ramp"
+        requires_pixels = False
+
+        def reset(self, adapter=None):
+            self.k = 0
+            self.start = adapter.current_act()
+            self.seen = []
+
+        def predict(self, image, current, adapter=None):
+            self.k += 1
+            self.seen.append(np.asarray(current).copy())
+            command = np.asarray(self.start, np.float32).copy()
+            command[2] -= 0.02 * self.k
+            return command
+
+    def lag_after(repeat):
+        """Elbow distance behind the command when the 20th command is issued, on the 2026-10-04 elbow."""
+        adapter = MujocoTaskAdapter(SCENE)
+        try:
+            adapter.reset(bench_suite(adapter.bench, [(0, 0)], label="dilate", repeats=1).scenarios[0])
+            ramp = Ramp()
+            policy = LagStressPolicy(TimeDilationPolicy(ramp, repeat), (1.0, 1.0, 0.16, 1.0, 1.0, 1.0))
+            policy.reset(adapter)
+            start_time = adapter.data.time
+            for _ in range(20):
+                adapter.apply_policy_command(policy.predict(None, adapter.current_act(), adapter))
+                adapter.advance_control_period()
+            periods = round((adapter.data.time - start_time) * 30)
+            return float(ramp.seen[-1][2] - (ramp.start[2] - 0.02 * 19)), periods
+        finally:
+            adapter.close()
+
+    plain, periods = lag_after(1)
+    held, held_periods = lag_after(3)
+    assert periods == 20 and held_periods == 58                      # 19 commands held three periods, then the 20th
+    assert 0 < held < 0.5 * plain                                    # the same plan, run slower, is tracked more closely
+    assert TimeDilationPolicy(Ramp(), 2).policy_id == "ramp.hold2"

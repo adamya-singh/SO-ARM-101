@@ -9,6 +9,11 @@ pi0.5 episode stopped its survey move 13 elbow units short and never saw the cub
 front of the adapter's actuators (``MujocoTaskAdapter.command_response``): each control step the actuator
 target moves ``response`` of the way to the command. 1.0 leaves a joint untouched. Nothing here changes
 the scene, a capture or an identity: it is an evaluation condition, carried in the policy id.
+
+``TimeDilationPolicy`` is the matching remedy on the runner's side, evaluated here before the arm: every
+command is held for ``repeat`` control periods, so the plan runs ``repeat`` times slower and a slow servo is
+proportionally closer to its command when the next one arrives. The policy still counts one step per
+command; its frame and measured pose are taken after the last held period.
 """
 
 from __future__ import annotations
@@ -51,4 +56,41 @@ class LagStressPolicy:
         return self.policy.predict(image, current_act, adapter)
 
 
-__all__ = ["LagStressPolicy", "REAL_SERVO_RESPONSE_20260910", "REAL_SERVO_RESPONSE_20261004"]
+class TimeDilationPolicy:
+    """Hold each command of ``policy`` for ``repeat`` control periods (the rollout advances one; this adds the rest)."""
+
+    def __init__(self, policy: Any, repeat: int) -> None:
+        if int(repeat) < 1:
+            raise ValueError("repeat must be at least 1")
+        self.policy, self.repeat = policy, int(repeat)
+        self.requires_pixels = bool(getattr(policy, "requires_pixels", True))
+        self._last: np.ndarray | None = None
+
+    @property
+    def policy_id(self) -> str:
+        return f"{self.policy.policy_id}.hold{self.repeat}"
+
+    @property
+    def needs_frame(self) -> bool:
+        return bool(getattr(self.policy, "needs_frame", True))
+
+    def reset(self, adapter: Any | None = None) -> None:
+        self._last = None
+        self.policy.reset(adapter)
+
+    def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
+        if self.repeat > 1 and self._last is not None:
+            if adapter is None:
+                raise ValueError("TimeDilationPolicy needs the rollout's adapter")
+            for _ in range(self.repeat - 1):
+                adapter.apply_policy_command(self._last)        # the same command again (keeps a lag stress response in step)
+                adapter.advance_control_period()
+            current_act = adapter.current_act()
+            if self.needs_frame and self.requires_pixels:
+                image = adapter.render_wrist_observation()
+        command = self.policy.predict(image, current_act, adapter)
+        self._last = np.asarray(command, dtype=np.float32).copy()
+        return command
+
+
+__all__ = ["LagStressPolicy", "REAL_SERVO_RESPONSE_20260910", "REAL_SERVO_RESPONSE_20261004", "TimeDilationPolicy"]

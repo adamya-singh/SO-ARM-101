@@ -7,6 +7,25 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-10-04 (read before any live run).** The first live pi0.5 episode
+(`physical/episode_20_20261004_pi05`) stopped its survey move 13 elbow units
+short, never saw the towel, reached down beside the base and pressed on the
+table until the arm was unplugged; part of the arm came off and it has not
+been powered since. Cause: the real elbow lags its command 6-13 control
+steps (about 3.5 in the simulator) and the policy re-plans from the measured
+pose every 30 steps. The runner now has episode guards on by default
+(`physical/guards.py`: dark frame, survey pose and target, jaw height floor
+22 mm and workspace box, stall), a `--survey-only` staged run, and re-seeds
+the goal at the present pose after every episode; pi0.5 runs with adaptive
+lag compensation by default (`--pi05-lag`). The simulator has an
+evaluation-only lag stress (`simulation/lag_stress.py`,
+`tools/pi05_lag_stress.py`, `tools/fit_servo_lag.py`). Evidence and numbers:
+notebook entry "First live pi0.5 run (2026-10-04)". The elbow was about
+three times slower than on 2026-09-10; find out why before the next run.
+Order for the next live attempt with any new policy class: `--sim-rehearsal`,
+`--preflight-only`, `--survey-only`, then the full episode. None of this has
+run on the arm yet.
+
 **Where things stand (read this first; the dated paragraphs below are the
 history in order and keep the next step as it was understood on their day).**
 The live policy is still the fixed-square appearance policy `ytn3eygr`.
@@ -1011,6 +1030,13 @@ real-frame gate, hash-verified boundary loader),
 `test_real_frame_gate.py` and extensions of the runner-tool tests. Full
 suite 318 passed.
 
+2026-10-04 additions: `physical/guards.py` (EpisodeGuards, `run_episode(guard=)`),
+`LeRobotBackend.relax`, `tools/replay_guards.py`; `simulation/lag_stress.py`
+(LagStressPolicy, TimeDilationPolicy, `MujocoTaskAdapter.command_response`),
+`Pi05ChunkPolicy(first_execute=, servo_response=)` with `estimate_servo_response`,
+`tools/fit_servo_lag.py`, `tools/pi05_lag_stress.py`; tests `test_physical_guards.py`,
+`test_pi05_lag.py`. Full suite 370 passed before the adaptive estimator was added.
+
 2026-09-09 additions (evening): `contracts/physical.py::bench_hold_decision` (the
 shared gate; the adapter delegates to it), `so_arm101_v2.physical` (runner,
 sim backend, lerobot backend, camera, evidence) and
@@ -1357,6 +1383,18 @@ simulation_code/queue_bench_pipeline.sh \
 # Offline real-frame gate on any checkpoint (exit 2 = fails; the current lens policy fails).
 PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
   tools/check_policy_on_real_frames.py --checkpoint <model.pt> --perturb 16
+
+# Would the guards have stopped a recorded episode? (logs only)
+PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot/bin/python \
+  tools/replay_guards.py --episode-dir artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_20_20261004_pi05
+
+# pi0.5 under servo lag in the simulator (lerobot-pi05 env, GPU, about 6 min per set of 10).
+PYTHONNOUSERSITE=1 MUJOCO_GL=egl /home/win10ubuntu/miniforge3/envs/lerobot-pi05/bin/python \
+  tools/pi05_lag_stress.py --output-dir <new dir> --pairs lag/exec30_adaptive nominal/exec30_adaptive
+
+# Staged live run of a pi0.5 checkpoint: stop at the survey read (step 90) if the pose and the frame are right.
+PYTHONNOUSERSITE=1 /home/win10ubuntu/miniforge3/envs/lerobot-pi05/bin/python tools/run_physical_episode.py \
+  --pi05-checkpoint <pi05.pt> --run-dir <new dir> --enable-motion --yes --no-preview --survey-only
 
 # Run status (read-only).
 tsp -l

@@ -30,6 +30,11 @@ VARIANTS = {
     "exec90_measured": dict(execute=90),
     "exec30_first90": dict(execute=30, first_execute=90),
     "exec30_lagcomp": dict(execute=30, servo_response="fit_20261004"),
+    "exec30_adaptive": dict(execute=30, servo_response="adaptive"),
+    "exec30_hold2": dict(execute=30, hold=2),
+    "exec30_hold3": dict(execute=30, hold=3),
+    "exec90_hold2": dict(execute=90, hold=2),
+    "exec90_hold3": dict(execute=90, hold=3),
 }
 
 
@@ -58,16 +63,17 @@ def main(argv=None) -> int:
     p.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     p.add_argument("--suite-path", type=Path, default=DEFAULT_SUITE, help="a suite.json, or a *.path file naming one")
     p.add_argument("--output-dir", type=Path, required=True)
-    p.add_argument("--variants", nargs="+", default=list(VARIANTS), choices=list(VARIANTS))
+    p.add_argument("--variants", nargs="+", default=["exec30_measured", "exec90_measured", "exec30_first90", "exec30_lagcomp"], choices=list(VARIANTS))
     p.add_argument("--conditions", nargs="+", default=["lag", "nominal", "lag0910"], choices=["nominal", "lag", "lag0910"],
                    help="nominal = the certified scene; lag = the 2026-10-04 servo fit (elbow 0.16); lag0910 = the 2026-09-10 fit (elbow 0.45)")
+    p.add_argument("--pairs", nargs="+", default=None, metavar="CONDITION/VARIANT", help="run exactly these, in this order")
     p.add_argument("--limit", type=int, default=None, help="first N scenarios only")
     args = p.parse_args(argv)
 
     from so_arm101_v2.contracts.bench import scene_bench_config
     from so_arm101_v2.learning.pi05 import PromptTokenizer, load_checkpoint
     from so_arm101_v2.simulation.closure import closure_summary
-    from so_arm101_v2.simulation.lag_stress import REAL_SERVO_RESPONSE_20260910, REAL_SERVO_RESPONSE_20261004, LagStressPolicy
+    from so_arm101_v2.simulation.lag_stress import REAL_SERVO_RESPONSE_20260910, REAL_SERVO_RESPONSE_20261004, LagStressPolicy, TimeDilationPolicy
     from so_arm101_v2.simulation.pi05_policy import Pi05ChunkPolicy
     from so_arm101_v2.simulation.rollout import evaluate_closed_loop
     from so_arm101_v2.simulation.suites import load_suite_from_path
@@ -87,8 +93,12 @@ def main(argv=None) -> int:
 
     model, config, stats, _payload = load_checkpoint(args.checkpoint)
     prompt = PromptTokenizer(config.tokenizer, config.tokenizer_max_length)
-    for condition in args.conditions:
-        for variant in args.variants:
+    pairs = [tuple(pair.split("/")) for pair in args.pairs] if args.pairs else [(c, v) for c in args.conditions for v in args.variants]
+    for condition, variant in pairs:
+        if condition not in responses or variant not in VARIANTS:
+            raise SystemExit(f"unknown pair {condition}/{variant}")
+    for condition, variant in pairs:
+        if True:
             key = f"{condition}/{variant}"
             if key in summary["results"]:
                 continue
@@ -97,7 +107,10 @@ def main(argv=None) -> int:
                 options = dict(VARIANTS[variant])
                 if options.get("servo_response") == "fit_20261004":       # the compensation always assumes the 2026-10-04 elbow
                     options["servo_response"] = REAL_SERVO_RESPONSE_20261004
+                hold = int(options.pop("hold", 1))
                 policy = Pi05ChunkPolicy(model, config, stats, prompt, clamp_channels=(5,), tag="pi05", **options)
+                if hold > 1:
+                    policy = TimeDilationPolicy(policy, hold)
                 return policy if responses[condition] is None else LagStressPolicy(policy, responses[condition])
 
             started = time.time()

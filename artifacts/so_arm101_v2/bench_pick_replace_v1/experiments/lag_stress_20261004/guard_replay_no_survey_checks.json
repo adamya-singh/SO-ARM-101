@@ -1,0 +1,181 @@
+[
+  {
+    "episode": "episode_20_20261004_pi05",
+    "steps": 480,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": {
+      "step": 173,
+      "reason": "workspace_height",
+      "detail": {
+        "jaw_midpoint_m": [
+          0.073,
+          0.1024,
+          0.0261
+        ],
+        "tip_height_m": 0.0206
+      }
+    },
+    "min_commanded_tip_height_m": 0.0206
+  },
+  {
+    "episode": "episode_02_20260909",
+    "steps": 72,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": null,
+    "min_commanded_tip_height_m": 0.068
+  },
+  {
+    "episode": "episode_04_20260910",
+    "steps": 427,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": null,
+    "min_commanded_tip_height_m": 0.0357
+  },
+  {
+    "episode": "episode_09_20260910",
+    "steps": 129,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": null,
+    "min_commanded_tip_height_m": 0.0665
+  },
+  {
+    "episode": "episode_10_20260910",
+    "steps": 480,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": null,
+    "min_commanded_tip_height_m": 0.0355
+  },
+  {
+    "episode": "episode_13_20260910",
+    "steps": 480,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": null,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": null,
+    "min_commanded_tip_height_m": 0.0335
+  }
+]

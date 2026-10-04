@@ -1,0 +1,92 @@
+[
+  {
+    "episode": "episode_20_20261004_pi05",
+    "steps": 480,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": 90,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": {
+      "max_abs_rad": 0.2165,
+      "joint": "elbow_flex",
+      "tolerance_rad": 0.1,
+      "pose_ok": false,
+      "target": {
+        "found": false,
+        "p99": 103.2
+      },
+      "target_ok": false
+    },
+    "trip": {
+      "step": 90,
+      "reason": "survey_pose_not_reached",
+      "detail": {
+        "max_abs_rad": 0.2165,
+        "joint": "elbow_flex",
+        "tolerance_rad": 0.1,
+        "pose_ok": false,
+        "target": {
+          "found": false,
+          "p99": 103.2
+        },
+        "target_ok": false
+      }
+    },
+    "min_commanded_tip_height_m": 0.0759
+  },
+  {
+    "episode": "episode_16_20261004_pi05",
+    "steps": 134,
+    "limits": {
+      "min_tip_height_m": 0.022,
+      "workspace_side_margin_m": 0.06,
+      "workspace_near_margin_m": 0.035,
+      "workspace_far_margin_m": 0.0,
+      "stall_error_units": 7.0,
+      "stall_steps": 10,
+      "stall_motion_units": 1.5,
+      "survey_tolerance_rad": 0.1,
+      "min_frame_p99": 40.0,
+      "min_frame_mean": 8.0
+    },
+    "workspace_box_m": [
+      -0.2378,
+      0.2378,
+      0.0804,
+      0.3694
+    ],
+    "survey_step": 90,
+    "survey_gate": true,
+    "stop_after_survey": false,
+    "survey": null,
+    "trip": {
+      "step": 0,
+      "reason": "dark_frame",
+      "detail": {
+        "mean": 1.4,
+        "p99": 3.0,
+        "min_mean": 8.0,
+        "min_p99": 40.0,
+        "ok": false
+      }
+    },
+    "min_commanded_tip_height_m": null
+  }
+]

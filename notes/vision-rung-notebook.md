@@ -1239,3 +1239,79 @@ Next, in order: read pose_001/008 closure frames (yaw and height at closure, sin
 fine); a second seed of this recipe before claiming a count difference; the perturbed-teacher
 capture is still the lever for correction, and a pretrained VLA that re-reads the camera is the
 first policy here that descended on every pose, which makes that data more likely to pay.
+
+### First live pi0.5 run (2026-10-04): the arm pressed on the table; servo lag, runner guards, lag compensation
+
+Evidence: `physical/episode_14..20_20261004_pi05`, `experiments/lag_stress_20261004/` (summary.json,
+servo_lag_fit.json, guard_replay_*.json). Commits fe6628b (pi0.5 in the runner), a5141b1 (lag tooling),
+c382310 (guards) and the one carrying this entry.
+
+**What happened.** `tools/run_physical_episode.py --pi05-checkpoint ... --enable-motion --yes`, execute 30.
+Episode 16 ran with the room lights off (frame mean 1.4 of 255) and aborted on 15 holds; the real-frame gate
+had passed on the black frame. Episode 20 (lights on, cube at about (8, 297) mm, the same place as held-out
+pose_002, which succeeds in the simulator) ran all 480 actions: the survey move ended with the elbow at 68.7
+units instead of 55.4 (0.217 rad from the viewing pose), the camera sat at 0.178 m instead of 0.235 m and saw
+the bench only to about 250-290 mm, the towel was out of the survey frame, and from step 90 the policy made a
+full pick beside the base (pan about 60 units = 48 degrees, jaw midpoint near (0.06, 0.10) m) with the jaw
+tips commanded down to 4 mm. Commands led the joints by 6-11 units at steps 315-325 and 438-444 (pressing).
+The episode "completed"; torque stays on by design, so the arm kept pressing until the user unplugged it, and
+part of the arm came off. Five holds in 480 steps: every command was inside the joint ranges and speed limit.
+
+Two things I told the user that day and corrected: the base did not swing 105 degrees (pan units are not
+radians through the joint map; 48 degrees, a value successful rollouts also reach), and episode 20 did run
+(the tool call came back as rejected after it had started; check the run directory before saying otherwise).
+
+**Cause.** A chunk is `measured pose + residual`. The simulated joints follow a command about 3.5 steps
+behind; the real elbow followed 6-13 steps behind. With a re-read every 30 steps, two re-reads fall inside
+the survey move and each restarts the plan from the lagging elbow (elbow command at step 30: 72.1 in the
+simulator, 78.1 on the arm; at step 60: 55.1 against 66.8). The CNN episodes of 2026-09-10 had as much lag
+mid-move (up to 16 units) but re-read every 90 steps, when the arm was nearly at rest (under 1 unit at steps
+90, 180, 270). `tools/fit_servo_lag.py` (a first-order response in front of the simulated actuators, fit by
+replaying the recorded commands): elbow 0.16 on 2026-10-04 and 0.40-0.45 on 2026-09-10 (1.0 = the certified
+scene); per phase 0.08-0.25 against 0.4-0.7. The other joints barely move the fit. The elbow was about three
+times slower than three weeks earlier, in every phase: something about the arm changed, cause unknown.
+
+**Lag stress, held-out placements (10 poses, one repeat; a rerun moves a count by about one pose, GPU noise).**
+
+| condition (elbow response) | execute 30 as trained | execute 90 | first chunk 90, then 30 | fixed compensation (assumes 0.16) | adaptive compensation |
+|---|---|---|---|---|---|
+| certified scene (1.0) | 4 (recorded run: 5) | recorded run: 4 | | **0**, survey elbow -0.101 rad | 5 |
+| 2026-10-04 fit (0.16) | **0**, survey elbow +0.086 rad, lateral 26 mm | 0, survey reached, 3 never descend | 0 | 5 | 5 |
+| 2026-09-10 fit (0.45, pan 0.40) | 1 | | | | 3 |
+
+The simulator now reproduces the failure. Re-reading less often repairs the survey pose and nothing else: the
+rest of the plan is timed for a faster elbow. Compensation (`Pi05ChunkPolicy(servo_response=...)`: the chunk is
+added to `measured + (simulated servo - real servo model)`, both models driven by the commands so far, so a
+resting sag stays in the anchor) restores the nominal score when its model matches the arm and destroys it when
+it does not (0/10 with the 2026-10-04 value on the certified scene). Anchoring on the command or on a servo
+model alone also scores 0/10 on the certified scene: it drops the sag and re-adds it at every re-read.
+`servo_response="adaptive"` estimates each joint's response from the episode so far and corrects only joints
+that read clearly slow (at or below 0.35; the certified scene reads 0.65-0.8, the 09-10 arm 0.5-0.65, the 10-04
+elbow 0.20-0.25 from step 30): 5/10 on the certified scene, 5/10 on the 10-04 lag, 3/10 on the 09-10 lag, which
+sits in the dead zone between "slow" and "as trained" and still loses to it (1/10 uncorrected). Not run: the
+hold-each-command-k-periods option (`TimeDilationPolicy`, exec30/90 at 2 and 3) and the fixed compensation on
+the 09-10 lag; the session ended first.
+
+**Guards (`physical/guards.py`, in the runner by default).** dark frame; arm at the viewing pose and a
+towel-and-cube-like patch in the survey frame; commanded lower jaw tip at least 22 mm up and jaw midpoint over
+the placement rectangle plus a margin; a joint more than 7 units from its command for 10 steps without moving.
+A trip sends the measured pose and ends the episode; after any episode the goal is re-seeded at the present
+pose so the servos stop pushing. On replay (`tools/replay_guards.py`): episode 20 stops at step 90
+(survey_pose_not_reached), at step 173 with the survey checks off (workspace_height, 20.6 mm; the pressing
+started near step 300); episode 16 at step 0; episodes 2, 4, 9, 10, 13 and the nine successful simulator
+rollouts do not trip. The stall check would not have caught episode 20 (its resting error was 3 units); the
+height floor and the survey checks do. `placement.locate_cube` misses side placements in survey frames (4 of 10
+simulated), so the survey check uses its own detector (220/220 simulated survey frames, the real reset frames
+of episodes 4, 10, 13, 20; not episode 20's survey frame). `--survey-only` stops at the survey read.
+
+**What was not carried over from the CNN runs.** Lag was known (2026-09-10: "test your safety rules against real
+motor lag") but the 30-step schedule was never run against it; the offline real-frame check has no pi0.5
+support and no real survey frame existed; no survey-move policy had ever run on the arm; the policy that went
+live before scored 30/30 held-out, this one 5/10; rehearsal and preflight were skipped.
+
+**Next.** The compensation is a stopgap for this checkpoint. The durable fix is in the simulator: measure the
+real servo response once the arm is back (it is unpowered; nothing here has been run on it), put it in the
+scene by default with per-episode variation over the range seen, re-certify the teacher, re-capture, retrain.
+Before any live run: confirm why the elbow slowed, then `--sim-rehearsal`, `--preflight-only`, `--survey-only`,
+full episode. Open from before: jaws close about 15 mm higher than in the simulator; the 2026-10-04 run was
+under dim coloured light, outside the appearance regime's 10 percent channel balance (not measured as a cause).

@@ -21,6 +21,10 @@ survey move stopped 13 elbow units short). Two ways to deal with it here:
   drops it and uses the command or a servo model alone adds the sag again at every re-read (tried 2026-10-04:
   0/10 on the certified scene). The correction never exceeds ``anchor_lead_cap_act`` and the gripper is never
   corrected (it is meant to stall on the cube). A response of 1.0 for a joint means no correction.
+  ``servo_response="adaptive"`` measures the response during the episode instead (``estimate_servo_response``):
+  the elbow was about three times slower on 2026-10-04 than on 2026-09-10, so a fixed value is wrong on one
+  day or the other. A joint is corrected only when it has moved enough to judge and reads clearly slower than
+  the simulator's; otherwise the chunk is added to the measured pose, exactly as without the option.
 """
 
 from __future__ import annotations
@@ -35,6 +39,55 @@ from so_arm101_v2.contracts.coordinates import effective_safe_act_bounds
 # held-out exec-30 rollouts of pi05_lora16_10k_20261002: 0.26, 0.27, 0.26, 0.29, 0.30 for joints 0-4.
 SIM_SERVO_RESPONSE = 0.27
 ANCHOR_LEAD_CAP_ACT = 12.0 * np.pi / 100.0     # 12 physical units; the approach phase caps its lead at 10
+RESPONSE_GRID = np.array([0.06, 0.08, 0.10, 0.13, 0.16, 0.20, 0.25, 0.32, 0.40, 0.50, 0.65, 0.80, 1.0])
+# Estimates on the certified scene are 0.65-0.8 for the joints that move (the simulated servo is not exactly first
+# order) and 0.5-0.65 on the real arm of 2026-09-10; the slow elbow of 2026-10-04 reads 0.20-0.25. At or below this
+# value a joint is treated as slower than the simulator's.
+SLOW_RESPONSE = 0.35
+EXCITATION_ACT = 0.2                            # a joint's commands must span this much (6.4 units) before it is judged
+
+
+def servo_models(commands: np.ndarray, start: float | np.ndarray, response: np.ndarray) -> np.ndarray:
+    """The modelled joint value before each command and after the last: shape (len(commands) + 1, *response.shape).
+
+    The simulated servo (first order, ``SIM_SERVO_RESPONSE`` per step) behind a first-order ``response``, started
+    at ``start``. ``commands`` is (T,) for one joint with a grid of responses, or (T, J) with one response per joint.
+    """
+    response = np.asarray(response, dtype=np.float64)
+    filtered = np.broadcast_to(np.asarray(start, dtype=np.float64), response.shape).copy()
+    value = filtered.copy()
+    out = np.empty((len(commands) + 1, *response.shape))
+    out[0] = value
+    for index, command in enumerate(np.asarray(commands, dtype=np.float64)):
+        filtered = filtered + response * (command - filtered)
+        value = value + SIM_SERVO_RESPONSE * (filtered - value)
+        out[index + 1] = value
+    return out
+
+
+def estimate_servo_response(commands: np.ndarray, measured: np.ndarray) -> np.ndarray:
+    """Per-joint response of the real servo from an episode so far: 1.0 unless a joint is clearly slow.
+
+    ``commands[t]`` and ``measured[t]`` (the joints read just before command t), ACT space, shape (T, 6). For each
+    arm joint whose commands span ``EXCITATION_ACT``, the grid value whose model reproduces the measured step-to-step
+    motion best (differences, so a resting offset does not matter). Values above ``SLOW_RESPONSE`` and the gripper
+    return 1.0. Checked 2026-10-04 on recorded runs: always 1.0 on the certified scene; 0.16 on the lag stress
+    (true 0.16) from step 30; 0.20-0.25 on physical/episode_20 from step 30; 1.0 on episodes 10 and 13.
+    """
+    commands, measured = np.asarray(commands, dtype=np.float64), np.asarray(measured, dtype=np.float64)
+    response = np.ones(6)
+    if len(commands) < 8:
+        return response
+    for joint in range(5):
+        c, m = commands[:, joint], measured[:, joint]
+        if c.max() - c.min() < EXCITATION_ACT:
+            continue
+        modelled = servo_models(c[:-1], m[0], RESPONSE_GRID)
+        error = ((np.diff(m)[:, None] - np.diff(modelled, axis=0)) ** 2).sum(axis=0)
+        best = float(RESPONSE_GRID[int(np.argmin(error))])
+        if best <= SLOW_RESPONSE:
+            response[joint] = best
+    return response
 
 
 class Pi05ChunkPolicy:
@@ -42,24 +95,31 @@ class Pi05ChunkPolicy:
 
     def __init__(self, policy: Any, config: Any, stats: Any, prompt: Any, *, execute: int = 90,
                  clamp_channels: tuple[int, ...] = (5,), noise_seed: int = 0, tag: str = "pi05",
-                 first_execute: int | None = None, servo_response: tuple[float, ...] | None = None,
+                 first_execute: int | None = None, servo_response: tuple[float, ...] | str | None = None,
                  anchor_lead_cap_act: float = ANCHOR_LEAD_CAP_ACT) -> None:
         from so_arm101_v2.learning.tiny_model import denormalize_act, normalize_act
 
         if not 1 <= execute <= config.chunk_horizon:
             raise ValueError("execute must be in [1, chunk_horizon]")
         self.policy, self.config, self.stats, self.prompt = policy, config, stats, prompt
-        if servo_response is not None:
+        self.adaptive = isinstance(servo_response, str)
+        if self.adaptive:
+            if servo_response != "adaptive":
+                raise ValueError('servo_response must be six values in (0, 1], "adaptive" or None')
+        elif servo_response is not None:
             servo_response = tuple(float(v) for v in servo_response)
             if len(servo_response) != 6 or any(not 0.0 < v <= 1.0 for v in servo_response):
                 raise ValueError("servo_response must be six values in (0, 1]")
         if first_execute is not None and not 1 <= first_execute <= config.chunk_horizon:
             raise ValueError("first_execute must be in [1, chunk_horizon]")
         self.execute = int(execute)
-        self.servo_response = None if servo_response is None else np.asarray(servo_response, dtype=np.float64)
+        self.servo_response = None if servo_response is None or self.adaptive else np.asarray(servo_response, dtype=np.float64)
+        self.compensate = servo_response is not None
+        self.response_estimates: list[dict[str, Any]] = []      # adaptive: (step, response) at every re-read, for the run record
         self.first_execute = None if first_execute is None else int(first_execute)
         self.anchor_lead_cap_act = float(anchor_lead_cap_act)
-        self._models: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None    # simulated servo, real servo, its filtered command
+        self._commands: list[np.ndarray] = []       # this episode's commands and the joints measured just before each
+        self._measured: list[np.ndarray] = []
         self.chunk_horizon = self.execute          # commands per camera read (what the physical dry-pass gate iterates)
         self.report_content_sha256 = None
         self.teacher_horizon = 480
@@ -77,19 +137,29 @@ class Pi05ChunkPolicy:
     @property
     def policy_id(self) -> str:
         return (f"{self.tag}.exec{self.execute}" + ("" if self.first_execute is None else f".first{self.first_execute}")
-                + ("" if self.servo_response is None else ".lagcomp")
+                + (".lagadapt" if self.adaptive else "" if self.servo_response is None else ".lagcomp")
                 + (".gripper_clamp_v1" if self.clamp_channels == (5,) else ""))
 
     def reset(self, adapter: Any | None = None) -> None:
         del adapter
         self.action_index = 0
         self._buffer = []
-        self._models = None
+        self._commands, self._measured = [], []
+        self.response_estimates = []
 
     def _anchor(self, measured: np.ndarray) -> np.ndarray:
-        if self._models is None:
+        if not self.compensate or not self._commands:
             return measured
-        simulated, real, _ = self._models
+        commands, history = np.asarray(self._commands), np.asarray(self._measured)
+        if self.adaptive:
+            response = estimate_servo_response(commands, history)
+            self.response_estimates.append(dict(step=self.action_index, response=[round(float(v), 2) for v in response]))
+        else:
+            response = self.servo_response
+        if np.all(response >= 1.0):
+            return measured
+        simulated = servo_models(commands, history[0], np.ones(6))[-1]
+        real = servo_models(commands, history[0], response)[-1]
         correction = np.clip(simulated - real, -self.anchor_lead_cap_act, self.anchor_lead_cap_act)
         correction[5] = 0.0
         return (measured + correction).astype(np.float32)
@@ -119,16 +189,10 @@ class Pi05ChunkPolicy:
         command = self._buffer.pop(0)
         for channel in self.clamp_channels:
             command[channel] = np.clip(command[channel], self._clamp_low[channel], self._clamp_high[channel])
-        if self.servo_response is not None:
-            if self._models is None:
-                start = np.asarray(current_act, dtype=np.float64)
-                self._models = (start.copy(), start.copy(), start.copy())
-            simulated, real, filtered = self._models
-            target = command.astype(np.float64)
-            simulated += SIM_SERVO_RESPONSE * (target - simulated)
-            filtered += self.servo_response * (target - filtered)
-            real += SIM_SERVO_RESPONSE * (filtered - real)
+        if self.compensate:
+            self._measured.append(np.asarray(current_act, dtype=np.float64).copy())
+            self._commands.append(command.astype(np.float64))
         return command
 
 
-__all__ = ["ANCHOR_LEAD_CAP_ACT", "Pi05ChunkPolicy", "SIM_SERVO_RESPONSE"]
+__all__ = ["ANCHOR_LEAD_CAP_ACT", "Pi05ChunkPolicy", "SIM_SERVO_RESPONSE", "SLOW_RESPONSE", "estimate_servo_response", "servo_models"]
