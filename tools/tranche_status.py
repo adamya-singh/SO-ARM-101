@@ -117,22 +117,29 @@ def rl_row(run: Path, row: dict) -> None:
     row["metrics"] = metrics
 
 
+RERUN_STEPS = {"03": 5, "04": 11, "05": 2, "06": 3, "07": 1}   # tools/rerun_entries_03_07.build_steps (entry 00 feeds 03, 04, 06)
+RERUN_DONE = ("completed", "skipped_by_rule")
+
+
 def rerun_row(run: Path, row: dict, entry: str) -> None:
     ledger = read_json(run / "ledger.json") or {}
-    steps = ledger.get("steps") if isinstance(ledger.get("steps"), list) else list((ledger.get("steps") or {}).values())
-    mine = [s for s in steps if str(s.get("entry", "")).zfill(2) == entry]
-    done = [s for s in mine if s.get("exit_code") == 0 and s.get("finished_at")]
-    failed = [s for s in mine if s.get("exit_code") not in (None, 0)]
-    planned = (ledger.get("planned") or {}).get(entry)
-    total = planned if isinstance(planned, int) else (len(mine) or None)
+    steps = list((ledger.get("steps") or {}).values())
+    mine = [s for s in steps if str(s.get("entry", "")) == entry]
+    done = [s for s in mine if s.get("status") in RERUN_DONE]
+    failed = [s for s in mine if s.get("status") == "failed"]
+    total = RERUN_STEPS.get(entry)
     row["progress"] = dict(done=len(done), target=total, unit="steps")
-    row["metrics"] = dict((ledger.get("headline") or {}).get(entry, {}))
+    comparison = read_json(run / "comparison.json") or {}
+    summary = comparison.get(entry) or {}
+    row["metrics"] = {k: summary[k] for k in ("verdict_3_9", "changed", "compared") if k in summary}
     if failed:
         row["state_hint"] = "failed"
     elif total and len(done) >= total:
         row["state_hint"] = "done"
     elif mine:
         row["state_hint"] = "running"
+    else:
+        row["state_hint"] = "waiting"
 
 
 def status(manifest_path: Path) -> dict[str, Any]:
@@ -165,8 +172,12 @@ def status(manifest_path: Path) -> dict[str, Any]:
                      "skipped": "failed"}.get(job["state"], job["state"])
         if spec["kind"] == "rerun":
             hint = row.pop("state_hint", None)
-            if hint and state in ("running", "done", "failed"):
-                state = hint if not (hint == "running" and state == "done") else "done"
+            if hint == "failed":
+                state = "failed"
+            elif hint == "done":
+                state = "done"
+            elif state == "running" and hint == "waiting":
+                state = "queued"          # the chain is running an earlier entry
         elif run_status in ("complete", "aborted", "failed"):
             state = {"complete": "done", "aborted": "aborted", "failed": "failed"}[run_status]
             if run_status == "failed" and job is not None and job["state"] == "running":
