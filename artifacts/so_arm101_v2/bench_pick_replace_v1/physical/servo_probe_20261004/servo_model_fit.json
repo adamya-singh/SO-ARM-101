@@ -1,0 +1,172 @@
+{
+  "tool": "fit_servo_model",
+  "fit_runs": [
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/run_1",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/run_3",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/replay_full_1",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/replay_full_2",
+    "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_10_20260910"
+  ],
+  "joints": [
+    "elbow_flex",
+    "shoulder_lift",
+    "wrist_flex",
+    "shoulder_pan",
+    "wrist_roll"
+  ],
+  "sweeps": 3,
+  "objective": {
+    "moving_weight": 0.25,
+    "rest_speed_units": 0.2
+  },
+  "fitted_rms_units_unweighted": {
+    "shoulder_pan": 0.987,
+    "shoulder_lift": 0.798,
+    "elbow_flex": 1.132,
+    "wrist_flex": 1.137,
+    "wrist_roll": 0.158,
+    "gripper": 3.877
+  },
+  "certified": {
+    "kp": [
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      50.0
+    ],
+    "kv": [
+      5.12815011462096,
+      5.0017601635440885,
+      4.666305248385883,
+      4.497993395502867,
+      4.473104837677079,
+      4.472755053189025
+    ],
+    "frictionloss": [
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "rms_units": {
+      "shoulder_pan": 1.06,
+      "shoulder_lift": 0.745,
+      "elbow_flex": 3.382,
+      "wrist_flex": 1.272,
+      "wrist_roll": 0.178,
+      "gripper": 3.96
+    }
+  },
+  "fitted": {
+    "kp": [
+      30.24,
+      56.0,
+      6.481,
+      43.2,
+      43.2,
+      50.0
+    ],
+    "kv": [
+      3.024,
+      5.04,
+      0.9333,
+      3.0,
+      4.6656,
+      4.4728
+    ],
+    "frictionloss": [
+      0.4167,
+      0.72,
+      0.3,
+      0.7776,
+      0.24,
+      0.1
+    ],
+    "rms_units": {
+      "shoulder_pan": 0.986,
+      "shoulder_lift": 0.693,
+      "elbow_flex": 0.783,
+      "wrist_flex": 1.092,
+      "wrist_roll": 0.156,
+      "gripper": 3.893
+    }
+  },
+  "checks": {
+    "run_4": {
+      "certified": {
+        "shoulder_pan": 0.655,
+        "shoulder_lift": 0.306,
+        "elbow_flex": 3.825,
+        "wrist_flex": 0.339,
+        "wrist_roll": 0.183,
+        "gripper": 0.106
+      },
+      "fitted": {
+        "shoulder_pan": 0.533,
+        "shoulder_lift": 0.456,
+        "elbow_flex": 0.883,
+        "wrist_flex": 0.406,
+        "wrist_roll": 0.094,
+        "gripper": 0.106
+      }
+    },
+    "run_5": {
+      "certified": {
+        "shoulder_pan": 0.567,
+        "shoulder_lift": 0.33,
+        "elbow_flex": 3.815,
+        "wrist_flex": 0.339,
+        "wrist_roll": 0.19,
+        "gripper": 0.109
+      },
+      "fitted": {
+        "shoulder_pan": 0.461,
+        "shoulder_lift": 0.473,
+        "elbow_flex": 0.89,
+        "wrist_flex": 0.408,
+        "wrist_roll": 0.108,
+        "gripper": 0.109
+      }
+    },
+    "episode_13_20260910": {
+      "certified": {
+        "shoulder_pan": 0.612,
+        "shoulder_lift": 1.845,
+        "elbow_flex": 1.778,
+        "wrist_flex": 0.648,
+        "wrist_roll": 0.136,
+        "gripper": 4.985
+      },
+      "fitted": {
+        "shoulder_pan": 0.588,
+        "shoulder_lift": 1.703,
+        "elbow_flex": 2.021,
+        "wrist_flex": 0.562,
+        "wrist_roll": 0.093,
+        "gripper": 4.959
+      }
+    },
+    "episode_04_20260910": {
+      "certified": {
+        "shoulder_pan": 0.546,
+        "shoulder_lift": 1.516,
+        "elbow_flex": 1.888,
+        "wrist_flex": 0.575,
+        "wrist_roll": 0.135,
+        "gripper": 1.654
+      },
+      "fitted": {
+        "shoulder_pan": 0.649,
+        "shoulder_lift": 1.441,
+        "elbow_flex": 1.713,
+        "wrist_flex": 0.706,
+        "wrist_roll": 0.089,
+        "gripper": 1.343
+      }
+    }
+  }
+}

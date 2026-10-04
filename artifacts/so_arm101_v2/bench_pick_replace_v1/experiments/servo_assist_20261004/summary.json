@@ -1,0 +1,1029 @@
+{
+  "tool": "pi05_lag_stress",
+  "checkpoint": "/home/win10ubuntu/dev/robotic-arm/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/pi05_lora16_10k_20261002/model/pi05.pt",
+  "suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1",
+  "lag_responses": {
+    "lag": [
+      0.75,
+      0.85,
+      0.16,
+      0.7,
+      0.65,
+      0.6
+    ],
+    "lag0910": [
+      0.4,
+      0.9,
+      0.45,
+      0.6,
+      0.65,
+      0.65
+    ]
+  },
+  "results": {
+    "nominal/exec30_assist": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 6,
+        "pickup_incomplete": 4
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.0638723373413086,
+            "elbow_rad": -0.02508544921875,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.05874800682067871,
+            "elbow_rad": -0.017113685607910156,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.060647010803222656,
+            "elbow_rad": -0.021804094314575195,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.058994293212890625,
+            "elbow_rad": -0.0233306884765625,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.060647010803222656,
+            "elbow_rad": -0.019549131393432617,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.06079530715942383,
+            "elbow_rad": -0.013844490051269531,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.05324387550354004,
+            "elbow_rad": -0.017011404037475586,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.06316995620727539,
+            "elbow_rad": -0.017073631286621094,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.05485677719116211,
+            "elbow_rad": -0.019489288330078125,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.055310726165771484,
+            "elbow_rad": -0.014852285385131836,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.05982065200805664,
+        "elbow_rad_median": -0.01830148696899414,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 24.24019650392773,
+        "lateral_rms_mm": 34.262396483458026,
+        "lateral_max_mm": 80.55338541635487,
+        "within_tolerance": 0,
+        "not_descended": 4,
+        "yaw_err_median_deg": 3.395528310094015,
+        "dz_median_mm": 6.540624352180414
+      },
+      "seconds": 126.9,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec30_assist/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec30_measured": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 7,
+        "pickup_incomplete": 3
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.2102372646331787,
+            "elbow_rad": 0.2102372646331787,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.20905566215515137,
+            "elbow_rad": 0.20905566215515137,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.2085859775543213,
+            "elbow_rad": 0.2085859775543213,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.21064972877502441,
+            "elbow_rad": 0.21064972877502441,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.20922398567199707,
+            "elbow_rad": 0.20922398567199707,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.21291136741638184,
+            "elbow_rad": 0.21291136741638184,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.2109980583190918,
+            "elbow_rad": 0.2109980583190918,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.21072840690612793,
+            "elbow_rad": 0.21072840690612793,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.2083585262298584,
+            "elbow_rad": 0.2083585262298584,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.2121415138244629,
+            "elbow_rad": 0.2121415138244629,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.21044349670410156,
+        "elbow_rad_median": 0.21044349670410156,
+        "cube_in_frame": 6,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 102.87693248368335,
+        "lateral_rms_mm": 110.03591305584405,
+        "lateral_max_mm": 178.6873270255794,
+        "within_tolerance": 0,
+        "not_descended": 0,
+        "yaw_err_median_deg": 11.679464899978143,
+        "dz_median_mm": 8.057109756312501
+      },
+      "seconds": 120.2,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec30_measured/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec90_assist": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 3,
+        "pickup_incomplete": 7
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.010164737701416016,
+            "elbow_rad": -0.007809638977050781,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.010280370712280273,
+            "elbow_rad": -0.008630037307739258,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.010220050811767578,
+            "elbow_rad": -0.008012533187866211,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.011685371398925781,
+            "elbow_rad": -0.009822845458984375,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.01095890998840332,
+            "elbow_rad": -0.008810281753540039,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.01147317886352539,
+            "elbow_rad": -0.007200479507446289,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.009617328643798828,
+            "elbow_rad": -0.007427692413330078,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.012497901916503906,
+            "elbow_rad": -0.007205009460449219,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.011786699295043945,
+            "elbow_rad": -0.008147001266479492,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.010293722152709961,
+            "elbow_rad": -0.007829427719116211,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.01062631607055664,
+        "elbow_rad_median": -0.007920980453491211,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 10.618606733720236,
+        "lateral_rms_mm": 11.298653402288053,
+        "lateral_max_mm": 18.01891591956693,
+        "within_tolerance": 1,
+        "not_descended": 8,
+        "yaw_err_median_deg": 1.6565717738559087,
+        "dz_median_mm": 9.771203203854633
+      },
+      "seconds": 53.4,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec90_assist/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec90_assist_gravity": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 2,
+        "pickup_incomplete": 8
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.040265798568725586,
+            "elbow_rad": 0.040265798568725586,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.039437055587768555,
+            "elbow_rad": 0.039437055587768555,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.040776968002319336,
+            "elbow_rad": 0.040776968002319336,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.04024171829223633,
+            "elbow_rad": 0.04024171829223633,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.04022479057312012,
+            "elbow_rad": 0.04022479057312012,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.041553497314453125,
+            "elbow_rad": 0.041553497314453125,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.04131197929382324,
+            "elbow_rad": 0.04131197929382324,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.041296958923339844,
+            "elbow_rad": 0.041296958923339844,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.040549516677856445,
+            "elbow_rad": 0.040549516677856445,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.04089212417602539,
+            "elbow_rad": 0.04089212417602539,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.04066324234008789,
+        "elbow_rad_median": 0.04066324234008789,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 13.038829743000022,
+        "lateral_rms_mm": 13.86080385795144,
+        "lateral_max_mm": 19.449383606021502,
+        "within_tolerance": 0,
+        "not_descended": 10,
+        "yaw_err_median_deg": 2.206584116017112,
+        "dz_median_mm": 17.05974889184266
+      },
+      "seconds": 64.2,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec90_assist_gravity/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec90_assist_gravity_integral": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 5,
+        "pickup_incomplete": 5
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.0318605899810791,
+            "elbow_rad": 0.0318605899810791,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.03147745132446289,
+            "elbow_rad": 0.03147745132446289,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.03044295310974121,
+            "elbow_rad": 0.03044295310974121,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.028191566467285156,
+            "elbow_rad": 0.028191566467285156,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.030536890029907227,
+            "elbow_rad": 0.030536890029907227,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.030101537704467773,
+            "elbow_rad": 0.030101537704467773,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.03306412696838379,
+            "elbow_rad": 0.03306412696838379,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.0325162410736084,
+            "elbow_rad": 0.0325162410736084,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.03080296516418457,
+            "elbow_rad": 0.03080296516418457,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.030772924423217773,
+            "elbow_rad": 0.030772924423217773,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.030787944793701172,
+        "elbow_rad_median": 0.030787944793701172,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 13.04987319838802,
+        "lateral_rms_mm": 15.272035703139291,
+        "lateral_max_mm": 23.301311454946244,
+        "within_tolerance": 0,
+        "not_descended": 10,
+        "yaw_err_median_deg": 2.0406908774339243,
+        "dz_median_mm": 15.17466116190425
+      },
+      "seconds": 60.6,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec90_assist_gravity_integral/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec90_assist_gravity_friction": {
+      "successes": 0,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 3,
+        "pickup_incomplete": 7
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.006912946701049805,
+            "elbow_rad": -0.003733396530151367,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.0062541961669921875,
+            "elbow_rad": -0.004498481750488281,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.006214141845703125,
+            "elbow_rad": -0.00395655632019043,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.008176803588867188,
+            "elbow_rad": -0.003821849822998047,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.0071599483489990234,
+            "elbow_rad": -0.004683017730712891,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.006545066833496094,
+            "elbow_rad": -0.0031402111053466797,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.006057024002075195,
+            "elbow_rad": -0.00334930419921875,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.007968425750732422,
+            "elbow_rad": -0.0026760101318359375,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.007540464401245117,
+            "elbow_rad": -0.004035234451293945,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.00710296630859375,
+            "elbow_rad": -0.0039310455322265625,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.007007956504821777,
+        "elbow_rad_median": -0.0038764476776123047,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 8.976014851134469,
+        "lateral_rms_mm": 10.633866402710582,
+        "lateral_max_mm": 16.201816732791393,
+        "within_tolerance": 1,
+        "not_descended": 8,
+        "yaw_err_median_deg": 1.7871655100811523,
+        "dz_median_mm": 12.909224428592882
+      },
+      "seconds": 54.0,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec90_assist_gravity_friction/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec30_assist_gravity": {
+      "successes": 1,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": true,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 5,
+        "pickup_incomplete": 4,
+        "success": 1
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.08628177642822266,
+            "elbow_rad": 0.08628177642822266,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.08452343940734863,
+            "elbow_rad": 0.08452343940734863,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.08576369285583496,
+            "elbow_rad": 0.08576369285583496,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.0885627269744873,
+            "elbow_rad": 0.0885627269744873,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.08492422103881836,
+            "elbow_rad": 0.08492422103881836,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.08910703659057617,
+            "elbow_rad": 0.08910703659057617,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.08713650703430176,
+            "elbow_rad": 0.08713650703430176,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.08676362037658691,
+            "elbow_rad": 0.08676362037658691,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.08749842643737793,
+            "elbow_rad": 0.08749842643737793,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.09047865867614746,
+            "elbow_rad": 0.09047865867614746,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.08695006370544434,
+        "elbow_rad_median": 0.08695006370544434,
+        "cube_in_frame": 9,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 15.618724865980493,
+        "lateral_rms_mm": 35.37031428289435,
+        "lateral_max_mm": 96.09130945980884,
+        "within_tolerance": 0,
+        "not_descended": 3,
+        "yaw_err_median_deg": 3.095557424068353,
+        "dz_median_mm": 4.982719377227138
+      },
+      "seconds": 115.4,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec30_assist_gravity/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec30_assist_gravity_integral": {
+      "successes": 1,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": true,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 5,
+        "success": 1,
+        "pickup_incomplete": 4
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.0769491195678711,
+            "elbow_rad": 0.0769491195678711,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.07363200187683105,
+            "elbow_rad": 0.07363200187683105,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.07271504402160645,
+            "elbow_rad": 0.07271504402160645,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.07531952857971191,
+            "elbow_rad": 0.07531952857971191,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.07473444938659668,
+            "elbow_rad": 0.07473444938659668,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.07760858535766602,
+            "elbow_rad": 0.07760858535766602,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.07643961906433105,
+            "elbow_rad": 0.07643961906433105,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.07573270797729492,
+            "elbow_rad": 0.07573270797729492,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.0745079517364502,
+            "elbow_rad": 0.0745079517364502,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.07779407501220703,
+            "elbow_rad": 0.07779407501220703,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.07552611827850342,
+        "elbow_rad_median": 0.07552611827850342,
+        "cube_in_frame": 9,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 14.406113803146946,
+        "lateral_rms_mm": 36.05594877424939,
+        "lateral_max_mm": 100.07660048011515,
+        "within_tolerance": 0,
+        "not_descended": 1,
+        "yaw_err_median_deg": 4.641084968199529,
+        "dz_median_mm": 5.192787313307962
+      },
+      "seconds": 111.4,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec30_assist_gravity_integral/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec30_assist_gravity_friction": {
+      "successes": 1,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": false,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": true,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 4,
+        "pickup_incomplete": 5,
+        "success": 1
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.051024675369262695,
+            "elbow_rad": -0.008381128311157227,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.04588150978088379,
+            "elbow_rad": -0.007702350616455078,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.047501325607299805,
+            "elbow_rad": -0.010411977767944336,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.04573321342468262,
+            "elbow_rad": -0.008656024932861328,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.04647040367126465,
+            "elbow_rad": -0.0067920684814453125,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.04299139976501465,
+            "elbow_rad": -0.0035538673400878906,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.04223322868347168,
+            "elbow_rad": -0.006977558135986328,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.04439973831176758,
+            "elbow_rad": -0.008071660995483398,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.04134488105773926,
+            "elbow_rad": -0.007693052291870117,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.04411482810974121,
+            "elbow_rad": -0.004181623458862305,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.0450664758682251,
+        "elbow_rad_median": -0.007697701454162598,
+        "cube_in_frame": 10,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 19.63807938563216,
+        "lateral_rms_mm": 32.13910175596007,
+        "lateral_max_mm": 81.06993175491407,
+        "within_tolerance": 0,
+        "not_descended": 7,
+        "yaw_err_median_deg": 3.1931544206119256,
+        "dz_median_mm": 9.720286137447442
+      },
+      "seconds": 113.6,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec30_assist_gravity_friction/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    },
+    "nominal/exec90_measured": {
+      "successes": 1,
+      "rollouts": 10,
+      "per_scenario": {
+        "pose_000": false,
+        "pose_001": true,
+        "pose_002": false,
+        "pose_003": false,
+        "pose_004": false,
+        "pose_005": false,
+        "pose_006": false,
+        "pose_007": false,
+        "pose_008": false,
+        "pose_009": false
+      },
+      "categories": {
+        "safety_invalidation": 7,
+        "success": 1,
+        "pickup_incomplete": 2
+      },
+      "survey": {
+        "rows": [
+          {
+            "scenario_id": "pose_000",
+            "max_abs_rad": 0.09867262840270996,
+            "elbow_rad": 0.09867262840270996,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_001",
+            "max_abs_rad": 0.09781408309936523,
+            "elbow_rad": 0.09781408309936523,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_002",
+            "max_abs_rad": 0.09917283058166504,
+            "elbow_rad": 0.09917283058166504,
+            "cube_in_frame": false
+          },
+          {
+            "scenario_id": "pose_003",
+            "max_abs_rad": 0.09862279891967773,
+            "elbow_rad": 0.09862279891967773,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_004",
+            "max_abs_rad": 0.0986025333404541,
+            "elbow_rad": 0.0986025333404541,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_005",
+            "max_abs_rad": 0.09982132911682129,
+            "elbow_rad": 0.09982132911682129,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_006",
+            "max_abs_rad": 0.09979081153869629,
+            "elbow_rad": 0.09979081153869629,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_007",
+            "max_abs_rad": 0.09981584548950195,
+            "elbow_rad": 0.09981584548950195,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_008",
+            "max_abs_rad": 0.09894156455993652,
+            "elbow_rad": 0.09894156455993652,
+            "cube_in_frame": true
+          },
+          {
+            "scenario_id": "pose_009",
+            "max_abs_rad": 0.09927916526794434,
+            "elbow_rad": 0.09927916526794434,
+            "cube_in_frame": true
+          }
+        ],
+        "max_abs_rad_median": 0.09905719757080078,
+        "elbow_rad_median": 0.09905719757080078,
+        "cube_in_frame": 9,
+        "count": 10
+      },
+      "closure": {
+        "count": 10,
+        "lateral_median_mm": 10.738481555756149,
+        "lateral_rms_mm": 72.73039008949584,
+        "lateral_max_mm": 159.79847499184896,
+        "within_tolerance": 3,
+        "not_descended": 6,
+        "yaw_err_median_deg": 2.562420697583903,
+        "dz_median_mm": 10.490955415354772
+      },
+      "seconds": 52.2,
+      "report": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/nominal/exec90_measured/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_x1/evaluation.json"
+    }
+  }
+}

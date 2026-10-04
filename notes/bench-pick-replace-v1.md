@@ -26,6 +26,21 @@ Order for the next live attempt with any new policy class: `--sim-rehearsal`,
 `--preflight-only`, `--survey-only`, then the full episode. None of this has
 run on the arm yet.
 
+**Update 2026-10-04 (later): servos measured.** The elbow is a soft
+proportional servo: it rests 1.5-6.4 units short of its command (servo probe,
+four runs within 0.2 units). The runner now applies a servo assist by default
+(`physical/servo_assist.py`, pinned model `servo_model_20261004.json`): on the
+arm, the certified scene's teacher lands 4.1 mm from the simulator's prediction
+at closure with it and 10.4 mm without. A measured-servo scene with a
+compensating teacher exists (`simulation_code/model/bench_pick_replace_v1_servo`,
+41b6cbd1, teacher certified 30/30) but no data was captured on it: the real arm
+still ends 9.5 mm from that scene's prediction. pi0.5 with the assist still
+misses the grasp in the simulator stand-in (0/10); no pi0.5 episode has been
+run on the arm since episode 20. Notebook entry "Servo probe, servo model and
+runner servo assist". After any arm use: `--approach-only`, then
+`tools/torque_off.py` (it refuses away from the rest pose). GPU jobs go through
+`tsp`.
+
 **Where things stand (read this first; the dated paragraphs below are the
 history in order and keep the next step as it was understood on their day).**
 The live policy is still the fixed-square appearance policy `ytn3eygr`.

@@ -18,3 +18,4 @@
 [2026-09-13 03:09:23] job 13 RESUMED (SIGCONT) at the user's request; 02:00 timer cancelled
 [2026-10-04 04:35:06] queued tsp job servo-assist-pi05-sim: pi0.5 (pi05_lora16_10k_20261002) on the measured-servo scene with and without the runner's servo assist -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
 [2026-10-04 04:47:10] queued tsp job servo-assist-pi05-sim-variants: pi0.5 on the measured-servo scene, assist terms ablated -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 11:26:22] re-queued tsp job servo-assist-pi05-sim-adaptive (lost when the machine restarted): pi0.5 on the measured-servo scene with the servo assist and the adaptive lag compensation together -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004

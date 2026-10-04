@@ -1315,3 +1315,85 @@ scene by default with per-episode variation over the range seen, re-certify the 
 Before any live run: confirm why the elbow slowed, then `--sim-rehearsal`, `--preflight-only`, `--survey-only`,
 full episode. Open from before: jaws close about 15 mm higher than in the simulator; the 2026-10-04 run was
 under dim coloured light, outside the appearance regime's 10 percent channel balance (not measured as a cause).
+
+### Servo probe, servo model and runner servo assist (2026-10-04, after the first live pi0.5 run)
+
+Evidence: `physical/servo_probe_20261004/` (probe runs 1, 3, 4, 5; teacher replays; fits v1-v4),
+`experiments/servo_assist_20261004/summary.json`, resource `servo_model_20261004.json`. Commit 22beed8.
+The user's direction: measure the servos once and make the code account for them by default.
+
+**Measurement.** `run_physical_episode.py --servo-probe` (the survey move, then each joint wiggled in the air
+around the viewing pose, through the normal runner). Four runs agree within 0.2 units. Every joint trails a
+ramp by about what the simulator's does (3.5-3.9 units at 1 unit per step), except that joints stop short of
+their command at rest: the elbow by 1.5 units after a positive move and 6.4 after a negative one (5.8 at the
+viewing pose after the survey move), the others by 0 to 1.5. It is a proportional servo with no integral
+term on 5 V: resting error = (gravity torque + friction) / stiffness. This corrects the entry above: the
+elbow was not "three times slower than on 2026-09-10"; the survey move loads it, and one servo model fits
+both days.
+
+**Servo model.** `tools/fit_servo_model.py` replays recorded commands in the simulator with per-joint
+stiffness, damping and dry friction on the model, one joint at a time, resting samples weighted in full
+(the first two searches moved all joints together or scored plain rms, and left the wrist worse than the
+certified scene). Final fit (probe runs 1 and 3, two teacher replays, episode 10): stiffness 30.2, 56, 6.5,
+43.2, 43.2 N.m/rad against the scene's 50 on every joint; friction 0.42, 0.72, 0.30, 0.78, 0.24 N.m against
+0.1. Elbow rms 3.8 -> 0.9 units on the two probe runs it was not fitted to, 1.9 -> 1.1-1.7 on episodes 4 and 13.
+
+**Measured-servo scene.** `bench_config` gains a `servo` block; `prepare_bench_scene.py --servo <fit>` writes
+it into a sibling scene (`simulation_code/model/bench_pick_replace_v1_servo`, hash 41b6cbd1; the live scene
+92f07142 is untouched and regenerates bit for bit). On it the unchanged teacher succeeds on 1 of 10
+certification placements, which is the real arm's miss reproduced. With compensation in the teacher (gravity
+torque at the planned pose over the stiffness, friction over the stiffness in the direction of motion, and
+a slow integral of the remaining error taken only while the plan rests) it certifies 30/30. Tuning lives in
+the hashed block: integral gain 0.03 per step (0.05 and 0.08 cost a placement; integrating through a move
+overshoots the survey pose by 0.05 rad), lead capped at 18 units.
+
+**The teacher's commands on the real arm** (`--replay-telemetry`, nominal placement; real joints against the
+simulator's prediction for the same commands, jaw midpoint by forward kinematics):
+
+| commands from | real arm run with | survey pose | closure: lateral | closure: height |
+|---|---|---|---|---|
+| certified scene teacher | nothing (computed by replaying the measured-servo replays through the certified scene) | 4.6 mm, 18 mm low | 10.4 mm | 1.3 mm |
+| measured-servo scene teacher (fit v3) | nothing | 1.5 mm | 9.5 mm | 1.9 mm |
+| measured-servo scene teacher (final fit) | nothing | 1.5 mm | 9.5 mm | 0.6 mm |
+| certified scene teacher | **servo assist** | 1.5 mm | **4.1 mm** | 4.5 mm |
+
+The measured-servo scene fixes the elbow, the survey pose (0.011-0.017 rad from the viewing pose on the arm;
+episode 20 was 0.217) and the jaw height, but the real base and wrist do not answer the teacher's
+two-unit corrections (pan commanded -1.6 -> +0.2, real stays at -2.2; wrist flex rests 2.5-3.7 units
+high), which the fitted model does not reproduce. A policy trained on that scene would inherit about
+9.5 mm, against a grasp tolerance of about 8 mm. The re-capture and retrain were therefore not started.
+
+**Servo assist** (`physical/servo_assist.py`, in the runner by default for a policy whose scene has the stiff
+actuators): the same compensation law between the policy's target and the gate, with the integral acting on
+the real measured error, so whatever holds a joint back at rest is pushed out. With it the certified scene's
+teacher lands 4.1 mm from the simulator's prediction at closure, 3.2 mm at lift, 4.5 mm at place.
+
+**pi0.5 with the assist, measured-servo scene as the arm's stand-in** (10 held-out placements, checkpoint
+pi05_lora16_10k_20261002, `tools/pi05_lag_stress.py --model <servo scene>`):
+
+| run | success | survey elbow error | cube in survey frame | lateral at closure (median) | not descended |
+|---|---|---|---|---|---|
+| execute 30, no assist | 0 | +0.210 rad (episode 20: 0.217) | 6 | 103 mm | 0 |
+| execute 90, no assist | 1 | +0.099 | 9 | 10.7 mm | 6 |
+| execute 30, assist | 0 | -0.018 | 10 | 24 mm | 4 |
+| execute 90, assist | 0 | -0.008 | 10 | 10.6 mm | 8 |
+| execute 90, assist without the integral | 0 | -0.004 | 10 | 9.0 mm | 8 |
+| execute 90, assist gravity term only | 0 | +0.041 | 10 | 13.0 mm | 10 |
+| execute 30, assist gravity term only | 1 | +0.087 | 9 | 15.6 mm | 3 |
+
+The stand-in reproduces the live failure to the number, and the assist repairs the survey pose in every
+run, but the policy still misses the grasp: the arm is not down when the gripper closes. The scripted
+teacher through the same assist succeeds on 9 of 10 placements, so the remaining gap is in how the
+policy re-plans (each chunk is added to the measured pose, and the soft elbow is further behind at steps
+180 and 270 than the stiff simulator's). Queued, not yet run (the machine restarted and cleared the queue
+once): the assist together with the adaptive lag compensation.
+
+**Runner changes that came out of this.** Stall guard limit 7 -> 12 units (a compensated command rests up to
+10 units past a loaded elbow; the old limit stopped a teacher replay at full extension). A downward
+approach stops its shoulder command just above the floor instead of refusing (episode 17, probe run 2).
+`torque_off.py` refuses unless the arm is near the rest pose: a refused parking step was once followed by
+it and torque was cut with the arm extended over the bench (the arm held its pose; nothing fell).
+
+**State.** Arm parked at rest, torque off. No pi0.5 episode has been run on the arm since episode 20.
+Next: the queued assist + lag compensation run; if the policy still misses in the stand-in, the lever is
+the one already recorded on 2026-09-18 (a policy that corrects from the close-up frame), not more servo work.

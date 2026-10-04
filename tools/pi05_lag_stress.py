@@ -33,6 +33,8 @@ VARIANTS = {
     "exec30_adaptive": dict(execute=30, servo_response="adaptive"),
     "exec30_assist": dict(execute=30, assist=True),
     "exec90_assist": dict(execute=90, assist=True),
+    "exec30_assist_adaptive": dict(execute=30, assist=True, servo_response="adaptive"),
+    "exec90_assist_adaptive": dict(execute=90, assist=True, servo_response="adaptive"),
     "exec30_assist_gravity": dict(execute=30, assist=dict(friction_scale=0.0, integral_gain=0.0)),
     "exec90_assist_gravity": dict(execute=90, assist=dict(friction_scale=0.0, integral_gain=0.0)),
     "exec30_assist_gravity_integral": dict(execute=30, assist=dict(friction_scale=0.0)),

@@ -1,0 +1,8 @@
+certified scene rms: {'shoulder_pan': 1.06, 'shoulder_lift': 0.75, 'elbow_flex': 3.38, 'wrist_flex': 1.27, 'wrist_roll': 0.18, 'gripper': 3.96}
+sweep 0: {'kp': [28.0, 56.0, 7.0, 40.0, 40.0, 50.0], 'kv': [2.52, 5.04, 0.84, 3.6, 4.8, 4.473], 'frictionloss': [0.45, 0.6, 0.3, 0.6, 0.2, 0.1]} {'shoulder_pan': 0.88, 'shoulder_lift': 0.71, 'elbow_flex': 0.87, 'wrist_flex': 1.1, 'wrist_roll': 0.16, 'gripper': 3.95}
+sweep 1: {'kp': [28.0, 56.0, 7.0, 40.0, 40.0, 50.0], 'kv': [3.024, 5.04, 1.008, 3.0, 4.0, 4.473], 'frictionloss': [0.45, 0.72, 0.3, 0.72, 0.24, 0.1]} {'shoulder_pan': 0.97, 'shoulder_lift': 0.7, 'elbow_flex': 0.81, 'wrist_flex': 1.09, 'wrist_roll': 0.16, 'gripper': 3.9}
+sweep 2: {'kp': [30.24, 56.0, 6.48, 43.2, 43.2, 50.0], 'kv': [3.024, 5.04, 0.933, 3.0, 4.666, 4.473], 'frictionloss': [0.417, 0.72, 0.3, 0.778, 0.24, 0.1]} {'shoulder_pan': 0.99, 'shoulder_lift': 0.69, 'elbow_flex': 0.78, 'wrist_flex': 1.09, 'wrist_roll': 0.16, 'gripper': 3.89}
+check run_4: certified [0.65 0.31 3.82 0.34 0.18 0.11] -> fitted [0.53 0.46 0.88 0.41 0.09 0.11]
+check run_5: certified [0.57 0.33 3.82 0.34 0.19 0.11] -> fitted [0.46 0.47 0.89 0.41 0.11 0.11]
+check episode_13_20260910: certified [0.61 1.84 1.78 0.65 0.14 4.98] -> fitted [0.59 1.7  2.02 0.56 0.09 4.96]
+check episode_04_20260910: certified [0.55 1.52 1.89 0.57 0.13 1.65] -> fitted [0.65 1.44 1.71 0.71 0.09 1.34]
