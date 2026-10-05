@@ -95,6 +95,31 @@ class Recorder:
         self.renderer.close()
 
 
+class HeadlessViewer:
+    """Stands in for mujoco.viewer's handle with --headless: no window, the recorder alone renders (EGL)."""
+
+    def __init__(self, mujoco) -> None:
+        import contextlib
+        self.cam = mujoco.MjvCamera()
+        self._lock = contextlib.nullcontext
+
+    def lock(self):
+        return self._lock()
+
+    def is_running(self) -> bool:
+        return True
+
+    def sync(self) -> None: pass
+    def set_images(self, *a) -> None: pass
+    def set_texts(self, *a) -> None: pass
+    def update_texture(self, *a) -> None: pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None: pass
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--kind", required=True, choices=("pi05", "smolvla", "act"))
@@ -108,8 +133,16 @@ def main(argv=None) -> int:
     p.add_argument("--size", type=int, nargs=2, default=(960, 540), metavar=("W", "H"))
     p.add_argument("--once", action="store_true", help="show each pose once, then exit (default: cycle until the window closes)")
     p.add_argument("--summary", type=Path, default=None, help="write per-pose live outcomes as JSON")
+    p.add_argument("--headless", action="store_true",
+                   help="record only, no window, rendering through EGL (WSLg's on-screen D3D12 path dropped its device under "
+                        "GPU memory pressure on 2026-10-05 and killed two recordings)")
     args = p.parse_args(argv)
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+    if args.headless:
+        if args.record is None:
+            p.error("--headless needs --record")
+        os.environ["MUJOCO_GL"] = "egl"
+        args.speed = 1e6  # nothing to watch: run as fast as the policy and renderer allow
+    elif not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         print("no display: run this from a terminal with DISPLAY set (WSLg: echo $DISPLAY prints :0)")
         return 1
 
@@ -140,7 +173,7 @@ def main(argv=None) -> int:
     print(f"{label}: {len(scenarios)} held-out placements, execute {args.execute}; close the MuJoCo window to exit", flush=True)
 
     live: dict[str, str] = {}
-    with mujoco.viewer.launch_passive(adapter.model, adapter.data) as viewer:
+    with (HeadlessViewer(mujoco) if args.headless else mujoco.viewer.launch_passive(adapter.model, adapter.data)) as viewer:
         with viewer.lock():
             viewer.cam.lookat[:] = (0.0, 0.18, 0.06)  # side-on: arm and cube both in view for every placement
             viewer.cam.distance, viewer.cam.azimuth, viewer.cam.elevation = 0.62, 180.0, -24.0
