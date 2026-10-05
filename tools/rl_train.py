@@ -402,7 +402,15 @@ def main(argv=None) -> int:
         # ------------------------------------------------------------------ final model + held-out
         final_path = root / "model" / f"{args.model}_rl.pt"
         extra = dict(identity=identity, rl=dict(policy=policy.state_dict(), episodes_done=state["episodes_done"], aborted=state.get("aborted")))
-        model.save(final_path, extra)
+        # ResidualModel.save keeps only requires_grad tensors (the rest is assumed to come from config.pretrained). RL freezes
+        # everything but its heads, so without this the fine-tuned weights were dropped and the file did not load on its own
+        # (2026-10-05: rl_act/model/act_rl.pt held 23 of 153 tensors, no backbone). Keep the start checkpoint's tensors too.
+        names = None
+        if args.model != "pi05":  # Pi05Model.save already writes every tensor the fine-tune trained
+            start = torch.load(args.checkpoint, map_location="cpu", weights_only=False)["state_dict"]
+            names = set(start) | {n for n, p in model.policy.named_parameters() if p.requires_grad}
+            del start
+        model.save(final_path, extra, names=names)
         phase("heldout", state["episodes_done"])
         from vla_finetune import closed_loop, log_outcome, summary_figure
         import contextlib

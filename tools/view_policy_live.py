@@ -55,6 +55,7 @@ class Recorder:
         self.mujoco = mujoco
         model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
         model.vis.global_.offheight = max(model.vis.global_.offheight, height)
+        self.model = model
         self.renderer = mujoco.Renderer(model, height=height, width=width)
         self.width, self.height = width, height
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +65,11 @@ class Recorder:
         self.writer.send(None)
         self.frames = 0
         self.lut = (255.0 * (np.arange(256) / 255.0) ** 0.6).astype(np.uint8)
+
+    def rebind(self) -> None:
+        """A new render context: textures are uploaded when a context is made, and each scenario rewrites them."""
+        self.renderer.close()
+        self.renderer = self.mujoco.Renderer(self.model, height=self.height, width=self.width)
 
     def frame(self, data, cam, wrist: np.ndarray | None, lines: tuple[str, ...]) -> None:
         import cv2
@@ -123,7 +129,11 @@ def main(argv=None) -> int:
     print(f"loading {args.checkpoint} ...", flush=True)
     model = load_model(args.kind, args.checkpoint)
     policy = ResidualChunkPolicy(model, execute=args.execute, num_steps=args.steps, tag=label)
-    amp = torch.autocast("cuda", dtype=torch.bfloat16) if args.kind == "smolvla" else None
+    # Run the policy in the number format its held-out evaluation used (bf16 autocast when the run's identity says amp):
+    # the ACT fine-tune was scored under autocast, and in fp32 two of its ten placements end differently.
+    identity = run_dir / "identity.json"
+    amp_on = json.loads(identity.read_text()).get("amp", args.kind == "smolvla") if identity.exists() else args.kind == "smolvla"
+    amp = torch.autocast("cuda", dtype=torch.bfloat16) if amp_on else None
     adapter = MujocoTaskAdapter(MODEL)
     contract = load_pick_place_contract(suite.task_contract, bench_config=adapter.bench)
     recorder = Recorder(args.record, adapter.model, *args.size, fps=30) if args.record else None
@@ -140,6 +150,13 @@ def main(argv=None) -> int:
             k += 1
             adapter.reset(scenario)
             policy.reset(adapter)
+            # Appearance randomization rewrites texel data in the model on every reset (the adapter rebuilds its own render
+            # contexts for it). The viewer and the recorder uploaded textures once, so push them again or every pose after
+            # the first renders with stale textures.
+            for tex in range(adapter.model.ntex):
+                viewer.update_texture(tex)
+            if recorder is not None:
+                recorder.rebind()
             viewer.sync()
             state = PickPlaceEvaluationState()
             evaluation = None
@@ -157,7 +174,7 @@ def main(argv=None) -> int:
                     frame = np.repeat(np.repeat(wrist, 2, axis=0), 2, axis=1)
                     viewer.set_images((mujoco.MjrRect(8, 8, frame.shape[1], frame.shape[0]), frame))
                 lines = (f"{label}   {scenario.scenario_id}   step {action + 1}/{contract.max_actions}   lift {1000 * max_lift:4.1f} mm",
-                         f"re-plans every {args.execute} steps (last camera read: step {last_read})   held-out eval recorded: {want}")
+                         f"re-plans every {args.execute} steps (last camera read: step {last_read})   evaluation: {want}")
                 viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, lines[0], lines[1]))
                 if amp is not None:
                     with amp:
@@ -190,7 +207,7 @@ def main(argv=None) -> int:
                 print(f"  -> {outcome}; max lift {1000 * max_lift:.1f} mm", flush=True)
                 if recorder is not None:  # hold the last frame for a second with the verdict on it
                     for _ in range(30):
-                        recorder.frame(adapter.data, cam, wrist, (lines[0], f"-> {outcome}   (held-out eval recorded: {want})"))
+                        recorder.frame(adapter.data, cam, wrist, (lines[0], f"-> {outcome}   (evaluation: {want})"))
             end = time.time()
             while viewer.is_running() and time.time() - end < 1.5:
                 viewer.sync(); time.sleep(0.05)
