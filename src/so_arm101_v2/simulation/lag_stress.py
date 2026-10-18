@@ -59,16 +59,16 @@ class LagStressPolicy:
 class TimeDilationPolicy:
     """Hold each command of ``policy`` for ``repeat`` control periods (the rollout advances one; this adds the rest)."""
 
-    def __init__(self, policy: Any, repeat: int) -> None:
+    def __init__(self, policy: Any, repeat: int, assist: Any | None = None) -> None:
         if int(repeat) < 1:
             raise ValueError("repeat must be at least 1")
-        self.policy, self.repeat = policy, int(repeat)
+        self.policy, self.repeat, self.assist = policy, int(repeat), assist
         self.requires_pixels = bool(getattr(policy, "requires_pixels", True))
         self._last: np.ndarray | None = None
 
     @property
     def policy_id(self) -> str:
-        return f"{self.policy.policy_id}.hold{self.repeat}"
+        return f"{self.policy.policy_id}.hold{self.repeat}" + ("" if self.assist is None else ".assist")
 
     @property
     def needs_frame(self) -> bool:
@@ -76,6 +76,8 @@ class TimeDilationPolicy:
 
     def reset(self, adapter: Any | None = None) -> None:
         self._last = None
+        if self.assist is not None:
+            self.assist.reset()
         self.policy.reset(adapter)
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
@@ -83,14 +85,17 @@ class TimeDilationPolicy:
             if adapter is None:
                 raise ValueError("TimeDilationPolicy needs the rollout's adapter")
             for _ in range(self.repeat - 1):
-                adapter.apply_policy_command(self._last)        # the same command again (keeps a lag stress response in step)
+                # The same target again (keeps a lag stress response in step); the servo assist, when given, runs
+                # every control period, as it would in the runner.
+                held = self._last if self.assist is None else self.assist.command(self._last, adapter.current_act())
+                adapter.apply_policy_command(held)
                 adapter.advance_control_period()
             current_act = adapter.current_act()
             if self.needs_frame and self.requires_pixels:
                 image = adapter.render_wrist_observation()
         command = self.policy.predict(image, current_act, adapter)
         self._last = np.asarray(command, dtype=np.float32).copy()
-        return command
+        return command if self.assist is None else self.assist.command(command, current_act)
 
 
 __all__ = ["LagStressPolicy", "REAL_SERVO_RESPONSE_20260910", "REAL_SERVO_RESPONSE_20261004", "TimeDilationPolicy"]

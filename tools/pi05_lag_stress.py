@@ -33,6 +33,10 @@ VARIANTS = {
     "exec30_adaptive": dict(execute=30, servo_response="adaptive"),
     "exec30_assist": dict(execute=30, assist=True),
     "exec90_assist": dict(execute=90, assist=True),
+    "exec90_assist_hold2": dict(execute=90, assist=True, hold=2),
+    "exec90_assist_hold3": dict(execute=90, assist=True, hold=3),
+    "exec30_assist_hold2": dict(execute=30, assist=True, hold=2),
+    "exec30_assist_hold3": dict(execute=30, assist=True, hold=3),
     "exec30_assist_adaptive": dict(execute=30, assist=True, servo_response="adaptive"),
     "exec90_assist_adaptive": dict(execute=90, assist=True, servo_response="adaptive"),
     "exec30_assist_gravity": dict(execute=30, assist=dict(friction_scale=0.0, integral_gain=0.0)),
@@ -120,7 +124,12 @@ def main(argv=None) -> int:
                 hold = int(options.pop("hold", 1))
                 assisted = options.pop("assist", False)
                 policy = Pi05ChunkPolicy(model, config, stats, prompt, clamp_channels=(5,), tag="pi05", **options)
-                if assisted:
+                if assisted and hold > 1:
+                    from so_arm101_v2.physical.servo_assist import AssistTuning, ServoAssist
+                    tuning = AssistTuning(**assisted) if isinstance(assisted, dict) else AssistTuning()
+                    policy = TimeDilationPolicy(policy, hold, assist=ServoAssist(DEFAULT_MODEL, bench, tuning=tuning))
+                    hold = 1
+                elif assisted:
                     # The runner's servo assist, built as the runner builds it: the certified scene's mass model and the
                     # fitted servo resource. Meaningful with --model set to the measured-servo scene (the arm's stand-in).
                     from so_arm101_v2.physical.servo_assist import AssistedPolicy, AssistTuning, ServoAssist

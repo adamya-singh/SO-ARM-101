@@ -18,4 +18,29 @@
 [2026-09-13 03:09:23] job 13 RESUMED (SIGCONT) at the user's request; 02:00 timer cancelled
 [2026-10-04 04:35:06] queued tsp job servo-assist-pi05-sim: pi0.5 (pi05_lora16_10k_20261002) on the measured-servo scene with and without the runner's servo assist -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
 [2026-10-04 04:47:10] queued tsp job servo-assist-pi05-sim-variants: pi0.5 on the measured-servo scene, assist terms ablated -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 05:20:23] retry-tranche probes queued: rl-pi05 33, ft-act 34, ft-smolvla 35, smolvla rehearsal 36, rl-smolvla 37, rl-act 38
+[2026-10-04 11:26:04] retry-tranche probes queued: rl-pi05 0, ft-act 1, ft-smolvla 2, smolvla rehearsal 3, rl-smolvla 4, rl-act 5
 [2026-10-04 11:26:22] re-queued tsp job servo-assist-pi05-sim-adaptive (lost when the machine restarted): pi0.5 on the measured-servo scene with the servo assist and the adaptive lag compensation together -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 11:58:09] retry tranche queued: act-ft 0, smolvla-ft 0, rl-pi05 0, rl-smolvla 0 (after 0), rl-act 0 (after 0), rerun-03-07 0, final 0; N=40000
+[2026-10-04 11:58:16] retry tranche queued: act-ft 11, smolvla-ft 12, rl-pi05 10, rl-smolvla 13 (after 12), rl-act 14 (after 11), rerun-03-07 15, final 16; N=40000
+[2026-10-04 13:03:12] retry-rl-pi05 job 10 hung (EGL stall in 4 env workers) at ep 432; killed; resumed as job 17 with the collector watchdog (d6cba72)
+[2026-10-04 13:14:28] warning: the shared tsp queue already has running/queued jobs; the tranche runs after them
+[2026-10-04 13:14:28] retry tranche queued: rl-pi05 18, rl-act 19, rl-smolvla 20, rerun-03-07 21, final 22 (main queue); act-ft 0, smolvla-ft 1 (TS_SOCKET=/tmp/tsp-retry-finetunes); N=40000
+[2026-10-04 13:14:35] rl-pi05 job 17 replaced (watchdog 120->30 s); fine-tunes moved to TS_SOCKET=/tmp/tsp-retry-finetunes to share the GPU with RL
+[2026-10-04 13:25:40] fine-tunes beside pi0.5 RL starved it (5300->1100 ep/h, GPU memory full) and ACT FT crashed (CUDA busy): FT queue now waits for rl_pi05 to finish (act-ft 2, smolvla-ft 3); rerun-03-07 moved ahead of rl-act
+[2026-10-04 13:37:19] rl-pi05 18 -> 23: 20 envs in 2 alternating groups, 60 episodes/update (ff95973)
+[2026-10-04 13:45:54] rl-pi05 23 -> 24: env workers render on the CPU (Mesa llvmpipe), 20 envs / 2 groups
+[2026-10-04 14:00:41] rerun-03-07 moved to TS_SOCKET=/tmp/tsp-retry-cpu (job 0): CPU-only, beside pi0.5 RL (CPU ~50% idle), software-rendered videos, nice 5, 4 rollout workers
+[2026-10-04 14:00:58] rl-act 25, rl-smolvla 26, final 27 re-queued with 20 envs / 2 groups / cpu render
+[2026-10-04 14:03:44] FT queue: act-ft 4 now bf16 micro 128 (probe 2.8x vs fp32), smolvla-ft 5 micro 32
+[2026-10-04 14:03:57] moved aborted act_ft/smolvla_ft starts aside (identity mismatch with the new settings)
+[2026-10-04 15:08:02] queued tsp job servo-assist-pi05-sim-slow: pi0.5 on the measured-servo scene with the servo assist and each command held 2 or 3 control periods -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 16:10:46] moved tsp job 28 (servo-assist-pi05-sim-slow) to run next, at the user's request (ahead of retry-rl-act, retry-rl-smolvla, retry-final; about 8 minutes of GPU)
+[2026-10-05 10:57:54] retry tranche remainder queued: views 1 2 3, smolvla-ft 4, rl-act-lr2e-7 5, rl-smolvla 6 (-D 4); N=40000
+[2026-10-05 11:21:33] re-recording ACT views on TS_SOCKET=/tmp/tsp-viewers (jobs 0 1): ACT FT under its evaluation's bf16 autocast; ACT PPO from rebuilt act_rl_full.pt
+[2026-10-05 11:27:17] views re-recorded on TS_SOCKET=/tmp/tsp-viewers (jobs 3 4 5): texture re-upload per scenario fixed; earlier recordings in videos/superseded_20261005
+[2026-10-05 11:41:00] SmolVLA fine-tune (pid 12866) SIGSTOPped while the viewer recordings run (GPU contention); SIGCONT after
+[2026-10-05 12:01:48] SmolVLA fine-tune (pid 12866) SIGCONT: recordings done
+[2026-10-05 12:02:41] on-screen pi0.5/ACT-PPO recordings died (SIGSEGV after 'D3D12: Removing Device'); re-recording headless via EGL on TS_SOCKET=/tmp/tsp-viewers (jobs 6 7)
+2026-10-06T15:23:16-04:00 tsp 7 live-pi05-ep21: pi05_lora16_10k_20261002 live on the arm, runner defaults (exec 30, lag auto, assist auto, guards on) -> artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_21_20261006_pi05
+2026-10-06T15:24:44-04:00 tsp 8 live-pi05-ep22: retry of ep21 (guard survey_pose_not_reached 0.1016>0.1 rad, cube at frame edge) with --pi05-first-execute 90 -> artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_22_20261006_pi05
