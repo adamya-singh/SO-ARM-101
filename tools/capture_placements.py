@@ -27,6 +27,37 @@ from so_arm101_v2.data._serialization import write_immutable_json  # noqa: E402
 from scaling_ladder import DEFAULT_MODEL, atomic_json, get_or_capture, get_or_generate_suite, preflight  # noqa: E402
 
 
+def rebase_suite(suite, suite_path: Path, bench, root: Path) -> Path:
+    """The suite with every scenario's reset pose in this scene's joint conventions (2026-11-06, the SO-101 scenes).
+
+    A suite generated on the SO-100 stores the bench reset pose as SO-100 joint angles; on an SO-101 scene the same
+    physical pose has other angles. Every bench scenario starts at the bench reset pose, so the rebased suite carries
+    this scene's reset_qpos, after checking that the stored pose IS that physical pose (the exact SO-100 <-> SO-101
+    conversion). Returns ``suite_path`` unchanged when the poses already match.
+    """
+    import dataclasses
+    import numpy as np
+    from so_arm101_v2.contracts.coordinates import MODEL_CONVERSION_OFFSET, MODEL_CONVERSION_SIGN
+    from so_arm101_v2.data._serialization import content_sha256
+    from so_arm101_v2.simulation.suites import suite_payload
+    reset = np.asarray(bench.reset_qpos, dtype=np.float64)
+    stored = np.asarray([s.robot_qpos_mujoco for s in suite.scenarios], dtype=np.float64)
+    if np.allclose(stored, reset, atol=1e-5):
+        return suite_path
+    converted = MODEL_CONVERSION_SIGN.astype(np.float64) * (stored - MODEL_CONVERSION_OFFSET.astype(np.float64))
+    if not np.allclose(converted, reset, atol=1e-4):
+        raise RuntimeError("held-out suite reset poses are neither this scene's reset nor its SO-100 equivalent")
+    scenarios = tuple(dataclasses.replace(s, robot_qpos_mujoco=tuple(float(v) for v in reset)) for s in suite.scenarios)
+    rebased = dataclasses.replace(suite, suite_id=f"{suite.suite_id}_so101", scenarios=scenarios)
+    payload = suite_payload(rebased)
+    payload["generator"] = dict(rebased_from=str(suite_path.resolve()), reason="reset pose in the Menagerie SO-101's joint conventions")
+    payload["content_sha256"] = content_sha256(payload)
+    path = root / "suites" / rebased.suite_id / "suite.json"
+    if not path.exists():
+        write_immutable_json(path, payload)
+    return path
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--model", type=Path, default=DEFAULT_MODEL)
@@ -92,9 +123,12 @@ def main(argv=None) -> int:
             state["phase"] = "heldout"; atomic_json(root / "progress.json", state)
             from so_arm101_v2.simulation.suites import load_suite_from_path
             heldout_suite = load_suite_from_path(args.heldout_suite)
+            suite_file = rebase_suite(heldout_suite, args.heldout_suite, bench, root)
+            if suite_file != args.heldout_suite:
+                heldout_suite = load_suite_from_path(suite_file)
             pointer = root / "heldout_suite.path"
             if not pointer.exists():
-                pointer.write_text(str(args.heldout_suite.resolve()) + "\n")
+                pointer.write_text(str(suite_file.resolve()) + "\n")
             try:
                 gate = preflight(args.model, root, heldout_suite, args.workers)
             except RuntimeError:

@@ -8,7 +8,8 @@
 #   4. CNN seed 202, the 4800 shift-12 recipe (SO-100: 6/30)
 # Each trainer evaluates on its own scene's held-out poses. Then 5. tools/so101_benchmark_report.py.
 # One job at a time on the shared tsp queue.
-# Usage: queue_so101_benchmark_20261106.sh [--dry-run]
+# Usage: [GATE_JOB=<tsp id>] queue_so101_benchmark_20261106.sh [--dry-run]
+#   GATE_JOB: a tsp job (the last rehearsal) both scenes' first capture depends on, so a failed rehearsal skips the benchmark.
 set -euo pipefail
 ROOT=/home/win10ubuntu/projects/SO-ARM-101
 PY=/home/win10ubuntu/miniforge3/envs/lerobot/bin/python
@@ -37,7 +38,8 @@ JOBS=()
 for S in so101 so101_menagerie; do
   SCENE=$ROOT/simulation_code/model/bench_pick_replace_v1_$S/scene_bench_pick_replace_v1.xml
   D=$T/$S
-  C1=$(q "so101-$S-capture4800" $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SCENE --output-dir $D/cap4800 --count 4800 \
+  GATE=(); [ -n "${GATE_JOB:-}" ] && GATE=(-D "$GATE_JOB")
+  C1=$(q "so101-$S-capture4800" "${GATE[@]}" $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SCENE --output-dir $D/cap4800 --count 4800 \
         --suite-seed 14 --frame-row-stride 30 --heldout-suite $HSUITE --heldout-from $LADDER --workers 12)
   C2=$(q "so101-$S-capture2400" -D "$C1" $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SCENE --output-dir $D/cap2400 --count 2400 \
         --suite-seed 12 --frame-row-stride 18 --heldout-from $D/cap4800 --workers 12)
