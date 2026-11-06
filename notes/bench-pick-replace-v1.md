@@ -43,6 +43,9 @@ Metric: `closure.correction_summary` / `tools/correction_report.py` reproduce th
   4800 capture swapped for the perturbed one.
 - ACT + PPO: more than 24/30.
 
+Queued 2026-11-05 22:25 as tsp jobs 6 (capture), 7/8/9 (CNN seeds 202/101/303), 10 (ACT fine-tune), 11 (ACT PPO),
+12 (report -> `perturbed_teacher_20261105/correction.json`); `tools/tranche_status.py --manifest tools/tranche_20261105.json`.
+
 Environment changes made to run it:
 - The capture pointer files were repointed from `~/dev/robotic-arm` to `~/projects`.
 - The lerobot fork is put on `PYTHONPATH` in the queue (the conda envs' editable `.pth` files still name the old
