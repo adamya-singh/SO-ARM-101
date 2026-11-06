@@ -42,6 +42,15 @@ Benchmark (`simulation_code/queue_so101_benchmark_20261106.sh`, manifest `tools/
 
 **Pre-registered:** a scene matches within ±4/30 of each.
 
+Queued 2026-11-06 03:53. Rehearsals 87-90 run right after step 1's PPO: both captures (6 placements each, the held-out
+suite rebased onto the SO-101 conventions), the CNN (500 steps) and ACT (20 steps). The benchmark, jobs 91-99, runs
+behind step 2:
+- `so101`: 91 capture4800, 92 capture2400, 93 ACT, 94 CNN;
+- `so101_menagerie`: 95-98, same order;
+- 99: the report.
+
+Both scenes' captures depend on rehearsal 90, so a failed rehearsal skips the benchmark.
+
 **Update 2026-11-05 (later): physics-randomization tranche (handoff step 2).** Implemented and queued; manifest
 `tools/tranche_20261105b.json`, queue `simulation_code/queue_physics_rand_20261105.sh`, output
 `experiments/physics_rand_20261105/`. The user chose to keep it separate from step 1 and to use a 0-1000 ms inference pause.
