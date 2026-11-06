@@ -76,7 +76,9 @@ PINNED_NUMERICS_V2 = NumericsSpec(
     gpu="NVIDIA GeForce RTX 3090",
     torch_version="2.7.1+cu126",
     cuda_version="12.6",
-    driver_version="610.47",
+    # 610.47 until 2026-11-05; the driver updated to 610.88 (torch, CUDA and GPU unchanged), pin moved for the
+    # perturbed-teacher tranche. Every run before this date carries 610.47 in its identity (notes/numerics-regime-v2.md).
+    driver_version="610.88",
 )
 
 

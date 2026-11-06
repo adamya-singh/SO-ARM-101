@@ -32,6 +32,7 @@ from so_arm101_v2.data._serialization import content_sha256, write_immutable_jso
 
 from .chunked import (
     build_chunked_targets,
+    perturbed_start_mask,
     chunked_learning_rate,
     CHUNKED_LR_SCHEDULES,
     _write_immutable_bytes,
@@ -454,6 +455,7 @@ def train_vision_chunked(
     # Training rows: every row (stride 1, historical) or every frame_stride-th row of each episode.
     stride = int(config.frame_stride)
     keep = np.ones(rows, dtype=bool) if stride == 1 else (np.asarray(arrays["action_index"], dtype=np.int64) % stride == 0)
+    keep &= perturbed_start_mask(arrays)   # all True unless the capture used the perturbed teacher
     if config.episode_limit is not None:
         limit = int(config.episode_limit)
         if limit > len(episode_lengths):

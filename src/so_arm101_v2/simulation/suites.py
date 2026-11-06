@@ -21,6 +21,11 @@ class SimulationScenario:
     # None / 0.0 = the bench config's nominal square; omitted from payloads then (scenario_record).
     square_center_xy: tuple[float, float] | None = None
     square_yaw_rad: float = 0.0
+    # Perturbed teacher (2026-11-05, notes/handoff-20261105.md step 1): the scripted teacher's first descent is shifted
+    # sideways by this world-xy offset and corrects onto the cube afterwards. None = the unperturbed teacher; both
+    # fields are omitted from payloads then (scenario_record), so every existing suite hashes as before.
+    teacher_offset_xy_m: tuple[float, float] | None = None
+    teacher_descend_height_m: float | None = None
 
     def __post_init__(self) -> None:
         if len(self.cube_position_m) != 3 or len(self.robot_qpos_mujoco) != 6 or len(self.cube_quaternion_wxyz) != 4:
@@ -41,6 +46,24 @@ class SimulationScenario:
             object.__setattr__(self, "appearance_seed", seed)
         if bool(self.fixed_appearance) != (self.appearance_seed is None):
             raise ValueError("fixed_appearance must be true exactly when no appearance_seed is set")
+        if self.teacher_offset_xy_m is not None:
+            offset = tuple(float(v) for v in self.teacher_offset_xy_m)
+            if len(offset) != 2 or not all(abs(v) < 0.05 for v in offset):
+                raise ValueError("teacher_offset_xy_m must be two finite offsets under 50 mm")
+            object.__setattr__(self, "teacher_offset_xy_m", offset)
+        if self.teacher_descend_height_m is not None:
+            if self.teacher_offset_xy_m is None:
+                raise ValueError("teacher_descend_height_m needs teacher_offset_xy_m")
+            height = float(self.teacher_descend_height_m)
+            if not 0.0 < height <= 0.06:
+                raise ValueError("teacher_descend_height_m must lie in (0, 0.06] m")
+            object.__setattr__(self, "teacher_descend_height_m", height)
+
+    def teacher_reset_kwargs(self) -> dict:
+        """Keyword arguments for ``PrivilegedStagedController.reset``: empty for the unperturbed teacher."""
+        if self.teacher_offset_xy_m is None:
+            return {}
+        return {"lateral_offset_xy_m": self.teacher_offset_xy_m, "perturbed_descend_height_m": self.teacher_descend_height_m}
 
 
 def _scenario_from_payload(item: dict) -> SimulationScenario:
@@ -53,6 +76,8 @@ def _scenario_from_payload(item: dict) -> SimulationScenario:
         appearance_seed=(None if item.get("appearance_seed") is None else int(item["appearance_seed"])),
         square_center_xy=(None if item.get("square_center_xy") is None else tuple(float(v) for v in item["square_center_xy"])),
         square_yaw_rad=float(item.get("square_yaw_rad", 0.0)),
+        teacher_offset_xy_m=(None if item.get("teacher_offset_xy_m") is None else tuple(float(v) for v in item["teacher_offset_xy_m"])),
+        teacher_descend_height_m=(None if item.get("teacher_descend_height_m") is None else float(item["teacher_descend_height_m"])),
     )
 
 
@@ -65,6 +90,9 @@ def scenario_record(scenario: SimulationScenario) -> dict:
         del record["square_center_xy"]
     if record["square_yaw_rad"] == 0.0:
         del record["square_yaw_rad"]
+    for name in ("teacher_offset_xy_m", "teacher_descend_height_m"):
+        if record[name] is None:
+            del record[name]
     return record
 
 

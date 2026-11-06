@@ -30,8 +30,12 @@ forever), present = v2 (its own digest space). Identity fields:
 `regime, device, gpu, torch, cuda, driver, compile, compile_mode, tf32,
 deterministic_algorithms, cublas_workspace, noise_stream`
 
+**2026-11-05: driver pin moved 610.47 -> 610.88.** The Windows NVIDIA driver updated; torch, CUDA and the GPU are
+unchanged. Every v2 run before this date carries 610.47 in its identity and is reproducible bitwise only on that
+driver; runs from the perturbed-teacher tranche on carry 610.88. Nothing was re-run to compare the two.
+
 Pinned v2 environment (`PINNED_NUMERICS_V2`): RTX 3090, torch 2.7.1+cu126,
-CUDA 12.6, **driver 610.47 (identity-bearing: a driver update forks v2
+CUDA 12.6, **driver 610.47 (610.88 since 2026-11-05) (identity-bearing: a driver update forks v2
 digests loudly, by design)**, inductor `mode="default"` (never max-autotune —
 autotune selects kernels by measured runtime, which is not bit-reproducible),
 TF32 off, `torch.use_deterministic_algorithms(True)`,

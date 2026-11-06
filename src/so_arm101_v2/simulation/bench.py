@@ -71,7 +71,8 @@ def certification_suite(config, *, repeats=3):
                        square_yaws=[float(np.deg2rad(w)) for _, _, w in CERTIFICATION_PLACEMENTS])
 
 
-def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, square_centers=None, square_yaws=None):
+def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, square_centers=None, square_yaws=None,
+                teacher_offsets=None, teacher_descend_height_m=None):
     """Scenarios at the reset pose with cube offsets from the square centre.
 
     ``appearance_seeds`` (one per offset) makes each look randomized; ``square_centers`` /
@@ -88,6 +89,10 @@ def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, squar
         raise ValueError('one square centre per offset is required')
     if square_yaws is not None and len(square_yaws)!=len(offsets):
         raise ValueError('one square yaw per offset is required')
+    if teacher_offsets is not None and len(teacher_offsets)!=len(offsets):
+        raise ValueError('one teacher offset per offset is required')
+    if teacher_descend_height_m is not None and teacher_offsets is None:
+        raise ValueError('teacher_descend_height_m needs teacher offsets')
     from so_arm101_v2.contracts.placement import yaw_quaternion
     scenarios=[]
     for i,(dx,dy) in enumerate(offsets):
@@ -100,7 +105,9 @@ def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, squar
             tuple(float(v) for v in cube),tuple(float(v) for v in config.reset_qpos),yaw_quaternion(yaw),
             fixed_appearance=appearance_seeds is None,
             appearance_seed=None if appearance_seeds is None else int(appearance_seeds[i]),
-            square_center_xy=centre if square_centers is not None else None,square_yaw_rad=yaw))
+            square_center_xy=centre if square_centers is not None else None,square_yaw_rad=yaw,
+            teacher_offset_xy_m=None if teacher_offsets is None else tuple(float(v) for v in teacher_offsets[i]),
+            teacher_descend_height_m=None if teacher_offsets is None else teacher_descend_height_m))
     scenarios=tuple(scenarios)
     digest=content_sha256(dict(config=asdict(config),scenarios=[scenario_record(s) for s in scenarios]))[:12]
     return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,repeats,False,scenarios)
@@ -135,31 +142,77 @@ def screen_scenario(model_path,scenario):
             visible=cube_visible_at(model_path,bench,bench.viewing_qpos,scenario.cube_position_m,yaw_rad=scenario.square_yaw_rad,
                 margin_px=regime.survey_visibility_margin_px)
             if not visible['visible']:return False,'not_visible_from_survey'
-        adapter.reset(scenario)
-        controller=PrivilegedStagedController()
-        controller.reset(adapter)
-        state=PickPlaceEvaluationState()
-        for _ in range(contract.max_actions):
-            current=adapter.current_act()
-            requested=controller.predict(None,current,adapter)
-            command=adapter.apply_policy_command(requested)
-            adapter.advance_control_period()
-            measurement,_=adapter.pick_place_measurement(command)
-            state,result=evaluate_pick_place_step(contract,measurement,state)
-            if result.invalidated:return False,'safety_invalidation'
-            if result.terminated or result.truncated:
-                return result.success,'success' if result.success else 'incomplete'
-        return False,'incomplete'
+        # A perturbed scenario must pass twice: the unperturbed teacher (what the capture preflight runs on the
+        # suite) and the perturbed teacher (what the capture records).
+        passes=[{}] if scenario.teacher_offset_xy_m is None else [{},scenario.teacher_reset_kwargs()]
+        for kwargs in passes:
+            ok,reason=_teacher_episode(adapter,contract,scenario,kwargs)
+            if not ok:
+                return False,reason if not kwargs else f'perturbed_{reason}'
+        return True,'success'
     except (RuntimeError,ValueError) as exc:
-        return False,str(exc)
+        return False,str(exc) if scenario.teacher_offset_xy_m is None else f'perturbed_or_clean: {exc}'
     finally:adapter.close()
 
 
-def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,randomize_appearance=False,randomize_placement=False):
+def _teacher_episode(adapter,contract,scenario,kwargs):
+    adapter.reset(scenario)
+    controller=PrivilegedStagedController()
+    controller.reset(adapter,**kwargs)
+    state=PickPlaceEvaluationState()
+    for _ in range(contract.max_actions):
+        current=adapter.current_act()
+        requested=controller.predict(None,current,adapter)
+        command=adapter.apply_policy_command(requested)
+        adapter.advance_control_period()
+        measurement,_=adapter.pick_place_measurement(command)
+        state,result=evaluate_pick_place_step(contract,measurement,state)
+        if result.invalidated:return False,'safety_invalidation'
+        if result.terminated or result.truncated:
+            return result.success,'success' if result.success else 'incomplete'
+    return False,'incomplete'
+
+
+def _screened(model_path,attempts,candidate_at,workers):
+    """Yield (attempt, candidate, screen result) in attempt order; with workers > 1 screen ahead in batches."""
+    if not workers or workers<=1:
+        for attempt in range(attempts):
+            item=candidate_at(attempt)
+            yield attempt,item,screen_scenario(model_path,item[4])
+        return
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+    batch=4*int(workers)
+    with ProcessPoolExecutor(int(workers),mp_context=multiprocessing.get_context('spawn')) as pool:
+        for first in range(0,attempts,batch):
+            items=[candidate_at(a) for a in range(first,min(first+batch,attempts))]
+            results=list(pool.map(screen_scenario,[str(model_path)]*len(items),[i[4] for i in items]))
+            for k,(item,result) in enumerate(zip(items,results)):
+                yield first+k,item,result
+
+
+TEACHER_OFFSET_STREAM=3   # perturbed-teacher offsets: stream 3 of the placement generator (streams 0-2 are taken)
+
+
+def teacher_offset_draws(seed,count,radius_m):
+    """``count`` world-xy offsets uniform in a disk of ``radius_m``; a pure function of (seed, radius)."""
+    from so_arm101_v2.contracts.placement import _SALT
+    rng=np.random.default_rng([int(seed),_SALT,TEACHER_OFFSET_STREAM])
+    radius=float(radius_m)*np.sqrt(rng.uniform(size=int(count)))
+    angle=rng.uniform(-np.pi,np.pi,size=int(count))
+    return tuple((float(r*np.cos(a)),float(r*np.sin(a))) for r,a in zip(radius,angle))
+
+
+def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,randomize_appearance=False,randomize_placement=False,
+                         perturb_teacher_radius_m=None,teacher_descend_height_m=None,workers=None):
     """Screen ``count`` poses (offset stream ``seed``); with ``randomize_appearance`` each accepted pose also gets an
     appearance seed from a separate stream, so the accepted poses equal the fixed-appearance suite's. With
     ``randomize_placement`` every candidate also gets a square centre and yaw from the placement stream (stream 2),
-    and the teacher screen (plus the survey-pose visibility check) decides which placements are admitted."""
+    and the teacher screen (plus the survey-pose visibility check) decides which placements are admitted.
+    With ``perturb_teacher_radius_m`` (2026-11-05) every candidate also gets a perturbed-teacher offset (uniform in a
+    disk, stream 3) and the screen runs that perturbed teacher, so an admitted scenario is one whose perturbed episode
+    succeeds with zero safety events. ``workers`` > 1 screens candidates on a process pool in batches and accounts them
+    in attempt order, stopping at the same attempt as the sequential loop, so the suite (and its payload) is identical."""
     from collections import Counter
     if randomize_appearance and config.appearance is None:
         raise ValueError('randomize_appearance requires an appearance regime in the bench config')
@@ -168,18 +221,26 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
     regime=PlacementRegime.from_mapping(config.placement) if randomize_placement else None
     rng=np.random.default_rng(seed)
     draws=placement_draws(seed,count*100,regime) if randomize_placement else None
+    if teacher_descend_height_m is not None and perturb_teacher_radius_m is None:
+        raise ValueError('teacher_descend_height_m needs perturb_teacher_radius_m')
+    teacher_draws=teacher_offset_draws(seed,count*100,perturb_teacher_radius_m) if perturb_teacher_radius_m is not None else None
+    teacher_offsets=[]
     cube_offset=regime.cube_offset_m if randomize_placement else .010
     offsets=[];centres=[];yaws=[];rejected=[]
     reasons=Counter()
-    for attempt in range(count*100):
-        offset=tuple(float(v) for v in rng.uniform(-cube_offset,cube_offset,size=2))
+    def candidate_at(attempt):
+        offset=tuple(float(v) for v in rng.uniform(-cube_offset,cube_offset,size=2))   # rng is consumed in attempt order
         centre=(draws[attempt][0],draws[attempt][1]) if randomize_placement else None
         yaw=draws[attempt][2] if randomize_placement else None
+        teacher=None if teacher_draws is None else teacher_draws[attempt]
         candidate=bench_suite(config,[offset],label='candidate',repeats=1,
-            square_centers=None if centre is None else [centre],square_yaws=None if yaw is None else [yaw]).scenarios[0]
-        ok,reason=screen_scenario(model_path,candidate)
+            square_centers=None if centre is None else [centre],square_yaws=None if yaw is None else [yaw],
+            teacher_offsets=None if teacher is None else [teacher],teacher_descend_height_m=teacher_descend_height_m).scenarios[0]
+        return offset,centre,yaw,teacher,candidate
+    for attempt,(offset,centre,yaw,teacher,candidate),(ok,reason) in _screened(model_path,count*100,candidate_at,workers):
         if ok:
             offsets.append(offset)
+            if teacher is not None:teacher_offsets.append(teacher)
             if randomize_placement:centres.append(centre);yaws.append(yaw)
         else:
             reasons[reason]+=1
@@ -189,8 +250,11 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
     if len(offsets)!=count:
         raise RuntimeError(f'cannot fill bench coverage: {len(offsets)}/{count}, rejections={dict(reasons)}')
     seeds=appearance_seeds(seed,count,stream=0) if randomize_appearance else None
-    suite=bench_suite(config,offsets,label=f'seed{seed}_n{count}'+('_appearance' if randomize_appearance else '')+('_placement' if randomize_placement else ''),
-        repeats=repeats,appearance_seeds=seeds,square_centers=centres if randomize_placement else None,square_yaws=yaws if randomize_placement else None)
+    perturbed=teacher_draws is not None
+    suite=bench_suite(config,offsets,label=f'seed{seed}_n{count}'+('_appearance' if randomize_appearance else '')+('_placement' if randomize_placement else '')
+        +('_perturbed' if perturbed else ''),
+        repeats=repeats,appearance_seeds=seeds,square_centers=centres if randomize_placement else None,square_yaws=yaws if randomize_placement else None,
+        teacher_offsets=teacher_offsets if perturbed else None,teacher_descend_height_m=teacher_descend_height_m if perturbed else None)
     payload=suite_payload(suite)
     payload['generator']=dict(seed=seed,requested=count,attempts=attempt+1,rejections=dict(reasons),
         offset_range_m=[-.010,.010],scene_dependencies_sha256=scene_dependency_hash(model_path))
@@ -204,6 +268,10 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
             accepted_bbox_m=dict(x=[round(float(accepted[:,0].min()),4),round(float(accepted[:,0].max()),4)],
                                  y=[round(float(accepted[:,1].min()),4),round(float(accepted[:,1].max()),4)]),
             rejections_by_reason=dict(reasons),rejected_placements=rejected)
+    if perturbed:
+        payload['generator']['teacher_perturbation']=dict(radius_m=float(perturb_teacher_radius_m),distribution='uniform_disk_world_xy',
+            descend_height_m=teacher_descend_height_m,seed_stream=dict(seed=seed,stream=TEACHER_OFFSET_STREAM),
+            note='first-descent waypoints (above/lowered/descended) shifted; engaged/seated true; schedule unchanged')
     payload['content_sha256']=content_sha256(payload)
     path=Path(output_dir)/suite.suite_id/'suite.json'
     write_immutable_json(path,payload)

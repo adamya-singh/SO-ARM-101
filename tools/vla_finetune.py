@@ -46,7 +46,7 @@ TRANCHE_TAG = "retry-tranche-20261004"
 
 def closed_loop(model_xml: Path, suite, model, execute: int, directory: Path, *, num_steps=None, tag=None) -> dict:
     """The 30 held-out rollouts of one execution schedule, with closure in mm (the pi0.5 report's fields)."""
-    from so_arm101_v2.simulation.closure import closure_summary
+    from so_arm101_v2.simulation.closure import closure_summary, correction_summary
     from so_arm101_v2.simulation.residual_policy import ResidualChunkPolicy
     from so_arm101_v2.simulation.rollout import evaluate_closed_loop
 
@@ -62,7 +62,8 @@ def closed_loop(model_xml: Path, suite, model, execute: int, directory: Path, *,
     for r in rows:
         categories[r["failure_category"]] = categories.get(r["failure_category"], 0) + 1
     closure = closure_summary(model_xml, [r["telemetry_path"] for r in rows if r.get("telemetry_path")])
-    return dict(execute=execute, successes=int(sum(ok)), rollouts=len(rows),
+    correction = correction_summary(model_xml, [r["telemetry_path"] for r in rows if r.get("telemetry_path")])
+    return dict(correction={k: v for k, v in correction.items() if k != "rows"},execute=execute, successes=int(sum(ok)), rollouts=len(rows),
                 safety_frames=int(sum(sum(r[k] for k in ("clipping_frames", "limiting_frames", "nonfinite_frames", "unsafe_contact_frames")) for r in rows)),
                 pickups=int(sum(bool(r["pickup_completed"]) for r in rows)), categories=categories,
                 closure={k: v for k, v in closure.items() if k != "rows"}, closure_rows=closure.get("rows", []),
@@ -81,6 +82,10 @@ def log_outcome(tracker, r: dict, step: int, axis: str = "03_training/step") -> 
                f"01_outcome/closure_within_8mm_exec{e}": c.get("within_tolerance"),
                f"01_outcome/closure_not_descended_exec{e}": c.get("not_descended"),
                f"01_outcome/closure_yaw_err_median_deg_exec{e}": c.get("yaw_err_median_deg")}
+    k = r.get("correction") or {}   # perturbed-teacher tranche (2026-11-05): does the step-180 look correct?
+    payload.update({f"01_outcome/correction_lateral_rms_mm_step179_exec{e}": k.get("lateral_rms_mm_179"),
+                    f"01_outcome/correction_lateral_rms_mm_step250_exec{e}": k.get("lateral_rms_mm_250"),
+                    f"01_outcome/correction_mm_exec{e}": k.get("correction_mm")})
     tracker.log({k: v for k, v in payload.items() if v is not None})
     tracker.summary({f"01_outcome/successes_exec{e}": r["successes"], f"01_outcome/success_rate_exec{e}": r["successes"] / max(r["rollouts"], 1)})
     closure_by = {(x["scenario_id"], x["repeat"]): x for x in r["closure_rows"]}
@@ -143,6 +148,7 @@ def main(argv=None) -> int:
     p.add_argument("--amp", choices=("auto", "on", "off"), default="auto", help="bf16 autocast (auto: on for SmolVLA, off for ACT)")
     p.add_argument("--rollout-limit", type=int, default=None, help="rehearsal only: first N held-out scenarios, 1 repeat")
     p.add_argument("--run-name", default=None)
+    p.add_argument("--tranche", default=TRANCHE_TAG, help="W&B tag and identity field naming the tranche")
     p.add_argument("--rehearsal", action="store_true")
     p.add_argument("--probe", action="store_true", help="measure steps/s for each --probe-micro and exit")
     p.add_argument("--probe-micro", type=int, nargs="+", default=[8, 16, 32, 64])
@@ -183,7 +189,7 @@ def main(argv=None) -> int:
     identity = dict(tool="vla_finetune", model=args.model, config=dataclasses.asdict(config), amp=amp, train_manifests=[str(m) for m in train_manifests],
                     heldout_manifest=str(heldout_manifest), heldout_suite=suite.suite_id, rollout_repeats=suite.repeats,
                     scene_dependencies_sha256=scene_hash, execs=args.execs, rl_steps=args.rl_steps, eval_every=args.eval_every,
-                    rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=TRANCHE_TAG)
+                    rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=args.tranche)
     if not args.probe:
         write_immutable_json(root / "identity.json", identity)
 
@@ -242,7 +248,7 @@ def main(argv=None) -> int:
     tracker = tracking.init_run(family=args.model, job_type="finetune", rehearsal=args.rehearsal, run_id=state.get("wandb_id"), config=identity,
                                 name=(tracking.run_name(args.model, rehearsal=True) if args.rehearsal else
                                       args.run_name or tracking.run_name(args.model, config.train_scope, f"{config.max_steps // 1000}k", f"shift{args.shift}", scene_hash=scene_hash)),
-                                tags=[config.train_scope, "placements", f"shift{args.shift}", TRANCHE_TAG], directory=root)
+                                tags=[config.train_scope, "placements", f"shift{args.shift}", args.tranche], directory=root)
     tracking.persist_run_id(root / "wandb.json", tracker)
     progress(wandb_id=tracker.id, wandb_url=tracker.url)
     tracker.define("02_generalisation/heldout_start_90", summary="min")

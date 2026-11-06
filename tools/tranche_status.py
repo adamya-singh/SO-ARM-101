@@ -137,6 +137,13 @@ def rl_row(run: Path, row: dict) -> None:
     row["metrics"] = metrics
 
 
+def job_row(run: Path, row: dict) -> None:
+    """A capture or a vision run (tools/capture_placements.py, tools/augmentation_run.py): its progress.json phase only."""
+    progress = read_json(run / "progress.json") or {}
+    row["progress"] = dict(done=None, target=None, unit=progress.get("phase") or "")
+    row["metrics"] = {k: progress[k] for k in ("episodes", "frame_rows", "seconds") if k in progress}
+
+
 RERUN_STEPS = {"03": 5, "04": 11, "05": 2, "06": 3, "07": 1}   # tools/rerun_entries_03_07.build_steps (entry 00 feeds 03, 04, 06)
 RERUN_DONE = ("completed", "skipped_by_rule")
 
@@ -182,6 +189,8 @@ def status(manifest_path: Path) -> dict[str, Any]:
             finetune_row(run, row)
         elif spec["kind"] == "rl":
             rl_row(run, row)
+        elif spec["kind"] == "job":
+            job_row(run, row)
         else:
             rerun_row(run, row, spec["entry"])
         # state: the run's own record first, then the queue

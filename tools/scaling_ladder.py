@@ -71,13 +71,13 @@ def preflight(model, root: Path, suite, workers):
     return path
 
 
-def get_or_generate_suite(model, bench, root: Path, label: str, *, seed: int, count: int, repeats: int, workers):
+def get_or_generate_suite(model, bench, root: Path, label: str, *, seed: int, count: int, repeats: int, workers, **suite_kwargs):
     pointer = root / f"{label}_suite.path"
     if pointer.exists():
         path = Path(pointer.read_text().strip())
         return load_suite_from_path(path), path
     suite, path = generate_bench_suite(model, bench, seed=seed, count=count, repeats=repeats, output_dir=root / "suites",
-                                       randomize_appearance=bench.appearance is not None, randomize_placement=True)
+                                       randomize_appearance=bench.appearance is not None, randomize_placement=True, workers=workers, **suite_kwargs)
     pointer.write_text(str(path.resolve()) + "\n")
     return suite, path
 

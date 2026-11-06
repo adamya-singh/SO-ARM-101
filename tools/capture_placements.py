@@ -40,7 +40,17 @@ def main(argv=None) -> int:
                         "Needed whenever the scene changed: a held-out capture is the teacher's commands on its own scene")
     p.add_argument("--heldout-count", type=int, default=10)
     p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--perturb-teacher-mm", type=float, default=None,
+                   help="perturbed-teacher capture (2026-11-05): shift the teacher's first descent by an offset uniform in a disk of this "
+                        "radius (world xy, mm); it corrects onto the cube in 185-225 and the survey chunk keeps the clean label")
+    p.add_argument("--teacher-descend-mm", type=float, default=None,
+                   help="with --perturb-teacher-mm: height of the shifted 'descended' waypoint above the grasp point (default 8 mm, the teacher's own)")
     args = p.parse_args(argv)
+    if args.teacher_descend_mm is not None and args.perturb_teacher_mm is None:
+        p.error("--teacher-descend-mm needs --perturb-teacher-mm")
+    suite_kwargs = {} if args.perturb_teacher_mm is None else dict(
+        perturb_teacher_radius_m=args.perturb_teacher_mm / 1000.0,
+        teacher_descend_height_m=None if args.teacher_descend_mm is None else args.teacher_descend_mm / 1000.0)
     if (args.heldout_from is None) == (args.heldout_seed is None):
         p.error("give exactly one of --heldout-from and --heldout-seed")
     import mujoco
@@ -52,6 +62,8 @@ def main(argv=None) -> int:
     root = args.output_dir.resolve(); root.mkdir(parents=True, exist_ok=True)
     identity = dict(scene_dependencies_sha256=scene_dependency_hash(args.model), bench=bench.__dict__, count=args.count, suite_seed=args.suite_seed,
                     frame_row_stride=args.frame_row_stride,
+                    **(dict(teacher_perturbation=dict(radius_mm=args.perturb_teacher_mm, descend_mm=args.teacher_descend_mm))
+                       if args.perturb_teacher_mm is not None else {}),
                     **(dict(heldout_from=str(args.heldout_from.resolve())) if args.heldout_from is not None
                        else dict(heldout=dict(seed=args.heldout_seed, count=args.heldout_count))))
     if not (root / "capture_identity.json").exists():
@@ -67,7 +79,8 @@ def main(argv=None) -> int:
             heldout_suite, _ = get_or_generate_suite(args.model, bench, root, "heldout", seed=args.heldout_seed, count=args.heldout_count, repeats=3, workers=args.workers)
             get_or_capture(args.model, root, "heldout", heldout_suite, preflight(args.model, root, heldout_suite, args.workers), workers=args.workers)
         state["phase"] = "suite"; atomic_json(root / "progress.json", state)
-        suite, _ = get_or_generate_suite(args.model, bench, root, "train", seed=args.suite_seed, count=args.count, repeats=1, workers=args.workers)
+        suite, _ = get_or_generate_suite(args.model, bench, root, "train", seed=args.suite_seed, count=args.count, repeats=1, workers=args.workers,
+                                         **suite_kwargs)
         state["phase"] = "preflight"; atomic_json(root / "progress.json", state)
         pre = preflight(args.model, root, suite, args.workers)
         state["phase"] = "capture"; atomic_json(root / "progress.json", state)

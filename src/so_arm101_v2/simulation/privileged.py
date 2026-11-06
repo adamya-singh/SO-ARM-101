@@ -113,6 +113,9 @@ class PrivilegedStagedController:
         self.waypoints: list[np.ndarray] = []
         self.boundaries: tuple[int, ...] = ()
         self.solve_diagnostics: list[dict[str, float | bool]] = []
+        self.clean_waypoints: list[np.ndarray] | None = None
+        self.clean_boundaries: tuple[int, ...] | None = None
+        self.teacher_perturbation: dict[str, Any] | None = None
 
     def _targets(self) -> tuple[np.ndarray, np.ndarray]:
         """World-frame targets for the pad normal and jaw depth directions, yawed with the cube (placement tranche, 2026-09-10)."""
@@ -241,7 +244,68 @@ class PrivilegedStagedController:
     def _to_act(self, qpos: np.ndarray) -> np.ndarray:
         return self._joint_map.mujoco_to_act(qpos) if self._joint_map is not None else mujoco_qpos_to_act(qpos)
 
-    def reset(self, adapter: Any) -> None:
+    def reset(
+        self,
+        adapter: Any,
+        *,
+        lateral_offset_xy_m: tuple[float, float] | None = None,
+        perturbed_descend_height_m: float | None = None,
+    ) -> None:
+        """Plan the episode; with ``lateral_offset_xy_m`` plan the perturbed-teacher variant (2026-11-05).
+
+        The perturbed teacher shifts the first-descent waypoints (``above`` at 135, ``lowered`` at 160,
+        ``descended`` at 185) sideways by the offset, so the policy's step-180 frame shows an off-centre cube, and
+        corrects onto the true cube on the way to ``engaged`` / ``seated`` (185-225). The stage schedule is the
+        unperturbed one, so rows stay aligned with every other capture. ``perturbed_descend_height_m`` replaces the
+        8 mm ``descended`` height so the sideways correction can run above the cube. The clean plan is kept in
+        ``clean_waypoints``; :meth:`clean_action` interpolates it, which is the DART label for the rows the
+        perturbation moved (the controller is open-loop, so the clean plan is exactly what the unperturbed teacher
+        commands). Without an offset the plan is bit-identical to before.
+        """
+        self.clean_waypoints = None
+        self.clean_boundaries = None
+        self.teacher_perturbation = None
+        if lateral_offset_xy_m is None:
+            if perturbed_descend_height_m is not None:
+                raise ValueError("perturbed_descend_height_m needs a lateral offset")
+            self._plan(adapter, None, None)
+            return
+        offset = tuple(float(v) for v in lateral_offset_xy_m)
+        if len(offset) != 2 or not all(np.isfinite(offset)) or float(np.hypot(*offset)) > 0.05:
+            raise ValueError("lateral_offset_xy_m must be two finite metres under 50 mm")
+        if perturbed_descend_height_m is not None and not 0.0 < float(perturbed_descend_height_m) <= 0.06:
+            raise ValueError("perturbed_descend_height_m must lie in (0, 0.06] m")
+        if getattr(adapter, "bench", None) is None:
+            raise ValueError("the perturbed teacher is defined for the bench task only")
+        self._plan(adapter, None, None)
+        if self._comp_kp is not None:
+            raise ValueError("the perturbed teacher's clean label assumes no servo compensation")
+        clean_waypoints = [np.array(w, copy=True) for w in self.waypoints]
+        clean_boundaries = tuple(self.boundaries)
+        clean_yaw = float(self.grasp_yaw_rad)
+        clean_diagnostics = list(self.solve_diagnostics)
+        self._plan(adapter, offset, None if perturbed_descend_height_m is None else float(perturbed_descend_height_m))
+        # Bench schedule: (0, 60, 90, 135, 160, 185, [200, 212 |205], 225, ...): equal up to 'descended' and from 'seated'.
+        if (tuple(self.boundaries[:6]) != clean_boundaries[:6] or tuple(self.boundaries[8:]) != clean_boundaries[7:]
+                or len(self.boundaries) != len(clean_boundaries) + 1 or len(self.waypoints) != len(clean_waypoints) + 1):
+            raise RuntimeError("perturbed teacher schedule must equal the clean one outside the inserted correction stage")
+        if float(self.grasp_yaw_rad) != clean_yaw:
+            raise RuntimeError("perturbed teacher needs a different grasp yaw than the clean plan")
+        self.solve_diagnostics = clean_diagnostics + self.solve_diagnostics
+        self.clean_waypoints = clean_waypoints
+        self.clean_boundaries = clean_boundaries
+        self.teacher_perturbation = {
+            "lateral_offset_xy_m": [offset[0], offset[1]],
+            "descend_height_m": None if perturbed_descend_height_m is None else float(perturbed_descend_height_m),
+        }
+
+    def clean_action(self, row: int) -> np.ndarray:
+        """The unperturbed teacher's command for capture row ``row`` (the action predict() returns on call row+1)."""
+        if self.clean_waypoints is None:
+            return self._act_from_plan(None, self._plan_qpos(self.waypoints, self.boundaries, int(row) + 1))
+        return self._act_from_plan(None, self._plan_qpos(self.clean_waypoints, self.clean_boundaries, int(row) + 1))
+
+    def _plan(self, adapter: Any, lateral_offset: tuple[float, float] | None, descend_height: float | None) -> None:
         self.action_index = 0
         self.solve_diagnostics = []
         self._joint_map = getattr(adapter, "joint_map", None)
@@ -306,16 +370,27 @@ class PrivilegedStagedController:
                 # the mouth, giving the fixed pad clearance during the descent.
                 mouth_shift = -self.approach_clearance_m * mouth_normal
                 self._set_arm(adapter, start.astype(np.float64))
-                above = self._solve(
-                    adapter, seed, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.06]), open_gripper
-                )
-                lowered = self._solve(
-                    adapter, above, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.025]), open_gripper
-                )
-                descended = self._solve(
-                    adapter, lowered, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.008]), open_gripper
-                )
-                engaged = self._solve(adapter, descended, pocket_grasp + mouth_shift, open_gripper)
+                if lateral_offset is None:
+                    above = self._solve(
+                        adapter, seed, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.06]), open_gripper
+                    )
+                    lowered = self._solve(
+                        adapter, above, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.025]), open_gripper
+                    )
+                    descended = self._solve(
+                        adapter, lowered, pocket_grasp + mouth_shift + np.array([0.0, 0.0, 0.008]), open_gripper
+                    )
+                else:
+                    # Perturbed teacher: the whole first descent runs beside the cube; engaged/seated stay true.
+                    shifted = pocket_grasp + mouth_shift + np.array([lateral_offset[0], lateral_offset[1], 0.0])
+                    drop = 0.008 if descend_height is None else descend_height
+                    above = self._solve(adapter, seed, shifted + np.array([0.0, 0.0, 0.06]), open_gripper)
+                    lowered = self._solve(adapter, above, shifted + np.array([0.0, 0.0, max(0.025, drop)]), open_gripper)
+                    descended = self._solve(adapter, lowered, shifted + np.array([0.0, 0.0, drop]), open_gripper)
+                    # Correct sideways at that height first (a sideways move with the jaws around the cube strikes it in
+                    # half the directions, feasibility scan 2026-11-05), then descend onto engaged as the clean plan does.
+                    recentred = self._solve(adapter, descended, pocket_grasp + mouth_shift + np.array([0.0, 0.0, drop]), open_gripper)
+                engaged = self._solve(adapter, descended if lateral_offset is None else recentred, pocket_grasp + mouth_shift, open_gripper)
                 seated = self._solve(adapter, engaged, pocket_grasp, open_gripper)
                 half_closed = with_gripper(seated, self.nearly_closed_gripper_rad)
                 closed = with_gripper(seated, closed_gripper)
@@ -379,6 +454,8 @@ class PrivilegedStagedController:
                         0, 70, 110, 145, 175, 205, 255, 285, 315, 350, 365,
                         386, 403, 419, 424, 450,
                     )
+                if lateral_offset is not None:
+                    self.waypoints.insert(4, recentred)   # [start, above, lowered, descended, recentred, engaged, ...]
             except RuntimeError as exc:
                 last_error = exc
                 self._set_arm(adapter, start.astype(np.float64))
@@ -404,9 +481,12 @@ class PrivilegedStagedController:
             # Shared look-up motion precedes any cube-conditioned action.
             # Move for 60 actions and hold until the first H90 image refresh.
             # Preserve the 30-action tail; fit the task into 360 actions.
+            # Perturbed teacher: descended (shifted) 185 -> recentred 200 -> engaged 212 -> seated 225; every other
+            # boundary, and so every row from 225 on, is the clean schedule's.
+            middle = (95, 115) if lateral_offset is None else (95, 110, 122)
             self.boundaries = (0, 60) + tuple(
                 bench.observation_steps + b
-                for b in (0, 45, 70, 95, 115, 135, 170, 190, 209,
+                for b in (0, 45, 70) + middle + (135, 170, 190, 209,
                           244, 279, 284, 309, 329, 334, 360))
             self.waypoints = [observation_start, start.copy()] + self.waypoints
             self._set_arm(adapter, observation_start)
@@ -487,26 +567,27 @@ class PrivilegedStagedController:
             raise RuntimeError("the servo-compensated teacher needs the adapter at every step")
         return self._compensated(adapter, plan_qpos)
 
-    def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
-        del image, current_act
-        boundaries = self.boundaries
-        self.action_index += 1
+    @staticmethod
+    def _plan_qpos(waypoints: list[np.ndarray], boundaries: tuple[int, ...], action_index: int) -> np.ndarray:
+        """Minimum-jerk plan pose for 1-based ``action_index``; past the last boundary, the final waypoint."""
         for stage in range(len(boundaries) - 1):
-            if self.action_index <= boundaries[stage + 1]:
-                start = self.waypoints[stage]
-                stop = self.waypoints[stage + 1]
-                fraction = (self.action_index - boundaries[stage]) / (boundaries[stage + 1] - boundaries[stage])
-                result = self._to_act(self._command(
-                    adapter, (1.0 - _minimum_jerk(fraction)) * start + _minimum_jerk(fraction) * stop
-                ))
-                return np.clip(
-                    result, ACT_DATASET_LOW + np.float32(1e-6),
-                    ACT_DATASET_HIGH - np.float32(1e-6),
-                ).astype(np.float32)
+            if action_index <= boundaries[stage + 1]:
+                start = waypoints[stage]
+                stop = waypoints[stage + 1]
+                fraction = (action_index - boundaries[stage]) / (boundaries[stage + 1] - boundaries[stage])
+                return (1.0 - _minimum_jerk(fraction)) * start + _minimum_jerk(fraction) * stop
+        return waypoints[-1]
+
+    def _act_from_plan(self, adapter: Any | None, plan_qpos: np.ndarray) -> np.ndarray:
         return np.clip(
-            self._to_act(self._command(adapter, self.waypoints[-1])),
+            self._to_act(self._command(adapter, plan_qpos)),
             ACT_DATASET_LOW + np.float32(1e-6), ACT_DATASET_HIGH - np.float32(1e-6),
         ).astype(np.float32)
+
+    def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
+        del image, current_act
+        self.action_index += 1
+        return self._act_from_plan(adapter, self._plan_qpos(self.waypoints, self.boundaries, self.action_index))
 
 
 __all__ = ["PrivilegedStagedController", "compress_boundaries"]

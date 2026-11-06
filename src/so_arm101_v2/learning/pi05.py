@@ -251,7 +251,9 @@ class CaptureSource:
         last_index = (starts[1:] - 1)[episode_of_row]
         action_index = np.asarray(arrays["action_index"], dtype=np.int64)
         stored = getattr(frames, "stored_mask", np.ones(frames.shape[0], dtype=bool))
-        keep = stored.copy()
+        from so_arm101_v2.learning.chunked import perturbed_start_mask, target_act
+
+        keep = stored.copy() & perturbed_start_mask(arrays)   # all True unless the capture used the perturbed teacher
         if frame_stride:
             keep &= action_index % int(frame_stride) == 0
         if episode_limit is not None:
@@ -259,7 +261,7 @@ class CaptureSource:
         source = cls(
             name=name, manifest_path=Path(manifest_path), frames=frames,
             current_norm=normalize_act(np.asarray(arrays["current_act"], np.float32)).astype(np.float32),
-            executed_norm=normalize_act(np.asarray(arrays["executed_act"], np.float32)).astype(np.float32),
+            executed_norm=normalize_act(target_act(arrays)).astype(np.float32),   # label_act for perturbed-teacher captures
             progress=np.asarray(arrays["progress"], np.float32), action_index=action_index,
             last_index=last_index, episode_of_row=episode_of_row, scenario_ids=scenario_ids,
             rows=np.flatnonzero(keep).astype(np.int64),

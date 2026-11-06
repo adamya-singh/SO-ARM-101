@@ -119,6 +119,7 @@ def main(argv=None) -> int:
     p.add_argument("--seed", type=int, default=202)
     p.add_argument("--amp", choices=("auto", "on", "off"), default="auto", help="bf16 autocast (auto: on for SmolVLA)")
     p.add_argument("--run-name", default=None)
+    p.add_argument("--tranche", default=TRANCHE_TAG, help="W&B tag and identity field naming the tranche")
     p.add_argument("--rehearsal", action="store_true")
     p.add_argument("--rollout-limit", type=int, default=None, help="rehearsal only: first N held-out scenarios, 1 repeat")
     p.add_argument("--no-wandb", action="store_true", help="probes: record metrics without a W&B run")
@@ -230,7 +231,7 @@ def main(argv=None) -> int:
                     envs=args.envs, episodes_per_iter=args.episodes_per_iter, execute=args.execute, policy=policy_config, ppo=ppo.as_dict(),
                     reward=reward.as_dict(), amp=amp, rl_suites=str(args.rl_suites.resolve()), scenario_order_sha256=pool.order_sha256,
                     train_poses=len(pool), monitor_poses=len(monitor), heldout_suite=heldout.suite_id, scene_dependencies_sha256=scene_hash,
-                    seed=args.seed, rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=TRANCHE_TAG)
+                    seed=args.seed, rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=args.tranche)
     identity_path = root / "identity.json"
     if identity_path.exists():
         old = json.loads(identity_path.read_text())
@@ -254,7 +255,7 @@ def main(argv=None) -> int:
         family, *([f"K{args.steps}"] if args.model != "act" else []), f"n{args.episodes}", scene_hash=scene_hash, seed=args.seed))
     tracker = tracking.init_run(family=family, name=name, config=identity, job_type="rl", rehearsal=args.rehearsal, run_id=state.get("wandb_id"),
                                 axes=(tracking.EPISODES, tracking.STEP), default_axis=tracking.EPISODES, enabled=not args.no_wandb,
-                                tags=[args.model, "reinflow" if args.model != "act" else "gaussian-ppo", f"n{args.episodes}", TRANCHE_TAG], directory=root)
+                                tags=[args.model, "reinflow" if args.model != "act" else "gaussian-ppo", f"n{args.episodes}", args.tranche], directory=root)
     tracking.persist_run_id(root / "wandb.json", tracker)
     progress(wandb_id=tracker.id, wandb_url=tracker.url)
     tracker.define("01_outcome/monitor_success_rate", step_metric=tracking.EPISODES, summary="max")

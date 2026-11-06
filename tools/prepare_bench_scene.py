@@ -41,7 +41,9 @@ def prepare(destination: Path, config: BenchConfig):
     assets.find("material[@name='white']").set('rgba','0.07 0.07 0.07 1')
     for element in baseline.find('asset'):
         assets.append(element)
-    cube_source = ROOT.parent / '3d-printing/oak-d-lite-mount/things-I-used/XYZ 20mm Calibration Cube - 1278865/files/xyzCalibration_cube.stl'
+    # The 3d-printing folder sat beside the repo until the 2026-11 move into ~/projects put it inside the repo.
+    cube_relative = '3d-printing/oak-d-lite-mount/things-I-used/XYZ 20mm Calibration Cube - 1278865/files/xyzCalibration_cube.stl'
+    cube_source = next((base / cube_relative for base in (ROOT.parent, ROOT) if (base / cube_relative).is_file()), ROOT.parent / cube_relative)
     cube_dest = destination / 'xyzCalibration_cube.stl'
     if cube_source.is_file():
         shutil.copyfile(cube_source, cube_dest)

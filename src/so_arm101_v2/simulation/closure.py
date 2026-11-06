@@ -109,3 +109,42 @@ def closure_summary(model_path: str | Path, telemetry_paths: Iterable[str | Path
         "yaw_err_median_deg": float(np.median([r["yaw_err"] for r in rows])),
         "dz_median_mm": float(np.median([abs(r["dz"]) for r in rows])),
     }
+
+
+CORRECTION_STEPS = (179, CLOSURE_STEP)
+
+
+def correction_summary(model_path: str | Path, telemetry_paths: Iterable[str | Path],
+                       steps: tuple[int, ...] = CORRECTION_STEPS) -> dict[str, Any]:
+    """Does the second look correct? Lateral error rms at each step, against the same step-250 reference.
+
+    Reproduces the 2026-09-18 "does the second chunk correct?" measurement (tranche_analysis_20260918, notebook
+    "Tranche analysis"): ``closure_row`` evaluated at step 179 (end of the survey-frame chunk) and at step 250
+    (before closure), both against the working policy's closure point, so the drop from 179 to 250 is what the
+    chunk read at step 180 removed. Pre-registered target for the perturbed-teacher tranche (2026-11-05): step-250
+    rms under 4 mm and below step 179, not-descended count 0.
+    """
+    kin = ClosureKinematics(model_path)
+    per_rollout = []
+    last = max(steps)
+    for path in telemetry_paths:
+        telemetry = json.loads(Path(path).read_text())
+        if len(telemetry["rows"]) <= last:
+            continue
+        entry: dict[str, Any] = {"scenario_id": telemetry["scenario_id"], "repeat": int(telemetry.get("repeat", 0))}
+        for step in steps:
+            row = closure_row(kin, telemetry, step)
+            entry[f"lat_{step}"] = row["lat"]
+            entry[f"dz_{step}"] = row["dz"]
+        per_rollout.append(entry)
+    if not per_rollout:
+        return {"rows": [], "count": 0}
+    result: dict[str, Any] = {"rows": per_rollout, "count": len(per_rollout), "steps": list(steps)}
+    for step in steps:
+        lat = np.array([r[f"lat_{step}"] for r in per_rollout])
+        result[f"lateral_rms_mm_{step}"] = float(np.sqrt(np.mean(lat ** 2)))
+        result[f"lateral_median_mm_{step}"] = float(np.median(lat))
+    first, final = steps[0], steps[-1]
+    result["correction_mm"] = result[f"lateral_rms_mm_{first}"] - result[f"lateral_rms_mm_{final}"]
+    result["not_descended"] = int(sum(r[f"dz_{CLOSURE_STEP}"] > NOT_DESCENDED_MM for r in per_rollout)) if CLOSURE_STEP in steps else None
+    return result

@@ -164,6 +164,14 @@ class _OracleScenarioResult:
     video_names: tuple[str, ...]
     appearance: dict[str, Any] | None = None
     placement: dict[str, Any] | None = None
+    # Perturbed teacher (2026-11-05): the DART label column and the perturbation record; None for the unperturbed teacher.
+    label_act: list[Any] | None = None
+    teacher_perturbation: dict[str, Any] | None = None
+
+
+def perturbation_label_rows(observation_steps: int) -> tuple[int, int]:
+    """Rows [start, stop) whose label is the clean plan: the chunk read at the survey frame (90-179)."""
+    return int(observation_steps), 2 * int(observation_steps)
 
 
 def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
@@ -198,7 +206,7 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
         adapter.reset(item)
         appearance = adapter.appearance_record
         placement = adapter.placement_record
-        controller.reset(adapter)
+        controller.reset(adapter, **item.teacher_reset_kwargs())
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
             raw = adapter.render_wrist_observation()
@@ -299,10 +307,21 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
             events=[], boundaries=(), solve_diagnostics=[], safety_counts=safety_counts, final_evaluation=None, video_names=(),
         )
     video_names = (wrist_temp.name, overview_temp.name) if wrist_temp is not None and overview_temp is not None else ()
+    label_act = None
+    perturbation = None
+    if controller.teacher_perturbation is not None:
+        # DART label: the survey-frame chunk (rows 90-179) keeps the clean plan's commands; from row 180 the label is
+        # what the teacher executed, i.e. the correction from the off-centre pose it actually reached.
+        first, stop = perturbation_label_rows(adapter.bench.observation_steps)
+        label_act = [np.asarray(value, dtype=np.float32).copy() for value in columns["executed_act"]]
+        for row in range(first, min(stop, horizon)):
+            label_act[row] = controller.clean_action(row)
+        perturbation = dict(controller.teacher_perturbation, label_rows=[first, stop])
     return _OracleScenarioResult(
         scenario_id=item.scenario_id, error=None, columns=columns, events=event_rows,
         boundaries=tuple(controller.boundaries), solve_diagnostics=list(controller.solve_diagnostics),
         safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names, appearance=appearance, placement=placement,
+        label_act=label_act, teacher_perturbation=perturbation,
     )
 
 
@@ -500,6 +519,15 @@ def capture_oracle_demonstrations(
             identity["frame_store"]["row_stride"] = frame_row_stride
 
     arrays: dict[str, list[np.ndarray | float | int | bool]] = {name: [] for name in _ORACLE_FIELDS}
+    # Perturbed-teacher suites get two extra columns (conditionally present: every other capture is byte-identical).
+    perturbed_suite = any(item.teacher_offset_xy_m is not None for item in selected)
+    if perturbed_suite:
+        arrays["label_act"] = []
+        arrays["teacher_perturbed"] = []
+        identity["teacher_perturbation"] = {
+            "label": "clean_plan_rows_observation_to_2x_observation_else_executed",
+            "columns": ["label_act", "teacher_perturbed"],
+        }
     episode_records: list[dict[str, Any]] = []
     skipped_records: list[dict[str, Any]] = []
     horizon = int(identity["teacher_horizon"])
@@ -542,6 +570,10 @@ def capture_oracle_demonstrations(
                 frames[kept * per_episode:(kept + 1) * per_episode] = frames[index * per_episode:(index + 1) * per_episode]
             for name in _ORACLE_FIELDS:
                 arrays[name].extend(result.columns[name])
+            if perturbed_suite:
+                perturbed = result.label_act is not None
+                arrays["label_act"].extend(result.label_act if perturbed else result.columns["executed_act"])
+                arrays["teacher_perturbed"].extend([perturbed] * len(result.columns["executed_act"]))
             record = {
                 "scenario_id": item.scenario_id,
                 "rows": horizon,
@@ -555,6 +587,8 @@ def capture_oracle_demonstrations(
                 record["appearance"] = result.appearance   # conditionally present: fixed-look captures are unchanged
             if result.placement is not None:
                 record["placement"] = result.placement
+            if result.teacher_perturbation is not None:
+                record["teacher_perturbation"] = result.teacher_perturbation
             episode_records.append(record)
             for name in result.video_names:
                 staged_videos.append((temporary_path / name, name))

@@ -176,6 +176,28 @@ def build_chunked_clone_model(input_dim: int, hidden_width: int, chunk_horizon: 
     return ChunkedCloneNetwork()
 
 
+# Perturbed-teacher captures (2026-11-05): rows of the survey-frame chunk carry the clean plan in ``label_act``; chunk
+# starts strictly inside it see a half-done perturbation with no clean label and are not training samples. Must
+# match ``simulation.oracle.perturbation_label_rows(observation_steps=90)`` (tested).
+PERTURBED_LABEL_ROWS = (90, 180)
+
+
+def target_act(arrays: Mapping[str, np.ndarray]) -> np.ndarray:
+    """The act sequence chunk targets copy: ``label_act`` (perturbed-teacher captures) or ``executed_act``."""
+    return np.asarray(arrays["label_act"] if "label_act" in arrays else arrays["executed_act"], dtype=np.float32)
+
+
+def perturbed_start_mask(arrays: Mapping[str, np.ndarray]) -> np.ndarray:
+    """True for rows that may start a training chunk; all True for captures without a perturbed teacher."""
+    rows = int(np.asarray(arrays["action_index"]).shape[0])
+    if "teacher_perturbed" not in arrays:
+        return np.ones(rows, dtype=bool)
+    index = np.asarray(arrays["action_index"], dtype=np.int64)
+    first, stop = PERTURBED_LABEL_ROWS
+    inside = (index > first) & (index < stop)
+    return ~(np.asarray(arrays["teacher_perturbed"], dtype=bool) & inside)
+
+
 def build_chunked_targets(
     arrays: Mapping[str, np.ndarray],
     chunk_horizon: int,
@@ -188,9 +210,10 @@ def build_chunked_targets(
     normalize_act(current[t])`` so a zero-initialized head predicts "hold the
     current pose" for the whole chunk.  ``episode_lengths`` bounds each row's
     lookahead to its own episode: padding repeats that episode's final
-    command, never crossing into the next episode.
+    command, never crossing into the next episode. Perturbed-teacher captures use ``label_act`` (see
+    :func:`target_act`).
     """
-    executed = np.asarray(arrays["executed_act"], dtype=np.float32)
+    executed = target_act(arrays)
     current = np.asarray(arrays["current_act"], dtype=np.float32)
     if executed.ndim != 2 or executed.shape[1] != 6 or executed.shape != current.shape:
         raise ValueError("chunked targets require matching [N, 6] act arrays")
@@ -695,6 +718,8 @@ __all__ = [
     "SATURATION_MODES",
     "build_chunked_clone_model",
     "build_chunked_targets",
+    "perturbed_start_mask",
+    "target_act",
     "decode_feasible_chunk",
     "feasible_decode_telemetry",
     "train_chunked_clone",

@@ -7,6 +7,48 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-11-05: perturbed-teacher tranche (handoff step 1, `notes/handoff-20261105.md`).** Implemented and
+queued (manifest `tools/tranche_20261105.json`, queue `simulation_code/queue_perturbed_teacher_20261105.sh`, output
+`experiments/perturbed_teacher_20261105/`). The scripted teacher is open-loop, so it does not correct itself. Instead,
+`PrivilegedStagedController.reset(lateral_offset_xy_m=..., perturbed_descend_height_m=...)` plans the correction:
+- The first descent (`above` 135, `lowered` 160, `descended` 185) is shifted sideways.
+- The arm recentres at that height in 185-200, then goes `engaged` at 212 and `seated` at 225.
+- Every boundary outside 185-225, and so every row from 225 on, is the clean schedule's.
+- Scenarios carry the offset (`teacher_offset_xy_m`, `teacher_descend_height_m`; omitted when unset, so old suites
+  hash as before).
+- `generate_bench_suite(perturb_teacher_radius_m=...)` draws offsets uniform in a disk (stream 3). Admission needs
+  both the clean teacher (what the capture preflight runs) and the perturbed teacher to pass.
+- Captures add `label_act`: the clean plan on rows 90-179 (DART: the survey-frame chunk keeps the clean label),
+  executed everywhere else. They also add `teacher_perturbed`.
+- Both trainers (`build_chunked_targets`, `pi05.CaptureSource`) copy `label_act` and drop chunk starts 91-179 of
+  perturbed episodes.
+
+Feasibility scan (`perturbed_teacher_20261105/feasibility_scan.json`): 10 certification placements × 8 directions at 15 mm.
+- Correcting sideways at the clean 8 mm height admits 48/80; the jaws strike the cube in the +x half of the directions.
+- Recentring at 20 mm admits 79/80, so the capture uses 20 mm.
+- The step-180 jaw sits 14.8 mm (median) from the clean teacher, and the step-250 jaw 0.4 mm from it.
+- Frames: `frames_180_250.png`.
+
+Metric: `closure.correction_summary` / `tools/correction_report.py` reproduce the 09-18 numbers exactly (1200 run
+11.4 -> 11.2 mm, 4800 run 9.7 -> 8.1). Baselines (step 179 -> 250 lateral rms, not-descended):
+- CNN 2400 × 3 seeds pooled: 13.4 -> 13.2 mm, 30/90.
+- CNN 4800: 9.7 -> 8.1 mm, 6/30.
+- ACT fine-tune: 6.0 -> 3.3 mm, 3/30.
+- ACT + PPO: 6.6 -> 3.8 mm, 0/30.
+
+**Pre-registered:**
+- CNN seeds 202/101/303 (pooled): step-250 rms under 4 mm and below step 179, not-descended 0, then held-out
+  successes against 6/30 (4800) and 33/90 (2400).
+- ACT, which already meets 4 mm: beat its own baseline (20/30, 3.3 mm, 3 not descended) on the same recipe with the
+  4800 capture swapped for the perturbed one.
+- ACT + PPO: more than 24/30.
+
+Environment changes made to run it:
+- The capture pointer files were repointed from `~/dev/robotic-arm` to `~/projects`.
+- The lerobot fork is put on `PYTHONPATH` in the queue (the conda envs' editable `.pth` files still name the old
+  path).
+- The numerics driver pin moved 610.47 -> 610.88 (`notes/numerics-regime-v2.md`).
+
 **Update 2026-10-04 (read before any live run).** The first live pi0.5 episode
 (`physical/episode_20_20261004_pi05`) stopped its survey move 13 elbow units
 short, never saw the towel, reached down beside the base and pressed on the
