@@ -1,0 +1,40 @@
+{
+  "tranche": "physics-randomization-20261105",
+  "title": "Physics-randomization tranche",
+  "subtitle": "Train under random servo stiffness, friction, link mass, command latency, inference pauses, sensor noise and cube weight",
+  "why": "The simulator's physics was fixed and stiff (kp 50, frictionloss 0.1, no latency, frozen during inference) while the real servos are soft, sag short of their targets, and keep moving during pi0.5's 0.5-1.0 s inference. Every training episode now gets its own draw of the bench_physics_v1 regime (contracts/physics.py), centred on the October servo model on the measured-servo scene, where the scripted teacher compensates gravity and friction. Feasibility scan: 82% of draws admitted, no parameter's extreme quintile failing above 35%.",
+  "root": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/physics_rand_20261105",
+  "baselines": [
+    {"label": "CNN, 4800 placements, seed 202 (nominal scene)", "successes_exec90": 6},
+    {"label": "ACT fine-tune (retry tranche, nominal scene)", "successes_exec90": 20},
+    {"label": "ACT fine-tune + PPO lr 2e-7 (nominal scene)", "successes_exec90": 24}
+  ],
+  "experiments": [
+    {"id": "capture", "order": 1, "kind": "job", "model": "teacher", "method": "Capture, servo scene, bench_physics_v1",
+     "title": "Capture 7200 physics-randomized placements",
+     "question": "Does the compensated teacher fill a 7200-placement suite with every placement under its own physics draw?",
+     "success_means": "A complete capture plus the 10 held-out poses re-captured on the servo scene.",
+     "dir": "capture7200", "label": "physics-capture", "env": "lerobot"},
+    {"id": "cnn-s202", "order": 2, "kind": "job", "model": "CNN", "method": "From scratch, shift 12, 120k, first 4800",
+     "title": "CNN under random physics, seed 202", "question": "Does a policy trained under random physics hold up on the servo scene and under real_like_v1?",
+     "success_means": "Pooled over seeds: beats the CNN 4800 baseline in the servo and servo+real_like_v1 cells, losing at most 3/30 on the nominal scene.",
+     "dir": "cnn_s202", "label": "physics-cnn-s202", "depends_on": "capture", "env": "lerobot"},
+    {"id": "cnn-s101", "order": 3, "kind": "job", "model": "CNN", "method": "From scratch, shift 12, 120k, first 4800",
+     "title": "CNN under random physics, seed 101", "question": "Seed repeat.", "success_means": "As seed 202.",
+     "dir": "cnn_s101", "label": "physics-cnn-s101", "depends_on": "capture", "env": "lerobot"},
+    {"id": "cnn-s303", "order": 4, "kind": "job", "model": "CNN", "method": "From scratch, shift 12, 120k, first 4800",
+     "title": "CNN under random physics, seed 303", "question": "Seed repeat.", "success_means": "As seed 202.",
+     "dir": "cnn_s303", "label": "physics-cnn-s303", "depends_on": "capture", "env": "lerobot"},
+    {"id": "ft-act", "order": 5, "kind": "finetune", "model": "ACT", "method": "Fine-tune, retry-tranche config, 7200 randomized",
+     "title": "ACT fine-tune under random physics", "question": "Does ACT trained under random physics beat the ACT baseline on the servo scene?",
+     "success_means": "Beats the retry ACT fine-tune in the servo and servo+real_like_v1 cells, losing at most 3/30 on the nominal scene.",
+     "dir": "act_ft", "label": "physics-act-ft", "depends_on": "capture", "env": "lerobot"},
+    {"id": "rl-act", "order": 6, "kind": "rl", "model": "ACT", "method": "PPO, actor lr 2e-7, random physics per episode",
+     "title": "ACT PPO under random physics", "question": "Does RL in randomized environments beat ACT + PPO from the stiff scene on the servo scene?",
+     "success_means": "Beats the retry ACT + PPO in the servo and servo+real_like_v1 cells, losing at most 3/30 on the nominal scene.",
+     "start_from": "ft-act", "dir": "rl_act_lr2e-7", "label": "physics-rl-act", "depends_on": "ft-act", "env": "lerobot"},
+    {"id": "report", "order": 7, "kind": "job", "model": "-", "method": "tools/eval_policy.py x 44 + tools/eval_matrix_report.py",
+     "title": "Evaluation matrix", "question": "Every new, step-1 and baseline policy on nominal / servo / servo+real_like_v1 / servo+bench_physics_v1.",
+     "success_means": "matrix.json written.", "dir": ".", "label": "physics-report", "env": "lerobot"}
+  ]
+}

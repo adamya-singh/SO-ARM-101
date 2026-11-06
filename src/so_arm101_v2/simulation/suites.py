@@ -26,6 +26,10 @@ class SimulationScenario:
     # fields are omitted from payloads then (scenario_record), so every existing suite hashes as before.
     teacher_offset_xy_m: tuple[float, float] | None = None
     teacher_descend_height_m: float | None = None
+    # Physics randomization (2026-11-05, notes/handoff-20261105.md step 2; contracts/physics.py): a named regime and
+    # a seed, applied by the adapter at reset. None = the scene's own physics; omitted from payloads then.
+    physics_regime: str | None = None
+    physics_seed: int | None = None
 
     def __post_init__(self) -> None:
         if len(self.cube_position_m) != 3 or len(self.robot_qpos_mujoco) != 6 or len(self.cube_quaternion_wxyz) != 4:
@@ -58,6 +62,16 @@ class SimulationScenario:
             if not 0.0 < height <= 0.06:
                 raise ValueError("teacher_descend_height_m must lie in (0, 0.06] m")
             object.__setattr__(self, "teacher_descend_height_m", height)
+        if (self.physics_regime is None) != (self.physics_seed is None):
+            raise ValueError("physics_regime and physics_seed must be set together")
+        if self.physics_regime is not None:
+            from so_arm101_v2.contracts.physics import physics_regime
+            physics_regime(str(self.physics_regime))
+            seed = int(self.physics_seed)
+            if seed != self.physics_seed or not 0 <= seed < 2 ** 31:
+                raise ValueError("physics_seed must be an integer in [0, 2**31)")
+            object.__setattr__(self, "physics_regime", str(self.physics_regime))
+            object.__setattr__(self, "physics_seed", seed)
 
     def teacher_reset_kwargs(self) -> dict:
         """Keyword arguments for ``PrivilegedStagedController.reset``: empty for the unperturbed teacher."""
@@ -78,6 +92,8 @@ def _scenario_from_payload(item: dict) -> SimulationScenario:
         square_yaw_rad=float(item.get("square_yaw_rad", 0.0)),
         teacher_offset_xy_m=(None if item.get("teacher_offset_xy_m") is None else tuple(float(v) for v in item["teacher_offset_xy_m"])),
         teacher_descend_height_m=(None if item.get("teacher_descend_height_m") is None else float(item["teacher_descend_height_m"])),
+        physics_regime=item.get("physics_regime"),
+        physics_seed=(None if item.get("physics_seed") is None else int(item["physics_seed"])),
     )
 
 
@@ -90,7 +106,7 @@ def scenario_record(scenario: SimulationScenario) -> dict:
         del record["square_center_xy"]
     if record["square_yaw_rad"] == 0.0:
         del record["square_yaw_rad"]
-    for name in ("teacher_offset_xy_m", "teacher_descend_height_m"):
+    for name in ("teacher_offset_xy_m", "teacher_descend_height_m", "physics_regime", "physics_seed"):
         if record[name] is None:
             del record[name]
     return record

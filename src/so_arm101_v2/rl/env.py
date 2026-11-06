@@ -140,6 +140,9 @@ class ChunkEnv:
         summary = self.summary
         evaluation = None
         steps = 0
+        # Physics randomization: the policy inferred this chunk from the observation returned last time; the real arm
+        # kept tracking its last command meanwhile (no-op without a physics draw).
+        self.adapter.inference_pause(int(self.state.actions_evaluated))
         for requested in commands:
             command = self.adapter.apply_policy_command(requested)
             self.adapter.advance_control_period()

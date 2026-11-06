@@ -120,6 +120,8 @@ def main(argv=None) -> int:
     p.add_argument("--amp", choices=("auto", "on", "off"), default="auto", help="bf16 autocast (auto: on for SmolVLA)")
     p.add_argument("--run-name", default=None)
     p.add_argument("--tranche", default=TRANCHE_TAG, help="W&B tag and identity field naming the tranche")
+    p.add_argument("--physics", default=None, help="physics randomization regime for training episodes (contracts/physics.py, e.g. "
+                   "bench_physics_v1): each episode gets its own draw; the held-out evaluation keeps the scene's own physics")
     p.add_argument("--rehearsal", action="store_true")
     p.add_argument("--rollout-limit", type=int, default=None, help="rehearsal only: first N held-out scenarios, 1 repeat")
     p.add_argument("--no-wandb", action="store_true", help="probes: record metrics without a W&B run")
@@ -159,7 +161,7 @@ def main(argv=None) -> int:
 
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
-    pool = ScenarioPool.from_index(args.rl_suites)
+    pool = ScenarioPool.from_index(args.rl_suites, physics_regime=args.physics)
     monitor = load_monitor(args.rl_suites)
     reward = RewardConfig()
     model, policy = load_policy(args.model, args.checkpoint, args, amp=amp)
@@ -232,6 +234,9 @@ def main(argv=None) -> int:
                     reward=reward.as_dict(), amp=amp, rl_suites=str(args.rl_suites.resolve()), scenario_order_sha256=pool.order_sha256,
                     train_poses=len(pool), monitor_poses=len(monitor), heldout_suite=heldout.suite_id, scene_dependencies_sha256=scene_hash,
                     seed=args.seed, rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=args.tranche)
+    if args.physics is not None:   # conditionally present: runs without physics randomization keep their identity
+        from so_arm101_v2.contracts.physics import physics_regime
+        identity["physics"] = physics_regime(args.physics).identity()
     identity_path = root / "identity.json"
     if identity_path.exists():
         old = json.loads(identity_path.read_text())

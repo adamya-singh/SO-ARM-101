@@ -382,6 +382,7 @@ def _run_pick_place_rollout(
         adapter.reset(scenario)
         appearance = adapter.appearance_record
         placement = adapter.placement_record
+        physics = adapter.physics_record
         reset_method = getattr(policy, "reset", None)
         if callable(reset_method):
             try:
@@ -411,6 +412,9 @@ def _run_pick_place_rollout(
     try:
         for action in range(contract.max_actions):
             render_now = render_wrist and (not frame_gated or bool(policy.needs_frame))
+            # Chunk boundary: where the policy reads a frame (a chunk policy's needs_frame, else every 90 actions,
+            # the capture's convention). Physics randomization only: the arm keeps moving while the policy infers.
+            boundary = physics is not None and (bool(policy.needs_frame) if hasattr(policy, "needs_frame") else action % 90 == 0)
             raw, _, current = adapter.observation(render_pixels=render_now)
             if raw is None:
                 raw = _BLANK_WRIST_IMAGE
@@ -418,6 +422,7 @@ def _run_pick_place_rollout(
             if overview_path is not None:
                 overview_writer.add(adapter.render("camera_side"))
             requested = policy.predict(raw, current, adapter)
+            pause_s = adapter.inference_pause(action) if boundary else 0.0
             command = adapter.apply_policy_command(requested)
             substeps = adapter.advance_control_period()
             measurement, diagnostics = adapter.pick_place_measurement(
@@ -454,6 +459,8 @@ def _run_pick_place_rollout(
                 "pickup_events": pickup_events,
                 "placement_events": place_events,
             })
+            if physics is not None:
+                rows[-1]["inference_pause_s"] = pause_s   # conditionally present: rows without physics are unchanged
             if evaluation.terminated or evaluation.truncated:
                 break
     finally:
@@ -491,6 +498,8 @@ def _run_pick_place_rollout(
         telemetry_payload["appearance"] = appearance   # conditionally present: fixed-look telemetry is unchanged
     if placement is not None:
         telemetry_payload["placement"] = placement
+    if physics is not None:
+        telemetry_payload["physics"] = physics
     telemetry_payload["content_sha256"] = content_sha256(telemetry_payload)
     write_immutable_json(telemetry_path, telemetry_payload)
     return PickPlaceRolloutMetrics(

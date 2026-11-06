@@ -7,6 +7,56 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-11-05 (later): physics-randomization tranche (handoff step 2).** Implemented and queued; manifest
+`tools/tranche_20261105b.json`, queue `simulation_code/queue_physics_rand_20261105.sh`, output
+`experiments/physics_rand_20261105/`. The user chose to keep it separate from step 1 and to use a 0-1000 ms inference pause.
+
+How it works:
+- A scenario names a regime and a seed (`physics_regime`, `physics_seed`; omitted when unset, so the scene hash and
+  every old suite are unchanged). `MujocoTaskAdapter.reset` applies the draw after the settle check and restores the
+  scene's own arrays at every reset.
+- `contracts/physics.py` `bench_physics_v1` draws, per episode:
+  - kp × log-U[0.7, 2] per joint;
+  - kv and frictionloss × log-U[0.5, 2] per joint;
+  - arm link mass × U[0.8, 1.25] (gravity sag);
+  - command latency U[0, 100] ms;
+  - an inference pause U[0, 1000] ms drawn per chunk boundary, during which physics runs with the last command held
+    after the frame is read;
+  - sensor noise sd 0.3 units on the observed joint state;
+  - cube mass log-U[5, 60] g and cube friction U[0.5, 1.5].
+- Draws are keyed on (seed, index), so captures stay stride- and worker-invariant (tested).
+- `real_like_v1` is the servo model as measured, 50 ms latency, no pause, noise on and an 8 g cube: the eval stand-in
+  for a fast policy on the real arm.
+
+Capture and RL run on the measured-servo scene (41b6cbd1), where the teacher compensates gravity and friction from the
+live, randomized gains.
+
+Feasibility scan (`physics_rand_20261105/feasibility_scan*.json`, certification placements × draws):
+- As first written, 73/200 were admitted. Every relative-limit hold was the gripper opening at the release under
+  latency. Under a physics draw the compensated teacher now paces its opening to the 18-unit lead cap (the closing
+  squeeze is untouched, and nothing changes without a draw): 141/200.
+- In the softest-elbow quintile 70% of draws still failed, so kp's low end went 0.5 -> 0.7: 247/300 (82%).
+- No parameter's extreme quintile now fails above 35%.
+
+New tools:
+- `tools/eval_policy.py`: any checkpoint on one (scene, physics) cell; under a regime each rollout gets its own
+  held-out draw (stream 7).
+- `tools/eval_matrix_report.py`.
+- `tools/physics_teacher_scan.py`.
+- `capture_placements.py --physics/--heldout-suite`, `rl_train.py --physics`.
+
+Runs, after step 1:
+- Capture: the 10 held-out poses re-captured on the servo scene, then 7200 randomized placements (seed 16, stride 30).
+- CNN × 3 seeds on the first 4800; ACT fine-tune on all 7200; ACT PPO under per-episode draws.
+- A 44-cell evaluation matrix. New policies get nominal, servo, servo + real_like_v1 and servo + bench_physics_v1;
+  the step-1 policies and the baselines get the three servo cells.
+
+**Pre-registered:** a policy passes if it beats its baseline in the servo and servo + real_like_v1 cells and loses at
+most 3/30 on the nominal scene. The randomized cell is a robustness readout.
+
+**Runner caveat:** these policies learned the compensated teacher's commands, which already contain the gravity and
+friction offset. On the real arm, run them with the servo assist OFF.
+
 **Update 2026-11-05: perturbed-teacher tranche (handoff step 1, `notes/handoff-20261105.md`).** Implemented and
 queued (manifest `tools/tranche_20261105.json`, queue `simulation_code/queue_perturbed_teacher_20261105.sh`, output
 `experiments/perturbed_teacher_20261105/`). The scripted teacher is open-loop, so it does not correct itself. Instead,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import hashlib
 import io
 import json
@@ -164,6 +164,7 @@ class _OracleScenarioResult:
     video_names: tuple[str, ...]
     appearance: dict[str, Any] | None = None
     placement: dict[str, Any] | None = None
+    physics: dict[str, Any] | None = None
     # Perturbed teacher (2026-11-05): the DART label column and the perturbation record; None for the unperturbed teacher.
     label_act: list[Any] | None = None
     teacher_perturbation: dict[str, Any] | None = None
@@ -202,10 +203,12 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
     episode_error: str | None = None
     appearance: dict[str, Any] | None = None
     placement: dict[str, Any] | None = None
+    physics: dict[str, Any] | None = None
     try:
         adapter.reset(item)
         appearance = adapter.appearance_record
         placement = adapter.placement_record
+        physics = adapter.physics_record
         controller.reset(adapter, **item.teacher_reset_kwargs())
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
@@ -224,6 +227,12 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
                 # touches physics, so skipping it without video is digest-neutral.
                 overview.add(adapter.render("camera_side"))
             requested = controller.predict(raw, snapshot.current_act, adapter)
+            if physics is not None:
+                # The state a deployed policy sees (sensor noise) is what it anchors on, so it is what the rows store;
+                # and at each 90-action chunk start the arm keeps moving while the policy would infer.
+                snapshot = replace(snapshot, current_act=adapter.observed_act())
+                if action_index % 90 == 0:
+                    adapter.inference_pause(action_index)
             command = adapter.apply_policy_command(requested)
             adapter.advance_control_period()
             measurement, _ = adapter.pick_place_measurement(
@@ -327,7 +336,7 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
         scenario_id=item.scenario_id, error=None, columns=columns, events=event_rows,
         boundaries=tuple(controller.boundaries), solve_diagnostics=list(controller.solve_diagnostics),
         safety_counts=safety_counts, final_evaluation=asdict(evaluation), video_names=video_names, appearance=appearance, placement=placement,
-        label_act=label_act, teacher_perturbation=perturbation,
+        physics=physics, label_act=label_act, teacher_perturbation=perturbation,
     )
 
 
@@ -525,6 +534,14 @@ def capture_oracle_demonstrations(
             identity["frame_store"]["row_stride"] = frame_row_stride
 
     arrays: dict[str, list[np.ndarray | float | int | bool]] = {name: [] for name in _ORACLE_FIELDS}
+    physics_regimes = sorted({item.physics_regime for item in selected if item.physics_regime is not None})
+    if physics_regimes:
+        # Conditionally present: captures without physics randomization keep their identity (and digest).
+        from so_arm101_v2.contracts.physics import PHYSICS_RESOLVER_VERSION, physics_regime
+        identity["physics"] = {"resolver": PHYSICS_RESOLVER_VERSION,
+                               "regimes": {name: physics_regime(name).identity() for name in physics_regimes},
+                               "stored_current_act": "observed_with_sensor_noise",
+                               "inference_pause_at": "every 90 actions, after predict"}
     # Perturbed-teacher suites get two extra columns (conditionally present: every other capture is byte-identical).
     perturbed_suite = any(item.teacher_offset_xy_m is not None for item in selected)
     if perturbed_suite:
@@ -595,6 +612,8 @@ def capture_oracle_demonstrations(
                 record["placement"] = result.placement
             if result.teacher_perturbation is not None:
                 record["teacher_perturbation"] = result.teacher_perturbation
+            if result.physics is not None:
+                record["physics"] = result.physics
             episode_records.append(record)
             for name in result.video_names:
                 staged_videos.append((temporary_path / name, name))

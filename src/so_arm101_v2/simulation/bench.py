@@ -72,7 +72,7 @@ def certification_suite(config, *, repeats=3):
 
 
 def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, square_centers=None, square_yaws=None,
-                teacher_offsets=None, teacher_descend_height_m=None):
+                teacher_offsets=None, teacher_descend_height_m=None, physics_regime=None, physics_seeds=None):
     """Scenarios at the reset pose with cube offsets from the square centre.
 
     ``appearance_seeds`` (one per offset) makes each look randomized; ``square_centers`` /
@@ -93,6 +93,8 @@ def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, squar
         raise ValueError('one teacher offset per offset is required')
     if teacher_descend_height_m is not None and teacher_offsets is None:
         raise ValueError('teacher_descend_height_m needs teacher offsets')
+    if (physics_regime is None)!=(physics_seeds is None) or (physics_seeds is not None and len(physics_seeds)!=len(offsets)):
+        raise ValueError('physics_regime needs one physics seed per offset')
     from so_arm101_v2.contracts.placement import yaw_quaternion
     scenarios=[]
     for i,(dx,dy) in enumerate(offsets):
@@ -107,7 +109,8 @@ def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, squar
             appearance_seed=None if appearance_seeds is None else int(appearance_seeds[i]),
             square_center_xy=centre if square_centers is not None else None,square_yaw_rad=yaw,
             teacher_offset_xy_m=None if teacher_offsets is None else tuple(float(v) for v in teacher_offsets[i]),
-            teacher_descend_height_m=None if teacher_offsets is None else teacher_descend_height_m))
+            teacher_descend_height_m=None if teacher_offsets is None else teacher_descend_height_m,
+            physics_regime=physics_regime,physics_seed=None if physics_seeds is None else int(physics_seeds[i])))
     scenarios=tuple(scenarios)
     digest=content_sha256(dict(config=asdict(config),scenarios=[scenario_record(s) for s in scenarios]))[:12]
     return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,repeats,False,scenarios)
@@ -160,9 +163,11 @@ def _teacher_episode(adapter,contract,scenario,kwargs):
     controller=PrivilegedStagedController()
     controller.reset(adapter,**kwargs)
     state=PickPlaceEvaluationState()
-    for _ in range(contract.max_actions):
+    for action in range(contract.max_actions):
         current=adapter.current_act()
         requested=controller.predict(None,current,adapter)
+        if adapter.physics_params is not None and action%90==0:
+            adapter.inference_pause(action)   # as the capture does (oracle.py)
         command=adapter.apply_policy_command(requested)
         adapter.advance_control_period()
         measurement,_=adapter.pick_place_measurement(command)
@@ -204,7 +209,7 @@ def teacher_offset_draws(seed,count,radius_m):
 
 
 def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,randomize_appearance=False,randomize_placement=False,
-                         perturb_teacher_radius_m=None,teacher_descend_height_m=None,workers=None):
+                         perturb_teacher_radius_m=None,teacher_descend_height_m=None,workers=None,physics_regime=None):
     """Screen ``count`` poses (offset stream ``seed``); with ``randomize_appearance`` each accepted pose also gets an
     appearance seed from a separate stream, so the accepted poses equal the fixed-appearance suite's. With
     ``randomize_placement`` every candidate also gets a square centre and yaw from the placement stream (stream 2),
@@ -225,6 +230,12 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
         raise ValueError('teacher_descend_height_m needs perturb_teacher_radius_m')
     teacher_draws=teacher_offset_draws(seed,count*100,perturb_teacher_radius_m) if perturb_teacher_radius_m is not None else None
     teacher_offsets=[]
+    # Physics randomization (2026-11-05): a seed per candidate on stream 4, screened with the draw, so admission covers it.
+    if physics_regime is not None:
+        from so_arm101_v2.contracts.physics import physics_regime as _regime, physics_seeds as _physics_seeds
+        _regime(physics_regime)
+    physics_draws=_physics_seeds(seed,count*100) if physics_regime is not None else None
+    accepted_physics=[];rejected_physics=[]
     cube_offset=regime.cube_offset_m if randomize_placement else .010
     offsets=[];centres=[];yaws=[];rejected=[]
     reasons=Counter()
@@ -235,15 +246,18 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
         teacher=None if teacher_draws is None else teacher_draws[attempt]
         candidate=bench_suite(config,[offset],label='candidate',repeats=1,
             square_centers=None if centre is None else [centre],square_yaws=None if yaw is None else [yaw],
-            teacher_offsets=None if teacher is None else [teacher],teacher_descend_height_m=teacher_descend_height_m).scenarios[0]
+            teacher_offsets=None if teacher is None else [teacher],teacher_descend_height_m=teacher_descend_height_m,
+            physics_regime=physics_regime,physics_seeds=None if physics_draws is None else [physics_draws[attempt]]).scenarios[0]
         return offset,centre,yaw,teacher,candidate
     for attempt,(offset,centre,yaw,teacher,candidate),(ok,reason) in _screened(model_path,count*100,candidate_at,workers):
         if ok:
             offsets.append(offset)
             if teacher is not None:teacher_offsets.append(teacher)
+            if candidate.physics_seed is not None:accepted_physics.append(candidate.physics_seed)
             if randomize_placement:centres.append(centre);yaws.append(yaw)
         else:
             reasons[reason]+=1
+            if candidate.physics_seed is not None and len(rejected_physics)<20000:rejected_physics.append([candidate.physics_seed,reason[:40]])
             if randomize_placement and len(rejected)<2000:rejected.append([round(centre[0],4),round(centre[1],4),round(float(np.degrees(yaw)),1),reason[:40]])
         if len(offsets)==count:break
         if attempt%20==0:print(f'SCREEN seed={seed} attempts={attempt+1} accepted={len(offsets)}/{count}',flush=True)
@@ -252,9 +266,10 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
     seeds=appearance_seeds(seed,count,stream=0) if randomize_appearance else None
     perturbed=teacher_draws is not None
     suite=bench_suite(config,offsets,label=f'seed{seed}_n{count}'+('_appearance' if randomize_appearance else '')+('_placement' if randomize_placement else '')
-        +('_perturbed' if perturbed else ''),
+        +('_perturbed' if perturbed else '')+('_physics' if physics_regime is not None else ''),
         repeats=repeats,appearance_seeds=seeds,square_centers=centres if randomize_placement else None,square_yaws=yaws if randomize_placement else None,
-        teacher_offsets=teacher_offsets if perturbed else None,teacher_descend_height_m=teacher_descend_height_m if perturbed else None)
+        teacher_offsets=teacher_offsets if perturbed else None,teacher_descend_height_m=teacher_descend_height_m if perturbed else None,
+        physics_regime=physics_regime,physics_seeds=accepted_physics if physics_regime is not None else None)
     payload=suite_payload(suite)
     payload['generator']=dict(seed=seed,requested=count,attempts=attempt+1,rejections=dict(reasons),
         offset_range_m=[-.010,.010],scene_dependencies_sha256=scene_dependency_hash(model_path))
@@ -272,6 +287,11 @@ def generate_bench_suite(model_path,config,*,seed,count,repeats,output_dir,rando
         payload['generator']['teacher_perturbation']=dict(radius_m=float(perturb_teacher_radius_m),distribution='uniform_disk_world_xy',
             descend_height_m=teacher_descend_height_m,seed_stream=dict(seed=seed,stream=TEACHER_OFFSET_STREAM),
             note='first-descent waypoints (above/lowered/descended) shifted; engaged/seated true; schedule unchanged')
+    if physics_regime is not None:
+        from so_arm101_v2.contracts.physics import PHYSICS_RESOLVER_VERSION
+        payload['generator']['physics']=dict(regime=_regime(physics_regime).identity(),resolver=PHYSICS_RESOLVER_VERSION,
+            seed_stream=dict(seed=seed,stream=4),rejected=rejected_physics,
+            note='each candidate screened under its own draw; rejected seeds are listed so screening bias can be checked')
     payload['content_sha256']=content_sha256(payload)
     path=Path(output_dir)/suite.suite_id/'suite.json'
     write_immutable_json(path,payload)

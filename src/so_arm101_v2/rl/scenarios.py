@@ -41,7 +41,7 @@ def assert_disjoint(train: Iterable[SimulationScenario], others: Iterable[Simula
 class ScenarioPool:
     """All training shards, deduplicated, in one fixed order."""
 
-    def __init__(self, scenarios: list[SimulationScenario], *, order_seed: int = ORDER_SEED) -> None:
+    def __init__(self, scenarios: list[SimulationScenario], *, order_seed: int = ORDER_SEED, physics_regime: str | None = None) -> None:
         seen, unique = set(), []
         for s in scenarios:
             key = scenario_key(s)
@@ -53,20 +53,31 @@ class ScenarioPool:
         self.scenarios = unique
         self.order = np.random.default_rng(order_seed).permutation(len(unique))
         self.order_sha256 = content_sha256(dict(ids=[unique[i].scenario_id + str(scenario_key(unique[i])) for i in self.order]))
+        # Physics randomization (2026-11-05): every episode gets its own draw keyed on the episode index, so a pose
+        # that repeats in the fixed order meets fresh physics each time. None = the scene's own physics.
+        if physics_regime is not None:
+            from so_arm101_v2.contracts.physics import physics_regime as _check
+            _check(physics_regime)
+        self.physics_regime = physics_regime
 
     def __len__(self) -> int:
         return len(self.scenarios)
 
     def episode(self, index: int) -> SimulationScenario:
-        return self.scenarios[int(self.order[index % len(self.order)])]
+        scenario = self.scenarios[int(self.order[index % len(self.order)])]
+        if self.physics_regime is None:
+            return scenario
+        from dataclasses import replace
+        seed = int(np.random.default_rng([ORDER_SEED, 0x9A51C5, int(index)]).integers(0, 2 ** 31))
+        return replace(scenario, physics_regime=self.physics_regime, physics_seed=seed)
 
     @classmethod
-    def from_index(cls, path: str | Path) -> "ScenarioPool":
+    def from_index(cls, path: str | Path, *, physics_regime: str | None = None) -> "ScenarioPool":
         payload = json.loads(Path(path).read_text())
         scenarios: list[SimulationScenario] = []
         for suite_path in payload["train_suites"]:
             scenarios.extend(load_suite_from_path(suite_path).scenarios)
-        return cls(scenarios, order_seed=int(payload.get("order_seed", ORDER_SEED)))
+        return cls(scenarios, order_seed=int(payload.get("order_seed", ORDER_SEED)), physics_regime=physics_regime)
 
 
 def load_monitor(path: str | Path) -> list[SimulationScenario]:

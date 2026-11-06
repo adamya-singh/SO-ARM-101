@@ -76,6 +76,9 @@ class PrivilegedContactSnapshot:
         )
 
 
+_PHYSICS_ARRAYS = ("actuator_gainprm", "actuator_biasprm", "dof_frictionloss", "body_mass", "body_inertia", "geom_friction")
+
+
 class MujocoTaskAdapter:
     """Own one MuJoCo model/data pair without importing the legacy environment."""
 
@@ -153,6 +156,17 @@ class MujocoTaskAdapter:
             self.model.geom_sameframe[self._napkin_geom] = 0
         self.square_center_xy: tuple[float, float] | None = None
         self.square_yaw_rad: float = 0.0
+        # Physics randomization (contracts/physics.py, 2026-11-05): the scene's own physics arrays are snapshotted
+        # once and restored at every reset; a scenario naming a regime gets its draw applied after the settle check.
+        # Off (physics_params None) everything below is a no-op and the adapter behaves bit for bit as before.
+        self._arm_bodies = sorted({int(self.model.jnt_bodyid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)])
+                                   for name in JOINT_NAMES})
+        self._cube_geoms = [g for g in range(self.model.ngeom) if int(self.model.geom_bodyid[g]) == block_body]
+        self._physics_pristine = {name: getattr(self.model, name).copy() for name in _PHYSICS_ARRAYS}
+        self._physics_applied = False
+        self.physics_params = None
+        self._ctrl_queue: list[tuple[float, np.ndarray]] = []
+        self._pause_unsafe = False
 
     @property
     def renderer(self) -> Any:
@@ -262,6 +276,7 @@ class MujocoTaskAdapter:
         elif scenario.appearance_seed is not None:
             raise ValueError("appearance seeds require a bench scene")
         mujoco = _mujoco()
+        self._restore_physics()
         self._configure_appearance(scenario)
         self._apply_placement(scenario)    # after the appearance restore, which rewrites body_pos/body_quat
         mujoco.mj_resetData(self.model, self.data)
@@ -283,6 +298,10 @@ class MujocoTaskAdapter:
             raise RuntimeError(
                 f"settled reset exceeds contract tolerance: robot={robot_error}, cube_xy={cube_error}"
             )
+        if scenario.physics_regime is not None:
+            # After the settle check (as tools/fit_servo_model.py does): a soft draw starts sagging from step 0, as
+            # the real arm does when torque comes on, instead of failing the reset tolerance.
+            self._apply_physics(scenario)
         self.initial_cube_height = float(self.data.body("red_block").xpos[2])
         self.control_origin_time = float(self.data.time)
         self.control_actions = 0
@@ -291,6 +310,84 @@ class MujocoTaskAdapter:
         # preceding pre-action state, including during oracle-controlled prefixes.
         self._previous_privileged_snapshot = self.privileged_state()
         self._previous_contact_snapshot = self.privileged_contact_state()
+
+    def _restore_physics(self) -> None:
+        self._ctrl_queue = []
+        self._pause_unsafe = False
+        self.physics_params = None
+        if self._physics_applied:
+            for name, values in self._physics_pristine.items():
+                getattr(self.model, name)[:] = values
+            self._physics_applied = False
+
+    def _apply_physics(self, scenario: SimulationScenario) -> None:
+        from so_arm101_v2.contracts.physics import physics_regime, resolve_physics
+        params = resolve_physics(physics_regime(scenario.physics_regime), scenario.physics_seed)
+        model, pristine = self.model, self._physics_pristine
+        for i, (actuator, dof) in enumerate(zip(self._actuator_ids, self._joint_dof, strict=True)):
+            model.actuator_gainprm[actuator, 0] = pristine["actuator_gainprm"][actuator, 0] * params.kp_scale[i]
+            model.actuator_biasprm[actuator, 1] = pristine["actuator_biasprm"][actuator, 1] * params.kp_scale[i]
+            model.actuator_biasprm[actuator, 2] = pristine["actuator_biasprm"][actuator, 2] * params.kv_scale[i]
+            model.dof_frictionloss[dof] = pristine["dof_frictionloss"][dof] * params.friction_scale[i]
+        for body in self._arm_bodies:
+            model.body_mass[body] = pristine["body_mass"][body] * params.arm_mass_scale
+            model.body_inertia[body] = pristine["body_inertia"][body] * params.arm_mass_scale
+        block = self._block_body
+        ratio = params.cube_mass_kg / float(pristine["body_mass"][block])
+        model.body_mass[block] = params.cube_mass_kg
+        model.body_inertia[block] = pristine["body_inertia"][block] * ratio
+        for geom in self._cube_geoms:
+            model.geom_friction[geom, 0] = params.cube_friction
+        self._physics_applied = True
+        self.physics_params = params
+
+    @property
+    def physics_record(self) -> dict[str, Any] | None:
+        """The episode's physics draw (contracts/physics.py), or None for the scene's own physics."""
+        if self.physics_params is None:
+            return None
+        from so_arm101_v2.contracts.physics import PHYSICS_RESOLVER_VERSION, physics_regime
+        return {"resolver": PHYSICS_RESOLVER_VERSION, "regime": physics_regime(self.physics_params.regime).identity(),
+                "params": self.physics_params.as_record()}
+
+    def observed_act(self) -> np.ndarray:
+        """The joint state a policy sees: the true state plus the regime's keyed sensor noise (none when off)."""
+        current = self.current_act()
+        if self.physics_params is None:
+            return current
+        return (current + self.physics_params.sensor_noise_act(self.control_actions)).astype(np.float32)
+
+    def _write_ctrl(self, qpos: Any) -> None:
+        for actuator, value in zip(self._actuator_ids, qpos, strict=True):
+            self.data.ctrl[actuator] = float(value)
+
+    def _physics_step(self) -> None:
+        """One substep with the command-delay queue drained first (physics randomization only)."""
+        mujoco = _mujoco()
+        while self._ctrl_queue and self._ctrl_queue[0][0] <= self.data.time + 1e-12:
+            self._write_ctrl(self._ctrl_queue.pop(0)[1])
+        mujoco.mj_step(self.model, self.data)
+
+    def inference_pause(self, boundary: int) -> float:
+        """The policy is thinking: physics runs for the drawn pause with the last command held (servos keep tracking).
+
+        Call it right after the frame and state for chunk boundary ``boundary`` were read, as on the real arm, where
+        the observation is taken, inference blocks, and the servos keep moving meanwhile. The action clock does not
+        advance (the control origin shifts by the pause). An unsafe contact during the pause is reported by the next
+        measurement. Returns the pause in seconds; 0 without physics randomization.
+        """
+        if self.physics_params is None:
+            return 0.0
+        seconds = self.physics_params.pause_s(boundary)
+        if seconds <= 0.0:
+            return 0.0
+        end = self.data.time + seconds
+        while self.data.time + 1e-12 < end:
+            self._physics_step()
+            if self._unsafe_contact(float(self.data.body("red_block").xpos[2] - self.initial_cube_height)):
+                self._pause_unsafe = True
+        self.control_origin_time += seconds
+        return seconds
 
     def mujoco_qpos(self) -> np.ndarray:
         return np.asarray([self.data.qpos[address] for address in self._joint_qpos], dtype=np.float32)
@@ -375,9 +472,9 @@ class MujocoTaskAdapter:
         self, *, render_pixels: bool = True
     ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray]:
         if not render_pixels:
-            return None, None, self.current_act()
+            return None, None, self.observed_act()
         raw = self.render_wrist_observation()
-        return raw, preprocess_wrist_image(raw), self.current_act()
+        return raw, preprocess_wrist_image(raw), self.observed_act()
 
     def apply_policy_command(self, requested_act: Any) -> CommandApplication:
         # Capture before changing actuator controls.  After the physics period
@@ -398,8 +495,12 @@ class MujocoTaskAdapter:
         if self.command_response is not None:
             previous = np.asarray([self.data.ctrl[actuator] for actuator in self._actuator_ids], dtype=np.float64)
             qpos = previous + np.asarray(self.command_response, dtype=np.float64) * (np.asarray(qpos, dtype=np.float64) - previous)
-        for actuator, value in zip(self._actuator_ids, qpos, strict=True):
-            self.data.ctrl[actuator] = float(value)
+        if self.physics_params is not None and self.physics_params.latency_s > 0.0:
+            # Command latency: the servos see this command latency_s from now (applied at that substep).
+            self._ctrl_queue.append((float(self.data.time) + self.physics_params.latency_s, np.array(qpos, dtype=np.float64)))
+        else:
+            for actuator, value in zip(self._actuator_ids, qpos, strict=True):
+                self.data.ctrl[actuator] = float(value)
         return CommandApplication(
             requested_act=decision.requested_act,
             executed_act=decision.executed_act,
@@ -425,6 +526,11 @@ class MujocoTaskAdapter:
         self.control_actions += 1
         target = self.control_origin_time + self.control_actions / 30.0
         steps = 0
+        if self.physics_params is not None:
+            while self.data.time + 1e-12 < target:
+                self._physics_step()
+                steps += 1
+            return steps
         while self.data.time + 1e-12 < target:
             mujoco.mj_step(self.model, self.data)
             steps += 1
@@ -453,6 +559,10 @@ class MujocoTaskAdapter:
                 return True
         return False
 
+    def _consume_pause_unsafe(self) -> bool:
+        flagged, self._pause_unsafe = self._pause_unsafe, False
+        return flagged
+
     def measurement(self, command: CommandApplication | None = None) -> tuple[TaskMeasurement, dict[str, Any]]:
         cube = self.data.body("red_block").xpos.copy()
         fixed = self.data.site("fixed_jaw_tip").xpos.copy()
@@ -471,7 +581,7 @@ class MujocoTaskAdapter:
             any_contact=self._any_cube_robot_contact(),
             bilateral_interior_contact=bool(diagnostics["bilateral_interior_face_contact"]),
             strict_bilateral_grasp=bool(strict), cube_height_gain_m=height_gain,
-            unsafe_contact=self._unsafe_contact(height_gain),
+            unsafe_contact=self._unsafe_contact(height_gain) or self._consume_pause_unsafe(),
             command_bound_violation=command.command_bound_violation or bool(
                 self.bench is not None and self.mujoco_qpos()[1] < self.bench.mujoco_low[1]),
             delta_limiter_activated=command.delta_limiter_activated,

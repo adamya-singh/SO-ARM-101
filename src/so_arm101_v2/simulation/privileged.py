@@ -558,6 +558,12 @@ class PrivilegedStagedController:
         current = np.asarray(adapter.current_act(), dtype=np.float64)
         cap = tuning["max_lead_units"] * np.pi / 100.0
         act[:5] = np.clip(act[:5], current[:5] - cap, current[:5] + cap)
+        if getattr(adapter, "physics_params", None) is not None:
+            # Physics randomization (2026-11-05 scan: every relative-limit hold was the gripper opening at the release
+            # under command latency): pace the opening so it never leads the measured jaw by more than the cap. The
+            # closing squeeze is untouched (it is meant to stall on the cube); off without a physics draw.
+            grip_cap = tuning["max_lead_units"] * 1.7 / 100.0
+            act[5] = min(act[5], current[5] + grip_cap) if act[5] > current[5] else act[5]
         return self._joint_map.act_to_mujoco(act.astype(np.float32))
 
     def _command(self, adapter: Any | None, plan_qpos: np.ndarray) -> np.ndarray:

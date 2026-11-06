@@ -45,14 +45,25 @@ def main(argv=None) -> int:
                         "radius (world xy, mm); it corrects onto the cube in 185-225 and the survey chunk keeps the clean label")
     p.add_argument("--teacher-descend-mm", type=float, default=None,
                    help="with --perturb-teacher-mm: height of the shifted 'descended' waypoint above the grasp point (default 8 mm, the teacher's own)")
+    p.add_argument("--heldout-suite", type=Path, default=None,
+                   help="re-capture this existing held-out suite.json on --model (e.g. the ladder's 10 poses on the measured-servo scene, "
+                        "where the teacher's commands differ); --heldout-from then only supplies ladder.json")
+    p.add_argument("--physics", default=None,
+                   help="physics randomization regime for the training suite (contracts/physics.py, e.g. bench_physics_v1): every "
+                        "candidate gets its own draw and is screened under it; the held-out capture keeps the scene's own physics")
     args = p.parse_args(argv)
     if args.teacher_descend_mm is not None and args.perturb_teacher_mm is None:
         p.error("--teacher-descend-mm needs --perturb-teacher-mm")
     suite_kwargs = {} if args.perturb_teacher_mm is None else dict(
         perturb_teacher_radius_m=args.perturb_teacher_mm / 1000.0,
         teacher_descend_height_m=None if args.teacher_descend_mm is None else args.teacher_descend_mm / 1000.0)
-    if (args.heldout_from is None) == (args.heldout_seed is None):
-        p.error("give exactly one of --heldout-from and --heldout-seed")
+    if args.physics is not None:
+        suite_kwargs["physics_regime"] = args.physics
+    if args.heldout_suite is not None:
+        if args.heldout_seed is not None:
+            p.error("--heldout-suite and --heldout-seed are alternatives")
+    elif (args.heldout_from is None) == (args.heldout_seed is None):
+        p.error("give exactly one of --heldout-from, --heldout-seed and --heldout-suite")
     import mujoco
     if mujoco.__version__ != "3.9.0":
         raise RuntimeError("bench requires MuJoCo 3.9.0")
@@ -64,16 +75,28 @@ def main(argv=None) -> int:
                     frame_row_stride=args.frame_row_stride,
                     **(dict(teacher_perturbation=dict(radius_mm=args.perturb_teacher_mm, descend_mm=args.teacher_descend_mm))
                        if args.perturb_teacher_mm is not None else {}),
-                    **(dict(heldout_from=str(args.heldout_from.resolve())) if args.heldout_from is not None
+                    **(dict(physics=args.physics) if args.physics is not None else {}),
+                    **(dict(heldout_suite=str(args.heldout_suite.resolve())) if args.heldout_suite is not None
+                       else dict(heldout_from=str(args.heldout_from.resolve())) if args.heldout_from is not None
                        else dict(heldout=dict(seed=args.heldout_seed, count=args.heldout_count))))
     if not (root / "capture_identity.json").exists():
         write_immutable_json(root / "capture_identity.json", identity)
-    for name in ("heldout_suite.path", "heldout_manifest.path", "ladder.json"):
+    copied = ("ladder.json",) if args.heldout_suite is not None else ("heldout_suite.path", "heldout_manifest.path", "ladder.json")
+    for name in copied:
         if args.heldout_from is not None and not (root / name).exists() and ((args.heldout_from / name).exists() or name != "ladder.json"):
             shutil.copy2(args.heldout_from / name, root / name)     # ladder.json exists only in the ladder's own directory
     state = dict(status="running", started_at=time.time())
     try:
-        if args.heldout_from is None:
+        if args.heldout_suite is not None:
+            # The same held-out poses captured on this scene (every frame stored, as the ladder's held-out capture).
+            state["phase"] = "heldout"; atomic_json(root / "progress.json", state)
+            from so_arm101_v2.simulation.suites import load_suite_from_path
+            heldout_suite = load_suite_from_path(args.heldout_suite)
+            pointer = root / "heldout_suite.path"
+            if not pointer.exists():
+                pointer.write_text(str(args.heldout_suite.resolve()) + "\n")
+            get_or_capture(args.model, root, "heldout", heldout_suite, preflight(args.model, root, heldout_suite, args.workers), workers=args.workers)
+        elif args.heldout_from is None:
             # Same held-out recipe as the ladder (seed 8, 10 poses, 3 repeats, every frame stored), on this scene.
             state["phase"] = "heldout"; atomic_json(root / "progress.json", state)
             heldout_suite, _ = get_or_generate_suite(args.model, bench, root, "heldout", seed=args.heldout_seed, count=args.heldout_count, repeats=3, workers=args.workers)
