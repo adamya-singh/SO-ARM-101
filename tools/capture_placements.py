@@ -79,6 +79,10 @@ def main(argv=None) -> int:
     p.add_argument("--heldout-suite", type=Path, default=None,
                    help="re-capture this existing held-out suite.json on --model (e.g. the ladder's 10 poses on the measured-servo scene, "
                         "where the teacher's commands differ); --heldout-from then only supplies ladder.json")
+    p.add_argument("--skip-failed", action="store_true",
+                   help="drop (and list in the manifest's skipped_scenarios) training episodes that fail the capture's whole-horizon "
+                        "rules; physics captures need it: the screen stops at task success, and under random latency and pauses a few "
+                        "episodes trip a safety flag in the post-success retreat (2026-11-06: pose_044, unsafe contact at steps 444-450)")
     p.add_argument("--physics", default=None,
                    help="physics randomization regime for the training suite (contracts/physics.py, e.g. bench_physics_v1): every "
                         "candidate gets its own draw and is screened under it; the held-out capture keeps the scene's own physics")
@@ -158,7 +162,8 @@ def main(argv=None) -> int:
         state["phase"] = "preflight"; atomic_json(root / "progress.json", state)
         pre = preflight(args.model, root, suite, args.workers)
         state["phase"] = "capture"; atomic_json(root / "progress.json", state)
-        manifest = get_or_capture(args.model, root, "train", suite, pre, workers=args.workers, frame_row_stride=args.frame_row_stride)
+        manifest = get_or_capture(args.model, root, "train", suite, pre, workers=args.workers, frame_row_stride=args.frame_row_stride,
+                                  skip_failed=args.skip_failed)
         body = json.loads(Path(manifest).read_text())
         state.update(status="complete", phase="complete", manifest=str(manifest), episodes=len(body["episodes"]), frame_rows=body["frames"]["rows"],
                      seconds=round(time.time() - state["started_at"]))

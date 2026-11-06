@@ -82,12 +82,13 @@ def get_or_generate_suite(model, bench, root: Path, label: str, *, seed: int, co
     return suite, path
 
 
-def get_or_capture(model, root: Path, label: str, suite, preflight_path, *, workers, horizon=480, frame_row_stride=1):
+def get_or_capture(model, root: Path, label: str, suite, preflight_path, *, workers, horizon=480, frame_row_stride=1, skip_failed=False):
     pointer = root / f"{label}_manifest.path"
     if pointer.exists():
         return Path(pointer.read_text().strip())
     capture = capture_oracle_demonstrations(model, suite, preflight_path, root / f"capture_{label}", scenario="all", record_video=False,
-                                            teacher_horizon=horizon, store_frames=True, workers=workers, frame_row_stride=frame_row_stride)
+                                            teacher_horizon=horizon, store_frames=True, workers=workers, frame_row_stride=frame_row_stride,
+                                            skip_failed_scenarios=skip_failed)
     pointer.write_text(str(Path(capture.manifest).resolve()) + "\n")
     return Path(capture.manifest)
 

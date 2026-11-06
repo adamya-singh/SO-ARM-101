@@ -41,7 +41,7 @@ mkdir -p "$T"
 HSUITE=$(cat $E/scaling_ladder_20260910/heldout_suite.path)
 
 J1=$(q physics-capture $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SERVO --output-dir $CAP --count 7200 --suite-seed 16 \
-      --frame-row-stride 30 --physics bench_physics_v1 --heldout-suite $HSUITE --heldout-from $E/scaling_ladder_20260910 --workers 12)
+      --frame-row-stride 30 --physics bench_physics_v1 --skip-failed --heldout-suite $HSUITE --heldout-from $E/scaling_ladder_20260910 --workers 12)
 cnn() {  # cnn <seed>
   q "physics-cnn-s$1" -D "$J1" $ENVV $PY -u $ROOT/tools/augmentation_run.py --model $SERVO --ladder-dir $CAP --output-dir $T/cnn_s$1 \
     --shifts 12 --episodes 4800 --encoder v2 --hidden-width 512 --steps 120000 --frame-stride 30 --no-baseline --seed $1 \
@@ -60,6 +60,7 @@ ev() {  # ev <name> <dep job or -> <kind> <checkpoint or glob> <cells...>
   local name=$1 dep=$2 kind=$3 ckpt=$4; shift 4
   local d=(); [ "$dep" != "-" ] && d=(-D "$dep")
   for cell in "$@"; do
+    [ -f "$T/evals/${name}__$cell/result.json" ] && continue   # re-queue resumes: cells already evaluated are kept
     local scene=$SERVO physics=${cell#servo_}
     [ "$cell" = "nominal" ] && { scene=$NOMINAL; physics=none; }
     [ "$cell" = "servo" ] && physics=none
