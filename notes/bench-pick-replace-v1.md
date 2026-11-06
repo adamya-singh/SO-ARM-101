@@ -51,6 +51,17 @@ Runs, after step 1:
 - A 44-cell evaluation matrix. New policies get nominal, servo, servo + real_like_v1 and servo + bench_physics_v1;
   the step-1 policies and the baselines get the three servo cells.
 
+Queued 2026-11-06 00:54 behind step 1, as tsp jobs:
+- 32: capture;
+- 33/34/35: CNN seeds 202/101/303;
+- 36: ACT fine-tune;
+- 37: ACT PPO;
+- 38-81: the evaluation matrix (`physics_rand_20261105/evals/<policy>__<cell>/result.json`);
+- 82: report (`matrix.json`).
+
+The teacher itself misses held-out pose_000 on the servo scene, so 27/30 is its ceiling there; the held-out loss capture
+uses the other 9 poses.
+
 **Pre-registered:** a policy passes if it beats its baseline in the servo and servo + real_like_v1 cells and loses at
 most 3/30 on the nominal scene. The randomized cell is a robustness readout.
 
