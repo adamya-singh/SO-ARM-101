@@ -209,10 +209,16 @@ def _capture_scenario(task: _OracleScenarioTask) -> _OracleScenarioResult:
         controller.reset(adapter, **item.teacher_reset_kwargs())
         for action_index in range(horizon):
             snapshot = adapter.privileged_state()
-            raw = adapter.render_wrist_observation()
-            if frames is not None and action_index % stride == 0:
+            # Render only what is kept (2026-11-05): a lens render is ~90 ms and was 98% of an episode, and a
+            # stride-30 capture without video threw 29 of every 30 away. Rendering never touches physics and the
+            # photometric noise is keyed on the control step, so skipped renders change no stored byte. The
+            # teacher ignores the image.
+            store = frames is not None and action_index % stride == 0
+            raw = adapter.render_wrist_observation() if (store or wrist_temp is not None) else None
+            if store:
                 frames[base + action_index // stride] = raw
-            wrist.add(raw)
+            if wrist_temp is not None:
+                wrist.add(raw)
             if overview_temp is not None:
                 # The overview render only feeds the video writer; rendering never
                 # touches physics, so skipping it without video is digest-neutral.

@@ -162,3 +162,34 @@ def test_parallel_screening_builds_the_same_perturbed_suite(tmp_path):
     assert a.read_bytes() == b.read_bytes()
     assert sequential.suite_id.endswith(sequential.suite_id[-12:]) and "_perturbed_" in sequential.suite_id
     assert all(s.teacher_offset_xy_m is not None and s.teacher_descend_height_m == DESCEND for s in sequential.scenarios)
+
+
+def test_strided_bench_capture_renders_only_kept_frames_and_matches_the_full_render(tmp_path):
+    """Skipping unstored renders (lens + photometric noise, bench scene) changes no array byte and no kept frame."""
+    pytest.importorskip("mujoco")
+    from so_arm101_v2.contracts.bench import scene_bench_config
+    from so_arm101_v2.simulation.bench import certification_suite
+    from so_arm101_v2.simulation.oracle import capture_oracle_demonstrations
+    from so_arm101_v2.simulation.suites import load_suite_from_path
+    pointer = EXPERIMENTS / "placements4800_20260912/train_suite.path"
+    if pointer.exists():   # appearance-randomized scenarios exercise the step-keyed photometric noise
+        scenarios = load_suite_from_path(pointer.read_text().strip()).scenarios[:2]
+    else:
+        scenarios = certification_suite(scene_bench_config(LIVE_SCENE), repeats=1).scenarios[:2]
+    suite = SimulationSuite("bench_pick_replace_v1_test_stride", 1, "bench_pick_replace_v1", 1, False, tuple(scenarios))
+    report = {"environment_proven": True, "deterministic": True, "suite": {"suite_id": suite.suite_id},
+              "rollouts": [{"scenario_id": s.scenario_id, "success": True} for s in scenarios]}
+    report["content_sha256"] = content_sha256(report)
+    (tmp_path / "pre.json").write_text(json.dumps(report))
+    runs = {}
+    for stride in (1, 30):
+        runs[stride] = capture_oracle_demonstrations(LIVE_SCENE, suite, tmp_path / "pre.json", tmp_path / f"s{stride}", scenario="all",
+                                                     record_video=False, teacher_horizon=480, store_frames=True, workers=2,
+                                                     frame_row_stride=stride)
+    full, strided = (json.loads(Path(runs[s].manifest).read_text()) for s in (1, 30))
+    assert full["arrays"]["sha256"] == strided["arrays"]["sha256"]
+    fa = np.load(Path(runs[1].directory) / "images.npy", mmap_mode="r")
+    fb = np.load(Path(runs[30].directory) / "images.npy", mmap_mode="r")
+    for episode in range(len(scenarios)):
+        delta = np.abs(fa[episode * 480:(episode + 1) * 480:30].astype(np.int16) - fb[episode * 16:(episode + 1) * 16].astype(np.int16))
+        assert int(delta.max()) <= 1 and float((delta > 0).mean()) < 1e-3   # EGL raster jitter only
