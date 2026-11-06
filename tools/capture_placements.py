@@ -95,7 +95,24 @@ def main(argv=None) -> int:
             pointer = root / "heldout_suite.path"
             if not pointer.exists():
                 pointer.write_text(str(args.heldout_suite.resolve()) + "\n")
-            get_or_capture(args.model, root, "heldout", heldout_suite, preflight(args.model, root, heldout_suite, args.workers), workers=args.workers)
+            try:
+                gate = preflight(args.model, root, heldout_suite, args.workers)
+            except RuntimeError:
+                # The teacher may fail a pose on this scene (2026-11-05: the compensated teacher misses held-out pose_000
+                # on the measured-servo scene in all three repeats). Evaluation still uses every pose (heldout_suite.path
+                # names the full suite); the capture, which only feeds the held-out loss curve, keeps the poses the
+                # teacher passes in every repeat, and the dropped ones are recorded.
+                import dataclasses
+                report = json.loads((root / "simulation" / "preflight" / heldout_suite.suite_id / "evaluation.json").read_text())
+                failed = sorted({r["scenario_id"] for r in report["rollouts"] if not r["success"]})
+                kept = tuple(s for s in heldout_suite.scenarios if s.scenario_id not in failed)
+                if not kept:
+                    raise
+                heldout_suite = dataclasses.replace(heldout_suite, suite_id=f"{heldout_suite.suite_id}_teacherok", scenarios=kept)
+                atomic_json(root / "heldout_capture_dropped.json", dict(dropped=failed, kept=[s.scenario_id for s in kept],
+                                                                         reason="teacher fails these poses on this scene"))
+                gate = preflight(args.model, root, heldout_suite, args.workers)
+            get_or_capture(args.model, root, "heldout", heldout_suite, gate, workers=args.workers)
         elif args.heldout_from is None:
             # Same held-out recipe as the ladder (seed 8, 10 poses, 3 repeats, every frame stored), on this scene.
             state["phase"] = "heldout"; atomic_json(root / "progress.json", state)
