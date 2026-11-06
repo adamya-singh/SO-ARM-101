@@ -36,17 +36,19 @@ def main(argv=None) -> int:
         raise RuntimeError('not a bench scene')
     bench.reset_qpos  # raises when the reset has not been measured
     scene_hash = scene_dependency_hash(args.model)
+    from so_arm101_v2.simulation.arm_profiles import grasp_detector_version, scene_arm_profile
+    detector = grasp_detector_version(scene_arm_profile(args.model))   # '+so101_menagerie' on the SO-101 (2026-11-06)
     suite = certification_suite(bench, repeats=3)
     # Keyed by scene AND detector version: per-step telemetry carries detector
     # measurements, so a detector change must land in a fresh immutable tree.
-    destination = args.output_dir / f'{scene_hash[:16]}-{GRASP_DETECTOR_VERSION}'
+    destination = args.output_dir / f'{scene_hash[:16]}-{detector}'
     result = run_simulation_preflight(args.model, destination, suite=suite,
                                       record_video=args.record_video, workers=args.workers)
     report = json.loads(Path(result.report_json).read_text())
     rollouts = report['rollouts']
     passed = bool(report.get('environment_proven')) and bool(report.get('deterministic'))
     summary = dict(
-        scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION,
+        scene_dependencies_sha256=scene_hash, grasp_detector=detector,
         suite_id=suite.suite_id, report=str(result.report_json),
         rollouts=len(rollouts), successes=sum(1 for r in rollouts if r.get('success') and not r.get('invalidated')),
         invalidated=sum(1 for r in rollouts if r.get('invalidated')),

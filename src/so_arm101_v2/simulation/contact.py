@@ -143,8 +143,12 @@ def jaw_closing_axis(model: Any, data: Any, mode: str = "pad_normals") -> np.nda
     if mode == "tip_sites":
         axis = np.asarray(data.site("moving_jaw_tip").xpos - data.site("fixed_jaw_tip").xpos, dtype=np.float64)
     elif mode == "pad_normals":
-        fixed = model.geom("fixed_jaw_pad_4").id
-        moving = model.geom("moving_jaw_pad_4").id
+        # The pad pair comes from the arm profile: pad 4 on the SO-100 (unchanged), pad 1 on the SO-101, which has
+        # no moving-jaw pad 4 (simulation/arm_profiles.py).
+        from .arm_profiles import arm_profile
+        fixed_name, moving_name = arm_profile(model).closing_pads
+        fixed = model.geom(fixed_name).id
+        moving = model.geom(moving_name).id
         across = np.asarray(data.geom_xpos[moving] - data.geom_xpos[fixed], dtype=np.float64)
         normals = []
         for geom in (fixed, moving):

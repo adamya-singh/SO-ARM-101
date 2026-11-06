@@ -507,10 +507,11 @@ def capture_oracle_demonstrations(
         "teacher_horizon": teacher_horizon,
     }
     if bench is not None:
-        from .contact import GRASP_DETECTOR_VERSION
+        from .arm_profiles import grasp_detector_version, scene_arm_profile
         identity["bench_config"] = asdict(bench)
         identity["scene_dependencies_sha256"] = scene_dependency_hash(model_path)
-        identity["grasp_detector"] = GRASP_DETECTOR_VERSION
+        # "pad_normals_v2" on the SO-100 (unchanged); "pad_normals_v2+so101_menagerie" on the SO-101 (arm_profiles.py).
+        identity["grasp_detector"] = grasp_detector_version(scene_arm_profile(model_path))
         identity["joint_map"] = bench.joint_map_object.provenance()
         if bench.lens is not None:
             identity["lens"] = dict(bench.lens)

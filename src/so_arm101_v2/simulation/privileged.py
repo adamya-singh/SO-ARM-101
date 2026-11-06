@@ -143,12 +143,21 @@ class PrivilegedStagedController:
         body = adapter.data.body("gripper")
         rotation = np.asarray(body.xmat).reshape(3, 3)
         station = POCKET_GRIPPER_FRAME.copy()
+        normal_local, depth_local = PAD_NORMAL_LOCAL, DEPTH_LOCAL
         if getattr(adapter, "bench", None):
+            # Arm profile (simulation/arm_profiles.py, 2026-11-06): the SO-101's mouth opens toward +x and its jaws
+            # point along -z of the gripper frame; the SO-100's toward -x / -y (these constants, bit for bit).
+            profile = getattr(adapter, "arm_profile", None)
             pad = adapter.model.geom(f"fixed_jaw_pad_{adapter.bench.grasp_pad}")
             station = np.asarray(pad.pos).copy()
-            station[0] -= float(pad.size[0]) + adapter.bench.cube_edge_m / 2
+            if profile is None or profile.mouth_sign < 0:
+                station[0] -= float(pad.size[0]) + adapter.bench.cube_edge_m / 2
+            else:
+                station[0] += float(pad.size[0]) + adapter.bench.cube_edge_m / 2
+                normal_local = np.asarray(profile.pad_normal_local, dtype=np.float64)
+                depth_local = np.asarray(profile.depth_local, dtype=np.float64)
         pocket = body.xpos + rotation @ station
-        return pocket, rotation @ PAD_NORMAL_LOCAL, rotation @ DEPTH_LOCAL
+        return pocket, rotation @ normal_local, rotation @ depth_local
 
     def _set_arm(self, adapter: Any, qpos: np.ndarray) -> None:
         mujoco = _mujoco()

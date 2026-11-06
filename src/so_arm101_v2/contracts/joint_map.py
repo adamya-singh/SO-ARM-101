@@ -34,7 +34,7 @@ from so_arm101_v2.data.resources import load_json_resource, read_resource_bytes
 from . import coordinates as C
 from .physical import act_to_physical_normalized, physical_normalized_to_act
 
-KNOWN_JOINT_MAPS = ("legacy_affine_v1", "measured_20260907", "measured_20260908", "measured_20260908b")
+KNOWN_JOINT_MAPS = ("legacy_affine_v1", "measured_20260907", "measured_20260908", "measured_20260908b", "measured_20260908b_so101")
 _TWO_PI = 2.0 * np.pi
 
 
@@ -124,8 +124,14 @@ def load_joint_map(name: str = "measured_20260908b") -> JointMap:
                        _zero_ticks=zero, _sign=sign, _range_min=rmin, _range_max=rmax, _ticks_per_turn=int(raw["ticks_per_turn"]))
     ends = np.stack([partial.act_to_mujoco(physical_normalized_to_act([-100] * 5 + [0])),
                      partial.act_to_mujoco(physical_normalized_to_act([100] * 5 + [100]))]).astype(np.float64)
-    low = np.maximum(ends.min(axis=0), C._MENAGERIE_MECHANICAL_LOW).astype(np.float32)
-    high = np.minimum(ends.max(axis=0), C._MENAGERIE_MECHANICAL_HIGH).astype(np.float32)
+    # Mechanical limits of the model the map is expressed in: the Menagerie SO-100 unless the resource names the
+    # Menagerie SO-101 (2026-11-06), whose joint ranges are the legacy so101_new_calib ranges.
+    if raw.get("model", "menagerie_so100") == "menagerie_so101":
+        mech_low, mech_high = C.LEGACY_MODEL_JOINT_LOW, C.LEGACY_MODEL_JOINT_HIGH
+    else:
+        mech_low, mech_high = C._MENAGERIE_MECHANICAL_LOW, C._MENAGERIE_MECHANICAL_HIGH
+    low = np.maximum(ends.min(axis=0), mech_low).astype(np.float32)
+    high = np.minimum(ends.max(axis=0), mech_high).astype(np.float32)
     low[5], high[5] = C.MUJOCO_JOINT_LOW[5], C.MUJOCO_JOINT_HIGH[5]
     low.setflags(write=False); high.setflags(write=False)
     result = JointMap(name=name, resource_sha256=hashlib.sha256(read_resource_bytes(resource_name)).hexdigest(),

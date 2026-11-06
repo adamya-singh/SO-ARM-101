@@ -139,7 +139,10 @@ def load_pick_place_contract(name: str, *, bench_config=None) -> PickPlaceContra
             description="Strict 20 mm bench cube pickup",
             object=ObjectSpec("cube", bench_config.cube_edge_m),
             safety=replace(base.pickup.safety, act_command_low=tuple(low),
-                           mujoco_joint_low=tuple(bench_config.mujoco_low)),
+                           mujoco_joint_low=tuple(bench_config.mujoco_low),
+                           # SO-101 scenes: that model's envelope; the SO-100 contract is unchanged (its digest too).
+                           **({"mujoco_joint_high": tuple(bench_config.mujoco_high)}
+                              if bench_config.joint_map.endswith("_so101") else {})),
             reset=replace(base.pickup.reset, scenario_id="bench_nominal",
                 cube_position_m=bench_config.cube_center,
                 robot_qpos_mujoco=tuple(bench_config.reset_qpos)))

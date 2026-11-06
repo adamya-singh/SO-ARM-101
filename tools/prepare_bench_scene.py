@@ -24,17 +24,50 @@ APPEARANCE_TOWEL_GEOM = 'towel_visual_geom'
 APPEARANCE_TOWEL_HALF_THICKNESS_M = 0.0002
 
 SERVO_CLASSES=('Rotation','Pitch','Elbow','Wrist_Pitch','Wrist_Roll','Jaw')   # joint order of JOINT_NAMES
+JOINT_ORDER=('shoulder_pan','shoulder_lift','elbow_flex','wrist_flex','wrist_roll','gripper')
+# The bench's actuator and joint settings (Menagerie trs_so_arm100 defaults), applied to the SO-101 with --dynamics bench
+# so that only the arm's geometry and kinematics change (handoff step 3, 2026-11-06).
+BENCH_DYNAMICS=dict(joint=dict(damping='0',frictionloss='0.1',armature='0.1'),
+                    position=dict(kp='50',dampratio='1',forcerange='-3.5 3.5'),
+                    option=dict(cone='elliptic',impratio='10'))
 
 
-def prepare(destination: Path, config: BenchConfig):
-    source = ROOT / 'simulation_code/model/menagerie_so_arm100'
-    destination.mkdir(parents=True, exist_ok=True)
-    # Include-expanded XML retains the original body's frames, inertia,
-    # collision decomposition, and camera calibration.
-    arm = ET.parse(source / 'so_arm101_v2.xml').getroot()
-    arm.set('model', 'bench_pick_replace_v1')
+def _so101_arm(source: Path, dynamics: str):
+    """The vendored Menagerie SO-101 (tools/vendor_menagerie_so101.py) with the chosen dynamics."""
+    arm = ET.parse(source / 'so101_bench.xml').getroot()
+    if dynamics == 'bench':
+        option = arm.find('option')
+        for key in list(option.attrib):
+            del option.attrib[key]
+        option.attrib.update(BENCH_DYNAMICS['option'])
+        sts = arm.find(".//default[@class='sts3215']")
+        sts.find('joint').attrib.clear(); sts.find('joint').attrib.update(BENCH_DYNAMICS['joint'])
+        sts.find('position').attrib.clear(); sts.find('position').attrib.update(BENCH_DYNAMICS['position'])
+    elif dynamics != 'menagerie':
+        raise ValueError(f'unknown dynamics {dynamics!r}')
+    return arm
+
+
+def prepare(destination: Path, config: BenchConfig, *, arm_model: str = 'so100', dynamics: str = 'bench'):
     import os
-    arm.find('compiler').set('meshdir', os.path.relpath(source / 'assets', destination))
+    destination.mkdir(parents=True, exist_ok=True)
+    if arm_model == 'so100':
+        if dynamics != 'bench':
+            raise ValueError('the SO-100 scene has only the bench dynamics')
+        source = ROOT / 'simulation_code/model/menagerie_so_arm100'
+        mesh_root = source / 'assets'
+        # Include-expanded XML retains the original body's frames, inertia,
+        # collision decomposition, and camera calibration.
+        arm = ET.parse(source / 'so_arm101_v2.xml').getroot()
+    elif arm_model == 'so101':
+        source = ROOT / 'simulation_code/model/menagerie_so101'
+        mesh_root = ROOT / 'simulation_code/model/assets'
+        arm = _so101_arm(source, dynamics)
+    else:
+        raise ValueError(f'unknown arm {arm_model!r}')
+    arm.set('model', 'bench_pick_replace_v1')
+    arm.find('compiler').set('meshdir', os.path.relpath(mesh_root, destination))
+    source = ROOT / 'simulation_code/model/menagerie_so_arm100'   # the world (scene_v2.xml) is shared by both arms
     baseline = ET.parse(source / 'scene_v2.xml').getroot()
     arm.append(baseline.find('visual'))
     assets = arm.find('asset')
@@ -50,7 +83,7 @@ def prepare(destination: Path, config: BenchConfig):
     elif not cube_dest.is_file():
         raise FileNotFoundError(f'XYZ cube STL not found at {cube_source} and no copy exists in {destination}')
     ET.SubElement(assets, 'mesh', name='xyz_cube_visual',
-        file=os.path.relpath(destination / 'xyzCalibration_cube.stl', source / 'assets'),
+        file=os.path.relpath(destination / 'xyzCalibration_cube.stl', mesh_root),
         scale='0.001 0.001 0.001')
     ET.SubElement(assets, 'material', name='black_pla', rgba='0.025 0.025 0.025 1',
         specular='0', shininess='0')
@@ -84,9 +117,24 @@ def prepare(destination: Path, config: BenchConfig):
     ET.SubElement(towel, 'geom', name=APPEARANCE_TOWEL_GEOM, type='box',
         size=f'{config.square_edge_m / 2} {config.square_edge_m / 2} {towel_half_thickness}',
         rgba='1 1 1 0', contype='0', conaffinity='0', density='0', group='2')
-    pitch=arm.find("default/default/default[@class='Pitch']/joint")
-    pitch.set('range',f'{float(config.mujoco_low[1])} 0.174')
-    if config.servo is not None:
+    if arm_model == 'so100':
+        pitch=arm.find("default/default/default[@class='Pitch']/joint")
+        pitch.set('range',f'{float(config.mujoco_low[1])} 0.174')
+    else:
+        # Shoulder floor on the SO-101: its joints and actuators carry explicit ranges (no class inheritrange).
+        joint=arm.find(".//joint[@name='shoulder_lift']")
+        actuator=arm.find(".//actuator/position[@name='shoulder_lift']")
+        joint.set('range',f"{float(config.mujoco_low[1])} {joint.get('range').split()[1]}")
+        actuator.set('ctrlrange',f"{float(config.mujoco_low[1])} {actuator.get('ctrlrange').split()[1]}")
+    if config.servo is not None and arm_model == 'so101':
+        # Per-joint servo model on the SO-101: written on each actuator and joint (kv replaces dampratio).
+        for index,name in enumerate(JOINT_ORDER):
+            act=arm.find(f".//actuator/position[@name='{name}']")
+            act.set('kp',repr(float(config.servo['kp'][index]))); act.set('kv',repr(float(config.servo['kv'][index])))
+            arm.find(f".//joint[@name='{name}']").set('frictionloss',repr(float(config.servo['frictionloss'][index])))
+        sts=arm.find(".//default[@class='sts3215']/position")
+        sts.attrib.pop('dampratio',None); sts.attrib.pop('kp',None); sts.attrib.pop('kv',None)
+    elif config.servo is not None:
         # Measured servo model (2026-10-04): every joint class gets its own actuator stiffness and damping and its own
         # dry friction. The shared default's dampratio goes (kv and dampratio cannot both be set on one actuator).
         shared=arm.find("default/default[@class='so_arm100']/position")
@@ -139,6 +187,11 @@ def main():
     p.add_argument('--servo',default='keep',
         help="'keep' (default), 'none' (the Menagerie actuators), or a tools/fit_servo_model.py record: its fitted "
              "per-joint stiffness, damping and dry friction are written into the scene and the bench config")
+    p.add_argument('--arm',choices=['so100','so101'],default='so100',
+        help="arm model: the Menagerie SO-100 (default, the scenes so far) or the Menagerie SO-101 "
+             "(simulation_code/model/menagerie_so101); so101 also converts a measured_20260908b config to measured_20260908b_so101")
+    p.add_argument('--dynamics',choices=['bench','menagerie'],default='bench',
+        help="SO-101 only: the bench's actuator/joint/solver settings (default) or Menagerie's as shipped")
     p.add_argument('--survey-pose',choices=['keep','default','reset'],default='keep',
         help='viewing_qpos: keep, write the default raised survey pose (reset + shoulder_lift 0.40, elbow -0.60, wrist_flex 0.40 rad; camera 235 mm up, sees the reachable rectangle), or set it back to the reset pose')
     a=p.parse_args()
@@ -170,6 +223,14 @@ def main():
         lens=LensModel.from_intrinsics_file(a.intrinsics,render_fovy_deg=fovy,render_size=tuple(a.render_size))
         lens.sim_operator()  # coverage guard: fails here rather than at capture time
         config=replace(config,lens=lens.identity(),camera_fovy_deg=round(lens.fovy_deg,2))
-    print(prepare(a.output_dir,config))
+    if a.arm=='so101' and config.joint_map=='measured_20260908b':
+        # Same physical arm, the SO-101's joint conventions: the derived map and the survey pose converted exactly
+        # (q_so101 = SIGN * (q_so100 - OFFSET); SIGN is its own inverse).
+        import numpy as np
+        from so_arm101_v2.contracts.coordinates import MODEL_CONVERSION_OFFSET, MODEL_CONVERSION_SIGN
+        viewing=None if config.viewing_qpos is None else tuple(float(v) for v in
+            MODEL_CONVERSION_SIGN.astype(np.float64)*(np.asarray(config.viewing_qpos,dtype=np.float64)-MODEL_CONVERSION_OFFSET.astype(np.float64)))
+        config=replace(config,joint_map='measured_20260908b_so101',viewing_qpos=viewing)
+    print(prepare(a.output_dir,config,arm_model=a.arm,dynamics=a.dynamics))
 
 if __name__ == '__main__':main()

@@ -1,0 +1,41 @@
+{
+  "tranche": "so101-benchmark-20261106",
+  "title": "SO-101 benchmark",
+  "subtitle": "Menagerie's SO-101 model in place of the SO-100, benchmarked with the SO-100 baselines' exact recipe",
+  "why": "The simulator used Menagerie's SO-100 with an SO-101 camera mount; the real arm is an SO-101. Menagerie's SO-101 (box and sphere collision pads) fixes the August convex-hull failure of the official model. Both SO-101 scenes keep the SO-100's calibrated camera and jaw-tip sites (within 0.2 mm and 0.001 deg), the measured joint map in the SO-101's conventions (exact, no new measurement) and the teacher's settings; the teacher certifies 30/30 on both. One scene keeps the bench's dynamics, the other Menagerie's (kp 998, 0.005 s, implicitfast).",
+  "root": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106",
+  "baselines": [
+    {"label": "SO-100 ACT fine-tune (retry tranche)", "successes_exec90": 20},
+    {"label": "SO-100 CNN, 4800 placements, seed 202", "successes_exec90": 6},
+    {"label": "SO-100 teacher certification", "successes": 30}
+  ],
+  "experiments": [
+    {"id": "so101-capture4800", "order": 1, "kind": "job", "model": "teacher", "method": "Capture, SO-101 (bench dynamics)", "title": "SO-101: capture 4800",
+     "question": "Does the SO-101 scene fill the 4800-placement suite?", "success_means": "Complete capture plus the held-out poses on the scene.",
+     "dir": "so101/cap4800", "label": "so101-so101-capture4800", "env": "lerobot"},
+    {"id": "so101-capture2400", "order": 2, "kind": "job", "model": "teacher", "method": "Capture, SO-101 (bench dynamics)", "title": "SO-101: capture 2400",
+     "question": "Second capture of the ACT baseline's data.", "success_means": "Complete capture.",
+     "dir": "so101/cap2400", "label": "so101-so101-capture2400", "depends_on": "so101-capture4800", "env": "lerobot"},
+    {"id": "so101-act-ft", "order": 3, "kind": "finetune", "model": "ACT", "method": "Retry-tranche config", "title": "SO-101: ACT fine-tune",
+     "question": "Does ACT reach the SO-100's 20/30 on the SO-101 with bench dynamics?", "success_means": "Within +-4/30 of 20/30.",
+     "dir": "so101/act_ft", "label": "so101-so101-act-ft", "depends_on": "so101-capture2400", "env": "lerobot"},
+    {"id": "so101-cnn", "order": 4, "kind": "job", "model": "CNN", "method": "4800, shift 12, 120k, seed 202", "title": "SO-101: CNN",
+     "question": "Does the CNN reach the SO-100's 6/30?", "success_means": "Within +-4/30 of 6/30.",
+     "dir": "so101/cnn_s202", "label": "so101-so101-cnn-s202", "depends_on": "so101-capture4800", "env": "lerobot"},
+    {"id": "menagerie-capture4800", "order": 5, "kind": "job", "model": "teacher", "method": "Capture, SO-101 (Menagerie dynamics)", "title": "SO-101 Menagerie: capture 4800",
+     "question": "As 1, with Menagerie's dynamics.", "success_means": "Complete capture.",
+     "dir": "so101_menagerie/cap4800", "label": "so101-so101_menagerie-capture4800", "env": "lerobot"},
+    {"id": "menagerie-capture2400", "order": 6, "kind": "job", "model": "teacher", "method": "Capture, SO-101 (Menagerie dynamics)", "title": "SO-101 Menagerie: capture 2400",
+     "question": "As 2.", "success_means": "Complete capture.",
+     "dir": "so101_menagerie/cap2400", "label": "so101-so101_menagerie-capture2400", "depends_on": "menagerie-capture4800", "env": "lerobot"},
+    {"id": "menagerie-act-ft", "order": 7, "kind": "finetune", "model": "ACT", "method": "Retry-tranche config", "title": "SO-101 Menagerie: ACT fine-tune",
+     "question": "As 3, with Menagerie's dynamics.", "success_means": "Within +-4/30 of 20/30.",
+     "dir": "so101_menagerie/act_ft", "label": "so101-so101_menagerie-act-ft", "depends_on": "menagerie-capture2400", "env": "lerobot"},
+    {"id": "menagerie-cnn", "order": 8, "kind": "job", "model": "CNN", "method": "4800, shift 12, 120k, seed 202", "title": "SO-101 Menagerie: CNN",
+     "question": "As 4, with Menagerie's dynamics.", "success_means": "Within +-4/30 of 6/30.",
+     "dir": "so101_menagerie/cnn_s202", "label": "so101-so101_menagerie-cnn-s202", "depends_on": "menagerie-capture4800", "env": "lerobot"},
+    {"id": "report", "order": 9, "kind": "job", "model": "-", "method": "tools/so101_benchmark_report.py", "title": "Benchmark report",
+     "question": "Each SO-101 scene next to the SO-100 baselines.", "success_means": "benchmark.json written.",
+     "dir": ".", "label": "so101-report", "env": "lerobot"}
+  ]
+}

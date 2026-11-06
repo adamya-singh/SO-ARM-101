@@ -159,7 +159,8 @@ def main():
         counts = dict(train=(12, int(args.train_count), 1), heldout=(8, 10, 3)); max_steps, checkpoint_interval = int(args.max_steps), 5000
         wandb_mode, group, run_name = 'online', 'bench-pick-replace-20260906', 'bench-pick-replace-v1-s202-120k' + ('-appearance' if args.appearance else '') + ('-placement' if args.placement else '')
     root.mkdir(parents=True, exist_ok=True)
-    identity = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, bench=asdict(bench),
+    from so_arm101_v2.simulation.arm_profiles import grasp_detector_version, scene_arm_profile
+    identity = dict(scene_dependencies_sha256=scene_hash, grasp_detector=grasp_detector_version(scene_arm_profile(args.model)), bench=asdict(bench),
                     verification=verification, training_seed=202, max_steps=max_steps, rehearsal=bool(args.rehearsal),
                     suite_seeds={k: v[0] for k, v in counts.items()}, suite_counts={k: v[1] for k, v in counts.items()})
     if args.appearance:

@@ -140,6 +140,8 @@ def main(argv=None) -> int:
     if bench is None or bench.viewing_qpos is None:
         raise RuntimeError('bench scene with a recorded reset and candidate viewing pose required')
     scene_hash = scene_dependency_hash(args.model)
+    from so_arm101_v2.simulation.arm_profiles import grasp_detector_version, scene_arm_profile
+    detector = grasp_detector_version(scene_arm_profile(args.model))   # '+so101_menagerie' on the SO-101 (2026-11-06)
     tag = f'{scene_hash[:8]}'
     model = mujoco.MjModel.from_xml_path(str(args.model))
     data = mujoco.MjData(model)
@@ -197,7 +199,7 @@ def main(argv=None) -> int:
         sheet_path, sheet_record = render_appearance_sheet(args.model, bench, args.output_dir, tag, args.appearance_samples,
                                                            physical_observation=args.output_dir / f'physical_reset_observation_{tag}.png')
         outputs[sheet_path.name] = hashlib.sha256(sheet_path.read_bytes()).hexdigest()
-    record = dict(scene_dependencies_sha256=scene_hash, grasp_detector=GRASP_DETECTOR_VERSION, lens=bench.lens,
+    record = dict(scene_dependencies_sha256=scene_hash, grasp_detector=detector, lens=bench.lens,
                   reset_evidence_sha256=bench.reset_evidence_sha256, physical_frame=str(args.physical),
                   physical_frame_sha256=hashlib.sha256(args.physical.read_bytes()).hexdigest() if args.physical.is_file() else None,
                   note='The physical frame was taken at the recorded RESET pose; no physical frame exists for the candidate viewing pose.',

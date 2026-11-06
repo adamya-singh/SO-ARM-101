@@ -165,9 +165,11 @@ class TaskContract:
         reset = np.asarray(self.reset.robot_qpos_mujoco, dtype=np.float64)
         if not np.isfinite(reset).all():
             raise ValueError("robot reset pose must be finite")
-        if np.any(reset < MUJOCO_JOINT_LOW - 1e-6) or np.any(
-            reset > MUJOCO_JOINT_HIGH + 1e-6
-        ):
+        # Bench contracts carry their own model's joint envelope (the SO-101 scene's joint conventions differ from the
+        # SO-100's, 2026-11-06); the legacy contract keeps the SO-100 bounds.
+        reset_low = np.asarray(self.safety.mujoco_joint_low, dtype=np.float64) if bench else MUJOCO_JOINT_LOW
+        reset_high = np.asarray(self.safety.mujoco_joint_high, dtype=np.float64) if bench else MUJOCO_JOINT_HIGH
+        if np.any(reset < reset_low - 1e-6) or np.any(reset > reset_high + 1e-6):
             raise ValueError("robot reset pose exceeds MuJoCo joint bounds")
         if self.reset.cube_xy_tolerance_m <= 0 or self.reset.robot_qpos_tolerance_rad <= 0:
             raise ValueError("reset tolerances must be positive")
@@ -243,19 +245,24 @@ class TaskContract:
 
         expected_act_low = ACT_DATASET_LOW
         expected_mujoco_low = MUJOCO_JOINT_LOW
+        expected_mujoco_high = MUJOCO_JOINT_HIGH
         if bench:
             from .bench import BenchConfig
             from .physical import physical_normalized_to_act
             expected_act_low = ACT_DATASET_LOW.copy()
             expected_act_low[1] = physical_normalized_to_act([0, -92, 0, 0, 0, 0])[1]
             expected_mujoco_low = BenchConfig().mujoco_low
+            # The Menagerie SO-101 scenes (joint map measured_20260908b_so101) use that map's envelope instead.
+            so101 = BenchConfig(joint_map="measured_20260908b_so101")
+            if np.allclose(self.safety.mujoco_joint_low, so101.mujoco_low, atol=1e-6, rtol=0.0):
+                expected_mujoco_low, expected_mujoco_high = so101.mujoco_low, so101.mujoco_high
             if np.any(reset < expected_mujoco_low):
                 raise ValueError("bench reset exceeds task safety bounds")
         expected_bounds = (
             (self.safety.act_command_low, expected_act_low),
             (self.safety.act_command_high, ACT_DATASET_HIGH),
             (self.safety.mujoco_joint_low, expected_mujoco_low),
-            (self.safety.mujoco_joint_high, MUJOCO_JOINT_HIGH),
+            (self.safety.mujoco_joint_high, expected_mujoco_high),
         )
         for configured, expected in expected_bounds:
             if len(configured) != len(JOINT_NAMES) or not np.allclose(

@@ -106,6 +106,8 @@ class MujocoTaskAdapter:
             rw, rh = self.lens.render_size
             self.model.vis.global_.offwidth = max(int(self.model.vis.global_.offwidth), rw)
             self.model.vis.global_.offheight = max(int(self.model.vis.global_.offheight), rh)
+        from .arm_profiles import arm_profile
+        self.arm_profile = arm_profile(self.model)   # SO-100 or SO-101 gripper geometry (simulation/arm_profiles.py)
         self._joint_qpos = []
         self._joint_dof = []
         self._actuator_ids = []

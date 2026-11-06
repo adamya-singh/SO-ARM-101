@@ -7,6 +7,41 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-11-06: Menagerie SO-101 scenes and benchmark (handoff step 3).** Two new sibling scenes built from
+Menagerie's SO-101 (`simulation_code/model/menagerie_so101`, VENDOR.md):
+- `bench_pick_replace_v1_so101`: the bench's dynamics.
+- `bench_pick_replace_v1_so101_menagerie`: Menagerie's dynamics, as shipped.
+
+The user chose to benchmark both.
+
+What carries over from the SO-100:
+- **Camera and jaw-tip sites:** carried over by the rigid gripper-frame transform. At reset and survey the camera is
+  within 0.2 mm and 0.001 deg and the tips within 0.23 mm. The hand-eye residual is unchanged (115.55 vs 115.59 px
+  under identical settings).
+- **Joint map:** `measured_20260908b_so101` is the measured map in the SO-101's conventions. It is exact, needs no new
+  measurement, and reproduces the SO-100 map to 4e-7 rad.
+- **Gripper geometry:** the SO-101's mouth opens toward +x and its depth axis is -z. It lives in
+  `simulation/arm_profiles.py`, detected from the model, so no config field changed and every SO-100 identity is
+  unchanged.
+- **Grasp detector:** the closing axis uses pad 1 on the SO-101 (it has no moving-jaw pad 4). The identity is
+  `pad_normals_v2+so101_menagerie`.
+
+Teacher certification, with unchanged settings: **30/30 on both SO-101 scenes**. The SO-100 scene was re-certified
+30/30 on its current suite id; `BenchConfig`'s October servo field had changed the suite hash, so its September 30/30
+sat under an older id.
+
+Physics randomization (step 2's regime) on the plain SO-101 scene admits only 54%: latency-driven gripper holds,
+because compensation and gripper pacing need a servo block. Moving step 2's recipe onto the SO-101 needs an SO-101
+servo sibling scene.
+
+Benchmark (`simulation_code/queue_so101_benchmark_20261106.sh`, manifest `tools/tranche_20261106.json`, report
+`so101_benchmark_20261106/benchmark.json`). Per scene, the SO-100 baselines' exact recipe:
+- capture 4800 (seed 14, stride 30) + 2400 (seed 12, stride 18), with the held-out poses re-captured on the scene;
+- ACT fine-tune with the retry-tranche config (SO-100: 20/30);
+- CNN seed 202 (SO-100: 6/30).
+
+**Pre-registered:** a scene matches within ±4/30 of each.
+
 **Update 2026-11-05 (later): physics-randomization tranche (handoff step 2).** Implemented and queued; manifest
 `tools/tranche_20261105b.json`, queue `simulation_code/queue_physics_rand_20261105.sh`, output
 `experiments/physics_rand_20261105/`. The user chose to keep it separate from step 1 and to use a 0-1000 ms inference pause.
