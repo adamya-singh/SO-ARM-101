@@ -40,7 +40,6 @@ def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: i
     import torch
     manifest, frames, arrays = load_vision_frames(manifest_path)
     episode_lengths = [int(e["rows"]) for e in manifest["episodes"]]
-    targets = build_chunked_targets(arrays, model.chunk_horizon, episode_lengths=episode_lengths).reshape(frames.shape[0], -1)
     state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
                             np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)
     action_index = np.asarray(arrays["action_index"])
@@ -54,9 +53,11 @@ def boundary_losses(model, manifest_path, *, device, samples: int = 600, seed: i
         for name, predicate in BUCKETS.items():
             index = np.flatnonzero(predicate(action_index) & within & stored)
             pick = np.sort(rng.choice(index, min(samples, index.shape[0]), replace=False))
+            # Targets of the picked rows only (the full array no longer fits in memory for large captures).
+            targets = build_chunked_targets(arrays, model.chunk_horizon, episode_lengths=episode_lengths, select=pick).reshape(pick.shape[0], -1)
             images = torch.from_numpy(np.ascontiguousarray(frames[pick])).to(device).permute(0, 3, 1, 2).float().div_(255.0)
             prediction = model(images, torch.from_numpy(state[pick]).to(device)).cpu().numpy()
-            out[name] = float(((prediction - targets[pick]) ** 2).mean())
+            out[name] = float(((prediction - targets) ** 2).mean())
     return out
 
 
@@ -70,17 +71,17 @@ def per_pose_start_90(model, manifest_path, *, device) -> dict[str, float]:
     import torch
     manifest, frames, arrays = load_vision_frames(manifest_path)
     episode_lengths = [int(e["rows"]) for e in manifest["episodes"]]
-    targets = build_chunked_targets(arrays, model.chunk_horizon, episode_lengths=episode_lengths).reshape(frames.shape[0], -1)
     state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
                             np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)
     action_index = np.asarray(arrays["action_index"])
     rows = np.flatnonzero(action_index == 90)
+    targets = build_chunked_targets(arrays, model.chunk_horizon, episode_lengths=episode_lengths, select=rows).reshape(rows.shape[0], -1)
     starts = np.concatenate([[0], np.cumsum(episode_lengths)])
     out: dict[str, float] = {}
     with torch.inference_mode():
         images = torch.from_numpy(np.ascontiguousarray(frames[rows])).to(device).permute(0, 3, 1, 2).float().div_(255.0)
         prediction = model(images, torch.from_numpy(state[rows]).to(device)).cpu().numpy()
-        errors = ((prediction - targets[rows]) ** 2).mean(axis=1)
+        errors = ((prediction - targets) ** 2).mean(axis=1)
     for row, error in zip(rows.tolist(), errors.tolist()):
         episode = int(np.searchsorted(starts, row, side="right") - 1)
         scenario = str(manifest["episodes"][episode]["scenario_id"])
@@ -127,7 +128,7 @@ class HeldoutCurveScorer:
             rows = np.sort(np.random.default_rng(seed).choice(rows, samples, replace=False))
         starts = np.concatenate([[0], np.cumsum(episode_lengths)])
         poses = [str(manifest["episodes"][int(np.searchsorted(starts, r, side="right") - 1)]["scenario_id"]) for r in rows.tolist()]
-        targets = build_chunked_targets(arrays, 90, episode_lengths=episode_lengths).reshape(frames.shape[0], -1)[rows]
+        targets = build_chunked_targets(arrays, 90, episode_lengths=episode_lengths, select=rows).reshape(rows.shape[0], -1)
         state = np.concatenate([normalize_act(np.asarray(arrays["current_act"], np.float32)),
                                 np.asarray(arrays["progress"], np.float32)[:, None]], axis=1).astype(np.float32)[rows]
         images = np.ascontiguousarray(frames[rows])

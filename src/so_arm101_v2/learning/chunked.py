@@ -203,8 +203,13 @@ def build_chunked_targets(
     chunk_horizon: int,
     *,
     episode_lengths: Sequence[int] | None = None,
+    select: np.ndarray | None = None,
 ) -> np.ndarray:
     """Normalized-act residual targets ``[rows, H, 6]`` with repeat-last padding.
+
+    ``select`` (2026-11-07): compute only these rows (``[len(select), H, 6]``, same values as the full array's rows).
+    A 7120-episode capture's full array is 7.4 GB and was killed for memory; trainers that use a strided subset of
+    rows pass them here.
 
     Target ``[t, j]`` is ``normalize_act(executed[min(t + j, last)]) -
     normalize_act(current[t])`` so a zero-initialized head predicts "hold the
@@ -230,6 +235,10 @@ def build_chunked_targets(
         ])
     executed_norm = normalize_act(executed)
     current_norm = normalize_act(current)
+    if select is not None:
+        chosen = np.asarray(select, dtype=np.int64)
+        indices = np.minimum(chosen[:, None] + np.arange(chunk_horizon)[None, :], last_index[chosen][:, None])
+        return executed_norm[indices] - current_norm[chosen][:, None, :]
     indices = np.minimum(
         np.arange(rows)[:, None] + np.arange(chunk_horizon)[None, :],
         last_index[:, None],

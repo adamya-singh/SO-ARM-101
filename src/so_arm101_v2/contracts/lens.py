@@ -319,8 +319,52 @@ def _bilinear_entries(rows, u, v, width, height, label):
     return taps_row.ravel(), taps_col.ravel(), taps_w.ravel()
 
 
+# Disk cache of the sim operator (2026-11-07): building it takes 7-20 s and peaks at 1.0 GB per process, and 20 RL env
+# workers building it at once overran WSL's 15 GB (env worker killed, -9) and the 30 s watchdog (start-up stall
+# storms). The first process builds it under a file lock and saves the three arrays; every other process memory-maps
+# them, so they share one copy. The arrays are saved exactly, so the operator (and every observation) is unchanged.
+SIM_OPERATOR_CACHE_VERSION = 1
+
+
+def _sim_operator_cache_dir(lens) -> Path:
+    import os
+    root = Path(os.environ.get("SO_ARM101_V2_LENS_CACHE", Path.home() / ".cache" / "so_arm101_v2" / "lens_operators"))
+    key = hashlib.sha256(json.dumps(dict(lens=lens.identity(), version=SIM_OPERATOR_CACHE_VERSION, numpy=np.__version__),
+                                    sort_keys=True, default=str).encode()).hexdigest()[:24]
+    return root / f"sim_{key}"
+
+
 @lru_cache(maxsize=4)
 def _sim_operator(lens):
+    import fcntl
+    import os
+    import tempfile
+    if os.environ.get("SO_ARM101_V2_LENS_CACHE") == "off":
+        return _build_sim_operator(lens)
+    directory = _sim_operator_cache_dir(lens)
+    names = ("row_ptr", "col", "weight")
+    rw, rh = lens.render_size
+
+    def load():
+        arrays = {name: np.load(directory / f"{name}.npy", mmap_mode="r") for name in names}
+        return Resampler((rh, rw), lens.observation_size, arrays["row_ptr"], arrays["col"], arrays["weight"])
+
+    if (directory / "complete").exists():
+        return load()
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    with open(directory.parent / f"{directory.name}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not (directory / "complete").exists():
+            built = _build_sim_operator(lens)
+            staging = Path(tempfile.mkdtemp(prefix=directory.name + ".", dir=directory.parent))
+            for name in names:
+                np.save(staging / f"{name}.npy", getattr(built, name))
+            (staging / "complete").write_text(json.dumps(lens.identity(), default=str))
+            os.replace(staging, directory)
+    return load()
+
+
+def _build_sim_operator(lens):
     n = lens.observation_size
     U, V = _footprint_samples(lens)
     rows = np.broadcast_to(np.arange(n * n)[:, None], U.shape)

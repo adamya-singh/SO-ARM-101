@@ -467,9 +467,11 @@ def train_vision_chunked(
     rows_train = int(kept_rows.shape[0])
     if sum(episode_lengths) != rows:
         raise ValueError("oracle manifest episode lengths disagree with its row count")
+    # Targets for the training rows only (row k of targets_np is source row kept_rows[k]): the full array is
+    # rows x 90 x 6 floats, 7.4 GB for a 7120-episode capture, and a strided run reads 1/30 of it (2026-11-07).
     targets_np = build_chunked_targets(
-        arrays, config.chunk_horizon, episode_lengths=episode_lengths,
-    ).reshape(rows, -1)
+        arrays, config.chunk_horizon, episode_lengths=episode_lengths, select=kept_rows,
+    ).reshape(rows_train, -1)
     current_norm_np = normalize_act(np.asarray(arrays["current_act"], dtype=np.float32))
     state_np = np.concatenate(
         [current_norm_np, np.asarray(arrays["progress"], dtype=np.float32)[:, None]],
@@ -671,9 +673,10 @@ def train_vision_chunked(
             )
             if shift_generator is not None:
                 images = random_shift_images(images, shift, shift_generator)
-            source_rows = row_map_device[indices.to(device)]
+            positions = indices.to(device)
+            source_rows = row_map_device[positions]
             prediction = model(images, state[source_rows])
-            loss = (prediction - targets[source_rows]).square().mean()
+            loss = (prediction - targets[positions]).square().mean()
             if not torch.isfinite(loss):
                 raise RuntimeError("vision distillation loss became nonfinite")
             loss.backward()
@@ -701,10 +704,11 @@ def train_vision_chunked(
     with torch.inference_mode():
         for start in range(0, rows_train, 256):
             indices = torch.arange(start, min(start + 256, rows_train))
-            source_rows = row_map_device[indices.to(device)]
+            positions = indices.to(device)
+            source_rows = row_map_device[positions]
             prediction = model(batch_images(indices), state[source_rows])
             errors.append(
-                (prediction - targets[source_rows]).square().mean(dim=1).cpu().numpy()
+                (prediction - targets[positions]).square().mean(dim=1).cpu().numpy()
             )
     normalized_mse = float(np.mean(np.concatenate(errors)))
 
