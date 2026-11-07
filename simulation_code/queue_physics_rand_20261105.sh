@@ -33,24 +33,27 @@ note() { if [ $DRY = 1 ]; then echo "(dry run) $*"; else echo "[$(date '+%F %T')
 q() {   # q <label> [-D id] -- command...
   local label=$1; shift
   local dep=()
-  if [ "$1" = "-D" ]; then dep=(-D "$2"); shift 2; fi
+  if [ "$1" = "-D" ]; then [ -n "$2" ] && dep=(-D "$2"); shift 2; fi   # an empty id = that job already finished earlier
   if [ $DRY = 1 ]; then echo "tsp -L $label ${dep[*]} $*" >&2; echo 0; return; fi
   tsp -L "$label" "${dep[@]}" "$@"
 }
 mkdir -p "$T"
 HSUITE=$(cat $E/scaling_ladder_20260910/heldout_suite.path)
 
-J1=$(q physics-capture $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SERVO --output-dir $CAP --count 7200 --suite-seed 16 \
+# Re-queue resumes (2026-11-07): finished steps are not queued again; their dependents run without a dependency.
+done_capture() { grep -q '"status": "complete"' "$CAP/progress.json" 2>/dev/null; }
+J1=""; done_capture || J1=$(q physics-capture $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SERVO --output-dir $CAP --count 7200 --suite-seed 16 \
       --frame-row-stride 30 --physics bench_physics_v1 --skip-failed --heldout-suite $HSUITE --heldout-from $E/scaling_ladder_20260910 --workers 12)
 cnn() {  # cnn <seed>
+  [ -f "$T/cnn_s$1/augmentation.json" ] && { echo ""; return; }
   q "physics-cnn-s$1" -D "$J1" $ENVV $PY -u $ROOT/tools/augmentation_run.py --model $SERVO --ladder-dir $CAP --output-dir $T/cnn_s$1 \
     --shifts 12 --episodes 4800 --encoder v2 --hidden-width 512 --steps 120000 --frame-stride 30 --no-baseline --seed $1 \
     --run-name "physics-rand-cnn-4800-s$1" --workers 8
 }
 J2=$(cnn 202); J3=$(cnn 101); J4=$(cnn 303)
-J5=$(q physics-act-ft -D "$J1" $ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --scene $SERVO --output-dir $T/act_ft \
+J5=""; [ -f "$T/act_ft/result.json" ] || J5=$(q physics-act-ft -D "$J1" $ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --scene $SERVO --output-dir $T/act_ft \
       --data-dirs $CAP --run-name physics-rand-act-ft --tranche $TRANCHE $(b "['act_ft_args']"))
-J6=$(q physics-rl-act -D "$J5" $ENVV $PY -u $ROOT/tools/rl_train.py --model act --checkpoint $T/act_ft/model/act.pt --scene $SERVO \
+J6=""; [ -f "$T/rl_act_lr2e-7/result.json" ] || J6=$(q physics-rl-act -D "$J5" $ENVV $PY -u $ROOT/tools/rl_train.py --model act --checkpoint $T/act_ft/model/act.pt --scene $SERVO \
       --physics bench_physics_v1 --output-dir $T/rl_act_lr2e-7 --episodes $N --actor-lr 2e-7 --run-name physics-rand-act-ppo \
       --tranche $TRANCHE $(b "['rl_act_args']"))
 
