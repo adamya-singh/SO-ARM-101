@@ -236,14 +236,16 @@ def main(argv=None) -> int:
                     seed=args.seed, rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=args.tranche)
     if args.physics is not None:   # conditionally present: runs without physics randomization keep their identity
         from so_arm101_v2.contracts.physics import physics_regime
-        identity["physics"] = physics_regime(args.physics).identity()
+        # JSON-normal form (tuples -> lists), so a resumed run's stored identity compares equal (2026-11-07).
+        identity["physics"] = json.loads(json.dumps(physics_regime(args.physics).identity()))
     identity_path = root / "identity.json"
     if identity_path.exists():
         old = json.loads(identity_path.read_text())
         # Throughput settings may change on resume (env count, episodes per update); everything that defines the experiment may not.
         free = ("envs", "episodes_per_iter")
         if {k: v for k, v in old.items() if k not in free} != {k: v for k, v in identity.items() if k not in free}:
-            raise RuntimeError("output dir holds a different run (identity mismatch); use a new --output-dir")
+            differing = sorted(k for k in set(old) | set(identity) if k not in free and old.get(k) != identity.get(k))
+            raise RuntimeError(f"output dir holds a different run (identity mismatch in {differing}); use a new --output-dir")
     else:
         atomic_json(identity_path, identity)
 
