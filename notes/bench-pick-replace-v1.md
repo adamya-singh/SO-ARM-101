@@ -7,6 +7,24 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-11-08: the SO-101 (bench dynamics) is the base.** The 2026-11-07 analysis of steps 1-3 found the
+SO-101 better on the same recipe (ACT 20 -> 27/30, CNN 6 -> 15/30, through grasp tolerance). From now on new tranches
+train and evaluate on SO-101 scenes; the SO-100 scenes stay, byte-identical, so every old command reproduces. Tool
+defaults are unchanged: new queue scripts pass `--model`/`--scene` explicitly.
+- **SO-101 servo model:** `servo_model_20261108_so101.json` is `servo_model_20261004` refitted through the SO-101 scene
+  (lighter links) by `tools/fit_servo_model.py` replaying the same October probe runs and episodes (record
+  `experiments/next_round_20261108/servo_model_fit_so101.json`; the fit record now carries the scene hash). Elbow kp
+  6.48 (the elbow is still the soft joint); held-out check runs 4/5 elbow rms 0.89 units fitted vs 3.84 under the
+  certified (stiff) servo.
+- **SO-101 servo scene:** `bench_pick_replace_v1_so101_servo`, built with `prepare_bench_scene.py --arm so101 --servo
+  <fit> --servo-compensation direction_slew=0.2`. The compensated teacher certifies 30/30 (with the default slew 0.1,
+  certification placement 8 set the cube down 2.2 mm high, which counts as unsafe: 27/30).
+- **Runner:** `tools/run_physical_episode.py` now drives ACT checkpoints (`--act-checkpoint`, `--act-execute 90|30`),
+  refuses a checkpoint whose training scene hash differs from `--model`, takes `--servo-model` for the assist, and
+  refuses `--servo-assist on` on a servo scene (those policies learned the soft servo; the assist would compensate twice).
+- **Servo registers (item 2):** `tools/read_servo_registers.py` reads P/D/I, dead zones, torque limits and the rest
+  strictly read-only (no connect/configure/torque calls; tested). It needs the arm plugged in.
+
 **Update 2026-11-06: Menagerie SO-101 scenes and benchmark (handoff step 3).** Two new sibling scenes built from
 Menagerie's SO-101 (`simulation_code/model/menagerie_so101`, VENDOR.md):
 - `bench_pick_replace_v1_so101`: the bench's dynamics.

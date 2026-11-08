@@ -170,7 +170,9 @@ def main(argv=None) -> int:
                   dict(zip(JOINT_NAMES, rms.round(2).tolist())), flush=True)
     rms = score(replayer, fit_runs, fitted)
     try:
-        record = dict(tool="fit_servo_model", fit_runs=[str(d) for d in args.fit_dir], joints=args.joints, sweeps=args.sweeps,
+        from so_arm101_v2.contracts.bench import scene_dependency_hash
+        record = dict(tool="fit_servo_model", model=str(args.model), scene_dependencies_sha256=scene_dependency_hash(args.model),  # 2026-11-08
+                      fit_runs=[str(d) for d in args.fit_dir], joints=args.joints, sweeps=args.sweeps,
                       objective=dict(moving_weight=MOVING_WEIGHT, rest_speed_units=REST_SPEED_UNITS),
                       fitted_rms_units_unweighted=dict(zip(JOINT_NAMES, score(replayer, fit_runs, fitted, weighted=False).round(3).tolist())),
                       certified=dict(kp=certified.kp, kv=certified.kv, frictionloss=certified.frictionloss, rms_units=dict(zip(JOINT_NAMES, base.round(3).tolist()))),

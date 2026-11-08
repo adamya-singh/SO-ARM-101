@@ -187,6 +187,9 @@ def main():
     p.add_argument('--servo',default='keep',
         help="'keep' (default), 'none' (the Menagerie actuators), or a tools/fit_servo_model.py record: its fitted "
              "per-joint stiffness, damping and dry friction are written into the scene and the bench config")
+    p.add_argument('--servo-compensation',action='append',default=[],metavar='KEY=VALUE',
+        help='with --servo <fit>: override a teacher compensation setting (contracts/bench.py SERVO_COMPENSATION_V1), e.g. '
+             'direction_slew=0.2 (2026-11-08: certifies the SO-101 servo scene 30/30)')
     p.add_argument('--arm',choices=['so100','so101'],default='so100',
         help="arm model: the Menagerie SO-100 (default, the scenes so far) or the Menagerie SO-101 "
              "(simulation_code/model/menagerie_so101); so101 also converts a measured_20260908b config to measured_20260908b_so101")
@@ -212,7 +215,8 @@ def main():
         import hashlib
         config=replace(config,servo=dict(name='bench_servo',version=1,kp=[float(v) for v in fitted['kp']],kv=[float(v) for v in fitted['kv']],
             frictionloss=[float(v) for v in fitted['frictionloss']],
-            source=f'{fit_path.name} sha256 {hashlib.sha256(fit_path.read_bytes()).hexdigest()}'))
+            source=f'{fit_path.name} sha256 {hashlib.sha256(fit_path.read_bytes()).hexdigest()}',
+            **({'compensation':{k:float(v) for k,v in (item.split('=',1) for item in a.servo_compensation)}} if a.servo_compensation else {})))
     if a.survey_pose=='default':
         config=replace(config,viewing_qpos=tuple(float(q+d) for q,d in zip(config.reset_qpos,SURVEY_POSE_DELTA_RAD)))
     elif a.survey_pose=='reset':

@@ -147,3 +147,46 @@ def test_so100_contract_is_unchanged_and_so101_contract_uses_its_envelope():
     assert np.allclose(so100.pickup.safety.mujoco_joint_high, MUJOCO_JOINT_HIGH)
     assert np.allclose(so101.pickup.safety.mujoco_joint_high, so101_config.mujoco_high)
     assert json.dumps(asdict(so100), sort_keys=True, default=str) != json.dumps(asdict(so101), sort_keys=True, default=str)
+
+
+SCENE_SO101_SERVO = MODELS / "bench_pick_replace_v1_so101_servo/scene_bench_pick_replace_v1.xml"
+
+
+def test_so101_servo_scene_teacher_completes_the_placement_that_needed_the_slew():
+    """The SO-101 measured-servo scene (servo_model_20261108_so101, compensation direction_slew 0.2) certifies 30/30;
+    certification placement 8 failed with the default slew 0.1 (cube set down 2.2 mm high, flagged unsafe)."""
+    pytest.importorskip("mujoco")
+    from so_arm101_v2.contracts.pick_place import PickPlaceEvaluationState, evaluate_pick_place_step, load_pick_place_contract
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.bench import certification_suite
+    from so_arm101_v2.simulation.privileged import PrivilegedStagedController
+    adapter = MujocoTaskAdapter(SCENE_SO101_SERVO)
+    try:
+        assert adapter.arm_profile.name == "so101_menagerie" and adapter.bench.servo["compensation"]["direction_slew"] == 0.2
+        contract = load_pick_place_contract("bench_pick_replace_v1", bench_config=adapter.bench)
+        adapter.reset(certification_suite(adapter.bench, repeats=1).scenarios[8])
+        teacher = PrivilegedStagedController(); teacher.reset(adapter)
+        state, safety, result = PickPlaceEvaluationState(), 0, None
+        for _ in range(contract.max_actions):
+            command = adapter.apply_policy_command(teacher.predict(None, adapter.current_act(), adapter))
+            adapter.advance_control_period()
+            measurement, _ = adapter.pick_place_measurement(command, footprint_edge_margin_m=contract.placement.footprint_edge_margin_m)
+            safety += measurement.pickup.unsafe_contact + measurement.pickup.delta_limiter_activated
+            state, result = evaluate_pick_place_step(contract, measurement, state)
+            if result.terminated or result.truncated or result.invalidated:
+                break
+        assert result.success and not result.invalidated and safety == 0
+    finally:
+        adapter.close()
+
+
+def test_runner_finds_the_scene_a_checkpoint_was_trained_on(tmp_path):
+    import sys
+    sys.path.insert(0, str(REPOSITORY_ROOT / "tools"))
+    from run_physical_episode import trained_scene
+    act = tmp_path / "act_ft" / "model" / "act.pt"; act.parent.mkdir(parents=True); act.write_bytes(b"x")
+    (tmp_path / "act_ft" / "identity.json").write_text(json.dumps({"scene_dependencies_sha256": "abc"}))
+    cnn = tmp_path / "cnn" / "runs" / "shift12" / "models" / "vision_h90" / "d" / "model.pt"; cnn.parent.mkdir(parents=True); cnn.write_bytes(b"x")
+    (tmp_path / "cnn" / "augmentation_identity.json").write_text(json.dumps({"scene_dependencies_sha256": "def"}))
+    loose = tmp_path / "loose.pt"; loose.write_bytes(b"x")
+    assert trained_scene(act) == "abc" and trained_scene(cnn) == "def" and trained_scene(loose) is None

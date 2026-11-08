@@ -1,0 +1,40 @@
+{
+ "schema_version": 1,
+ "name": "servo_model_20261108_so101",
+ "description": "The servo model of servo_model_20261004 refitted for the Menagerie SO-101 scene (bench_pick_replace_v1_so101, its lighter links): tools/fit_servo_model.py replaying the same 2026-10-04 servo probe runs, teacher replays and physical/episode_10_20260910 through that scene (2026-11-08). Joint order: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper.",
+ "source": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/next_round_20261108/servo_model_fit_so101.json",
+ "scene_dependencies_sha256": "4009e71efe927174b8d4d9e046fc0be4cc3c80f822d771efbe25287f8601e3f3",
+ "kp": [
+  16.667,
+  56.0,
+  6.481,
+  30.24,
+  43.2,
+  50.0
+ ],
+ "kv": [
+  2.16,
+  5.04,
+  0.9333,
+  1.6333,
+  4.6656,
+  4.4725
+ ],
+ "frictionloss": [
+  0.3,
+  0.6667,
+  0.3,
+  0.72,
+  0.24,
+  0.1
+ ],
+ "fit_rms_units": {
+  "shoulder_pan": 0.861,
+  "shoulder_lift": 0.82,
+  "elbow_flex": 1.134,
+  "wrist_flex": 1.074,
+  "wrist_roll": 0.158,
+  "gripper": 3.679
+ },
+ "certified_rms_units": null
+}

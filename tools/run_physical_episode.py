@@ -55,7 +55,7 @@ from so_arm101_v2.contracts.physical_io import (  # noqa: E402
     disconnect_read_only,
     read_measured_act,
 )
-from so_arm101_v2.data.resources import read_resource_bytes  # noqa: E402
+from so_arm101_v2.data.resources import load_json_resource, read_resource_bytes  # noqa: E402
 from so_arm101_v2.physical.camera import FrameGrabber  # noqa: E402
 from so_arm101_v2.physical.dry_pass import check_reset_frame, policy_dry_pass, sim_reference_dry_pass, survey_pose_active  # noqa: E402
 from so_arm101_v2.physical.guards import SURVEY_ONLY, EpisodeGuards, frame_brightness  # noqa: E402
@@ -208,6 +208,19 @@ def run_approach(robot, bench: BenchConfig, log_path: Path, *, read=read_measure
 
 # ----------------------------------------------------------------------------- main
 
+def trained_scene(checkpoint: Path) -> str | None:
+    """The scene hash a checkpoint was trained on, from its run's identity file (ACT/RL identity.json, CNN
+    augmentation_identity.json, pi0.5 pi05_identity.json), searching up to five folders up; None when unrecorded."""
+    for folder in list(Path(checkpoint).resolve().parents)[:6]:
+        for name in ("identity.json", "augmentation_identity.json", "pi05_identity.json"):
+            path = folder / name
+            if path.is_file():
+                value = json.loads(path.read_text()).get("scene_dependencies_sha256")
+                if value:
+                    return str(value)
+    return None
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
@@ -245,6 +258,13 @@ def main(argv=None) -> int:
                         "Menagerie actuators, off for a scene that carries the measured servo model (the policy learned the real servo)")
     p.add_argument("--pi05-first-execute", type=int, default=None,
                    help="with --pi05-checkpoint: commands of the first chunk to run before the first re-read (90 = the whole survey move)")
+    p.add_argument("--act-checkpoint", type=Path, default=None,
+                   help="an ACT residual checkpoint (tools/vla_finetune.py or tools/rl_train.py, model/act*.pt); refused unless --model "
+                        "is the scene it was trained on (2026-11-08)")
+    p.add_argument("--act-execute", type=int, default=90, help="ACT actions executed per chunk (the camera is re-read every N steps)")
+    p.add_argument("--servo-model", default=None,
+                   help="servo model resource for the assist (default servo_model_20261004.json, fitted on the SO-100; "
+                        "the SO-101 scenes have servo_model_20261108_so101.json)")
     p.add_argument("--servo-assist", choices=("auto", "on", "off"), default="auto",
                    help="servo assist (physical/servo_assist.py): turn each policy target into the command that gets the real joint "
                         "there (gravity and friction feed-forward from the measured servo model, plus a slow integral at rest). auto = on "
@@ -276,6 +296,12 @@ def main(argv=None) -> int:
     if bench is None or bench.lens is None or bench.reset_physical is None:
         raise SystemExit("the bench scene must carry a lens block and a recorded reset")
     scene_hash = scene_dependency_hash(args.model)
+    for flagged in (args.checkpoint if args.act_checkpoint is None and args.pi05_checkpoint is None else None, args.act_checkpoint):
+        if flagged is not None and not (args.servo_probe or args.replay_telemetry is not None):
+            trained_on = trained_scene(flagged)
+            if trained_on is not None and trained_on != scene_hash:
+                raise SystemExit(f"{flagged} was trained on scene {trained_on[:16]} but --model is scene {scene_hash[:16]}: pass the scene it was "
+                                 "trained on (the SO-100, SO-101 and measured-servo scenes need different commands)")
     import torch
     torch.set_num_threads(1)
     args.no_survey_gate_requested = bool(args.no_survey_gate)
@@ -318,12 +344,26 @@ def main(argv=None) -> int:
                                  servo_response=("adaptive" if args.pi05_lag == "adaptive" else None))
         args.gate_policy = Pi05ChunkPolicy(model, pi_config, pi_stats, prompt, execute=pi_config.chunk_horizon, clamp_channels=(5,))
         args.checkpoint = args.pi05_checkpoint
+    elif args.act_checkpoint is not None:
+        # ACT on the GPU (2026-11-08): the episode re-reads the camera every --act-execute steps; the gates dry-run the
+        # full 90-step chunk, as for the other policies.
+        from so_arm101_v2.learning.vla_models import load_model
+        from so_arm101_v2.simulation.residual_policy import ResidualChunkPolicy
+        act_model = load_model(args.act_checkpoint)
+        policy = ResidualChunkPolicy(act_model, execute=int(args.act_execute), clamp_channels=(5,))
+        args.gate_policy = ResidualChunkPolicy(act_model, execute=90, clamp_channels=(5,))
+        args.checkpoint = args.act_checkpoint
     else:
         policy = VisionChunkedPolicy(args.checkpoint, black_image=False, clamp_channels=(5,))
         args.gate_policy = policy
+    if args.servo_assist == "on" and bench.servo is not None and args.scripted is None:
+        # A policy trained on a measured-servo scene learned the compensated teacher's commands, which already contain the
+        # gravity and friction offset: assisting it would apply the offset twice.
+        raise SystemExit("--servo-assist on with a measured-servo scene: its policies already command the compensation; use off")
     if args.servo_assist == "auto":
         args.servo_assist = "off" if (args.scripted is not None or args.sim_rehearsal or bench.servo is not None) else "on"
-    args.assist = ServoAssist(args.model, bench) if args.servo_assist == "on" else None
+    servo_resource = None if args.servo_model is None else load_json_resource(args.servo_model)
+    args.assist = ServoAssist(args.model, bench, servo=servo_resource) if args.servo_assist == "on" else None
     if args.pi05_checkpoint is not None and args.scripted is None and args.assist is not None and args.pi05_lag_requested == "auto":
         policy.servo_response = None            # the assisted arm follows a command as the simulator's does: nothing to correct
         policy.compensate = policy.adaptive = False
