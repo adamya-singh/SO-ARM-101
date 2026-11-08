@@ -305,3 +305,23 @@ def test_pipeline_rehearsal_refuses_unlabelled_output_and_requires_verification(
     missing = subprocess.run([sys.executable, str(tool), '--model', str(model), '--output-dir', str(tmp_path / 'real'), '--appearance', '--placement'],
                              capture_output=True, text=True, env=env)
     assert missing.returncode != 0 and '--verification is required' in (missing.stderr + missing.stdout)
+
+
+def test_servo_register_reader_only_reads(monkeypatch, tmp_path):
+    """tools/read_servo_registers.py (2026-11-08): reads every register raw and never writes, configures or changes torque."""
+    import sys
+    from unittest.mock import Mock
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    import read_servo_registers as tool
+    from so_arm101_v2.contracts.coordinates import JOINT_NAMES
+    robot = Mock()
+    robot.bus.is_calibrated = True
+    robot.bus.is_connected = True
+    robot.bus.sync_read.side_effect = lambda name, normalize=True: {m: 16 if name == "P_Coefficient" else 0 for m in JOINT_NAMES}
+    values = tool.read_registers(robot)
+    assert values["P_Coefficient"] == {m: 16 for m in JOINT_NAMES}
+    assert all(call.kwargs.get("normalize") is False for call in robot.bus.sync_read.call_args_list)
+    assert [call.args[0] for call in robot.bus.sync_read.call_args_list] == list(tool.REGISTERS)
+    for forbidden in (robot.connect, robot.configure, robot.disconnect, robot.bus.write, robot.bus.sync_write,
+                      robot.bus.enable_torque, robot.bus.disable_torque, robot.bus.torque_disabled, robot.bus.configure_motors):
+        forbidden.assert_not_called()
