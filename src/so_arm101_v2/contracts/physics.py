@@ -35,6 +35,14 @@ def _range(pair: Any, name: str, *, positive: bool = False) -> tuple[float, floa
     return low, high
 
 
+def _joint_ranges(value: Any, name: str) -> Any:
+    """One range for every joint (a pair), or six per-joint ranges (2026-11-08, regime v2: the elbow needs a far wider
+    stiffness range than the other joints to reach the nominal scene's)."""
+    if len(value) == 6 and all(not np.isscalar(v) for v in value):
+        return tuple(_range(v, f"{name}[{i}]", positive=True) for i, v in enumerate(value))
+    return _range(value, name, positive=True)
+
+
 @dataclass(frozen=True)
 class PhysicsRegime:
     """Ranges of one versioned physics randomization; a range with low == high is a fixed value."""
@@ -56,7 +64,9 @@ class PhysicsRegime:
     def __post_init__(self) -> None:
         if not self.name or self.version != 1:
             raise ValueError("physics regime needs a name and version 1")
-        for field in ("kp_scale", "kv_scale", "friction_scale", "arm_mass_scale", "cube_mass_kg"):
+        for field in ("kp_scale", "kv_scale", "friction_scale"):
+            object.__setattr__(self, field, _joint_ranges(getattr(self, field), field))
+        for field in ("arm_mass_scale", "cube_mass_kg"):
             object.__setattr__(self, field, _range(getattr(self, field), field, positive=True))
         for field in ("latency_ms", "pause_ms", "cube_friction"):
             object.__setattr__(self, field, _range(getattr(self, field), field))
@@ -69,7 +79,9 @@ class PhysicsRegime:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "PhysicsRegime":
-        return cls(**{k: (tuple(v) if isinstance(v, list) else v) for k, v in raw.items()})
+        def tupled(v):
+            return tuple(tupled(x) for x in v) if isinstance(v, (list, tuple)) else v
+        return cls(**{k: tupled(v) for k, v in raw.items()})
 
     def identity(self) -> dict[str, Any]:
         return asdict(self)
@@ -111,7 +123,10 @@ class PhysicsParams:
         return (units / _UNITS_PER_ACT).astype(np.float32)
 
 
-def _log_uniform(rng: np.random.Generator, pair: tuple[float, float], size: int | None = None) -> Any:
+def _log_uniform(rng: np.random.Generator, pair: Any, size: int | None = None) -> Any:
+    if size is not None and np.ndim(pair) == 2:      # per-joint ranges: the same number of draws, so v1 streams are unchanged
+        lows, highs = np.asarray(pair, dtype=np.float64).T
+        return np.exp(rng.uniform(np.log(lows), np.log(highs), size=size))
     low, high = pair
     return np.exp(rng.uniform(np.log(low), np.log(high), size=size))
 
@@ -148,6 +163,16 @@ def physics_seeds(seed: int, count: int, *, stream: int = 4) -> tuple[int, ...]:
 REGIMES: dict[str, PhysicsRegime] = {
     # Training: wide ranges centred on the scene's servo model (handoff step 2; pause range chosen by the user 2026-11-05).
     "bench_physics_v1": PhysicsRegime(name="bench_physics_v1"),
+    # Regime v2 (2026-11-08): soft to stiff. v1 was centred on the measured soft servo and never contained a stiff one, so
+    # its policies failed on the stiff nominal scene (elbow kp 50 vs trained 4.5-13: 0/30; friction 0.1 vs trained
+    # >=0.12-0.39: 3/30). Per joint, relative to the SO-101 servo scene (servo_model_20261108_so101: kp 16.7 56 6.48 30.2
+    # 43.2 50, kv 2.16 5.04 0.93 1.63 4.67 4.47, friction 0.3 0.67 0.3 0.72 0.24 0.1), each range covers that soft value
+    # and the nominal stiff scene's (kp 50, kv ~4.5-4.8, friction 0.1) with 25% margin.
+    "bench_physics_v2": PhysicsRegime(
+        name="bench_physics_v2",
+        kp_scale=((0.7, 3.75), (0.7, 2.0), (0.7, 9.6), (0.7, 2.1), (0.7, 2.0), (0.7, 2.0)),
+        kv_scale=((0.5, 2.8), (0.5, 2.0), (0.5, 6.2), (0.5, 3.4), (0.5, 2.0), (0.5, 2.0)),
+        friction_scale=((0.27, 2.0), (0.12, 2.0), (0.27, 2.0), (0.11, 2.0), (0.33, 2.0), (0.5, 2.0))),
     # Evaluation stand-in for the real arm running a fast policy (CNN / ACT infer in milliseconds): the scene's servo
     # model as measured, 50 ms command latency, no inference pause, sensor noise on, a printed few-gram cube.
     "real_like_v1": PhysicsRegime(

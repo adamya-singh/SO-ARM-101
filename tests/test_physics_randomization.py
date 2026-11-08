@@ -174,3 +174,18 @@ def test_rl_pool_gives_each_episode_its_own_draw():
     assert plain.episode(4) is base[int(plain.order[1])] and plain.episode(4).physics_seed is None
     assert drawn.episode(1).scenario_id == drawn.episode(4).scenario_id and drawn.episode(1).physics_seed != drawn.episode(4).physics_seed
     assert drawn.episode(4).physics_seed == ScenarioPool(base, physics_regime=REGIME).episode(4).physics_seed
+
+
+def test_regime_v2_spans_the_soft_servo_and_the_stiff_nominal_scene():
+    """bench_physics_v2 (2026-11-08): every joint's kp and friction range on the SO-101 servo scene contains both the
+    servo model's value and the nominal scene's (kp 50, friction 0.1); v1 did not (elbow kp 4.5-13)."""
+    import numpy as np
+    from so_arm101_v2.data.resources import load_json_resource
+    servo = load_json_resource("servo_model_20261108_so101.json")
+    regime = physics_regime("bench_physics_v2")
+    for scales, base, nominal in ((regime.kp_scale, servo["kp"], 50.0), (regime.friction_scale, servo["frictionloss"], 0.1)):
+        for (low, high), value in zip(scales, base):
+            assert low * value <= value <= high * value
+            assert low * value <= nominal <= high * value
+    draws = np.array([resolve_physics(regime, s).kp_scale for s in range(500)])
+    assert draws[:, 2].max() > 5.0 and np.delete(draws, [0, 2, 3], axis=1).max() <= 2.0
