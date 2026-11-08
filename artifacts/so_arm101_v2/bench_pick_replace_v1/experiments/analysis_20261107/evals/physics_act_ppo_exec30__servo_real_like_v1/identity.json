@@ -1,0 +1,11 @@
+{
+  "tool": "eval_policy",
+  "kind": "vla",
+  "checkpoint": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/physics_rand_20261105/rl_act_lr2e-7/model/act_rl.pt",
+  "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_servo/scene_bench_pick_replace_v1.xml",
+  "scene_dependencies_sha256": "41b6cbd19961212fa89ca18279ffb0aa20562bdc42cea2beca87159736a4e38c",
+  "suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_real_like_v1",
+  "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/suites/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d/suite.json",
+  "physics": "real_like_v1",
+  "execute": 30
+}

@@ -1398,3 +1398,94 @@ it and torque was cut with the arm extended over the bench (the arm held its pos
 Next: no run-time setting tried makes this checkpoint grasp in the stand-in (twelve result sets, 0-1 of 10).
 The lever is the one already recorded on 2026-09-18 (a policy that corrects from the close-up frame), or
 training on the measured-servo scene; neither is started.
+
+### Steps 1-3 of the 2026-11-05 handoff, analysed together (2026-11-07)
+
+**Decision at stake.** Three recipes ran: train on the policy's own mistakes (perturbed teacher), randomize the
+physics, and switch to the Menagerie SO-101 model. The question is which of them carries forward, on which model, and
+what to change before the next round and before the real arm. All numbers below are held-out success out of 30
+(10 poses × 3), execute 90 unless stated. Analysis artifacts are in `experiments/analysis_20261107/`.
+
+**1. The baselines.** SO-100 recipe, own scene:
+
+| Policy | Success |
+|---|---|
+| ACT fine-tune | 20 (20 at exec30) |
+| ACT + PPO | 24 (7 at exec30) |
+| CNN 4800 | 6 |
+
+**2. Step 3 (SO-101) is a large gain, and the gain is grasp tolerance, not aim.** Same data recipe and training
+config:
+
+| Policy | SO-100 | SO-101 | SO-101, Menagerie dynamics |
+|---|---|---|---|
+| ACT exec90 | 20 | 27 | 26 |
+| ACT exec30 | 20 | 25 | 26 |
+| CNN | 6 | 15 | 12 |
+
+Teacher certification is 30/30 on all three scenes. Lateral jaw error at step 250 is about the same (ACT rms 3.3 vs
+4.0 mm), but success at a given error rises sharply:
+
+| Lateral error | SO-100 ACT | SO-101 ACT | SO-100 CNN | SO-101 CNN |
+|---|---|---|---|---|
+| 0-3 mm | 17/21 | 9/9 | 0/6 | – |
+| 3-6 mm | 3/6 | 15/18 | 6/12 | 3/9 |
+| 6-10 mm | 0/3 | 3/3 | 0/3 | 9/9 |
+
+Unsafe-contact failures go 7 → 0 (ACT) and 10 → 3 (CNN). The SO-101's box/sphere pads, condim 6 and priority friction
+forgive what the SO-100's gripper punished. Dynamics barely matter (bench vs Menagerie: 27 vs 26, 15 vs 12).
+
+**Caveat:** a more forgiving sim is not proven to be a more faithful one. The September live repeat missed at about
+10 mm, which the SO-101 sim would often accept. The real arm's tolerance is unmeasured.
+
+**3. Step 1 (perturbed teacher) did correct the aim, but the SO-100 gripper masked it.**
+- CNN step 179 -> 250 lateral rms: s202 9.4 -> 4.8 mm, s303 9.8 -> 5.3 mm, s101 17.4 -> 17.7 mm (that seed's survey
+  chunk failed).
+- Not-descended went 6 -> 3/3/6.
+- Success stayed 7/9/6 against 6. s202 had 9 rollouts within 3 mm and won 1 of them; 18 of its failures were unsafe
+  contact.
+- ACT already corrected before (6.0 -> 3.3 mm) and did not improve: 18 vs 20.
+- Perturbed ACT collapsed at exec30: 0/30 against 20/30, with 13 not-descended. Its survey-chunk data are clean-labelled
+  at starts 90 and 180 only, and it has not been diagnosed further.
+- Step 1 has not had a fair test; it needs re-running on the SO-101.
+
+**4. Step 2 (physics randomization) holds up on the soft-servo stand-in but has learned THAT servo, not servos.**
+
+| Policy | Nominal | Servo | Servo + real_like | Servo + random |
+|---|---|---|---|---|
+| SO-100 ACT + PPO | 24 | 3 | 0 | 3 |
+| Physics ACT FT | 3 | 15 | 15 | 4 |
+| Physics ACT + PPO | 3 | 18 | 17 | 5 |
+| Physics ACT + PPO, exec30 | 0 | 27* | 20 | – |
+| Physics CNN, 3 seeds pooled /90 | 2 | 21 | 20 | 5 |
+
+*Exec30 on the servo scene is from the trainer's own evaluation.
+
+Why the nominal scene collapses (measured, `analysis_20261107/`):
+- The nominal scene lies outside the training regime: elbow kp 50 against a trained 4.5-13, elbow kv 4.67 against
+  0.47-1.87, friction 0.1 against trained minima of 0.12-0.39 on five joints.
+- Changing either property alone on the servo scene breaks the policy: elbow at nominal stiffness gives 0/30 (exec30:
+  1/30); friction at nominal gives 3/30.
+- On the servo scene the policy commands the elbow 2.9 units ahead of where it is, which is the teacher's
+  compensation for sag, learned. With a stiff elbow the lead falls to 0.9 and the jaw stops 4.7 mm higher at step 250
+  (29.3 vs 24.6 mm over the cube centre): pickup_incomplete 21/30. Low friction puts it 3.3 mm lower.
+- Replanning every 30 steps rescues soft servos (real_like 17 -> 20) but not stiff ones (0, 1).
+- So the error is a feed-forward offset the policy cannot sense from one frame and its joint state.
+- The "wide ranges only make it cautious" assumption failed because the ranges, centred on the soft servo, never
+  contained a stiff one.
+
+**Decision (ordered).**
+1. **Base model:** the SO-101 with bench dynamics.
+2. **Measure the real arm's servo P coefficient** (read-only, about 2 min; the handoff's deferred checklist). It
+   decides which end of the stiffness range the real arm sits on, and therefore which scene is the right stand-in.
+3. **Physics regime v2:**
+   - spans soft to stiff: elbow kp up to nominal (×0.7-8), friction down to 0.1 (×0.25-2), kv to match;
+   - built on an SO-101 servo sibling scene with the compensated teacher;
+   - judged on nominal AND servo + real_like at exec30;
+   - target: at least 15/30 on both;
+   - if the policy hedges across the range, the next lever is giving it its previous commands so it can identify the
+     servo response.
+4. **Re-run step 1 on the SO-101** (CNN ×3 seeds plus a 3-seed SO-101 baseline; ACT), judged by step-250 lateral rms
+   and pooled success. Investigate the perturbed ACT's exec30 collapse first.
+
+Number to watch: success on nominal and on servo + real_like, both, at exec30.
