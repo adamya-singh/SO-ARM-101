@@ -25,6 +25,19 @@ defaults are unchanged: new queue scripts pass `--model`/`--scene` explicitly.
 - **Servo registers (item 2):** `tools/read_servo_registers.py` reads P/D/I, dead zones, torque limits and the rest
   strictly read-only (no connect/configure/torque calls; tested). It needs the arm plugged in.
 
+**Queued 2026-11-08 01:49 (items 3 and 4 of the steps 1-3 analysis).** Rehearsals 169-175
+(`simulation_code/rehearse_next_round_20261108.sh`, outputs `next_round_20261108/rehearsal/`) gate both queues.
+- Item 4, the perturbed teacher on the SO-101 (`queue_perturbed_so101_20261108.sh` -> `perturbed_so101_20261108/`):
+  capture 176, CNN 177-179, baseline CNN seeds 101/303 180-181, ACT FT 182, correction report 183.
+  - Pre-registered: CNN pooled step-250 lateral rms and success beat the SO-101 baseline pool; ACT at least 25/30 at
+    execute 90 and 30.
+- Item 3, bench_physics_v2 on the SO-101 servo scene (`queue_physics_v2_20261108.sh` -> `physics_v2_20261108/`):
+  capture 184, CNN 185-187, ACT FT 188, PPO 189, 60 eval cells 190-249, matrix report 250.
+  - Pre-registered: at least 15/30 at execute 30 on both SO-101 nominal and servo+real_like_v1.
+- PPO on an SO-101 scene uses the RL pool rebased onto the SO-101's joint angles (`tools/rebase_rl_suites.py` ->
+  `next_round_20261108/rl_suites_so101/`). The diagnostic scenes `next_round_20261108/scenes/so101_servo_{stiff_elbow,
+  low_friction}` were built from master (a worktree build points meshdir into the worktree).
+
 **Update 2026-11-06: Menagerie SO-101 scenes and benchmark (handoff step 3).** Two new sibling scenes built from
 Menagerie's SO-101 (`simulation_code/model/menagerie_so101`, VENDOR.md):
 - `bench_pick_replace_v1_so101`: the bench's dynamics.
