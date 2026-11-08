@@ -36,11 +36,13 @@ q() {   # q <label> [-D id] -- command...
   tsp -L "$label" "${dep[@]}" "$@"
 }
 mkdir -p "$T"
+# SO-101 capture workers: 10, not 12 (2026-11-08): an SO-101 worker holds about 1.1 GB and the capture's main process
+# grew past 5.6 GB; both 7200 captures were OOM-killed overnight under 15 GB (04:44, 05:42).
 GATE="${GATE_JOB:-}"
 
 J1=""; grep -q '"status": "complete"' "$CAP/progress.json" 2>/dev/null || J1=$(q so101p-capture -D "$GATE" $ENVV $PY -u $ROOT/tools/capture_placements.py \
       --model $SO101 --output-dir $CAP --count 7200 --suite-seed 15 --frame-row-stride 30 --perturb-teacher-mm 15 --teacher-descend-mm 20 \
-      --heldout-from $B/cap4800 --workers 12)
+      --heldout-from $B/cap4800 --workers 10)
 [ -z "$J1" ] && J1="$GATE"
 cnn() {  # cnn <label> <ladder dir> <seed> <dep>
   [ -f "$T/$1/augmentation.json" ] && { echo ""; return; }

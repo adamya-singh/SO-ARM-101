@@ -54,11 +54,13 @@ mkdir -p "$T"
 for f in "$NR/scenes/so101_servo_stiff_elbow/scene_bench_pick_replace_v1.xml" "$NR/scenes/so101_servo_low_friction/scene_bench_pick_replace_v1.xml" "$RLS" "$HS101"; do
   [ -f "$f" ] || { echo "missing $f (build the diagnostic scenes and the rebased RL pool first; see notes/bench-pick-replace-v1.md)" >&2; exit 1; }
 done
+# SO-101 capture workers: 10, not 12 (2026-11-08): an SO-101 worker holds about 1.1 GB and the capture's main process
+# grew past 5.6 GB; both 7200 captures were OOM-killed overnight under 15 GB (04:44, 05:42).
 GATE="${GATE_JOB:-}"
 
 J1=""; grep -q '"status": "complete"' "$CAP/progress.json" 2>/dev/null || J1=$(q physv2-capture -D "$GATE" $ENVV $PY -u $ROOT/tools/capture_placements.py \
       --model $SERVO --output-dir $CAP --count 7200 --suite-seed 17 --frame-row-stride 30 --physics bench_physics_v2 --skip-failed \
-      --heldout-suite $(cat $LADDER/heldout_suite.path) --heldout-from $LADDER --workers 12)
+      --heldout-suite $(cat $LADDER/heldout_suite.path) --heldout-from $LADDER --workers 10)
 [ -z "$J1" ] && J1="$GATE"
 cnn() {  # cnn <seed>
   [ -f "$T/cnn_s$1/augmentation.json" ] && { echo ""; return; }
