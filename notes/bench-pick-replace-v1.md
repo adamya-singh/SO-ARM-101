@@ -25,7 +25,7 @@ defaults are unchanged: new queue scripts pass `--model`/`--scene` explicitly.
 - **Servo registers (item 2):** `tools/read_servo_registers.py` reads P/D/I, dead zones, torque limits and the rest
   strictly read-only (no connect/configure/torque calls; tested). It needs the arm plugged in.
 
-**Queued 2026-11-08 01:49 (items 3 and 4 of the steps 1-3 analysis).** Rehearsals 169-175
+**Queued 2026-11-08 01:49, re-queued 01:59 (items 3 and 4 of the steps 1-3 analysis).** The first PPO rehearsal (173) was OOM-killed because the full test suite ran beside its 20 env workers on the 15 GB WSL limit, so the gated jobs below were skipped and re-queued: rehearsals 251-253 (PPO, two eval cells), item 4 = 254-261, item 3 = 262-327 (one baseline cell, 220, had already finished). The job numbers below are the first queueing's. Rehearsals 169-175
 (`simulation_code/rehearse_next_round_20261108.sh`, outputs `next_round_20261108/rehearsal/`) gate both queues.
 - Item 4, the perturbed teacher on the SO-101 (`queue_perturbed_so101_20261108.sh` -> `perturbed_so101_20261108/`):
   capture 176, CNN 177-179, baseline CNN seeds 101/303 180-181, ACT FT 182, correction report 183.
