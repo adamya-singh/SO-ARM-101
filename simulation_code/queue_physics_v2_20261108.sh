@@ -37,6 +37,11 @@ LOG=$ROOT/artifacts/so_arm101_v2/bench_pick_replace_v1/QUEUE_LOG.txt
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
 b() { $PY -c "import json,sys; print(json.load(open('$BUDGET'))$1)"; }
 N=$(b "['episodes']")
+# PPO env workers sized to the host (2026-11-08): an SO-101 worker holds about 0.74 GB (its 335k-face meshes in the
+# software renderer, vs 0.40 GB on the SO-100), so 20 workers + the trainer need about 18 GB. Under WSL's default
+# 15 GB they were OOM-killed (rehearsals 173, 251); 12 fit (about 12.5 GB). Only the parallelism changes.
+MEM_GB=$(awk '/MemTotal/{print int($2/1048576)}' /proc/meminfo)
+RL_ENVS=20; [ "$MEM_GB" -lt 22 ] && RL_ENVS=12
 note() { if [ $DRY = 1 ]; then echo "(dry run) $*"; else echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; fi; }
 q() {   # q <label> [-D id] -- command...
   local label=$1; shift
@@ -66,7 +71,7 @@ J5=""; [ -f "$T/act_ft/result.json" ] || J5=$(q physv2-act-ft -D "$J1" $ENVV $PY
       --output-dir $T/act_ft --data-dirs $CAP --run-name physics-v2-act-ft --tranche $TRANCHE $(b "['act_ft_args']"))
 J6=""; [ -f "$T/rl_act_lr2e-7/result.json" ] || J6=$(q physv2-rl-act -D "$J5" $ENVV $PY -u $ROOT/tools/rl_train.py --model act \
       --checkpoint $T/act_ft/model/act.pt --scene $SERVO --physics bench_physics_v2 --rl-suites $RLS --heldout-suite $HS101 \
-      --output-dir $T/rl_act_lr2e-7 --episodes $N --actor-lr 2e-7 --run-name physics-v2-act-ppo --tranche $TRANCHE $(b "['rl_act_args']"))
+      --output-dir $T/rl_act_lr2e-7 --episodes $N --actor-lr 2e-7 --run-name physics-v2-act-ppo --tranche $TRANCHE $(b "['rl_act_args']") --envs $RL_ENVS)
 
 # Evaluation matrix. A CNN checkpoint's path carries its run digest, so it is resolved when the job runs.
 EVALS=()
@@ -99,4 +104,4 @@ for x in 90 30; do
 done
 ev so101_cnn_s202 - vision_chunked "$B/cnn_s202/runs/shift12/models/vision_h90/*/model.pt" 90 "${CELLS[@]}"
 J8=$(q physv2-report $ENVV $PY -u $ROOT/tools/eval_matrix_report.py --evals $T/evals --out $T/matrix.json)
-note "physics v2 SO-101 tranche (item 3) queued: capture ${J1:-done}; cnn s202 $J2, s101 $J3, s303 $J4; act-ft $J5; rl-act $J6; ${#EVALS[@]} evals ${EVALS[0]:-}..${EVALS[-1]:-}; report $J8; N=$N; gate ${GATE:-none}"
+note "physics v2 SO-101 tranche (item 3) queued: capture ${J1:-done}; cnn s202 $J2, s101 $J3, s303 $J4; act-ft $J5; rl-act $J6; ${#EVALS[@]} evals ${EVALS[0]:-}..${EVALS[-1]:-}; report $J8; N=$N; rl envs $RL_ENVS; gate ${GATE:-none}"

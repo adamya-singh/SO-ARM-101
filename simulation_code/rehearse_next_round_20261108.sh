@@ -18,6 +18,11 @@ SO101=$ROOT/simulation_code/model/bench_pick_replace_v1_so101/scene_bench_pick_r
 SERVO=$ROOT/simulation_code/model/bench_pick_replace_v1_so101_servo/scene_bench_pick_replace_v1.xml
 HS101=$B/cap4800/heldout_suite.path
 TR=next-round-20261108-rehearsal
+# PPO env workers sized to the host (2026-11-08): an SO-101 worker holds about 0.74 GB (its 335k-face meshes in the
+# software renderer, vs 0.40 GB on the SO-100), so 20 workers + the trainer need about 18 GB. Under WSL's default
+# 15 GB they were OOM-killed (rehearsals 173, 251); 12 fit (about 12.5 GB). Only the parallelism changes.
+MEM_GB=$(awk '/MemTotal/{print int($2/1048576)}' /proc/meminfo)
+RL_ENVS=20; [ "$MEM_GB" -lt 22 ] && RL_ENVS=12
 mkdir -p "$R"
 R1=$(tsp -L rehearse-so101p-capture $ENVV $PY -u $ROOT/tools/capture_placements.py --model $SO101 --output-dir $R/capture_perturbed --count 6 \
      --suite-seed 99 --frame-row-stride 30 --perturb-teacher-mm 15 --teacher-descend-mm 20 --heldout-from $B/cap4800 --workers 6)
@@ -30,7 +35,7 @@ R4=$(tsp -L rehearse-physv2-act -D $R3 $ENVV $PY -u $ROOT/tools/vla_finetune.py 
      --data-dirs $R/capture_physv2 --steps 20 --batch 8 --micro 8 --eval-every 10 --scratch-every 10 --rollout-limit 1 --execs 90 30 --tranche $TR)
 R5=$(tsp -L rehearse-physv2-rl -D $R4 $ENVV $PY -u $ROOT/tools/rl_train.py --model act --rehearsal --checkpoint $R/act/model/act.pt --scene $SERVO \
      --physics bench_physics_v2 --rl-suites $NR/rl_suites_so101/rl_suites.json --heldout-suite $HS101 --output-dir $R/rl --episodes 120 \
-     --rollout-limit 1 --execs 90 30 --actor-lr 2e-7 --envs 20 --groups 2 --episodes-per-iter 60 --watchdog 30 --render cpu --tranche $TR)
+     --rollout-limit 1 --execs 90 30 --actor-lr 2e-7 --envs $RL_ENVS --groups 2 --episodes-per-iter 60 --watchdog 30 --render cpu --tranche $TR)
 R6=$(tsp -L rehearse-physv2-eval-act -D $R5 $ENVV $PY -u $ROOT/tools/eval_policy.py --kind vla --checkpoint $R/act/model/act.pt --scene $SERVO \
      --suite $HS101 --physics bench_physics_v2 --execute 30 --output-dir $R/evals/act_exec30__servo_bench_physics_v2)
 R7=$(tsp -L rehearse-physv2-eval-cnn -D $R6 bash -c "exec $ENVV $PY -u $ROOT/tools/eval_policy.py --kind vision_chunked \
