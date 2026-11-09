@@ -1,0 +1,785 @@
+{
+  "cells": [
+    "nominal",
+    "servo",
+    "servo_real_like_v1",
+    "servo_bench_physics_v2",
+    "stiff_elbow",
+    "low_friction"
+  ],
+  "policies": {
+    "physv2_act_ft": {
+      "low_friction": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 42.02364377189887,
+        "not_descended": 6,
+        "safety_frames": 1769
+      },
+      "nominal": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 21,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 10.065009624419108,
+        "not_descended": 9,
+        "safety_frames": 327
+      },
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 21,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 34.424503697667376,
+        "not_descended": 6,
+        "safety_frames": 1260
+      },
+      "servo_bench_physics_v2": {
+        "successes": 8,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "success": 8,
+          "not_settled": 1
+        },
+        "lateral_rms_250_mm": 60.88180043193341,
+        "not_descended": 11,
+        "safety_frames": 2683
+      },
+      "servo_real_like_v1": {
+        "successes": 19,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 10,
+          "success": 19,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 41.17772242042445,
+        "not_descended": 6,
+        "safety_frames": 1242
+      },
+      "stiff_elbow": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 5.4569215028916345,
+        "not_descended": 3,
+        "safety_frames": 183
+      }
+    },
+    "physv2_act_ft_exec30": {
+      "low_friction": {
+        "successes": 26,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 4,
+          "success": 26
+        },
+        "lateral_rms_250_mm": 7.54897426225653,
+        "not_descended": 0,
+        "safety_frames": 94
+      },
+      "nominal": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 10.288499378806605,
+        "not_descended": 0,
+        "safety_frames": 207
+      },
+      "servo": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 36.261924228701794,
+        "not_descended": 4,
+        "safety_frames": 1117
+      },
+      "servo_bench_physics_v2": {
+        "successes": 11,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 19,
+          "success": 11
+        },
+        "lateral_rms_250_mm": 45.45256331522383,
+        "not_descended": 9,
+        "safety_frames": 1366
+      },
+      "servo_real_like_v1": {
+        "successes": 19,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 11,
+          "success": 19
+        },
+        "lateral_rms_250_mm": 38.353662597072095,
+        "not_descended": 4,
+        "safety_frames": 1204
+      },
+      "stiff_elbow": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 7.205367690275343,
+        "not_descended": 6,
+        "safety_frames": 145
+      }
+    },
+    "physv2_act_ppo": {
+      "low_friction": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 45.13692902048709,
+        "not_descended": 3,
+        "safety_frames": 1557
+      },
+      "nominal": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 21,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 9.740478810271643,
+        "not_descended": 9,
+        "safety_frames": 391
+      },
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 34.87901320426986,
+        "not_descended": 6,
+        "safety_frames": 1280
+      },
+      "servo_bench_physics_v2": {
+        "successes": 8,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 19,
+          "not_settled": 2,
+          "success": 8,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 56.0268180069377,
+        "not_descended": 9,
+        "safety_frames": 2566
+      },
+      "servo_real_like_v1": {
+        "successes": 20,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 10,
+          "success": 20
+        },
+        "lateral_rms_250_mm": 46.14101813578396,
+        "not_descended": 7,
+        "safety_frames": 1192
+      },
+      "stiff_elbow": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 4.696609937273795,
+        "not_descended": 0,
+        "safety_frames": 121
+      }
+    },
+    "physv2_act_ppo_exec30": {
+      "low_friction": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 8.76407506423365,
+        "not_descended": 1,
+        "safety_frames": 117
+      },
+      "nominal": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 10.970106321780065,
+        "not_descended": 3,
+        "safety_frames": 301
+      },
+      "servo": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 35.46953488044072,
+        "not_descended": 1,
+        "safety_frames": 839
+      },
+      "servo_bench_physics_v2": {
+        "successes": 10,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 18,
+          "success": 10,
+          "pickup_incomplete": 2
+        },
+        "lateral_rms_250_mm": 46.24880576255765,
+        "not_descended": 10,
+        "safety_frames": 1817
+      },
+      "servo_real_like_v1": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 38.85442878570722,
+        "not_descended": 5,
+        "safety_frames": 1244
+      },
+      "stiff_elbow": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 7.7923441232741855,
+        "not_descended": 3,
+        "safety_frames": 290
+      }
+    },
+    "physv2_cnn_s101": {
+      "low_friction": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 62.209955066869185,
+        "not_descended": 9,
+        "safety_frames": 901
+      },
+      "nominal": {
+        "successes": 12,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 12,
+          "pickup_incomplete": 6
+        },
+        "lateral_rms_250_mm": 12.75284630896206,
+        "not_descended": 6,
+        "safety_frames": 495
+      },
+      "servo": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 26.271115805239827,
+        "not_descended": 6,
+        "safety_frames": 771
+      },
+      "servo_bench_physics_v2": {
+        "successes": 9,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 20,
+          "success": 9,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 60.65082765295733,
+        "not_descended": 13,
+        "safety_frames": 2114
+      },
+      "servo_real_like_v1": {
+        "successes": 14,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 14
+        },
+        "lateral_rms_250_mm": 55.81894517037204,
+        "not_descended": 11,
+        "safety_frames": 1345
+      },
+      "stiff_elbow": {
+        "successes": 16,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 11,
+          "success": 16,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 9.68176771717766,
+        "not_descended": 3,
+        "safety_frames": 289
+      }
+    },
+    "physv2_cnn_s202": {
+      "low_friction": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 59.09792099699331,
+        "not_descended": 6,
+        "safety_frames": 1215
+      },
+      "nominal": {
+        "successes": 12,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 12,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 17.763835424329436,
+        "not_descended": 6,
+        "safety_frames": 585
+      },
+      "servo": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 13,
+          "success": 15,
+          "pickup_incomplete": 2
+        },
+        "lateral_rms_250_mm": 56.20621238500835,
+        "not_descended": 12,
+        "safety_frames": 1146
+      },
+      "servo_bench_physics_v2": {
+        "successes": 8,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "success": 8,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 67.47722861748765,
+        "not_descended": 18,
+        "safety_frames": 2513
+      },
+      "servo_real_like_v1": {
+        "successes": 10,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 17,
+          "success": 10,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 57.59630863547657,
+        "not_descended": 15,
+        "safety_frames": 1468
+      },
+      "stiff_elbow": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 13.249223154879159,
+        "not_descended": 9,
+        "safety_frames": 325
+      }
+    },
+    "physv2_cnn_s303": {
+      "low_friction": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 70.73622749247278,
+        "not_descended": 3,
+        "safety_frames": 1073
+      },
+      "nominal": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 13.8165012563496,
+        "not_descended": 6,
+        "safety_frames": 515
+      },
+      "servo": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 28.1507599013595,
+        "not_descended": 3,
+        "safety_frames": 636
+      },
+      "servo_bench_physics_v2": {
+        "successes": 10,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 20,
+          "success": 10
+        },
+        "lateral_rms_250_mm": 65.28463507085532,
+        "not_descended": 13,
+        "safety_frames": 2437
+      },
+      "servo_real_like_v1": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 15,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 48.5060029829328,
+        "not_descended": 6,
+        "safety_frames": 1469
+      },
+      "stiff_elbow": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 6.988196847273926,
+        "not_descended": 6,
+        "safety_frames": 98
+      }
+    },
+    "so101_act_ft": {
+      "low_friction": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "not_settled": 3,
+          "success": 15,
+          "pickup_incomplete": 6
+        },
+        "lateral_rms_250_mm": 91.71385124388577,
+        "not_descended": 0,
+        "safety_frames": 684
+      },
+      "nominal": {
+        "successes": 27,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 3,
+          "success": 27
+        },
+        "lateral_rms_250_mm": 4.171655780952218,
+        "not_descended": 0,
+        "safety_frames": 111
+      },
+      "servo": {
+        "successes": 12,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 12,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 69.82211698212598,
+        "not_descended": 3,
+        "safety_frames": 1032
+      },
+      "servo_bench_physics_v2": {
+        "successes": 7,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "pickup_incomplete": 2,
+          "success": 7
+        },
+        "lateral_rms_250_mm": 69.92698043713443,
+        "not_descended": 4,
+        "safety_frames": 1910
+      },
+      "servo_real_like_v1": {
+        "successes": 1,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 29,
+          "success": 1
+        },
+        "lateral_rms_250_mm": 91.32039242691026,
+        "not_descended": 3,
+        "safety_frames": 1925
+      },
+      "stiff_elbow": {
+        "successes": 27,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 3,
+          "success": 27
+        },
+        "lateral_rms_250_mm": 5.407635814541127,
+        "not_descended": 0,
+        "safety_frames": 45
+      }
+    },
+    "so101_act_ft_exec30": {
+      "low_friction": {
+        "successes": 0,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "pickup_incomplete": 9
+        },
+        "lateral_rms_250_mm": 89.58766032797053,
+        "not_descended": 3,
+        "safety_frames": 268
+      },
+      "nominal": {
+        "successes": 25,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 5,
+          "success": 25
+        },
+        "lateral_rms_250_mm": 5.450738488970508,
+        "not_descended": 2,
+        "safety_frames": 186
+      },
+      "servo": {
+        "successes": 0,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "pickup_incomplete": 9
+        },
+        "lateral_rms_250_mm": 75.17858813776803,
+        "not_descended": 5,
+        "safety_frames": 388
+      },
+      "servo_bench_physics_v2": {
+        "successes": 2,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 20,
+          "pickup_incomplete": 8,
+          "success": 2
+        },
+        "lateral_rms_250_mm": 89.910444067515,
+        "not_descended": 8,
+        "safety_frames": 535
+      },
+      "servo_real_like_v1": {
+        "successes": 0,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 25,
+          "pickup_incomplete": 5
+        },
+        "lateral_rms_250_mm": 111.44047585434325,
+        "not_descended": 0,
+        "safety_frames": 672
+      },
+      "stiff_elbow": {
+        "successes": 0,
+        "rollouts": 30,
+        "categories": {
+          "pickup_incomplete": 17,
+          "safety_invalidation": 13
+        },
+        "lateral_rms_250_mm": 19.62576255757344,
+        "not_descended": 27,
+        "safety_frames": 401
+      }
+    },
+    "so101_cnn_s202": {
+      "low_friction": {
+        "successes": 6,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 6,
+          "pickup_incomplete": 15
+        },
+        "lateral_rms_250_mm": 70.24682804687947,
+        "not_descended": 3,
+        "safety_frames": 564
+      },
+      "nominal": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 15,
+          "pickup_incomplete": 9
+        },
+        "lateral_rms_250_mm": 9.425393169863156,
+        "not_descended": 9,
+        "safety_frames": 181
+      },
+      "servo": {
+        "successes": 9,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 18,
+          "success": 9,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 58.90456860497638,
+        "not_descended": 9,
+        "safety_frames": 1452
+      },
+      "servo_bench_physics_v2": {
+        "successes": 7,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 21,
+          "success": 7,
+          "pickup_incomplete": 2
+        },
+        "lateral_rms_250_mm": 76.65079539981834,
+        "not_descended": 11,
+        "safety_frames": 2312
+      },
+      "servo_real_like_v1": {
+        "successes": 3,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 22,
+          "success": 3,
+          "pickup_incomplete": 5
+        },
+        "lateral_rms_250_mm": 92.41923198376627,
+        "not_descended": 21,
+        "safety_frames": 3377
+      },
+      "stiff_elbow": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "success": 15,
+          "pickup_incomplete": 6,
+          "safety_invalidation": 9
+        },
+        "lateral_rms_250_mm": 9.479329707931317,
+        "not_descended": 9,
+        "safety_frames": 144
+      }
+    }
+  },
+  "pooled": {
+    "physv2_cnn": {
+      "low_friction": {
+        "successes": 63,
+        "rollouts": 90,
+        "members": 3
+      },
+      "nominal": {
+        "successes": 42,
+        "rollouts": 90,
+        "members": 3
+      },
+      "servo": {
+        "successes": 57,
+        "rollouts": 90,
+        "members": 3
+      },
+      "servo_bench_physics_v2": {
+        "successes": 27,
+        "rollouts": 90,
+        "members": 3
+      },
+      "servo_real_like_v1": {
+        "successes": 39,
+        "rollouts": 90,
+        "members": 3
+      },
+      "stiff_elbow": {
+        "successes": 52,
+        "rollouts": 90,
+        "members": 3
+      }
+    },
+    "so101_cnn": {
+      "low_friction": {
+        "successes": 6,
+        "rollouts": 30,
+        "members": 1
+      },
+      "nominal": {
+        "successes": 15,
+        "rollouts": 30,
+        "members": 1
+      },
+      "servo": {
+        "successes": 9,
+        "rollouts": 30,
+        "members": 1
+      },
+      "servo_bench_physics_v2": {
+        "successes": 7,
+        "rollouts": 30,
+        "members": 1
+      },
+      "servo_real_like_v1": {
+        "successes": 3,
+        "rollouts": 30,
+        "members": 1
+      },
+      "stiff_elbow": {
+        "successes": 15,
+        "rollouts": 30,
+        "members": 1
+      }
+    }
+  }
+}

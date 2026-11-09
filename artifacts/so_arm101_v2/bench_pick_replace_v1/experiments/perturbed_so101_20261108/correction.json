@@ -1,0 +1,183 @@
+{
+  "target_rms_250_mm": 4.0,
+  "evaluations": {
+    "cnn_s202": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 10.492259160897925,
+      "lateral_median_mm_179": 9.627332466136439,
+      "lateral_rms_mm_250": 6.1368395359789725,
+      "lateral_median_mm_250": 5.909186355187018,
+      "correction_mm": 4.3554196249189525,
+      "not_descended": 3,
+      "telemetry": 30
+    },
+    "cnn_s101": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 8.9988994877834,
+      "lateral_median_mm_179": 7.9698454862739005,
+      "lateral_rms_mm_250": 5.360171327782658,
+      "lateral_median_mm_250": 5.049747981410244,
+      "correction_mm": 3.638728160000741,
+      "not_descended": 0,
+      "telemetry": 30
+    },
+    "cnn_s303": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 9.089787937705823,
+      "lateral_median_mm_179": 7.620813400646449,
+      "lateral_rms_mm_250": 7.606850184578939,
+      "lateral_median_mm_250": 5.072491829158249,
+      "correction_mm": 1.4829377531268841,
+      "not_descended": 1,
+      "telemetry": 30
+    },
+    "base_cnn_s202": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 10.305006822048306,
+      "lateral_median_mm_179": 8.30875020212832,
+      "lateral_rms_mm_250": 9.325882231510953,
+      "lateral_median_mm_250": 7.94284243988899,
+      "correction_mm": 0.9791245905373529,
+      "not_descended": 9,
+      "telemetry": 30
+    },
+    "base_cnn_s101": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 8.702190002501938,
+      "lateral_median_mm_179": 7.294318483513942,
+      "lateral_rms_mm_250": 6.977353837115367,
+      "lateral_median_mm_250": 6.277611399206103,
+      "correction_mm": 1.724836165386571,
+      "not_descended": 6,
+      "telemetry": 30
+    },
+    "base_cnn_s303": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 9.626555522624699,
+      "lateral_median_mm_179": 8.813105474335346,
+      "lateral_rms_mm_250": 8.936124569514083,
+      "lateral_median_mm_250": 8.972037495001047,
+      "correction_mm": 0.6904309531106154,
+      "not_descended": 7,
+      "telemetry": 30
+    },
+    "act_ft_exec90": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 6.873069663672726,
+      "lateral_median_mm_179": 6.560205957818779,
+      "lateral_rms_mm_250": 6.203058539751229,
+      "lateral_median_mm_250": 5.415239186897013,
+      "correction_mm": 0.6700111239214968,
+      "not_descended": 0,
+      "telemetry": 30
+    },
+    "act_ft_exec30": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 18.25305886837061,
+      "lateral_median_mm_179": 18.237929524268537,
+      "lateral_rms_mm_250": 12.51526746371505,
+      "lateral_median_mm_250": 12.061414495481662,
+      "correction_mm": 5.7377914046555585,
+      "not_descended": 30,
+      "telemetry": 30
+    },
+    "base_act_ft_exec90": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 6.588550518490737,
+      "lateral_median_mm_179": 5.648449953270781,
+      "lateral_rms_mm_250": 3.9823593929483563,
+      "lateral_median_mm_250": 3.7446896063826514,
+      "correction_mm": 2.606191125542381,
+      "not_descended": 0,
+      "telemetry": 30
+    },
+    "base_act_ft_exec30": {
+      "count": 30,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 7.393951890156796,
+      "lateral_median_mm_179": 6.437728101481872,
+      "lateral_rms_mm_250": 4.741781438188829,
+      "lateral_median_mm_250": 3.821766911451334,
+      "correction_mm": 2.652170451967967,
+      "not_descended": 2,
+      "telemetry": 30
+    }
+  },
+  "pooled": {
+    "cnn": {
+      "count": 90,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 9.55147351709213,
+      "lateral_median_mm_179": 8.274790488410657,
+      "lateral_rms_mm_250": 6.435744087624123,
+      "lateral_median_mm_250": 5.287023636770478,
+      "correction_mm": 3.115729429468008,
+      "not_descended": 4,
+      "members": [
+        "cnn_s202",
+        "cnn_s101",
+        "cnn_s303"
+      ]
+    },
+    "base_cnn": {
+      "count": 90,
+      "steps": [
+        179,
+        250
+      ],
+      "lateral_rms_mm_179": 9.567163419256564,
+      "lateral_median_mm_179": 8.222124761609189,
+      "lateral_rms_mm_250": 8.475648810684907,
+      "lateral_median_mm_250": 7.156637127595397,
+      "correction_mm": 1.0915146085716572,
+      "not_descended": 22,
+      "members": [
+        "base_cnn_s202",
+        "base_cnn_s101",
+        "base_cnn_s303"
+      ]
+    }
+  }
+}

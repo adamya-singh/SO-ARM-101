@@ -1489,3 +1489,135 @@ Why the nominal scene collapses (measured, `analysis_20261107/`):
    and pooled success. Investigate the perturbed ACT's exec30 collapse first.
 
 Number to watch: success on nominal and on servo + real_like, both, at exec30.
+
+### Items 3 and 4 of the next round, analysed (2026-11-09)
+
+**Decision at stake.** Item 3 (physics regime v2, soft to stiff, on the SO-101 servo scene) and item 4 (the perturbed
+teacher re-run on the SO-101) finished overnight 2026-11-08/09. The decisions:
+- which policy goes to the real arm;
+- whether the perturbed teacher carries forward, and for which model;
+- what to change for the cells that still fail.
+
+All numbers are held-out success out of 30 (10 poses × 3), execute 90 unless stated. Analysis scripts and outputs are
+in `experiments/analysis_20261109/`.
+
+**1. Item 3 passes its pre-registered criterion.** The criterion was at least 15/30 at exec30 on both SO-101 nominal
+and servo + real_like_v1. The result is 24 and 19.
+
+| Policy | Nominal (stiff) | Servo (soft) | Servo + real_like | Servo + v2 random | Stiff elbow | Low friction |
+|---|---|---|---|---|---|---|
+| Teacher on the same 30 rollouts | 30 | 30 | 27 | 25 | 30 | 30 |
+| v2 ACT FT | 21 | 21 | 19 | 8 | 21 | 21 |
+| v2 ACT FT exec30 | **24** | 18 | **19** | 11 | 24 | 26 |
+| v2 ACT + PPO | 21 | 21 | 20 | 8 | 24 | 24 |
+| v2 ACT + PPO exec30 | 24 | 18 | 18 | 10 | 24 | 24 |
+| v2 CNN, 3 seeds pooled /90 | 42 | 57 | 39 | 27 | 52 | 63 |
+| SO-101 ACT FT (stiff-trained) | 27 | 12 | 1 | 7 | 27 | 15 |
+| SO-101 ACT FT exec30 | 25 | 0 | 0 | 2 | 0 | 0 |
+| SO-101 CNN s202 | 15 | 9 | 3 | 7 | 15 | 6 |
+
+The teacher row was measured by running the scripted teacher on exactly the evaluated scenarios and draws
+(`teacher_ceiling.py`).
+
+- **It no longer specialises.** The stiff-trained ACT collapses to 0 at exec30 on every non-nominal cell. The v2 ACT
+  holds 18-26 on all five fixed cells.
+- **Generality cost on the nominal scene.** None at exec30 (24 vs 25). About 6 at exec90 (21 vs 27). With one ACT
+  seed, that 6 is near the seed spread: the CNN seeds span 12-18 on the same cell.
+- **No hedging.** Each fixed cell is within 3-9 of the teacher ceiling. The pre-registered hedging signature (both
+  under 15) did not appear.
+- **PPO adds almost nothing.** Over 40k episodes its training success went 0.29 → 0.35. Its relative-limit holds per
+  episode stayed at 0.43. Held-out it is within ±3 of the fine-tune in every cell. It cost 5.8 h of GPU.
+
+**2. The v2-random cell (8-11/30) is a policy gap, not an infeasible task.**
+- The teacher solves 25 of the 30 draws. The policies win 63/175 (36%) on the teacher-solved draws, and 1/35 on the 5
+  the teacher fails.
+- Failures are 138/146 safety invalidations, and most of those are **relative-limit holds**: a command more than 20
+  physical units from the measured joint.
+- The holds start in the descent chunk (median first hold at step 108-116), mostly on the **elbow**. The rest are
+  gripper holds in the carry/place phase.
+
+Per draw (pooled over the 7 v2 policies, Spearman, n = 30, `v2_cell_draws.py`, `safety_breakdown.py`):
+
+| Draw parameter | vs. limit-hold frames | vs. success |
+|---|---|---|
+| Elbow kv/kp (elbow time constant) | +0.64 | −0.43 |
+| Elbow kv | +0.57 | −0.47 |
+| Latency | +0.41 | −0.38 |
+| Shoulder-lift kp | −0.34 | +0.36 |
+
+Reading: on draws where the elbow responds slowly, or late, the open-loop chunk runs ahead of the arm until the gap
+exceeds the limiter. The teacher's 5 failures on these draws include no relative-limit hold. The policy cannot tell a
+slow draw from a fast one: its inputs are one frame, the joint state and the progress clock, and nothing in them says
+how the elbow has been responding. This is the pre-registered next lever for this cell (give the policy its previous
+commands). It is suggested by the correlation, not yet shown by an intervention.
+
+**3. Item 4: the CNN half passes. The ACT half fails for a measured, mundane reason.**
+
+| CNN (3 seeds) | Perturbed teacher | SO-101 baseline |
+|---|---|---|
+| Success, per seed | 21, 24, 29 | 15, 21, 23 |
+| Success, pooled /90 | **74** | 59 |
+| Lateral rms at step 179 → 250 (mm) | 9.6 → **6.4** | 9.6 → 8.5 |
+| Not descended | 4 | 22 |
+
+Both pre-registered CNN criteria hold: step-250 rms below the baseline, and pooled success above it. The second look
+now corrects (3.1 mm against 1.1 mm). On the SO-100, the same recipe corrected aim, but the gripper did not reward it.
+
+The ACT, trained on perturbed data only, scores exec90 15/30 against 27 and exec30 **0/30** against 25.
+
+The exec30 collapse is a hole in the training set (`act_per_start.py`):
+- Trainers drop perturbed chunk starts 91-179, because those rows see a half-done perturbation with no clean label.
+- All 7200 episodes are perturbed. The frames are stored every 30 rows, so the training starts are 0, 30, 60, 90, 180,
+  210 and so on. **Starts 120 and 150 never occur.**
+- Exec30 queries the model exactly there.
+
+Held-out loss per chunk start, scored on the clean SO-101 teacher's held-out poses:
+
+| Start | 90 | 120 | 150 | 180 | 210 | 240+ |
+|---|---|---|---|---|---|---|
+| Baseline ACT | 1.3e-4 | 2.2e-5 | 5.6e-6 | 6.1e-6 | 1.4e-5 | ≤1.1e-5 |
+| Perturbed ACT | 1.5e-4 | **3.4e-2** | **2.9e-2** | 1.7e-4 | 9.2e-5 | ≤6.0e-6 |
+
+At 120 the error is 33° rms per joint, against 0.8° for the baseline. In closed loop the jaw descends too slowly and
+stalls about 35 mm above the grasp height (`height_profile.py`):
+
+| Step | 150 | 180 | 250 |
+|---|---|---|---|
+| Perturbed ACT exec30, jaw height (mm) | 98 | 84 | 62 |
+| Perturbed ACT exec90, jaw height (mm) | 70 | 40 | 26 |
+
+All 30 exec30 rollouts were not_descended.
+
+- **The same hole explains step 1's SO-100 collapse at exec30, at least in part.** Its clean share was the ladder's
+  stride-18 copy, which has starts 108/126/144/162 but never 120/150. That model was not re-scored per start.
+- **The exec90 loss (15 vs 27)** is a different failure: 3 poses with unsafe contact and 1 incomplete pickup.
+  - The step-180 chunk corrects 0.7 mm against the baseline's 2.6.
+  - It ends 2 mm lower (dz −5.9 vs −3.9 mm).
+  - Its training states at step 179 are about 10 mm farther from the cube than the states it reaches in closed loop
+    (teacher jaw-cube distance 55 vs 45 mm, `teacher_profile.py`). So the one chunk meant to correct is trained on
+    states it never sees.
+  - This mismatch is measured; that it causes the failures is not proven.
+
+**4. Pipeline.**
+- `tools/eval_matrix_report.py` printed a fixed step-2 column tuple. Its columns now come from the cells present.
+  Step 2's matrix is unchanged; there is a new test.
+- The item 4 ACT run hit one transient `CUDA error: unknown error` at step 7500 (no Windows TDR logged). It resumed
+  from scratch.pt. That is training-state continuity, not a change of recipe.
+
+**Decision (ordered).**
+1. **Real arm: the v2 ACT at exec30**, servo assist off. It is the only policy at 18 or more on every fixed cell, and
+   the real arm's stiffness is unknown.
+   - Before it runs: read the servo gains (item 2, read-only, about 2 min).
+   - Before it runs: extend the real-frame gate (`tools/check_policy_on_real_frames.py`, CNN only today) to ACT
+     checkpoints, and pass it.
+2. **Perturbed ACT, retrained with clean stride-30 SO-101 data in the mix** (the benchmark's cap4800), so starts 120
+   and 150 exist.
+   - One ACT fine-tune, about 2.2 h.
+   - Judged by held-out loss at starts 120/150 (target: within 3× of the baseline's) and exec90/30 at least 25/30.
+3. **For random dynamics, give the policy its previous commands** (or the command-minus-measured lag) as an input.
+   - Judged by the v2-random cell against the teacher's 25/30.
+   - Today: 8-11.
+4. **PPO leaves the default recipe** until a change gives it something to learn. Today it adds ±3 for 5.8 h.
+
+Number to watch for the real arm: whether the first live episode descends and grasps with zero limiter holds. For the
+next sim round: the v2-random cell against 25/30.

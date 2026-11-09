@@ -189,3 +189,18 @@ def test_regime_v2_spans_the_soft_servo_and_the_stiff_nominal_scene():
             assert low * value <= nominal <= high * value
     draws = np.array([resolve_physics(regime, s).kp_scale for s in range(500)])
     assert draws[:, 2].max() > 5.0 and np.delete(draws, [0, 2, 3], axis=1).max() <= 2.0
+
+
+def test_eval_matrix_report_prints_every_cell_present(tmp_path, capsys):
+    """2026-11-09: the report's columns were a fixed step-2 tuple, so the physics-v2 cells printed '-' or not at all."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("eval_matrix_report", REPOSITORY_ROOT / "tools/eval_matrix_report.py")
+    report = importlib.util.module_from_spec(spec); spec.loader.exec_module(report)
+    for cell, wins in [("nominal", 24), ("servo_bench_physics_v2", 11), ("stiff_elbow", 24), ("zz_new", 1)]:
+        (tmp_path / f"pol__{cell}").mkdir()
+        (tmp_path / f"pol__{cell}/result.json").write_text(json.dumps(dict(successes=wins, rollouts=30)))
+    out = tmp_path / "matrix.json"
+    assert report.main(["--evals", str(tmp_path), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["cells"] == ["nominal", "servo_bench_physics_v2", "stiff_elbow", "zz_new"]
+    line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("pol ")][0]
+    assert line.split()[1:] == ["24/30", "11/30", "24/30", "1/30"]

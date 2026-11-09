@@ -13,7 +13,16 @@ import json
 from pathlib import Path
 import re
 
-CELLS = ("nominal", "servo", "servo_real_like_v1", "servo_bench_physics_v1")
+# Preferred column order. The printed columns are the cells actually present under --evals, in this order, then any
+# other cell alphabetically. (Until 2026-11-09 the columns were this fixed tuple, so the physics-v2 matrix printed "-"
+# for servo_bench_physics_v2 and dropped stiff_elbow and low_friction; matrix.json always held every cell.)
+CELL_ORDER = ("nominal", "servo", "servo_real_like_v1", "servo_bench_physics_v1", "servo_bench_physics_v2", "stiff_elbow",
+              "low_friction")
+
+
+def ordered_cells(present) -> tuple[str, ...]:
+    present = set(present)
+    return tuple(c for c in CELL_ORDER if c in present) + tuple(sorted(present - set(CELL_ORDER)))
 
 
 def main(argv=None) -> int:
@@ -37,13 +46,15 @@ def main(argv=None) -> int:
         for cell, v in cells.items():
             agg = pooled.setdefault(family, {}).setdefault(cell, dict(successes=0, rollouts=0, members=0))
             agg["successes"] += v["successes"]; agg["rollouts"] += v["rollouts"]; agg["members"] += 1
+    columns = ordered_cells(c for cells in table.values() for c in cells)
+
     def fmt(v):
         return "      -" if v is None else f"{v['successes']:3d}/{v['rollouts']:<3d}"
-    print(f"{'policy':28s} " + " ".join(f"{c[:20]:>20s}" for c in CELLS))
+    print(f"{'policy':28s} " + " ".join(f"{c[:22]:>22s}" for c in columns))
     for name, cells in list(table.items()) + [(f"POOLED {k}", v) for k, v in pooled.items()]:
-        print(f"{name:28s} " + " ".join(f"{fmt(cells.get(c)):>20s}" for c in CELLS))
+        print(f"{name:28s} " + " ".join(f"{fmt(cells.get(c)):>22s}" for c in columns))
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(dict(cells=CELLS, policies=table, pooled=pooled), indent=2) + "\n")
+    args.out.write_text(json.dumps(dict(cells=columns, policies=table, pooled=pooled), indent=2) + "\n")
     return 0
 
 

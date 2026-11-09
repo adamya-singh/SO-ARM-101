@@ -1,0 +1,159 @@
+{
+ "nominal": {
+  "admitted": 30,
+  "total": 30,
+  "reasons": {
+   "success": 30
+  },
+  "per_scenario": {
+   "pose_000": true,
+   "pose_001": true,
+   "pose_002": true,
+   "pose_003": true,
+   "pose_004": true,
+   "pose_005": true,
+   "pose_006": true,
+   "pose_007": true,
+   "pose_008": true,
+   "pose_009": true
+  }
+ },
+ "servo": {
+  "admitted": 30,
+  "total": 30,
+  "reasons": {
+   "success": 30
+  },
+  "per_scenario": {
+   "pose_000": true,
+   "pose_001": true,
+   "pose_002": true,
+   "pose_003": true,
+   "pose_004": true,
+   "pose_005": true,
+   "pose_006": true,
+   "pose_007": true,
+   "pose_008": true,
+   "pose_009": true
+  }
+ },
+ "servo_real_like_v1": {
+  "admitted": 27,
+  "total": 30,
+  "reasons": {
+   "incomplete": 3,
+   "success": 27
+  },
+  "per_scenario": {
+   "pose_000_r0": false,
+   "pose_000_r1": false,
+   "pose_000_r2": false,
+   "pose_001_r0": true,
+   "pose_001_r1": true,
+   "pose_001_r2": true,
+   "pose_002_r0": true,
+   "pose_002_r1": true,
+   "pose_002_r2": true,
+   "pose_003_r0": true,
+   "pose_003_r1": true,
+   "pose_003_r2": true,
+   "pose_004_r0": true,
+   "pose_004_r1": true,
+   "pose_004_r2": true,
+   "pose_005_r0": true,
+   "pose_005_r1": true,
+   "pose_005_r2": true,
+   "pose_006_r0": true,
+   "pose_006_r1": true,
+   "pose_006_r2": true,
+   "pose_007_r0": true,
+   "pose_007_r1": true,
+   "pose_007_r2": true,
+   "pose_008_r0": true,
+   "pose_008_r1": true,
+   "pose_008_r2": true,
+   "pose_009_r0": true,
+   "pose_009_r1": true,
+   "pose_009_r2": true
+  }
+ },
+ "servo_bench_physics_v2": {
+  "admitted": 25,
+  "total": 30,
+  "reasons": {
+   "success": 25,
+   "incomplete": 2,
+   "unsafe_contact": 3
+  },
+  "per_scenario": {
+   "pose_000_r0": true,
+   "pose_000_r1": false,
+   "pose_000_r2": false,
+   "pose_001_r0": false,
+   "pose_001_r1": true,
+   "pose_001_r2": true,
+   "pose_002_r0": true,
+   "pose_002_r1": true,
+   "pose_002_r2": true,
+   "pose_003_r0": true,
+   "pose_003_r1": true,
+   "pose_003_r2": true,
+   "pose_004_r0": true,
+   "pose_004_r1": false,
+   "pose_004_r2": true,
+   "pose_005_r0": true,
+   "pose_005_r1": true,
+   "pose_005_r2": true,
+   "pose_006_r0": true,
+   "pose_006_r1": true,
+   "pose_006_r2": true,
+   "pose_007_r0": true,
+   "pose_007_r1": true,
+   "pose_007_r2": false,
+   "pose_008_r0": true,
+   "pose_008_r1": true,
+   "pose_008_r2": true,
+   "pose_009_r0": true,
+   "pose_009_r1": true,
+   "pose_009_r2": true
+  }
+ },
+ "stiff_elbow": {
+  "admitted": 30,
+  "total": 30,
+  "reasons": {
+   "success": 30
+  },
+  "per_scenario": {
+   "pose_000": true,
+   "pose_001": true,
+   "pose_002": true,
+   "pose_003": true,
+   "pose_004": true,
+   "pose_005": true,
+   "pose_006": true,
+   "pose_007": true,
+   "pose_008": true,
+   "pose_009": true
+  }
+ },
+ "low_friction": {
+  "admitted": 30,
+  "total": 30,
+  "reasons": {
+   "success": 30
+  },
+  "per_scenario": {
+   "pose_000": true,
+   "pose_001": true,
+   "pose_002": true,
+   "pose_003": true,
+   "pose_004": true,
+   "pose_005": true,
+   "pose_006": true,
+   "pose_007": true,
+   "pose_008": true,
+   "pose_009": true
+  }
+ }
+}

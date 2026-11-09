@@ -7,6 +7,17 @@ absorbed the 2026-09-06 assistant handoff note, which has been deleted.
 
 ## Status (2026-09-18)
 
+**Update 2026-11-09: items 3 and 4 analysed** (`notes/vision-rung-notebook.md`, "Items 3 and 4 of the next round").
+
+- **Physics v2 passes.** The v2 ACT exec30 scores 24/30 nominal and 19/30 servo + real_like, and holds 18-26 on every
+  fixed cell. It is the candidate for the real arm (servo assist off), after the item 2 gain read and an ACT-capable
+  real-frame gate.
+- **Perturbed teacher on the SO-101.** The CNN passes: 74/90 against 59/90, and 6.4 against 8.5 mm. The ACT fails,
+  because perturbed-only data has no chunk starts at 120/150. Next for it: re-train with clean stride-30 data mixed in.
+- **The v2-random cell stays at 8-11/30 against a teacher ceiling of 25/30.** The failures are elbow relative-limit
+  holds on slow-elbow draws. Next: give the policy its previous commands as an input.
+- **PPO** leaves the default recipe.
+
 **Update 2026-11-08: the SO-101 (bench dynamics) is the base.** The 2026-11-07 analysis of steps 1-3 found the
 SO-101 better on the same recipe (ACT 20 -> 27/30, CNN 6 -> 15/30, through grasp tolerance). From now on new tranches
 train and evaluate on SO-101 scenes; the SO-100 scenes stay, byte-identical, so every old command reproduces. Tool

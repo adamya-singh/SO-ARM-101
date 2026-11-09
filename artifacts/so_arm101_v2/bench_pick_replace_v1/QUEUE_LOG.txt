@@ -18,4 +18,49 @@
 [2026-09-13 03:09:23] job 13 RESUMED (SIGCONT) at the user's request; 02:00 timer cancelled
 [2026-10-04 04:35:06] queued tsp job servo-assist-pi05-sim: pi0.5 (pi05_lora16_10k_20261002) on the measured-servo scene with and without the runner's servo assist -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
 [2026-10-04 04:47:10] queued tsp job servo-assist-pi05-sim-variants: pi0.5 on the measured-servo scene, assist terms ablated -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 05:20:23] retry-tranche probes queued: rl-pi05 33, ft-act 34, ft-smolvla 35, smolvla rehearsal 36, rl-smolvla 37, rl-act 38
+[2026-10-04 11:26:04] retry-tranche probes queued: rl-pi05 0, ft-act 1, ft-smolvla 2, smolvla rehearsal 3, rl-smolvla 4, rl-act 5
 [2026-10-04 11:26:22] re-queued tsp job servo-assist-pi05-sim-adaptive (lost when the machine restarted): pi0.5 on the measured-servo scene with the servo assist and the adaptive lag compensation together -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 11:58:09] retry tranche queued: act-ft 0, smolvla-ft 0, rl-pi05 0, rl-smolvla 0 (after 0), rl-act 0 (after 0), rerun-03-07 0, final 0; N=40000
+[2026-10-04 11:58:16] retry tranche queued: act-ft 11, smolvla-ft 12, rl-pi05 10, rl-smolvla 13 (after 12), rl-act 14 (after 11), rerun-03-07 15, final 16; N=40000
+[2026-10-04 13:03:12] retry-rl-pi05 job 10 hung (EGL stall in 4 env workers) at ep 432; killed; resumed as job 17 with the collector watchdog (d6cba72)
+[2026-10-04 13:14:28] warning: the shared tsp queue already has running/queued jobs; the tranche runs after them
+[2026-10-04 13:14:28] retry tranche queued: rl-pi05 18, rl-act 19, rl-smolvla 20, rerun-03-07 21, final 22 (main queue); act-ft 0, smolvla-ft 1 (TS_SOCKET=/tmp/tsp-retry-finetunes); N=40000
+[2026-10-04 13:14:35] rl-pi05 job 17 replaced (watchdog 120->30 s); fine-tunes moved to TS_SOCKET=/tmp/tsp-retry-finetunes to share the GPU with RL
+[2026-10-04 13:25:40] fine-tunes beside pi0.5 RL starved it (5300->1100 ep/h, GPU memory full) and ACT FT crashed (CUDA busy): FT queue now waits for rl_pi05 to finish (act-ft 2, smolvla-ft 3); rerun-03-07 moved ahead of rl-act
+[2026-10-04 13:37:19] rl-pi05 18 -> 23: 20 envs in 2 alternating groups, 60 episodes/update (ff95973)
+[2026-10-04 13:45:54] rl-pi05 23 -> 24: env workers render on the CPU (Mesa llvmpipe), 20 envs / 2 groups
+[2026-10-04 14:00:41] rerun-03-07 moved to TS_SOCKET=/tmp/tsp-retry-cpu (job 0): CPU-only, beside pi0.5 RL (CPU ~50% idle), software-rendered videos, nice 5, 4 rollout workers
+[2026-10-04 14:00:58] rl-act 25, rl-smolvla 26, final 27 re-queued with 20 envs / 2 groups / cpu render
+[2026-10-04 14:03:44] FT queue: act-ft 4 now bf16 micro 128 (probe 2.8x vs fp32), smolvla-ft 5 micro 32
+[2026-10-04 14:03:57] moved aborted act_ft/smolvla_ft starts aside (identity mismatch with the new settings)
+[2026-10-04 15:08:02] queued tsp job servo-assist-pi05-sim-slow: pi0.5 on the measured-servo scene with the servo assist and each command held 2 or 3 control periods -> artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004
+[2026-10-04 16:10:46] moved tsp job 28 (servo-assist-pi05-sim-slow) to run next, at the user's request (ahead of retry-rl-act, retry-rl-smolvla, retry-final; about 8 minutes of GPU)
+[2026-10-05 10:57:54] retry tranche remainder queued: views 1 2 3, smolvla-ft 4, rl-act-lr2e-7 5, rl-smolvla 6 (-D 4); N=40000
+[2026-10-05 11:21:33] re-recording ACT views on TS_SOCKET=/tmp/tsp-viewers (jobs 0 1): ACT FT under its evaluation's bf16 autocast; ACT PPO from rebuilt act_rl_full.pt
+[2026-10-05 11:27:17] views re-recorded on TS_SOCKET=/tmp/tsp-viewers (jobs 3 4 5): texture re-upload per scenario fixed; earlier recordings in videos/superseded_20261005
+[2026-10-05 11:41:00] SmolVLA fine-tune (pid 12866) SIGSTOPped while the viewer recordings run (GPU contention); SIGCONT after
+[2026-10-05 12:01:48] SmolVLA fine-tune (pid 12866) SIGCONT: recordings done
+[2026-10-05 12:02:41] on-screen pi0.5/ACT-PPO recordings died (SIGSEGV after 'D3D12: Removing Device'); re-recording headless via EGL on TS_SOCKET=/tmp/tsp-viewers (jobs 6 7)
+2026-10-06T15:23:16-04:00 tsp 7 live-pi05-ep21: pi05_lora16_10k_20261002 live on the arm, runner defaults (exec 30, lag auto, assist auto, guards on) -> artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_21_20261006_pi05
+2026-10-06T15:24:44-04:00 tsp 8 live-pi05-ep22: retry of ep21 (guard survey_pose_not_reached 0.1016>0.1 rad, cube at frame edge) with --pi05-first-execute 90 -> artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_22_20261006_pi05
+[2026-11-05 22:25:44] perturbed-teacher tranche queued: capture 6; cnn s202 7, s101 8, s303 9 (-D 6); act-ft 10 (-D 6); rl-act 11 (-D 10); report 12; N=40000
+[2026-11-06 00:54:01] physics-randomization tranche queued: capture 32; cnn s202 33, s101 34, s303 35 (-D 32); act-ft 36 (-D 32); rl-act 37 (-D 36); 44 evals 38..81; report 82; N=40000
+[2026-11-06 03:53:21] SO-101 benchmark queued: so101: capture4800 91, capture2400 92, act-ft 93, cnn 94 so101_menagerie: capture4800 95, capture2400 96, act-ft 97, cnn 98; report 99
+[2026-11-06 12:21:46] physics-randomization tranche queued: capture 100; cnn s202 101, s101 102, s303 103 (-D 100); act-ft 104 (-D 100); rl-act 105 (-D 104); 20 evals 106..125; report 126; N=40000
+[2026-11-07 11:33:34] physics-randomization tranche queued: capture ; cnn s202 136, s101 137, s303 138 (-D ); act-ft  (-D ); rl-act 139 (-D ); 16 evals 140..155; report 156; N=40000
+[2026-11-07 13:48:08] physics-randomization tranche queued: capture ; cnn s202 , s101 , s303  (-D ); act-ft  (-D ); rl-act 157 (-D ); 4 evals 158..161; report 162; N=40000
+[2026-11-08 01:42:20] next-round rehearsals queued: R1 169 .. R7 175
+[2026-11-08 01:49:39] perturbed SO-101 tranche (item 4) queued: capture 176; cnn s202 177, s101 178, s303 179; base cnn s101 180, s303 181; act-ft 182; report 183; gate 175
+[2026-11-08 01:49:39] physics v2 SO-101 tranche (item 3) queued: capture 184; cnn s202 185, s101 186, s303 187; act-ft 188; rl-act 189; 60 evals 190..249; report 250; N=40000; gate 175
+[2026-11-08 01:59:52] rehearsals R5-R7 re-queued after an OOM kill (the test suite ran beside 20 RL envs): 251 252 253; jobs 176-250 removed or skipped
+[2026-11-08 01:59:52] perturbed SO-101 tranche (item 4) queued: capture 254; cnn s202 255, s101 256, s303 257; base cnn s101 258, s303 259; act-ft 260; report 261; gate 253
+[2026-11-08 01:59:52] physics v2 SO-101 tranche (item 3) queued: capture 262; cnn s202 263, s101 264, s303 265; act-ft 266; rl-act 267; 59 evals 268..326; report 327; N=40000; gate 253
+[2026-11-08 02:07:23] PPO rehearsal OOM-killed again at 20 envs (SO-101 worker 0.74 GB); rehearsals re-queued with 12 envs: 328 329 330; jobs 254-327 removed or skipped
+[2026-11-08 02:07:23] perturbed SO-101 tranche (item 4) queued: capture 331; cnn s202 332, s101 333, s303 334; base cnn s101 335, s303 336; act-ft 337; report 338; gate 330
+[2026-11-08 02:07:23] physics v2 SO-101 tranche (item 3) queued: capture 339; cnn s202 340, s101 341, s303 342; act-ft 343; rl-act 344; 58 evals 345..402; report 403; N=40000; rl envs 12; gate 330
+[2026-11-08 12:14:21] perturbed SO-101 tranche (item 4) queued: capture 0; cnn s202 1, s101 2, s303 3; base cnn s101 , s303 ; act-ft 4; report 5; gate none
+[2026-11-08 12:14:21] physics v2 SO-101 tranche (item 3) queued: capture 6; cnn s202 7, s101 8, s303 9; act-ft 10; rl-act 11; 42 evals 12..53; report 54; N=40000; rl envs 20; gate none
+[2026-11-08 12:14:31] after the overnight OOM kills (perturbed capture 04:44, physics-v2 capture 05:42) and the 06:41 Windows power loss, WSL has 23 GB: re-queued item 4 = tsp 0-5, item 3 = tsp 6-54 (PPO 11 at 20 envs); SO-101 captures at 10 workers
+[2026-11-08 15:53:19] item 4 ACT FT (tsp 4) died at step 7500 with 'CUDA error: unknown error' (no Windows TDR logged); re-queued as tsp 55 (urgent), resumes from scratch.pt
+[2026-11-08 15:54:06] item 4 correction report re-queued as tsp 56 (-D 55) to fill the ACT rows
