@@ -326,6 +326,8 @@ class PrivilegedStagedController:
             self.approach_pitch_rad = np.deg2rad(bench.approach_pitch_deg)
             self.depth_lead_m = bench.depth_lead_m
             self.bench_grasp_offset_m = bench.grasp_offset_m
+            if getattr(bench, "teacher_lift_m", None) is not None:
+                self.lift_command_m = float(bench.teacher_lift_m)
             # The physical cube rests on a 1 mm square; retain the teacher's
             # pocket-to-cube-center offset, not its old absolute table height.
             self.grasp_height_m = float(cube[2]) + self.bench_grasp_offset_m
@@ -403,9 +405,13 @@ class PrivilegedStagedController:
                 seated = self._solve(adapter, engaged, pocket_grasp, open_gripper)
                 half_closed = with_gripper(seated, self.nearly_closed_gripper_rad)
                 closed = with_gripper(seated, closed_gripper)
+                # High lift (bench teacher_lift_m): the strict top-down orientation is unreachable that far above most
+                # placements (2026-11-12: 100 mm failed IK on 9 of 10 held-out poses), so the lift pose is solved
+                # loosely, as the traverse and set-down already are.
+                high_lift = bench is not None and getattr(bench, "teacher_lift_m", None) is not None
                 lift = self._solve(
                     adapter, closed, pocket_grasp + np.array([0.0, 0.0, self.lift_command_m]),
-                    closed_gripper,
+                    closed_gripper, **({"loose": True} if high_lift else {}),
                 )
                 self.waypoints = [
                     start, above, lowered, descended, engaged, seated,
@@ -493,10 +499,14 @@ class PrivilegedStagedController:
             # Perturbed teacher: descended (shifted) 185 -> recentred 200 -> engaged 212 -> seated 225; every other
             # boundary, and so every row from 225 on, is the clean schedule's.
             middle = (95, 115) if lateral_offset is None else (95, 110, 122)
+            # After the grasp: closed (hold), lift, lift (hold), traverse, set down, released, released (hold), retreat.
+            # High-lift schedule (bench teacher_lift_m, 2026-11-12): identical through the closed grasp at 190, then
+            # 45 actions up and 42 down for a lift three times the legacy one; the retreat still ends at 360.
+            after_grasp = ((209, 244, 279, 284, 309, 329, 334, 360) if getattr(bench, "teacher_lift_m", None) is None
+                           else (198, 243, 260, 265, 307, 325, 330, 360))
             self.boundaries = (0, 60) + tuple(
                 bench.observation_steps + b
-                for b in (0, 45, 70) + middle + (135, 170, 190, 209,
-                          244, 279, 284, 309, 329, 334, 360))
+                for b in (0, 45, 70) + middle + (135, 170, 190) + after_grasp)
             self.waypoints = [observation_start, start.copy()] + self.waypoints
             self._set_arm(adapter, observation_start)
 

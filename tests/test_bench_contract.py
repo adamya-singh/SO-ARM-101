@@ -325,3 +325,14 @@ def test_servo_register_reader_only_reads(monkeypatch, tmp_path):
     for forbidden in (robot.connect, robot.configure, robot.disconnect, robot.bus.write, robot.bus.sync_write,
                       robot.bus.enable_torque, robot.bus.disable_torque, robot.bus.torque_disabled, robot.bus.configure_motors):
         forbidden.assert_not_called()
+
+
+def test_teacher_lift_is_opt_in_and_bounded():
+    """High-lift teacher (2026-11-12): None keeps the legacy 31 mm lift; a value must be a plausible height."""
+    import pytest
+    from so_arm101_v2.contracts.bench import BenchConfig
+    assert BenchConfig().teacher_lift_m is None
+    assert BenchConfig(teacher_lift_m=0.10).teacher_lift_m == 0.10
+    for bad in (0.02, 0.2):
+        with pytest.raises(ValueError):
+            BenchConfig(teacher_lift_m=bad)

@@ -64,3 +64,4 @@
 [2026-11-08 12:14:31] after the overnight OOM kills (perturbed capture 04:44, physics-v2 capture 05:42) and the 06:41 Windows power loss, WSL has 23 GB: re-queued item 4 = tsp 0-5, item 3 = tsp 6-54 (PPO 11 at 20 envs); SO-101 captures at 10 workers
 [2026-11-08 15:53:19] item 4 ACT FT (tsp 4) died at step 7500 with 'CUDA error: unknown error' (no Windows TDR logged); re-queued as tsp 55 (urgent), resumes from scratch.pt
 [2026-11-08 15:54:06] item 4 correction report re-queued as tsp 56 (-D 55) to fill the ACT rows
+[2026-11-12 23:25:17] high-lift tranche queued: capture 20; act-ft 21; 8 evals 22..29; report 30

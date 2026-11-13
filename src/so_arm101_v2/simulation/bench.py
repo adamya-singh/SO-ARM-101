@@ -112,8 +112,15 @@ def bench_suite(config, offsets, *, label, repeats, appearance_seeds=None, squar
             teacher_descend_height_m=None if teacher_offsets is None else teacher_descend_height_m,
             physics_regime=physics_regime,physics_seed=None if physics_seeds is None else int(physics_seeds[i])))
     scenarios=tuple(scenarios)
-    digest=content_sha256(dict(config=asdict(config),scenarios=[scenario_record(s) for s in scenarios]))[:12]
+    digest=content_sha256(dict(config=_config_record(config),scenarios=[scenario_record(s) for s in scenarios]))[:12]
     return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,repeats,False,scenarios)
+
+
+def _config_record(config):
+    """asdict(config) for suite digests; teacher_lift_m appears only when set, so legacy suite ids are unchanged."""
+    record=asdict(config)
+    if record.get('teacher_lift_m') is None:record.pop('teacher_lift_m',None)
+    return record
 
 
 def appearance_product(config, suite, *, per_scenario, seed, label):
@@ -129,7 +136,7 @@ def appearance_product(config, suite, *, per_scenario, seed, label):
     scenarios=tuple(replace(s,scenario_id=f'{s.scenario_id}_a{k}',fixed_appearance=False,
         appearance_seed=seeds[i*per_scenario+k])
         for i,s in enumerate(suite.scenarios) for k in range(per_scenario))
-    digest=content_sha256(dict(config=asdict(config),source=suite.suite_id,scenarios=[scenario_record(s) for s in scenarios]))[:12]
+    digest=content_sha256(dict(config=_config_record(config),source=suite.suite_id,scenarios=[scenario_record(s) for s in scenarios]))[:12]
     return SimulationSuite(f'bench_pick_replace_v1_{label}_{digest}',1,config.task_id,1,False,scenarios)
 
 

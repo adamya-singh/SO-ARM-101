@@ -68,8 +68,14 @@ class BenchConfig:
     # Menagerie actuators (kp 50, critical damping, 0.1 N·m friction on every joint). With a servo block the
     # teacher adds gravity and friction compensation to its commands (simulation/privileged.py).
     servo: dict | None = None
+    # Teacher lift height above the grasp, metres (2026-11-12). None = the legacy 31 mm lift and stage schedule, which
+    # on the real arm reads as a wrist curl (12-16 mm rise). A value selects the high-lift schedule in
+    # simulation/privileged.py: same rows up to the closed grasp (action 280), then a longer lift and set-down.
+    teacher_lift_m: float | None = None
 
     def __post_init__(self):
+        if self.teacher_lift_m is not None and not 0.031 < float(self.teacher_lift_m) <= 0.12:
+            raise ValueError("teacher_lift_m must lie in (0.031, 0.12] m")
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
             raise ValueError("unsupported bench configuration")
         if self.shoulder_floor != -92.0:
