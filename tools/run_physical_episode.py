@@ -173,7 +173,8 @@ def send_physical(robot, physical: np.ndarray) -> np.ndarray:
 
 
 def run_approach(robot, bench: BenchConfig, log_path: Path, *, read=read_measured_act, sleep=time.sleep,
-                 clock=time.monotonic, timeout_s: float = APPROACH_TIMEOUT_S, on_status=print) -> dict[str, Any]:
+                 clock=time.monotonic, timeout_s: float = APPROACH_TIMEOUT_S, on_status=print,
+                 rising_from_below_floor: bool = False) -> dict[str, Any]:
     """Gated ramp from the present pose to the recorded reset; torque must already be on. Leaves torque on."""
     calibration = load_physical_calibration()
     period = 1.0 / CONTROL_HZ
@@ -187,7 +188,7 @@ def run_approach(robot, bench: BenchConfig, log_path: Path, *, read=read_measure
         while True:
             t = clock()
             current = read(robot)
-            step = approach_step(current, previous, bench, calibration=calibration)
+            step = approach_step(current, previous, bench, calibration=calibration, rising_from_below_floor=rising_from_below_floor)
             writer.writerow([f"{t - started:.3f}", *[f"{v:.3f}" for v in step.measured_physical], *[f"{v:.3f}" for v in step.target_physical], step.reason, int(step.settled)])
             handle.flush()
             if step.settled:
@@ -235,6 +236,10 @@ def main(argv=None) -> int:
     p.add_argument("--enable-motion", action="store_true")
     p.add_argument("--sim-rehearsal", action="store_true")
     p.add_argument("--skip-approach", action="store_true", help="the arm is already at the reset pose")
+    p.add_argument("--approach-from-below-floor", action="store_true",
+                   help="let the approach start with the shoulder more than a ramp step below the floor: its command may then only "
+                        "rise from where the arm is until it clears the floor (user-approved 2026-11-12: the reassembled shoulder "
+                        "rests at -96.3)")
     p.add_argument("--approach-only", action="store_true", help="with --enable-motion: torque on, gated approach to the reset pose, then stop (no gates, no episode)")
     p.add_argument("--pan-check", action="store_true", help="run the hand-rotation pan-sign check at preflight (verified 2026-09-09: physical/pan_sign_check_20260909.json; off by default)")
     p.add_argument("--skip-pan-check", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: the check is opt-in now
@@ -511,8 +516,16 @@ def _hardware(args, bench, contract, policy, record) -> int:
             raise Refused(f"servo supply {record['servo_voltage']['lowest_v']:.1f} V is below {MIN_SERVO_VOLTAGE_V:.1f} V "
                           f"(per motor: {record['servo_voltage']['volts']}); check the servo power adapter before any motion")
         # Camera and observation contract.
-        rate = grabber.measure_rate(1.0)
+        # Up to three one-second windows: on a dark view the camera's auto-exposure takes 1-2 s to settle after opening
+        # (2026-11-12, arm pointing away from the bench: 19, 24, 28 frames/s). The bar is unchanged: one full window at 25+.
+        rates = []
+        for _ in range(3):
+            rates.append(grabber.measure_rate(1.0))
+            if rates[-1] >= 25:
+                break
+        rate = rates[-1]
         record["camera"]["measured_fps"] = round(rate, 1)
+        record["camera"]["measured_fps_windows"] = [round(r, 1) for r in rates]
         if rate < 25:
             raise Refused(f"camera delivers {rate:.1f} frames/s (< 25)")
         frames = []
@@ -570,7 +583,7 @@ def _hardware(args, bench, contract, policy, record) -> int:
         current = read_measured_act(robot)
         backend.engage(act_to_physical_normalized(current))   # goal = present pose, then torque
         if not args.skip_approach:
-            record["approach"] = run_approach(robot, bench, run_dir / "approach.csv")
+            record["approach"] = run_approach(robot, bench, run_dir / "approach.csv", rising_from_below_floor=args.approach_from_below_floor)
             print(f"approach done: {record['approach']}", flush=True)
         current = read_measured_act(robot)
         delta = float(np.max(np.abs(current - physical_normalized_to_act(np.asarray(bench.reset_physical, np.float32)))))

@@ -1621,3 +1621,35 @@ All 30 exec30 rollouts were not_descended.
 
 Number to watch for the real arm: whether the first live episode descends and grasps with zero limiter holds. For the
 next sim round: the v2-random cell against 25/30.
+
+## Live physics v2 ACT, episodes 26-28: why the episode stops after the grasp (2026-11-12)
+
+Result: three live episodes of `physics_v2_20261108/act_ft` at execute 30 reach and close on the cube; 27 and 28 abort
+after the grasp on consecutive `mujoco_clip:wrist_flex` holds. Decision that hinges on it: fix the gate, the kinematics
+or the policy. Baseline: the sim rehearsal through the same runner (0 holds) and episode 26 (0 holds).
+
+| Run | tip y at grasp (FK, mm) | tip z at grasp (FK, mm) | wrist cmd at grasp | wrist cmd max | gripper when closed | holds |
+|---|---|---|---|---|---|---|
+| sim rehearsal (nominal) | 290 | 36 | 51 | 67.2 | 11.2 | 0 |
+| episode 26 | 322 | 52 | 60 | 73.6 | 2.2 | 0 |
+| episode 27 | 338 | 56 | 68 | 77.7 | 0.5 | 15, abort at 345 |
+| episode 28 | 333 | 63 | 70 | 78.0 | 6.4 | 21 + 7 rate limits, abort at 475 |
+
+- The sim's wrist joint range is +-1.658 rad, which the joint map `measured_20260908b_so101` turns into -112.0..76.9
+  physical units. The lift after the grasp raises the wrist command by 8-10 units. From 68-70 that crosses 76.9 by at
+  most 1.1 units; the runner holds every such command and aborts after 15 consecutive holds. The servo itself reaches
+  100. Episode 26 peaked at 73.6 and ran all 480 steps.
+- The real arm tracks its commands (command minus measured under 1.1 units on every arm joint at step 295), so this is
+  what the policy asks for, not servo lag.
+- In the sim's real_like held-out cell the wrist command never passes 69.3 on nine of ten placements, including
+  square y = 297 mm; only pose_000 (x = -146 mm) reaches 77 and clips. So for a comparable placement the real arm ends
+  10-17 wrist units more flexed than the sim, with the forward-kinematics tip 15-27 mm higher and 30-50 mm farther.
+- The user reports clean-looking grasps, so the jaws are at the cube while the joint readings say they are above it.
+  That is a real-versus-sim kinematic offset that the closed loop absorbs with wrist flex (unmeasured: which joint
+  zero or the camera pitch; the arm was reassembled after 2026-10-04).
+- Gripper at closure reads 0.5-6.4 against 11.2 on a cube in the sim: not a full-width pad grasp in any of the three.
+- Not the cause: the shoulder rest reading (-96.2 was the arm pushed back by hand; it parks at -90.6).
+
+Decision: (1) re-run the 2026-09-08 board-pose hand-eye check on the reassembled arm and correct the joint zeros;
+(2) until then, test with the cube 40-60 mm nearer the base than episode 26, where the wrist has margin; (3) do not
+widen the wrist gate. Number to watch: wrist command at the grasp on a placement near y = 280 mm (sim: 51).

@@ -133,6 +133,11 @@ def main(argv=None) -> int:
     p.add_argument("--size", type=int, nargs=2, default=(960, 540), metavar=("W", "H"))
     p.add_argument("--once", action="store_true", help="show each pose once, then exit (default: cycle until the window closes)")
     p.add_argument("--summary", type=Path, default=None, help="write per-pose live outcomes as JSON")
+    p.add_argument("--scene", type=Path, default=MODEL, help="scene XML (default: the SO-100 bench scene)")
+    p.add_argument("--suite", type=Path, default=DATA / "heldout_suite.path", help="suite.json, or a *.path pointer file naming one")
+    p.add_argument("--physics", default="none", help="none, or a regime from contracts/physics.py (real_like_v1, ...): one scenario "
+                   "per (pose, repeat) with the draws tools/eval_policy.py scores, so --poses then indexes pose*repeats+repeat")
+    p.add_argument("--eval-result", type=Path, default=None, help="an eval_policy.py result.json: show its recorded outcome per scenario")
     p.add_argument("--headless", action="store_true",
                    help="record only, no window, rendering through EGL (WSLg's on-screen D3D12 path dropped its device under "
                         "GPU memory pressure on 2026-10-05 and killed two recordings)")
@@ -156,9 +161,15 @@ def main(argv=None) -> int:
 
     run_dir = args.checkpoint.resolve().parent.parent
     label = args.label or run_dir.name
-    suite = load_suite_from_path(Path((DATA / "heldout_suite.path").read_text().strip()))
+    suite = load_suite_from_path(Path(args.suite.read_text().strip()) if args.suite.suffix == ".path" else args.suite)
+    if args.physics != "none":
+        sys.path.insert(0, str(ROOT / "tools"))
+        from eval_policy import physics_suite
+        suite = physics_suite(suite, args.physics)
     scenarios = [suite.scenarios[i] for i in (args.poses if args.poses else range(len(suite.scenarios)))]
     recorded = recorded_outcomes(run_dir, args.execute)
+    if args.eval_result is not None:
+        recorded = {r["scenario_id"]: r["failure_category"] for r in json.loads(args.eval_result.read_text())["rollout_rows"]}
     print(f"loading {args.checkpoint} ...", flush=True)
     model = load_model(args.kind, args.checkpoint)
     policy = ResidualChunkPolicy(model, execute=args.execute, num_steps=args.steps, tag=label)
@@ -167,7 +178,7 @@ def main(argv=None) -> int:
     identity = run_dir / "identity.json"
     amp_on = json.loads(identity.read_text()).get("amp", args.kind == "smolvla") if identity.exists() else args.kind == "smolvla"
     amp = torch.autocast("cuda", dtype=torch.bfloat16) if amp_on else None
-    adapter = MujocoTaskAdapter(MODEL)
+    adapter = MujocoTaskAdapter(args.scene)
     contract = load_pick_place_contract(suite.task_contract, bench_config=adapter.bench)
     recorder = Recorder(args.record, adapter.model, *args.size, fps=30) if args.record else None
     print(f"{label}: {len(scenarios)} held-out placements, execute {args.execute}; close the MuJoCo window to exit", flush=True)
@@ -214,6 +225,8 @@ def main(argv=None) -> int:
                         command = policy.predict(raw, current, adapter)
                 else:
                     command = policy.predict(raw, current, adapter)
+                if looking and scenario.physics_regime is not None:
+                    adapter.inference_pause(action)  # as the scored rollout: the arm keeps moving while the policy infers
                 command = adapter.apply_policy_command(command)
                 adapter.advance_control_period()
                 measurement, _ = adapter.pick_place_measurement(command, footprint_edge_margin_m=contract.placement.footprint_edge_margin_m)

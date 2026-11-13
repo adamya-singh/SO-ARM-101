@@ -254,8 +254,14 @@ def next_approach_target(measured_physical, previous_target, reset_physical, *, 
     return target.astype(np.float32)
 
 
-def approach_step(measured_act, previous_target_physical, bench, *, calibration=None) -> ApproachStep:
-    """One gated approach command; raises on any refusal other than the shoulder starting below the floor."""
+def approach_step(measured_act, previous_target_physical, bench, *, calibration=None, rising_from_below_floor=False) -> ApproachStep:
+    """One gated approach command; raises on any refusal other than the shoulder starting below the floor.
+
+    ``rising_from_below_floor`` (opt-in, user-approved 2026-11-12: the reassembled shoulder rested at -96.3, 4 units
+    below the floor, and the ramp's first targets are refused): while the shoulder is below the floor, the floor for
+    this step is the measured shoulder itself, so the command can never be lower than where the arm already is. Once
+    the shoulder is above the floor the usual floor applies.
+    """
     measured_physical = act_to_physical_normalized(np.asarray(measured_act, dtype=np.float32))
     reset = np.asarray(bench.reset_physical, dtype=np.float32)
     if not np.all(np.isfinite(measured_physical)):
@@ -267,21 +273,28 @@ def approach_step(measured_act, previous_target_physical, bench, *, calibration=
         # floor (reset -90.8, floor -92) instead of refusing the approach (episode_17 and servo probe run_2, 2026-10-04).
         target = target.copy()
         target[1] = np.float32(floor_stop)
-    if np.any(target[1] < bench.shoulder_floor):
+    floor = float(bench.shoulder_floor)
+    if rising_from_below_floor and measured_physical[1] < floor:
+        floor = float(measured_physical[1])
+    if np.any(target[1] < floor):
         raise RuntimeError("approach target would command the shoulder below the floor")
     direction = np.sign(reset - measured_physical)
     if np.any(direction * (target - reset) > APPROACH_OVERSHOOT_CAP_UNITS + 1e-6):
         raise RuntimeError("approach target passed the reset by more than the overshoot cap")
     decision = bench_hold_decision(
-        measured_act, physical_normalized_to_act(target), shoulder_floor=bench.shoulder_floor,
+        measured_act, physical_normalized_to_act(target), shoulder_floor=floor,
         joint_map=bench.joint_map_object, max_relative_target=APPROACH_MAX_RELATIVE_TARGET, calibration=calibration,
         hold_on_any_mask=True,
     )
     if decision.held:
-        # The only tolerated mask is the elbow's MuJoCo envelope while it travels inward from gravity rest.
+        # A range mask is tolerated on a joint only while its command is closer to the reset (which is in range) than the
+        # joint itself is: an over-extended joint may travel back in, and nothing may be driven further out. This was
+        # the elbow-only rule (its MuJoCo envelope at gravity rest); the user extended it to every joint on 2026-11-12,
+        # when the wrist had been left at 100 by hand. The relative limit is never tolerated.
         masks = decision.evaluation
-        other = (np.any(masks.act_clip_mask) or np.any(masks.physical_clip_mask) or np.any(masks.relative_limit_mask)
-                 or np.any(np.delete(masks.mujoco_clip_mask, 2)))
+        inward = np.abs(target - reset) <= np.abs(measured_physical - reset)
+        clipped = np.asarray(masks.act_clip_mask) | np.asarray(masks.physical_clip_mask) | np.asarray(masks.mujoco_clip_mask)
+        other = np.any(masks.relative_limit_mask) or np.any(clipped & ~inward)
         if other:
             raise RuntimeError(f"approach refused: {decision.hold_reason}")
     settled = bool(np.all(np.abs(measured_physical - reset) <= APPROACH_SETTLE_UNITS))

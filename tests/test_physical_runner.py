@@ -176,6 +176,18 @@ def test_approach_step_gates_each_command_and_reports_settling():
     # A previous target that would keep the shoulder below the floor is refused before any gate call.
     with pytest.raises(RuntimeError, match="below the floor"):
         approach_step(physical_normalized_to_act(rest), np.array([0.0, -93.0, 100, 40, -2, 13.5], np.float32), bench)
+    # Opt-in: a shoulder resting well below the floor may rise out of it, and may never be commanded lower than it is.
+    low = np.array([0.0, -96.3, 100.0, 40.0, -2.0, 13.5], np.float32)
+    with pytest.raises(RuntimeError, match="below the floor"):
+        approach_step(physical_normalized_to_act(low), low, bench)
+    up = approach_step(physical_normalized_to_act(low), low, bench, rising_from_below_floor=True)
+    assert up.target_physical[1] > low[1] and (not up.decision.held or "mujoco_clip:elbow_flex" == up.decision.hold_reason)
+    with pytest.raises(RuntimeError, match="below the floor"):
+        approach_step(physical_normalized_to_act(low), np.array([0.0, -98.0, 100, 40, -2, 13.5], np.float32), bench, rising_from_below_floor=True)
+    # Any over-extended joint may travel back toward the reset (the wrist left at 100 by hand, 2026-11-12).
+    bent = np.array([0.6, -91.0, 2.4, 100.0, -0.8, 10.0], np.float32)
+    back = approach_step(physical_normalized_to_act(bent), bent, bench)
+    assert back.target_physical[3] < bent[3] and back.target_physical[2] > bent[2]
     # Coming down from above the reset, a lagging shoulder lets the ramp run on: its command stops at the floor.
     above = reset.copy(); above[1] = -70.0
     down = approach_step(physical_normalized_to_act(above), np.array([reset[0], -91.9, reset[2], reset[3], reset[4], reset[5]], np.float32), bench)
