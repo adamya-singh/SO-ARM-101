@@ -65,3 +65,5 @@
 [2026-11-08 15:53:19] item 4 ACT FT (tsp 4) died at step 7500 with 'CUDA error: unknown error' (no Windows TDR logged); re-queued as tsp 55 (urgent), resumes from scratch.pt
 [2026-11-08 15:54:06] item 4 correction report re-queued as tsp 56 (-D 55) to fill the ACT rows
 [2026-11-12 23:25:17] high-lift tranche queued: capture 20; act-ft 21; 8 evals 22..29; report 30
+[2026-11-13 09:36:47] high-lift tranche queued: capture done; act-ft 31; 8 evals 32..39; report 40
+[2026-11-13 17:27:58] high-lift re-queue after two CUDA 'unknown error' crashes (steps 2520, ~5000): act-ft 41 (CUDA_LAUNCH_BLOCKING=1, resumed at 5000, past 7800); evals 42..49; report 50

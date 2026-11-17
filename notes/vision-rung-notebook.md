@@ -1653,3 +1653,53 @@ or the policy. Baseline: the sim rehearsal through the same runner (0 holds) and
 Decision: (1) re-run the 2026-09-08 board-pose hand-eye check on the reassembled arm and correct the joint zeros;
 (2) until then, test with the cube 40-60 mm nearer the base than episode 26, where the wrist has margin; (3) do not
 widen the wrist gate. Number to watch: wrist command at the grasp on a placement near y = 280 mm (sim: 51).
+
+## High-lift ACT (teacher_lift_m 0.10): sim matrix, live runs 36-56, why half the grasps miss (2026-11-17)
+
+Policy `experiments/high_lift_20261112/act_ft` (7200 placements, bench_physics_v2, 40k steps, held-out 2.9e-4). The
+fine-tune died twice with `CUDA error: unknown error` about 20 steps after the 2500-step eval and scratch save (steps
+2520 and ~5000); the third run with `CUDA_LAUNCH_BLOCKING=1` finished. Cause not found.
+
+Sim, successes of 30 (high-lift | physics v2 ACT):
+
+| cell | exec 30 | exec 90 |
+|---|---|---|
+| nominal | 20 / 24 | 20 / 21 |
+| servo | 21 / 18 | 18 / 21 |
+| servo + real_like_v1 | 8 / 19 | 11 / 19 |
+| servo + bench_physics_v2 | 5 / 11 | 8 / 8 |
+
+real_like exec 30: 22 invalid = 12 gripper-release frames (rows 407-419; the high-lift schedule opens in ~14 rows, the
+command leads the lagging gripper by 0.34-0.45 act, the sim eval holds every joint until the replan at 420; the cube
+is already down) + 9 on poses 000/002/004 (physics v2 fails them too) + 1. Without the release frames 20/30. The
+real runner rate-limits and continues, and did so live (1-6 `rate_limited:relative_limit:gripper` frames per run,
+no abort). Next retrain: release over >= 20 rows.
+
+Live, 17 runs under the policy (`physical/episode_*_20261114_lift_act`): 7 carries (40, 42, 47, 50, 52, 54, 55),
+6 misses (43, 44, 45, 48, 53, 56), 2 grasp + lift then stopped (36 wrist limit at 327 mm; 51 workspace_height guard
+while lowering), 2 survey_pose_not_reached (39, 46: cube >= 321 mm and clipped at the top of the reset frame, the
+policy leaves the survey pose at about row 60). Only 42 was confirmed by eye; 50 and 52 are inferred (gripper 5.1-5.2).
+
+Why the misses (decision: retrain, or fix the geometry?):
+
+| measurement | carries + grasps (9) | misses (6) | sim, descended episodes |
+|---|---|---|---|
+| picked up | 9 | 0 | 21 / 21 (real_like), 24 / 24 (servo) |
+| jaw height at row 240, FK of measured joints, mm (relative only) | mean 6.5 (range -22..19) | mean 18.4 (12..25) | - |
+| commanded vs measured at row 240, worst joint, deg | <= 2.7 | <= 1.9 | - |
+| lift starts at the row-270 replan | 2 of 9 | 4 of 6 | 0 of 45 (earliest row 293) |
+
+- Frames (`notes/high_lift_live_grasp_frames_20261115.png`, rows 90 / 240 / 270): in the misses the cube sits ahead of
+  the jaw tips at row 240 and the jaws close short of it; in the carries it is between them.
+- Not servo tracking: the arm is within 3 deg of its command in both groups. The policy commands the short, high stop.
+- Not the policy's sim precision: once it descends in sim it always picks up.
+- Survey-pose and reset-pose cube estimates of the same cube disagree by a median 22 mm along the reach direction
+  (survey says nearer) in 13 of 15 runs; the two outliers had the cube or towel moved. Not checked in sim. Same
+  direction as the miss. Together with the wrist running 10-17 units more flexed than sim, this is the unmeasured
+  real-vs-sim geometry offset.
+- The early lift at row 270 never happens in sim; it is probably a consequence (the policy sees a nearly closed
+  gripper with nothing between the jaws), not a cause: 45 and 56 missed without it, 42 and 51 held with it.
+
+Decision: (1) measure and fix the geometry (board-pose hand-eye check at the survey pose, as on 2026-09-08), number to
+watch = survey-vs-reset cube disagreement, target < 5 mm; (2) only then retrain, with the slower release; (3) no more
+data or steps for this. 15 grasp attempts is a small sample: 6 misses of 15 has a wide interval (about 16-68 %).
