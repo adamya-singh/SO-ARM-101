@@ -137,6 +137,8 @@ def main(argv=None) -> int:
     p.add_argument("--micro", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--warmup", type=int, default=None)
+    p.add_argument("--backbone-lr", type=float, default=None, help="ACT: learning rate of the ResNet backbone (default 1e-5)")
+    p.add_argument("--kl-weight", type=float, default=None, help="ACT: weight of the CVAE KL term (default 10)")
     p.add_argument("--shift", type=int, default=12)
     p.add_argument("--seed", type=int, default=202)
     p.add_argument("--prev-commands", type=int, default=0,
@@ -176,7 +178,8 @@ def main(argv=None) -> int:
 
     defaults = dict(DEFAULTS[args.model])
     overrides = {k: v for k, v in dict(max_steps=args.steps, batch_size=args.batch, micro_batch=args.micro, learning_rate=args.lr,
-                                        warmup_steps=args.warmup).items() if v is not None}
+                                        warmup_steps=args.warmup, backbone_learning_rate=args.backbone_lr,
+                                        kl_weight=args.kl_weight).items() if v is not None}
     defaults.update(overrides)
     defaults.setdefault("max_steps", 30000)
     if args.prev_commands:

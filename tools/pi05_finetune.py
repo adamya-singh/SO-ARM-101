@@ -81,7 +81,7 @@ class Batches:
 
     def _load(self, pick: np.ndarray):
         images = np.empty((pick.shape[0], 256, 256, 3), dtype=np.uint8)
-        state = np.empty((pick.shape[0], 7), dtype=np.float32)
+        state = np.empty((pick.shape[0], 7 + 6 * int(getattr(self.sources[0], "prev_commands", 0))), dtype=np.float32)
         targets = np.empty((pick.shape[0], self.horizon, 6), dtype=np.float32)
         for k, source in enumerate(self.sources):
             where = np.flatnonzero(pick[:, 0] == k)

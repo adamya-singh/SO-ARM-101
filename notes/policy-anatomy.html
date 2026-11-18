@@ -110,7 +110,7 @@ details.layers ol b { color: var(--ink); }
     <button type="button" id="v-pan" aria-pressed="false">Drag: orbit</button>
     <div class="clock" id="clock">looks per second · 30 · 0.33 · 1</div>
   </div>
-  <div class="hint">click a block or its label for why · drag orbits · right-drag, shift-drag or two fingers pans · arrows/WASD pan · double-click to zoom in · slow motion ×4</div>
+  <div class="hint">click a block or its label for why · drag orbits · two-finger swipe pans · pinch or +/− zooms · double-click to zoom in · slow motion ×4</div>
 </div>
 
 <section class="sheet wrap">
@@ -425,7 +425,13 @@ details.layers ol b { color: var(--ink); }
     pts.delete(e.pointerId); if (pts.size < 2) { pinch = null; mid = null; }
   };
   stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
-  stage.addEventListener('wheel', e => { e.preventDefault(); stopSpin(); goal.r = Math.min(80, Math.max(5, goal.r * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+  // Trackpad: a two-finger swipe pans, a pinch (the browser reports it as ctrl+wheel) zooms.
+  stage.addEventListener('wheel', e => {
+    e.preventDefault(); stopSpin();
+    if (e.ctrlKey || e.metaKey) { goal.r = Math.min(80, Math.max(5, goal.r * Math.exp(e.deltaY * 0.01))); return; }
+    const k = e.deltaMode === 1 ? 16 : 1;
+    pan(-e.deltaX * k, -e.deltaY * k);
+  }, { passive: false });
   stage.addEventListener('keydown', e => {
     const step = 28, keys = { ArrowLeft: [step, 0], a: [step, 0], ArrowRight: [-step, 0], d: [-step, 0], ArrowUp: [0, step], w: [0, step], ArrowDown: [0, -step], s: [0, -step] };
     const m = keys[e.key]; if (m) { e.preventDefault(); stopSpin(); pan(m[0], m[1]); }

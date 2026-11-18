@@ -3,7 +3,7 @@
 # rehearsal/ (nothing in it may be quoted). Runs its steps in order and fails on the first error; the tranche's queue
 # (queue_offset_prevcmd_20261118.sh) is gated on it.
 #   1 capture, 6 placements, slow-release scene, bench_physics_v3 (joint offsets)   2 ACT 20 steps with --prev-commands 3
-#   3 eval_policy of that checkpoint under real_like_offset_v1 at execute 30
+#   3 ACT 20 steps with the sweep's flags, then the selector   4 eval_policy of the step-2 checkpoint under real_like_offset_v1 at execute 30
 set -euo pipefail
 ROOT=/home/win10ubuntu/projects/SO-ARM-101
 PY=/home/win10ubuntu/miniforge3/envs/lerobot/bin/python
@@ -18,6 +18,11 @@ $ENVV $PY -u $ROOT/tools/capture_placements.py --model $REL30 --output-dir $R/ca
   --physics bench_physics_v3 --skip-failed --heldout-suite $(cat $LADDER/heldout_suite.path) --heldout-from $LADDER --workers 10
 $ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --rehearsal --scene $REL30 --output-dir $R/act --data-dirs $R/capture --prev-commands 3 \
   --steps 20 --batch 8 --micro 8 --eval-every 10 --scratch-every 10 --rollout-limit 1 --execs 30 --tranche offset-prevcmd-20261118-rehearsal
+# the sweep's path: the tuning flags, the selector and the full-length helper (which must skip a winner equal to the current settings)
+$ENVV $PY -u $ROOT/tools/vla_finetune.py --model act --rehearsal --scene $REL30 --output-dir $R/act_sweep --data-dirs $R/capture --lr 3e-4 --backbone-lr 1e-4 \
+  --kl-weight 1 --steps 20 --batch 8 --micro 8 --eval-every 10 --scratch-every 10 --rollout-limit 1 --execs 30 --tranche offset-prevcmd-20261118-rehearsal
+$ENVV $PY -u $ROOT/tools/sweep_select.py --run sweep=$R/act_sweep --run absent=$R/absent --out $R/winner.json
+grep -q '"kl_weight": 1.0' $R/winner.json
 $ENVV $PY -u $ROOT/tools/eval_policy.py --kind vla --checkpoint $R/act/model/act.pt --scene $REL30 --suite $HS101 \
   --physics real_like_offset_v1 --execute 30 --output-dir $R/evals/act_exec30__servo_real_like_offset_v1
 echo "rehearsal complete"
