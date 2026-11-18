@@ -1,7 +1,22 @@
 # Joint-offset randomization and previous-command input, against a tuned baseline (2026-11-18)
 
-Queued, no results yet. Queue: `simulation_code/queue_offset_prevcmd_20261118.sh` (tsp 105-149), output
-`experiments/offset_prevcmd_20261118/`, gated on `simulation_code/rehearse_offset_prevcmd_20261118.sh` (tsp 106).
+Queued, no results yet except the reference. Queue: `simulation_code/queue_offset_prevcmd_20261118.sh` (tsp 150-165,
+then the ablations it queues itself), output `experiments/offset_prevcmd_20261118/`, gated on
+`simulation_code/rehearse_offset_prevcmd_20261118.sh` (tsp 150). The first queue (105-149) was withdrawn: its
+rehearsal (106) failed on the batch loader's fixed 7-column state buffer (fixed), and the user asked for a
+hyperparameter sweep of the baseline first.
+
+Reference (tsp 105): the existing high-lift ACT under real_like_offset_v1 scores 7/30, 19 pickups, 9.4 mm lateral
+median, against 8/30, 20 pickups, 7.8 mm under real_like_v1. A +-3 deg joint-zero error costs a policy that never
+trained on it about one pickup in 30 and 1.6 mm.
+
+## Tuned baseline: two-stage sweep (user, 2026-11-18)
+
+Stage 1: eight settings, 15k steps, seed 202, on capture A: learning rate {3e-5, 1e-4, 3e-4}, backbone rate
+{1e-5, 3e-5, 1e-4}, KL weight {10, 1}; ranked by held-out loss at chunk start 90 (`tools/sweep_select.py`).
+Stage 2: the winner and the current settings (1e-4, 1e-5, 10) at 40k steps; the lower held-out loss becomes
+`sweep/tuned.json` and that run is `base_s202`. The ablations below are then queued with those settings. Training
+length is read from the full-length held-out curves, not swept.
 
 ## Why
 
