@@ -93,6 +93,7 @@ def _build_vision_chunked(spec: PolicySpec) -> Any:
         _required_checkpoint(spec),
         black_image=bool(spec.option("black_image", False)),
         clamp_channels=tuple(spec.option("clamp_channels", ())),
+        execute=spec.option("execute", None),
     )
 
 

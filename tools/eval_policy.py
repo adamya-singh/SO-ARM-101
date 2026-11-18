@@ -80,9 +80,10 @@ def main(argv=None) -> int:
     else:
         from so_arm101_v2.simulation.policy_specs import PolicySpec
         from so_arm101_v2.simulation.rollout import evaluate_closed_loop
-        spec = PolicySpec(kind="vision_chunked", checkpoint=str(args.checkpoint), options=(("clamp_channels", (5,)), ("black_image", bool(args.black_image))))
+        options = (("black_image", bool(args.black_image)), ("clamp_channels", (5,)))
         if args.execute != 90:
-            raise SystemExit("vision_chunked checkpoints execute their 90-action chunks")
+            options = (("black_image", bool(args.black_image)), ("clamp_channels", (5,)), ("execute", int(args.execute)))
+        spec = PolicySpec(kind="vision_chunked", checkpoint=str(args.checkpoint), options=options)
         report_path = evaluate_closed_loop(args.scene, suite, {"vision": spec}, root / "evaluation", environment_proven=True,
                                            record_video=False, workers=args.workers).report_json
         rows = [r for r in json.loads(Path(report_path).read_text())["rollouts"] if r["policy_id"] == "vision"]
@@ -90,7 +91,7 @@ def main(argv=None) -> int:
         categories: dict[str, int] = {}
         for r in rows:
             categories[r["failure_category"]] = categories.get(r["failure_category"], 0) + 1
-        result = dict(execute=90, successes=int(sum(bool(r["success"] and not r["invalidated"]) for r in rows)), rollouts=len(rows),
+        result = dict(execute=args.execute, successes=int(sum(bool(r["success"] and not r["invalidated"]) for r in rows)), rollouts=len(rows),
                       pickups=int(sum(bool(r["pickup_completed"]) for r in rows)), categories=categories,
                       safety_frames=int(sum(sum(r[k] for k in ("clipping_frames", "limiting_frames", "nonfinite_frames", "unsafe_contact_frames")) for r in rows)),
                       closure={k: v for k, v in closure_summary(args.scene, telemetry).items() if k != "rows"},

@@ -30,6 +30,7 @@ class VisionChunkedPolicy:
         *,
         black_image: bool = False,
         clamp_channels: tuple[int, ...] = (),
+        execute: int | None = None,
     ) -> None:
         try:
             import torch
@@ -59,6 +60,11 @@ class VisionChunkedPolicy:
         if stated != payload.get("report_content_sha256"):
             raise ValueError("vision clone checkpoint and report disagree")
         self.report_content_sha256 = stated
+        # Receding horizon (2026-11-18): run only the first ``execute`` rows of each predicted chunk, then look again.
+        # None = the whole chunk (historical behaviour, policy id unchanged).
+        self.execute = None if execute in (None, self.chunk_horizon) else int(execute)
+        if self.execute is not None and not 1 <= self.execute < self.chunk_horizon:
+            raise ValueError("execute must lie in [1, chunk_horizon]")
         self.model = build_vision_chunked_model(self.hidden_width, self.chunk_horizon, encoder=self.encoder)
         self.model.load_state_dict(payload["state_dict"])
         self.model.eval()
@@ -87,6 +93,8 @@ class VisionChunkedPolicy:
         base = f"vision_h{self.chunk_horizon}.seed{self.config_seed}"
         if self.black_image:
             base = f"{base}.black"
+        if self.execute is not None:
+            base = f"{base}.exec{self.execute}"
         if self.clamp_channels == (5,):
             return f"{base}.gripper_clamp_v1"
         if self.clamp_channels:
@@ -126,7 +134,7 @@ class VisionChunkedPolicy:
                 ).numpy()[0]
             chunk_norm = current_norm[None, :] + residual.reshape(self.chunk_horizon, 6)
             commands = self._denormalize_act(chunk_norm.astype(np.float32))
-            self._buffer = [np.asarray(row, dtype=np.float32) for row in commands]
+            self._buffer = [np.asarray(row, dtype=np.float32) for row in commands[: self.execute or self.chunk_horizon]]
         self.action_index += 1
         command = self._buffer.pop(0)
         for channel in self.clamp_channels:
