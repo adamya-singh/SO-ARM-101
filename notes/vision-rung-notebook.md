@@ -1703,3 +1703,18 @@ Why the misses (decision: retrain, or fix the geometry?):
 Decision: (1) measure and fix the geometry (board-pose hand-eye check at the survey pose, as on 2026-09-08), number to
 watch = survey-vs-reset cube disagreement, target < 5 mm; (2) only then retrain, with the slower release; (3) no more
 data or steps for this. 15 grasp attempts is a small sample: 6 misses of 15 has a wide interval (about 16-68 %).
+
+## Feature probes: does a policy look or remember? (2026-11-18, queued)
+
+Full note with the registered predictions: `notes/feature-probes-20261118.md`. Tool `tools/feature_probes.py`,
+module `simulation/probes.py`. A probe changes the world mid-episode (cube and square shifted 20 mm after the survey
+frame, cube dropped back at the lift, square moved during the carry, elbow servo swapped soft/stiff) and compares with
+the same episode left alone, on 100 teacher-screened held-out placements (suite seed 31).
+
+- Reference controls on the old 10-pose suite, nominal SO-101: plain teacher follow gain +0.08 (0/10 successes under
+  the shift), teacher told the shift in advance +0.99 (10/10). The probe reads 0 and 1 where it must.
+- Plain teacher on the 100 placements: 100/100 unprobed on the nominal and measured-servo scenes; 81/100 on the servo
+  scene when the elbow stiffens at action 100 (its compensation assumes the soft elbow).
+- Some 20 mm shifts are unreachable for the teacher, so each scene gets a teacher-admitted shift plan.
+- Queued as tsp 166-170 (plan, rehearsal gate, controls, headline at the front; the rest at the back). No learned
+  policy result yet.

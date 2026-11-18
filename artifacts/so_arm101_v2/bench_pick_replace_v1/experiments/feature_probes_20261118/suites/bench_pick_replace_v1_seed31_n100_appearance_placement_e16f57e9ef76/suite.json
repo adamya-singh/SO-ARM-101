@@ -1,0 +1,3708 @@
+{
+  "content_sha256": "fc1b3c32e24b818ea0d899b6f3cb049c5904b78af08e3bbbbb09847f7cc78958",
+  "diagnostic_only": false,
+  "generator": {
+    "appearance": {
+      "regime": {
+        "arm_albedo": [
+          0.03,
+          0.2
+        ],
+        "blur_sigma_px": [
+          0.0,
+          1.0
+        ],
+        "camera_fovy_jitter_fraction": 0.02,
+        "camera_pitch_jitter_deg": 4.0,
+        "camera_pos_jitter_m": 0.002,
+        "camera_yaw_roll_jitter_deg": 2.0,
+        "channel_balance": 0.1,
+        "cube_albedo": [
+          0.005,
+          0.12
+        ],
+        "gain": [
+          0.6,
+          1.6
+        ],
+        "gamma": [
+          0.7,
+          1.4
+        ],
+        "ground_albedo": [
+          0.005,
+          0.12
+        ],
+        "ground_reflectance_cap": 0.3,
+        "ground_texture_contrast": [
+          0.0,
+          0.5
+        ],
+        "ground_texture_probability": 0.7,
+        "ground_texture_repeat_per_m": [
+          5.0,
+          40.0
+        ],
+        "headlight_ambient": [
+          0.1,
+          0.55
+        ],
+        "headlight_diffuse": [
+          0.35,
+          0.85
+        ],
+        "headlight_specular": [
+          0.0,
+          0.25
+        ],
+        "key_light_ambient": [
+          0.0,
+          0.15
+        ],
+        "key_light_cone_deg": 40.0,
+        "key_light_diffuse": [
+          0.4,
+          1.0
+        ],
+        "key_light_specular": [
+          0.0,
+          0.6
+        ],
+        "material_chroma": 0.4,
+        "material_reflectance": [
+          0.0,
+          0.25
+        ],
+        "material_shininess": [
+          0.0,
+          0.8
+        ],
+        "material_specular": [
+          0.0,
+          0.7
+        ],
+        "motor_albedo": [
+          0.03,
+          0.2
+        ],
+        "name": "bench_appearance",
+        "napkin_albedo": [
+          0.65,
+          1.0
+        ],
+        "noise_sigma": [
+          0.0,
+          2.0
+        ],
+        "paper_chroma": 0.12,
+        "shadow_probability": 0.8,
+        "skybox_off_probability": 0.5,
+        "towel_albedo": [
+          0.6,
+          1.0
+        ],
+        "towel_probability": 0.85,
+        "towel_scale": [
+          0.9,
+          1.6
+        ],
+        "towel_yaw_deg": 10.0,
+        "version": 1
+      },
+      "resolver": "bench_appearance_v1",
+      "seed_stream": {
+        "seed": 31,
+        "stream": 0
+      },
+      "seeds": [
+        1908590213,
+        1143466808,
+        59577898,
+        651167400,
+        1827115318,
+        1005234734,
+        1625887084,
+        1136797285,
+        1853853463,
+        2046539946,
+        1012678754,
+        983587378,
+        881509796,
+        140936949,
+        421573261,
+        1906468404,
+        1608933622,
+        2034941287,
+        1034990346,
+        457521114,
+        153624987,
+        491598962,
+        539097465,
+        2114357220,
+        1033054256,
+        962793399,
+        166051594,
+        910099224,
+        1794155676,
+        290300220,
+        347754580,
+        1900895036,
+        809023256,
+        1032936967,
+        1158652975,
+        1171893019,
+        1708003901,
+        2124038359,
+        949193598,
+        1830886091,
+        962715505,
+        1613370997,
+        1527743403,
+        943682584,
+        182740933,
+        1711767074,
+        298783850,
+        1804502209,
+        1547420038,
+        2035723582,
+        1481362328,
+        1666578829,
+        106399747,
+        1739306813,
+        1388166756,
+        749730683,
+        1917710404,
+        809273115,
+        102051122,
+        338148244,
+        1883673481,
+        2042855397,
+        751353882,
+        1809647345,
+        1491935355,
+        773025823,
+        102782211,
+        321486631,
+        1933203654,
+        769207464,
+        1375461610,
+        173107157,
+        1097677133,
+        1915125419,
+        1339258680,
+        443790094,
+        1212710737,
+        1320031248,
+        1899003990,
+        1542781642,
+        201694818,
+        931597955,
+        1667301063,
+        1318429845,
+        19551085,
+        1942219862,
+        448657820,
+        2114653904,
+        1399105912,
+        1406064984,
+        140807823,
+        1789442268,
+        331130994,
+        563180286,
+        894432220,
+        800427784,
+        1058968380,
+        1692212126,
+        164325025,
+        1336096202
+      ]
+    },
+    "attempts": 183,
+    "offset_range_m": [
+      -0.01,
+      0.01
+    ],
+    "placement": {
+      "accepted_bbox_m": {
+        "x": [
+          -0.1657,
+          0.1773
+        ],
+        "y": [
+          0.1289,
+          0.3014
+        ]
+      },
+      "cube_offset_range_m": [
+        -0.01,
+        0.01
+      ],
+      "regime": {
+        "base_gap_m": 0.0508,
+        "cube_offset_m": 0.01,
+        "depth_m": 0.254,
+        "name": "bench_placement",
+        "survey_visibility_margin_px": 20.0,
+        "version": 1,
+        "x_range_m": [
+          -0.17779999999999999,
+          0.17779999999999999
+        ],
+        "y_range_m": [
+          0.1154353,
+          0.36943529999999997
+        ],
+        "yaw_range_deg": 45.0
+      },
+      "rejected_placements": [
+        [
+          -0.0161,
+          0.3326,
+          24.6,
+          "not_visible_from_survey"
+        ],
+        [
+          0.138,
+          0.1208,
+          14.2,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1415,
+          0.3673,
+          38.9,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0321,
+          0.1377,
+          -9.2,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.11,
+          0.3363,
+          9.4,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0681,
+          0.3628,
+          -21.8,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1345,
+          0.3283,
+          -37.3,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0693,
+          0.3266,
+          41.4,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1714,
+          0.3143,
+          -22.8,
+          "privileged IK failed: position=0.005379m"
+        ],
+        [
+          -0.076,
+          0.3324,
+          -44.2,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1104,
+          0.3285,
+          -9.9,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1145,
+          0.3492,
+          -10.7,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1145,
+          0.3599,
+          -28.3,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0746,
+          0.3378,
+          -15.5,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1773,
+          0.2244,
+          38.5,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0784,
+          0.131,
+          -26.2,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0231,
+          0.1182,
+          44.0,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1678,
+          0.3067,
+          -31.9,
+          "privileged IK failed: position=0.004884m"
+        ],
+        [
+          0.1521,
+          0.3512,
+          8.7,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0958,
+          0.3112,
+          35.7,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0439,
+          0.33,
+          -36.0,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1343,
+          0.3263,
+          -5.2,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0098,
+          0.3157,
+          -28.3,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1713,
+          0.3118,
+          1.0,
+          "privileged IK failed: position=0.006046m"
+        ],
+        [
+          -0.0361,
+          0.3628,
+          -36.9,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1737,
+          0.3199,
+          -30.9,
+          "privileged IK failed: position=0.006091m"
+        ],
+        [
+          -0.1543,
+          0.337,
+          -11.5,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1613,
+          0.1318,
+          -14.0,
+          "safety_invalidation"
+        ],
+        [
+          0.1562,
+          0.349,
+          -23.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0951,
+          0.3234,
+          3.8,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0982,
+          0.3585,
+          -42.9,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1473,
+          0.3673,
+          0.7,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0445,
+          0.3673,
+          25.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0834,
+          0.357,
+          -0.1,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0495,
+          0.357,
+          41.2,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0411,
+          0.1248,
+          33.0,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1249,
+          0.2792,
+          18.5,
+          "privileged IK failed: position=0.012089m"
+        ],
+        [
+          0.0828,
+          0.1292,
+          -34.3,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0823,
+          0.3467,
+          11.0,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.155,
+          0.1985,
+          -28.2,
+          "safety_invalidation"
+        ],
+        [
+          -0.1234,
+          0.3281,
+          26.9,
+          "not_visible_from_survey"
+        ],
+        [
+          0.167,
+          0.2742,
+          -9.0,
+          "safety_invalidation"
+        ],
+        [
+          0.1179,
+          0.3071,
+          -40.2,
+          "privileged IK failed: position=0.004269m"
+        ],
+        [
+          0.1054,
+          0.3092,
+          13.8,
+          "not_visible_from_survey"
+        ],
+        [
+          0.063,
+          0.3287,
+          5.2,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0138,
+          0.3081,
+          17.3,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1257,
+          0.3448,
+          27.7,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0294,
+          0.1198,
+          31.2,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0619,
+          0.1257,
+          42.9,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1728,
+          0.3454,
+          37.6,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0489,
+          0.1293,
+          37.9,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0102,
+          0.3352,
+          38.5,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0951,
+          0.3235,
+          39.5,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0646,
+          0.3333,
+          -16.2,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1042,
+          0.2372,
+          -41.9,
+          "safety_invalidation"
+        ],
+        [
+          0.1401,
+          0.3525,
+          -22.9,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0714,
+          0.1361,
+          40.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0842,
+          0.3378,
+          26.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1429,
+          0.3176,
+          29.4,
+          "privileged IK failed: position=0.007101m"
+        ],
+        [
+          -0.105,
+          0.129,
+          -34.4,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1566,
+          0.1182,
+          14.1,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1675,
+          0.2925,
+          30.9,
+          "privileged IK failed: position=0.001064m"
+        ],
+        [
+          -0.1258,
+          0.3154,
+          -17.0,
+          "privileged IK failed: position=0.002005m"
+        ],
+        [
+          -0.1671,
+          0.3149,
+          26.6,
+          "privileged IK failed: position=0.006571m"
+        ],
+        [
+          -0.0217,
+          0.1398,
+          29.2,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0157,
+          0.3663,
+          -42.9,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1599,
+          0.3025,
+          38.1,
+          "privileged IK failed: position=0.006599m"
+        ],
+        [
+          -0.1457,
+          0.3528,
+          24.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1143,
+          0.349,
+          29.4,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0768,
+          0.3655,
+          31.5,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1291,
+          0.3527,
+          -3.4,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0299,
+          0.1403,
+          -15.3,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0777,
+          0.3616,
+          -7.8,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1164,
+          0.1217,
+          -32.0,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1481,
+          0.3237,
+          24.8,
+          "privileged IK failed: position=0.006070m"
+        ],
+        [
+          -0.0927,
+          0.1773,
+          -41.1,
+          "safety_invalidation"
+        ],
+        [
+          -0.177,
+          0.2752,
+          -9.6,
+          "privileged IK failed: position=0.001177m"
+        ],
+        [
+          -0.0239,
+          0.13,
+          -11.0,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1256,
+          0.3489,
+          -42.7,
+          "not_visible_from_survey"
+        ],
+        [
+          0.1217,
+          0.3298,
+          14.6,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.1496,
+          0.3512,
+          32.0,
+          "not_visible_from_survey"
+        ],
+        [
+          0.0606,
+          0.1199,
+          -43.0,
+          "not_visible_from_survey"
+        ],
+        [
+          -0.0501,
+          0.1365,
+          -19.5,
+          "not_visible_from_survey"
+        ]
+      ],
+      "rejections_by_reason": {
+        "not_visible_from_survey": 65,
+        "privileged IK failed: position=0.001064m normal=6.996deg depth=21.814deg": 1,
+        "privileged IK failed: position=0.001177m normal=11.730deg depth=20.913deg": 1,
+        "privileged IK failed: position=0.002005m normal=12.083deg depth=20.625deg": 1,
+        "privileged IK failed: position=0.004269m normal=15.908deg depth=18.316deg": 1,
+        "privileged IK failed: position=0.004884m normal=8.829deg depth=24.935deg": 1,
+        "privileged IK failed: position=0.005379m normal=11.979deg depth=24.780deg": 1,
+        "privileged IK failed: position=0.006046m normal=18.695deg depth=20.091deg": 1,
+        "privileged IK failed: position=0.006070m normal=28.290deg depth=18.745deg": 1,
+        "privileged IK failed: position=0.006091m normal=11.881deg depth=31.206deg": 1,
+        "privileged IK failed: position=0.006571m normal=32.224deg depth=20.224deg": 1,
+        "privileged IK failed: position=0.006599m normal=23.917deg depth=20.774deg": 1,
+        "privileged IK failed: position=0.007101m normal=27.433deg depth=22.221deg": 1,
+        "privileged IK failed: position=0.012089m normal=8.463deg depth=15.988deg": 1,
+        "safety_invalidation": 5
+      },
+      "resolver": "bench_placement_v1",
+      "seed_stream": {
+        "seed": 31,
+        "stream": 2
+      }
+    },
+    "rejections": {
+      "not_visible_from_survey": 65,
+      "privileged IK failed: position=0.001064m normal=6.996deg depth=21.814deg": 1,
+      "privileged IK failed: position=0.001177m normal=11.730deg depth=20.913deg": 1,
+      "privileged IK failed: position=0.002005m normal=12.083deg depth=20.625deg": 1,
+      "privileged IK failed: position=0.004269m normal=15.908deg depth=18.316deg": 1,
+      "privileged IK failed: position=0.004884m normal=8.829deg depth=24.935deg": 1,
+      "privileged IK failed: position=0.005379m normal=11.979deg depth=24.780deg": 1,
+      "privileged IK failed: position=0.006046m normal=18.695deg depth=20.091deg": 1,
+      "privileged IK failed: position=0.006070m normal=28.290deg depth=18.745deg": 1,
+      "privileged IK failed: position=0.006091m normal=11.881deg depth=31.206deg": 1,
+      "privileged IK failed: position=0.006571m normal=32.224deg depth=20.224deg": 1,
+      "privileged IK failed: position=0.006599m normal=23.917deg depth=20.774deg": 1,
+      "privileged IK failed: position=0.007101m normal=27.433deg depth=22.221deg": 1,
+      "privileged IK failed: position=0.012089m normal=8.463deg depth=15.988deg": 1,
+      "safety_invalidation": 5
+    },
+    "requested": 100,
+    "scene_dependencies_sha256": "4009e71efe927174b8d4d9e046fc0be4cc3c80f822d771efbe25287f8601e3f3",
+    "seed": 31
+  },
+  "recovery_probe": null,
+  "repeats": 1,
+  "scenarios": [
+    {
+      "appearance_seed": 1908590213,
+      "cube_position_m": [
+        0.18070445014859976,
+        0.14891383125569413,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9887820068129126,
+        0.0,
+        0.0,
+        -0.14936580265585936
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_000",
+      "square_center_xy": [
+        0.1727269951203472,
+        0.15552190080842573
+      ],
+      "square_yaw_rad": -0.2998536983542633
+    },
+    {
+      "appearance_seed": 1143466808,
+      "cube_position_m": [
+        -0.022357180467726383,
+        0.1622772039761298,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9800771872881974,
+        0.0,
+        0.0,
+        -0.19861698557086116
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_001",
+      "square_center_xy": [
+        -0.0277875840784145,
+        0.15406699447708017
+      ],
+      "square_yaw_rad": -0.39989318084699943
+    },
+    {
+      "appearance_seed": 59577898,
+      "cube_position_m": [
+        -0.051032729540795796,
+        0.1741781038137252,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9707680996870014,
+        0.0,
+        0.0,
+        -0.24001936719791633
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_002",
+      "square_center_xy": [
+        -0.05195933053254498,
+        0.18122066430592956
+      ],
+      "square_yaw_rad": -0.4847716027507197
+    },
+    {
+      "appearance_seed": 651167400,
+      "cube_position_m": [
+        0.14496949269528164,
+        0.13847553058243395,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.998017076738933,
+        0.0,
+        0.0,
+        0.06294374105083551
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_003",
+      "square_center_xy": [
+        0.14547398541678416,
+        0.14652786176582572
+      ],
+      "square_yaw_rad": 0.1259707565616728
+    },
+    {
+      "appearance_seed": 1827115318,
+      "cube_position_m": [
+        0.08657139538920593,
+        0.13309466575641032,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9872283224875051,
+        0.0,
+        0.0,
+        -0.15931176754561058
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_004",
+      "square_center_xy": [
+        0.09190004513576708,
+        0.1354958639119056
+      ],
+      "square_yaw_rad": -0.31998695525264537
+    },
+    {
+      "appearance_seed": 1005234734,
+      "cube_position_m": [
+        0.013234050945529239,
+        0.18943577560083652,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9982098540848595,
+        0.0,
+        0.0,
+        0.05980875527783005
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_005",
+      "square_center_xy": [
+        0.010772931643309641,
+        0.18721957957969979
+      ],
+      "square_yaw_rad": 0.11968893930473089
+    },
+    {
+      "appearance_seed": 1625887084,
+      "cube_position_m": [
+        -0.002237474315986814,
+        0.2731061141970861,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9958115495501718,
+        0.0,
+        0.0,
+        0.09142952358229645
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_006",
+      "square_center_xy": [
+        -0.0050695758648637845,
+        0.2798657907933879
+      ],
+      "square_yaw_rad": 0.18311477434228388
+    },
+    {
+      "appearance_seed": 1136797285,
+      "cube_position_m": [
+        0.008984017399346856,
+        0.21439854053227472,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9869818041783728,
+        0.0,
+        0.0,
+        -0.1608319564663819
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_007",
+      "square_center_xy": [
+        0.00915601747701994,
+        0.21163664840309576
+      ],
+      "square_yaw_rad": -0.3230670501215338
+    },
+    {
+      "appearance_seed": 1853853463,
+      "cube_position_m": [
+        -0.10944432663287026,
+        0.28831077572129304,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9651857972469996,
+        0.0,
+        0.0,
+        0.26156524385451857
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_008",
+      "square_center_xy": [
+        -0.1117581327741564,
+        0.2829915206288687
+      ],
+      "square_yaw_rad": 0.5292870990847343
+    },
+    {
+      "appearance_seed": 2046539946,
+      "cube_position_m": [
+        0.03985775818500665,
+        0.29063733451134244,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9730340621534571,
+        0.0,
+        0.0,
+        0.2306614703177413
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_009",
+      "square_center_xy": [
+        0.03904715885510063,
+        0.2878867669792164
+      ],
+      "square_yaw_rad": 0.4655148599201995
+    },
+    {
+      "appearance_seed": 1012678754,
+      "cube_position_m": [
+        0.09648765515108541,
+        0.1973470131617928,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9953732152172964,
+        0.0,
+        0.0,
+        0.0960841424376662
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_010",
+      "square_center_xy": [
+        0.08837554469444506,
+        0.18980440873604026
+      ],
+      "square_yaw_rad": 0.19246520823364888
+    },
+    {
+      "appearance_seed": 983587378,
+      "cube_position_m": [
+        0.08619775446895976,
+        0.2725302980028363,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9890987323096176,
+        0.0,
+        0.0,
+        -0.1472538547662075
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_011",
+      "square_center_xy": [
+        0.09231067449631905,
+        0.2735372332319687
+      ],
+      "square_yaw_rad": -0.29558256704644587
+    },
+    {
+      "appearance_seed": 881509796,
+      "cube_position_m": [
+        0.1627071107078962,
+        0.27672650592191683,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.999966752599569,
+        0.0,
+        0.0,
+        -0.008154366650600738
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_012",
+      "square_center_xy": [
+        0.1601771835658435,
+        0.2782058333446699
+      ],
+      "square_yaw_rad": -0.016308914044600706
+    },
+    {
+      "appearance_seed": 140936949,
+      "cube_position_m": [
+        0.028117102562717208,
+        0.14374811147239092,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9908534521848937,
+        0.0,
+        0.0,
+        -0.1349423443300084
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_013",
+      "square_center_xy": [
+        0.023705901415457697,
+        0.1374113774034638
+      ],
+      "square_yaw_rad": -0.27071054869534406
+    },
+    {
+      "appearance_seed": 421573261,
+      "cube_position_m": [
+        -0.12409430911548526,
+        0.16265049077961785,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9991895166241518,
+        0.0,
+        0.0,
+        0.04025307278201083
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_014",
+      "square_center_xy": [
+        -0.12695300842900803,
+        0.15444529609265062
+      ],
+      "square_yaw_rad": 0.0805279022484352
+    },
+    {
+      "appearance_seed": 1906468404,
+      "cube_position_m": [
+        -0.1052911987868934,
+        0.17873721900610168,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9383891306056796,
+        0.0,
+        0.0,
+        0.34558043862625776
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_015",
+      "square_center_xy": [
+        -0.110433982325984,
+        0.1791556524009258
+      ],
+      "square_yaw_rad": 0.7057145252047531
+    },
+    {
+      "appearance_seed": 1608933622,
+      "cube_position_m": [
+        0.08046313013751215,
+        0.23348532962744506,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9630529615733795,
+        0.0,
+        0.0,
+        -0.26931207400475554
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_016",
+      "square_center_xy": [
+        0.0794823702079119,
+        0.23665660128827704
+      ],
+      "square_yaw_rad": -0.5453572842421653
+    },
+    {
+      "appearance_seed": 2034941287,
+      "cube_position_m": [
+        0.1131282759550644,
+        0.21822820731861683,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9865055326778623,
+        0.0,
+        0.0,
+        0.16372792674423944
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_017",
+      "square_center_xy": [
+        0.11691546590819094,
+        0.21210433982710583
+      ],
+      "square_yaw_rad": 0.3289367978418732
+    },
+    {
+      "appearance_seed": 1034990346,
+      "cube_position_m": [
+        -0.09649271959452381,
+        0.2799921217951431,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9282629136688706,
+        0.0,
+        0.0,
+        0.37192467396904294
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_018",
+      "square_center_xy": [
+        -0.09940498826146467,
+        0.2838024132283341
+      ],
+      "square_yaw_rad": 0.7621631526950516
+    },
+    {
+      "appearance_seed": 457521114,
+      "cube_position_m": [
+        -0.16845912041428265,
+        0.26823007597232157,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9947725972554413,
+        0.0,
+        0.0,
+        0.1021150319476205
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_019",
+      "square_center_xy": [
+        -0.1621844997359286,
+        0.2649219005072201
+      ],
+      "square_yaw_rad": 0.20458667392998262
+    },
+    {
+      "appearance_seed": 153624987,
+      "cube_position_m": [
+        0.07559674090077009,
+        0.16387276722262334,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9921102890465416,
+        0.0,
+        0.0,
+        0.12536815531859574
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_020",
+      "square_center_xy": [
+        0.07937108562003922,
+        0.16440583203704892
+      ],
+      "square_yaw_rad": 0.25139781106647013
+    },
+    {
+      "appearance_seed": 491598962,
+      "cube_position_m": [
+        0.051608607932183824,
+        0.2934785260313057,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9821187058961164,
+        0.0,
+        0.0,
+        -0.18826270881121868
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_021",
+      "square_center_xy": [
+        0.043579917696893095,
+        0.29324024305432805
+      ],
+      "square_yaw_rad": -0.37878584759737216
+    },
+    {
+      "appearance_seed": 539097465,
+      "cube_position_m": [
+        -0.1098572516309637,
+        0.1944446138304816,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9983448813358958,
+        0.0,
+        0.0,
+        0.05751085037117867
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_022",
+      "square_center_xy": [
+        -0.10077439585313452,
+        0.19293766829426828
+      ],
+      "square_yaw_rad": 0.11508520097240453
+    },
+    {
+      "appearance_seed": 2114357220,
+      "cube_position_m": [
+        0.15858448263339572,
+        0.13976035869615355,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9529947153163782,
+        0.0,
+        0.0,
+        0.3029869181648858
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_023",
+      "square_center_xy": [
+        0.15714829978763098,
+        0.12893479832736368
+      ],
+      "square_yaw_rad": 0.6156506865967499
+    },
+    {
+      "appearance_seed": 1033054256,
+      "cube_position_m": [
+        0.02980854998054594,
+        0.18778395010005428,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9949830837134219,
+        0.0,
+        0.0,
+        0.10004330624349486
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_024",
+      "square_center_xy": [
+        0.03466270321582493,
+        0.19176116646069488
+      ],
+      "square_yaw_rad": 0.20042189133823804
+    },
+    {
+      "appearance_seed": 962793399,
+      "cube_position_m": [
+        0.044386411347576885,
+        0.2134683008541873,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9999999449751641,
+        0.0,
+        0.0,
+        0.00033173734919567164
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_025",
+      "square_center_xy": [
+        0.049954827412784925,
+        0.2136328273538789
+      ],
+      "square_yaw_rad": 0.0006634747105605391
+    },
+    {
+      "appearance_seed": 166051594,
+      "cube_position_m": [
+        0.08421140397808549,
+        0.24019783582438883,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9993739201665904,
+        0.0,
+        0.0,
+        -0.035380329151398236
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_026",
+      "square_center_xy": [
+        0.09229589931687524,
+        0.2310339180993261
+      ],
+      "square_yaw_rad": -0.07077542927570668
+    },
+    {
+      "appearance_seed": 910099224,
+      "cube_position_m": [
+        -0.05387258915045106,
+        0.2252142548112545,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.95281598353,
+        0.0,
+        0.0,
+        -0.3035485159406298
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_027",
+      "square_center_xy": [
+        -0.05169898523517377,
+        0.21337120783750738
+      ],
+      "square_yaw_rad": -0.6168293928760853
+    },
+    {
+      "appearance_seed": 1794155676,
+      "cube_position_m": [
+        0.14281147841695468,
+        0.20181673801202077,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.952424372986261,
+        0.0,
+        0.0,
+        -0.30477502151870556
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_028",
+      "square_center_xy": [
+        0.14821465026238165,
+        0.20856378183433977
+      ],
+      "square_yaw_rad": -0.6194044074236239
+    },
+    {
+      "appearance_seed": 290300220,
+      "cube_position_m": [
+        0.10642649341605545,
+        0.14155553431943763,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9907425091065919,
+        0.0,
+        0.0,
+        0.1357544866631476
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_029",
+      "square_center_xy": [
+        0.1138433679187267,
+        0.15124488614674972
+      ],
+      "square_yaw_rad": 0.2723499187859811
+    },
+    {
+      "appearance_seed": 347754580,
+      "cube_position_m": [
+        -0.04227877547661077,
+        0.1609472700823918,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9632992008749912,
+        0.0,
+        0.0,
+        0.26842997148903364
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_030",
+      "square_center_xy": [
+        -0.029353819481563043,
+        0.15835299380618584
+      ],
+      "square_yaw_rad": 0.5435256306717272
+    },
+    {
+      "appearance_seed": 1900895036,
+      "cube_position_m": [
+        -0.05804498357763583,
+        0.25516164687515497,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9707812298440565,
+        0.0,
+        0.0,
+        -0.23996625550785497
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_031",
+      "square_center_xy": [
+        -0.056715672484959526,
+        0.24866540172417506
+      ],
+      "square_yaw_rad": -0.48466218149782586
+    },
+    {
+      "appearance_seed": 809023256,
+      "cube_position_m": [
+        -0.10691142837942579,
+        0.2409675792872693,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9556122954465546,
+        0.0,
+        0.0,
+        -0.2946271216153851
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_032",
+      "square_center_xy": [
+        -0.1027088019527839,
+        0.23062895895548152
+      ],
+      "square_yaw_rad": -0.5981305935812767
+    },
+    {
+      "appearance_seed": 1032936967,
+      "cube_position_m": [
+        -0.15132948278623304,
+        0.2213629502224352,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9952312306148857,
+        0.0,
+        0.0,
+        -0.097543824042223
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_033",
+      "square_center_xy": [
+        -0.16091573272471696,
+        0.21564309425719824
+      ],
+      "square_yaw_rad": -0.19539835016646367
+    },
+    {
+      "appearance_seed": 1158652975,
+      "cube_position_m": [
+        0.1043245400613494,
+        0.28139788634137913,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9383542618836264,
+        0.0,
+        0.0,
+        0.34567510642919425
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_034",
+      "square_center_xy": [
+        0.09560249583018224,
+        0.28557508003083676
+      ],
+      "square_yaw_rad": 0.7059162955762062
+    },
+    {
+      "appearance_seed": 1171893019,
+      "cube_position_m": [
+        0.017180001640378716,
+        0.16555169732807076,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9508159598545545,
+        0.0,
+        0.0,
+        -0.30975637279297796
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_035",
+      "square_center_xy": [
+        0.016253152825469935,
+        0.16208286089807683
+      ],
+      "square_yaw_rad": -0.6298735842560975
+    },
+    {
+      "appearance_seed": 1708003901,
+      "cube_position_m": [
+        -0.08325986947733317,
+        0.20328963942868444,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9856761184545906,
+        0.0,
+        0.0,
+        -0.16864930924344754
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_036",
+      "square_center_xy": [
+        -0.08624466945827489,
+        0.20215939472417047
+      ],
+      "square_yaw_rad": -0.338918377948826
+    },
+    {
+      "appearance_seed": 2124038359,
+      "cube_position_m": [
+        0.09544338287426653,
+        0.2390241381857961,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9618615064488955,
+        0.0,
+        0.0,
+        0.2735369123388313
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_037",
+      "square_center_xy": [
+        0.10202142406555545,
+        0.23508876831585276
+      ],
+      "square_yaw_rad": 0.5541365450774401
+    },
+    {
+      "appearance_seed": 949193598,
+      "cube_position_m": [
+        0.14944407796843032,
+        0.24849598838669382,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9946848208136548,
+        0.0,
+        0.0,
+        0.10296653457753831
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_038",
+      "square_center_xy": [
+        0.1468686379274388,
+        0.24606913510710554
+      ],
+      "square_yaw_rad": 0.20629870369284842
+    },
+    {
+      "appearance_seed": 1830886091,
+      "cube_position_m": [
+        0.1341252299969362,
+        0.1975505067731906,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9854996229409858,
+        0.0,
+        0.0,
+        0.16967761544521653
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_039",
+      "square_center_xy": [
+        0.13383545371158836,
+        0.20753300476574219
+      ],
+      "square_yaw_rad": 0.3410050637514008
+    },
+    {
+      "appearance_seed": 962715505,
+      "cube_position_m": [
+        0.017765965790426247,
+        0.290274018954671,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9947326564751765,
+        0.0,
+        0.0,
+        0.10250337624604658
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_040",
+      "square_center_xy": [
+        0.011328760760489803,
+        0.2807040193159917
+      ],
+      "square_yaw_rad": 0.20536745959067024
+    },
+    {
+      "appearance_seed": 1613370997,
+      "cube_position_m": [
+        0.16591125658434785,
+        0.13415235581435042,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9814305342177936,
+        0.0,
+        0.0,
+        0.1918178993341766
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_041",
+      "square_center_xy": [
+        0.1660079545565211,
+        0.13130415785163585
+      ],
+      "square_yaw_rad": 0.3860282157853459
+    },
+    {
+      "appearance_seed": 1527743403,
+      "cube_position_m": [
+        0.0062409185933309744,
+        0.29204995625227026,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9668347948633702,
+        0.0,
+        0.0,
+        0.2554025830752398
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_042",
+      "square_center_xy": [
+        -0.0036893018904403108,
+        0.2978024743359243
+      ],
+      "square_yaw_rad": 0.516528146299426
+    },
+    {
+      "appearance_seed": 943682584,
+      "cube_position_m": [
+        -0.04743887018172215,
+        0.15797156357569167,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9844585472801602,
+        0.0,
+        0.0,
+        -0.17561710818435772
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_043",
+      "square_center_xy": [
+        -0.056085340146652576,
+        0.1618212508504609
+      ],
+      "square_yaw_rad": -0.353065167019577
+    },
+    {
+      "appearance_seed": 182740933,
+      "cube_position_m": [
+        -0.039368914912410936,
+        0.298732633496236,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9938706080286288,
+        0.0,
+        0.0,
+        -0.11054960197487666
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_044",
+      "square_center_xy": [
+        -0.038360749935615945,
+        0.29261056221217413
+      ],
+      "square_yaw_rad": -0.221552048972221
+    },
+    {
+      "appearance_seed": 1711767074,
+      "cube_position_m": [
+        0.17358058939348164,
+        0.19287430348810308,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9462660399153079,
+        0.0,
+        0.0,
+        0.3233892108636294
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_045",
+      "square_center_xy": [
+        0.17047209595351218,
+        0.192716492417581
+      ],
+      "square_yaw_rad": 0.6586179472417034
+    },
+    {
+      "appearance_seed": 298783850,
+      "cube_position_m": [
+        0.0207538651276788,
+        0.298014277173725,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9999367210859471,
+        0.0,
+        0.0,
+        -0.011249614388273538
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_046",
+      "square_center_xy": [
+        0.02034815301635262,
+        0.29486223777336973
+      ],
+      "square_yaw_rad": -0.022499703364147656
+    },
+    {
+      "appearance_seed": 1804502209,
+      "cube_position_m": [
+        -0.08239399950443524,
+        0.22136042395939348,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9681177336903252,
+        0.0,
+        0.0,
+        0.25049561615786553
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_047",
+      "square_center_xy": [
+        -0.08662518896025397,
+        0.20882606474831658
+      ],
+      "square_yaw_rad": 0.5063843183223982
+    },
+    {
+      "appearance_seed": 1547420038,
+      "cube_position_m": [
+        0.05809414850442075,
+        0.23596077447476718,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9532151061709071,
+        0.0,
+        0.0,
+        0.3022928404173448
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_048",
+      "square_center_xy": [
+        0.07063417451793058,
+        0.23339381471914522
+      ],
+      "square_yaw_rad": 0.6141942305255581
+    },
+    {
+      "appearance_seed": 2035723582,
+      "cube_position_m": [
+        -0.0695229701272434,
+        0.23986760005203525,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9689034622348828,
+        0.0,
+        0.0,
+        -0.2474390447549801
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_049",
+      "square_center_xy": [
+        -0.07967425715628058,
+        0.23568869085750405
+      ],
+      "square_yaw_rad": -0.5000724227739983
+    },
+    {
+      "appearance_seed": 1481362328,
+      "cube_position_m": [
+        0.18277736990783122,
+        0.20399741359444387,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9833372991810481,
+        0.0,
+        0.0,
+        0.1817904178974295
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_050",
+      "square_center_xy": [
+        0.1773008071887672,
+        0.19932297446241942
+      ],
+      "square_yaw_rad": 0.3656138050748154
+    },
+    {
+      "appearance_seed": 1666578829,
+      "cube_position_m": [
+        -0.15955902314520812,
+        0.2799878378819669,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9291392071036702,
+        0.0,
+        0.0,
+        -0.3697300823881702
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_051",
+      "square_center_xy": [
+        -0.15103216361754115,
+        0.2815840609432425
+      ],
+      "square_yaw_rad": -0.7574370020460572
+    },
+    {
+      "appearance_seed": 106399747,
+      "cube_position_m": [
+        -0.022583621757631567,
+        0.2708322120799693,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9600234321501011,
+        0.0,
+        0.0,
+        -0.279919648690013
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_052",
+      "square_center_xy": [
+        -0.0330251915429593,
+        0.2690315773993446
+      ],
+      "square_yaw_rad": -0.5674208218972286
+    },
+    {
+      "appearance_seed": 1739306813,
+      "cube_position_m": [
+        0.12069002538433561,
+        0.26527833746207724,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9974819943603647,
+        0.0,
+        0.0,
+        0.0709201729190605
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_053",
+      "square_center_xy": [
+        0.11585810862157117,
+        0.26582388611522095
+      ],
+      "square_yaw_rad": 0.1419595174736183
+    },
+    {
+      "appearance_seed": 1388166756,
+      "cube_position_m": [
+        0.02105220893277288,
+        0.24228830223733894,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9398716889253995,
+        0.0,
+        0.0,
+        -0.3415277563486124
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_054",
+      "square_center_xy": [
+        0.012326128687030036,
+        0.23740741497393972
+      ],
+      "square_yaw_rad": -0.6970838261105002
+    },
+    {
+      "appearance_seed": 749730683,
+      "cube_position_m": [
+        -0.10036310359856221,
+        0.1750921198362663,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9752294422145692,
+        0.0,
+        0.0,
+        -0.22119569398580127
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_055",
+      "square_center_xy": [
+        -0.09412167621196604,
+        0.16714190273800122
+      ],
+      "square_yaw_rad": -0.44608072931179693
+    },
+    {
+      "appearance_seed": 1917710404,
+      "cube_position_m": [
+        0.09272768259826586,
+        0.21558801823436166,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9992516989174146,
+        0.0,
+        0.0,
+        -0.03867870487310215
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_056",
+      "square_center_xy": [
+        0.09974153722928128,
+        0.21964228076358977
+      ],
+      "square_yaw_rad": -0.07737671106809423
+    },
+    {
+      "appearance_seed": 809273115,
+      "cube_position_m": [
+        -0.1383158913567939,
+        0.1558398006675619,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9794884052046435,
+        0.0,
+        0.0,
+        0.20150053118953337
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_057",
+      "square_center_xy": [
+        -0.1463312647516508,
+        0.1549996003516243
+      ],
+      "square_yaw_rad": 0.40577926814797727
+    },
+    {
+      "appearance_seed": 102051122,
+      "cube_position_m": [
+        -0.044570532155349236,
+        0.22146786214653058,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9773734931696147,
+        0.0,
+        0.0,
+        -0.21152081422267885
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_058",
+      "square_center_xy": [
+        -0.051614009821057294,
+        0.22510141206375084
+      ],
+      "square_yaw_rad": -0.4262614400665487
+    },
+    {
+      "appearance_seed": 338148244,
+      "cube_position_m": [
+        -0.08291431879172433,
+        0.2751236093103965,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9450709214279739,
+        0.0,
+        0.0,
+        -0.326865344555339
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_059",
+      "square_center_xy": [
+        -0.07888782581507911,
+        0.26407826767295395
+      ],
+      "square_yaw_rad": -0.6659696351718393
+    },
+    {
+      "appearance_seed": 1883673481,
+      "cube_position_m": [
+        -0.11908407582290399,
+        0.14915108308100034,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9514903737676516,
+        0.0,
+        0.0,
+        -0.3076785150566981
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_060",
+      "square_center_xy": [
+        -0.11371874288529486,
+        0.14429007759555496
+      ],
+      "square_yaw_rad": -0.6255044521700541
+    },
+    {
+      "appearance_seed": 2042855397,
+      "cube_position_m": [
+        0.03591219868698727,
+        0.25634184119442827,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9739381018092081,
+        0.0,
+        0.0,
+        -0.2268139630716694
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_061",
+      "square_center_xy": [
+        0.027654998773871453,
+        0.25597303217345213
+      ],
+      "square_yaw_rad": -0.45761027389906384
+    },
+    {
+      "appearance_seed": 751353882,
+      "cube_position_m": [
+        0.05917299672977059,
+        0.19608653860089423,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9652504112692897,
+        0.0,
+        0.0,
+        0.26132669887416227
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_062",
+      "square_center_xy": [
+        0.053889082400259275,
+        0.20107620715475608
+      ],
+      "square_yaw_rad": 0.5287928170606202
+    },
+    {
+      "appearance_seed": 1809647345,
+      "cube_position_m": [
+        -0.12055514823478748,
+        0.13277792453105977,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9733766735098207,
+        0.0,
+        0.0,
+        0.2292113685377668
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_063",
+      "square_center_xy": [
+        -0.12680270211292338,
+        0.13519336856995834
+      ],
+      "square_yaw_rad": 0.46253480748806985
+    },
+    {
+      "appearance_seed": 1491935355,
+      "cube_position_m": [
+        -0.13282326515292833,
+        0.28291510734181446,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.938567579482998,
+        0.0,
+        0.0,
+        -0.34509549220965824
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_064",
+      "square_center_xy": [
+        -0.132327380871738,
+        0.28869150352536566
+      ],
+      "square_yaw_rad": -0.7046810513836421
+    },
+    {
+      "appearance_seed": 773025823,
+      "cube_position_m": [
+        0.1570090120021749,
+        0.21041726150469559,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9593145899976029,
+        0.0,
+        0.0,
+        0.28233936568911366
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_065",
+      "square_center_xy": [
+        0.15193091679959633,
+        0.2104502218322311
+      ],
+      "square_yaw_rad": 0.572463634969725
+    },
+    {
+      "appearance_seed": 102782211,
+      "cube_position_m": [
+        0.09442062040857546,
+        0.18677056683884743,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9874445783265217,
+        0.0,
+        0.0,
+        -0.15796583407040227
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_066",
+      "square_center_xy": [
+        0.08944912528571533,
+        0.1913440175815363
+      ],
+      "square_yaw_rad": -0.3172605629145036
+    },
+    {
+      "appearance_seed": 321486631,
+      "cube_position_m": [
+        0.15115510976485388,
+        0.19569111553747479,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9858320444183483,
+        0.0,
+        0.0,
+        -0.16773544705261245
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_067",
+      "square_center_xy": [
+        0.14864484292284366,
+        0.19873819754586963
+      ],
+      "square_yaw_rad": -0.3370642397969428
+    },
+    {
+      "appearance_seed": 1933203654,
+      "cube_position_m": [
+        0.14283723810141785,
+        0.1357184485895614,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9593202543543703,
+        0.0,
+        0.0,
+        0.28232011898812
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_068",
+      "square_center_xy": [
+        0.14477681649725313,
+        0.14859181859594467
+      ],
+      "square_yaw_rad": 0.5724235091457837
+    },
+    {
+      "appearance_seed": 769207464,
+      "cube_position_m": [
+        0.11335861242302563,
+        0.2950319310861916,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9997829744045059,
+        0.0,
+        0.0,
+        -0.020832764840005194
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_069",
+      "square_center_xy": [
+        0.11311308194842926,
+        0.2891478207854358
+      ],
+      "square_yaw_rad": -0.041668544103824985
+    },
+    {
+      "appearance_seed": 1375461610,
+      "cube_position_m": [
+        0.09941543502989486,
+        0.20514844921991338,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9816627213558033,
+        0.0,
+        0.0,
+        -0.19062607770270698
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_070",
+      "square_center_xy": [
+        0.09780128255035461,
+        0.19979662484122757
+      ],
+      "square_yaw_rad": -0.38359975960955167
+    },
+    {
+      "appearance_seed": 173107157,
+      "cube_position_m": [
+        0.056727433451342714,
+        0.1947649752926966,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9977744784318188,
+        0.0,
+        0.0,
+        -0.06667900861674576
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_071",
+      "square_center_xy": [
+        0.052181474342179374,
+        0.20026264806489696
+      ],
+      "square_yaw_rad": -0.13345703576746737
+    },
+    {
+      "appearance_seed": 1097677133,
+      "cube_position_m": [
+        -0.07511403635642505,
+        0.256455236174308,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9482486272876335,
+        0.0,
+        0.0,
+        0.31752880317715876
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_072",
+      "square_center_xy": [
+        -0.07789560528487198,
+        0.2472759604326929
+      ],
+      "square_yaw_rad": 0.6462445640305244
+    },
+    {
+      "appearance_seed": 1915125419,
+      "cube_position_m": [
+        -0.05587077513781013,
+        0.13729886540150327,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9981473253549221,
+        0.0,
+        0.0,
+        0.06084337997527161
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_073",
+      "square_center_xy": [
+        -0.05276114102932858,
+        0.13298443677369332
+      ],
+      "square_yaw_rad": 0.12176196434347089
+    },
+    {
+      "appearance_seed": 1339258680,
+      "cube_position_m": [
+        -0.02967737852794138,
+        0.21253282110829172,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9435067846783904,
+        0.0,
+        0.0,
+        0.3313532062102996
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_074",
+      "square_center_xy": [
+        -0.03465994526077784,
+        0.21685453214467945
+      ],
+      "square_yaw_rad": 0.6754748902492321
+    },
+    {
+      "appearance_seed": 443790094,
+      "cube_position_m": [
+        0.02140153061756941,
+        0.14631249614295427,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9408003525535897,
+        0.0,
+        0.0,
+        0.3389612022563073
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_075",
+      "square_center_xy": [
+        0.011473260479902547,
+        0.14403780568914415
+      ],
+      "square_yaw_rad": 0.6916250274632566
+    },
+    {
+      "appearance_seed": 1212710737,
+      "cube_position_m": [
+        0.0849096758648247,
+        0.21519210464158617,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9566020684910699,
+        0.0,
+        0.0,
+        0.29139746491451585
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_076",
+      "square_center_xy": [
+        0.0868944982789395,
+        0.2059336134797372
+      ],
+      "square_yaw_rad": 0.5913747534603807
+    },
+    {
+      "appearance_seed": 1320031248,
+      "cube_position_m": [
+        -0.011288456077576293,
+        0.25512763107675085,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9589775983260436,
+        0.0,
+        0.0,
+        0.2834818616927957
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_077",
+      "square_center_xy": [
+        -0.009227341271643263,
+        0.2536928691360905
+      ],
+      "square_yaw_rad": 0.5748459537333614
+    },
+    {
+      "appearance_seed": 1899003990,
+      "cube_position_m": [
+        -0.13751557632847794,
+        0.22659839550700078,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9809939265456844,
+        0.0,
+        0.0,
+        0.19403843969811826
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_078",
+      "square_center_xy": [
+        -0.144917743070634,
+        0.2271127049169786
+      ],
+      "square_yaw_rad": 0.39055433021297165
+    },
+    {
+      "appearance_seed": 1542781642,
+      "cube_position_m": [
+        -0.008225220035052999,
+        0.20810556863705623,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9597444153976961,
+        0.0,
+        0.0,
+        -0.280874806832038
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_079",
+      "square_center_xy": [
+        -0.013680890665008466,
+        0.21465756831662303
+      ],
+      "square_yaw_rad": -0.5694109751637924
+    },
+    {
+      "appearance_seed": 201694818,
+      "cube_position_m": [
+        -0.07023286713375494,
+        0.24850467637326878,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9515059277375999,
+        0.0,
+        0.0,
+        0.3076304105256977
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_080",
+      "square_center_xy": [
+        -0.06323343712080737,
+        0.24594287001872234
+      ],
+      "square_yaw_rad": 0.6254033389288941
+    },
+    {
+      "appearance_seed": 931597955,
+      "cube_position_m": [
+        0.09074387744837283,
+        0.1349344790262744,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9643698252489136,
+        0.0,
+        0.0,
+        -0.2645578200495684
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_081",
+      "square_center_xy": [
+        0.09296575405583388,
+        0.14297060229663297
+      ],
+      "square_yaw_rad": -0.5354907529432288
+    },
+    {
+      "appearance_seed": 1667301063,
+      "cube_position_m": [
+        0.013179518264482208,
+        0.289366352644937,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9354190229092365,
+        0.0,
+        0.0,
+        -0.3535410182419138
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_082",
+      "square_center_xy": [
+        0.01797554299489182,
+        0.2827050952669676
+      ],
+      "square_yaw_rad": -0.722707794679618
+    },
+    {
+      "appearance_seed": 1318429845,
+      "cube_position_m": [
+        0.11666434704396883,
+        0.20945863115240188,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9873573119223723,
+        0.0,
+        0.0,
+        0.15851037377227803
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_083",
+      "square_center_xy": [
+        0.10454412115224768,
+        0.21564155528169274
+      ],
+      "square_yaw_rad": 0.31836353874365036
+    },
+    {
+      "appearance_seed": 19551085,
+      "cube_position_m": [
+        -0.0793172636644671,
+        0.26316813965796526,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9991919185722016,
+        0.0,
+        0.0,
+        0.040193405678082036
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_084",
+      "square_center_xy": [
+        -0.08746693257975521,
+        0.26777704690928034
+      ],
+      "square_yaw_rad": 0.08040847138731894
+    },
+    {
+      "appearance_seed": 1942219862,
+      "cube_position_m": [
+        0.09120407689811978,
+        0.1463433659178899,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9943828855630287,
+        0.0,
+        0.0,
+        0.10584269884760375
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_085",
+      "square_center_xy": [
+        0.0984347587442477,
+        0.15785817375934197
+      ],
+      "square_yaw_rad": 0.2120826440912168
+    },
+    {
+      "appearance_seed": 448657820,
+      "cube_position_m": [
+        0.03587364820313877,
+        0.23505713395575353,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9678307042729207,
+        0.0,
+        0.0,
+        0.251602320868831
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_086",
+      "square_center_xy": [
+        0.03379906555936277,
+        0.2362632077860357
+      ],
+      "square_yaw_rad": 0.5086709589553987
+    },
+    {
+      "appearance_seed": 2114653904,
+      "cube_position_m": [
+        0.12455141562498818,
+        0.2722307289643464,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9903442372457,
+        0.0,
+        0.0,
+        -0.13863005357509176
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_087",
+      "square_center_xy": [
+        0.1264738524301431,
+        0.2656328438019653
+      ],
+      "square_yaw_rad": -0.27815595407999155
+    },
+    {
+      "appearance_seed": 1399105912,
+      "cube_position_m": [
+        -0.16926236691743202,
+        0.13236490470475107,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9999946472222195,
+        0.0,
+        0.0,
+        -0.0032719301503227934
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_088",
+      "square_center_xy": [
+        -0.16574050093680387,
+        0.1362260746748589
+      ],
+      "square_yaw_rad": -0.006543871976613925
+    },
+    {
+      "appearance_seed": 1406064984,
+      "cube_position_m": [
+        0.06501547714536655,
+        0.2992834182699047,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9872356051488178,
+        0.0,
+        0.0,
+        0.1592666315536546
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_089",
+      "square_center_xy": [
+        0.05941175460133996,
+        0.30139383602399855
+      ],
+      "square_yaw_rad": 0.3198955157660761
+    },
+    {
+      "appearance_seed": 140807823,
+      "cube_position_m": [
+        0.028697282683425442,
+        0.18551402016702756,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9431390894699744,
+        0.0,
+        0.0,
+        0.3323983422247283
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_090",
+      "square_center_xy": [
+        0.026796163091982877,
+        0.18998225554134823
+      ],
+      "square_yaw_rad": 0.6776907505160475
+    },
+    {
+      "appearance_seed": 1789442268,
+      "cube_position_m": [
+        0.04552833959656685,
+        0.21427936030129655,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9362311784256332,
+        0.0,
+        0.0,
+        0.35138466179352534
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_091",
+      "square_center_xy": [
+        0.04355920436196101,
+        0.22027460933147783
+      ],
+      "square_yaw_rad": 0.7180993363410725
+    },
+    {
+      "appearance_seed": 331130994,
+      "cube_position_m": [
+        -0.01177136748907729,
+        0.1946891725516825,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9598132000378361,
+        0.0,
+        0.0,
+        0.28063966404114876
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_092",
+      "square_center_xy": [
+        -0.011581818584044973,
+        0.201164668713678
+      ],
+      "square_yaw_rad": 0.5689209814531119
+    },
+    {
+      "appearance_seed": 563180286,
+      "cube_position_m": [
+        0.15223442004650273,
+        0.26289289613877975,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9869640973916033,
+        0.0,
+        0.0,
+        0.16094058052578838
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_093",
+      "square_center_xy": [
+        0.1525177668083467,
+        0.273210600082649
+      ],
+      "square_yaw_rad": 0.3232871656965563
+    },
+    {
+      "appearance_seed": 894432220,
+      "cube_position_m": [
+        -0.11416230171750442,
+        0.22552195994760835,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9999685624659943,
+        0.0,
+        0.0,
+        -0.00792931773185768
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_094",
+      "square_center_xy": [
+        -0.10767261140106335,
+        0.22194342756417812
+      ],
+      "square_yaw_rad": -0.015858801651269065
+    },
+    {
+      "appearance_seed": 800427784,
+      "cube_position_m": [
+        0.12974133986114514,
+        0.1719950862328069,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9631969086008131,
+        0.0,
+        0.0,
+        0.2687967917625448
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_095",
+      "square_center_xy": [
+        0.11943117335734324,
+        0.17030383314835618
+      ],
+      "square_yaw_rad": 0.5442872626672944
+    },
+    {
+      "appearance_seed": 1058968380,
+      "cube_position_m": [
+        0.04426459761267408,
+        0.22372244899005392,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9478952803390641,
+        0.0,
+        0.0,
+        0.3185820734299517
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_096",
+      "square_center_xy": [
+        0.04150965131242493,
+        0.2341044654968098
+      ],
+      "square_yaw_rad": 0.6484664842977041
+    },
+    {
+      "appearance_seed": 1692212126,
+      "cube_position_m": [
+        -0.14852686681872926,
+        0.15255469109487194,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9507221360642562,
+        0.0,
+        0.0,
+        -0.31004422264802484
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_097",
+      "square_center_xy": [
+        -0.1556615492590555,
+        0.15086169527342558
+      ],
+      "square_yaw_rad": -0.6304790937717175
+    },
+    {
+      "appearance_seed": 164325025,
+      "cube_position_m": [
+        -0.04294567269331596,
+        0.30379516414968455,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9944987278538995,
+        0.0,
+        0.0,
+        -0.10474865296019649
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_098",
+      "square_center_xy": [
+        -0.04417736090285196,
+        0.29499230884655225
+      ],
+      "square_yaw_rad": -0.2098823205130247
+    },
+    {
+      "appearance_seed": 1336096202,
+      "cube_position_m": [
+        -0.11560233690168292,
+        0.13028620078786343,
+        0.011
+      ],
+      "cube_quaternion_wxyz": [
+        0.9894795307133807,
+        0.0,
+        0.0,
+        0.1446729356141915
+      ],
+      "fixed_appearance": false,
+      "robot_qpos_mujoco": [
+        -2.6332525493444336e-08,
+        -1.523242712020874,
+        1.3100194931030273,
+        1.0737862586975098,
+        -1.6233657598495483,
+        0.08529800176620483
+      ],
+      "scenario_id": "pose_099",
+      "square_center_xy": [
+        -0.11310830791044313,
+        0.13282806099177583
+      ],
+      "square_yaw_rad": 0.29036484533908635
+    }
+  ],
+  "schema_version": 1,
+  "suite_id": "bench_pick_replace_v1_seed31_n100_appearance_placement_e16f57e9ef76",
+  "task_contract": "bench_pick_replace_v1"
+}

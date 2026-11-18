@@ -1,0 +1,171 @@
+{
+ "base_act__so101:drop_cube": [
+  "absent"
+ ],
+ "base_act__so101:move_square": [
+  "absent"
+ ],
+ "base_act__so101:shift_placement": [
+  "absent",
+  "partial"
+ ],
+ "base_act__so101:swap_elbow": [
+  "absent"
+ ],
+ "base_act__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "base_act__so101_servo:move_square": [
+  "absent"
+ ],
+ "base_act_exec30__so101:drop_cube": [
+  "absent"
+ ],
+ "base_act_exec30__so101:move_square": [
+  "absent"
+ ],
+ "base_act_exec30__so101:shift_placement": [
+  "partial",
+  "present"
+ ],
+ "base_act_exec30__so101:swap_elbow": [
+  "absent"
+ ],
+ "base_act_exec30__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "base_act_exec30__so101_servo:move_square": [
+  "absent"
+ ],
+ "base_cnn__so101:drop_cube": [
+  "absent"
+ ],
+ "base_cnn__so101:move_square": [
+  "absent"
+ ],
+ "base_cnn__so101:shift_placement": [
+  "absent"
+ ],
+ "base_cnn__so101:swap_elbow": [
+  "absent",
+  "partial"
+ ],
+ "base_cnn__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "base_cnn__so101_servo:move_square": [
+  "absent"
+ ],
+ "fair_cnn__so101_servo_lift100:drop_cube": [
+  "absent"
+ ],
+ "fair_cnn__so101_servo_lift100:move_square": [
+  "absent"
+ ],
+ "fair_cnn__so101_servo_lift100:shift_placement": [
+  "absent"
+ ],
+ "fair_cnn_exec30__so101_servo_lift100:drop_cube": [
+  "absent"
+ ],
+ "fair_cnn_exec30__so101_servo_lift100:move_square": [
+  "absent"
+ ],
+ "lift_act__so101_servo_lift100:drop_cube": [
+  "absent"
+ ],
+ "lift_act__so101_servo_lift100:move_square": [
+  "absent"
+ ],
+ "lift_act_exec30__so101_servo_lift100:drop_cube": [
+  "absent"
+ ],
+ "lift_act_exec30__so101_servo_lift100:move_square": [
+  "absent"
+ ],
+ "pert_act__so101:drop_cube": [
+  "absent"
+ ],
+ "pert_act__so101:move_square": [
+  "absent"
+ ],
+ "pert_act__so101:shift_placement": [
+  "present"
+ ],
+ "pert_act_exec30__so101:drop_cube": [
+  "absent"
+ ],
+ "pert_act_exec30__so101:move_square": [
+  "absent"
+ ],
+ "pert_act_exec30__so101:shift_placement": [
+  "partial",
+  "present"
+ ],
+ "pert_cnn__so101:drop_cube": [
+  "absent"
+ ],
+ "pert_cnn__so101:move_square": [
+  "absent"
+ ],
+ "pert_cnn__so101:shift_placement": [
+  "present"
+ ],
+ "physv2_act__so101:drop_cube": [
+  "absent"
+ ],
+ "physv2_act__so101:move_square": [
+  "absent"
+ ],
+ "physv2_act__so101:swap_elbow": [
+  "present"
+ ],
+ "physv2_act__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "physv2_act__so101_servo:move_square": [
+  "absent"
+ ],
+ "physv2_act__so101_servo:swap_elbow": [
+  "present"
+ ],
+ "physv2_act_exec30__so101:drop_cube": [
+  "absent"
+ ],
+ "physv2_act_exec30__so101:move_square": [
+  "absent"
+ ],
+ "physv2_act_exec30__so101:swap_elbow": [
+  "present"
+ ],
+ "physv2_act_exec30__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "physv2_act_exec30__so101_servo:move_square": [
+  "absent"
+ ],
+ "physv2_act_exec30__so101_servo:swap_elbow": [
+  "present"
+ ],
+ "physv2_cnn__so101:drop_cube": [
+  "absent"
+ ],
+ "physv2_cnn__so101:move_square": [
+  "absent"
+ ],
+ "physv2_cnn__so101:shift_placement": [
+  "absent"
+ ],
+ "physv2_cnn__so101:swap_elbow": [
+  "present"
+ ],
+ "physv2_cnn__so101_servo:drop_cube": [
+  "absent"
+ ],
+ "physv2_cnn__so101_servo:move_square": [
+  "absent"
+ ],
+ "physv2_cnn__so101_servo:swap_elbow": [
+  "present"
+ ]
+}
