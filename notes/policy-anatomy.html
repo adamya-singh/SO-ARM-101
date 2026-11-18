@@ -72,6 +72,16 @@ details.layers ol b { color: var(--ink); }
 .why2 div { min-width: 0; }
 .why2 h4 { margin: 0 0 4px; font-size: 13px; }
 .why2 p { margin: 0; font-size: 13px; color: #c7cbda; }
+.lbl.pick { pointer-events: auto; cursor: pointer; }
+.lbl.pick:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+#stage:focus-visible { outline: 2px solid var(--cnn); outline-offset: -2px; }
+#info { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 34px; width: min(360px, calc(100% - 24px)); background: rgba(13,15,23,.95); border: 1px solid var(--rule); border-top: 2px solid var(--c, var(--ink)); border-radius: 10px; padding: 12px 14px 14px; backdrop-filter: blur(8px); }
+#info .i-title { font-weight: 800; font-size: 16px; color: var(--c, var(--ink)); padding-right: 28px; }
+#info .i-sub { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+#info .i-why { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #d6d9e6; }
+#i-close { position: absolute; top: 6px; right: 8px; background: none; border: 0; color: var(--dim); font-size: 20px; cursor: pointer; line-height: 1; padding: 4px 6px; }
+#i-close:focus-visible { outline: 2px solid var(--cnn); }
+.hint { max-width: calc(100% - 24px); text-align: right; }
 .src { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 .src a { color: var(--dim); }
 </style>
@@ -83,19 +93,24 @@ details.layers ol b { color: var(--ink); }
 </header>
 
 <div class="stage-shell">
-  <div id="stage" aria-label="3D diagram of three neural network architectures">
+  <div id="stage" tabindex="0" aria-label="3D diagram of three neural network architectures">
     <div id="labels"></div>
     <div id="tip" hidden></div>
+    <aside id="info" hidden aria-live="polite">
+      <button type="button" id="i-close" aria-label="Close">×</button>
+      <div class="i-title"></div><div class="i-sub"></div><p class="i-why"></p>
+    </aside>
   </div>
   <div class="controls">
     <button type="button" id="v-all" aria-pressed="true">All three</button>
     <button type="button" id="v-ball" aria-pressed="false"><span class="dot" style="background:var(--ball)"></span>Their balancer</button>
     <button type="button" id="v-cnn" aria-pressed="false"><span class="dot" style="background:var(--cnn)"></span>Our CNN</button>
     <button type="button" id="v-act" aria-pressed="false"><span class="dot" style="background:var(--act)"></span>Our ACT</button>
-    <button type="button" id="v-spin" aria-pressed="true">Orbit</button>
+    <button type="button" id="v-spin" aria-pressed="true">Auto-rotate</button>
+    <button type="button" id="v-pan" aria-pressed="false">Drag: orbit</button>
     <div class="clock" id="clock">looks per second · 30 · 0.33 · 1</div>
   </div>
-  <div class="hint">tap or hover a block for why it is there · slow motion ×4</div>
+  <div class="hint">click a block or its label for why · drag orbits · right-drag, shift-drag or two fingers pans · arrows/WASD pan · double-click to zoom in · slow motion ×4</div>
 </div>
 
 <section class="sheet wrap">
@@ -249,7 +264,10 @@ details.layers ol b { color: var(--ink); }
     halo.scale.setScalar(1.04);
     grp.add(halo);
     grp.position.set(x, y, z);
-    grp.userData = { fill, base: opts.fill ?? 0.1 };
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(Math.max(sx, 0.9), Math.max(sy, 0.9), Math.max(sz, 0.9)), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.userData.grp = grp;
+    grp.add(hit);
+    grp.userData = { fill, hit, edges, base: opts.fill ?? 0.1 };
     scene.add(grp);
     return grp;
   }
@@ -266,6 +284,13 @@ details.layers ol b { color: var(--ink); }
 
   const laneObjs = {};
   const pickables = [];
+  let selectHit = () => {};
+  function clickableLabel(hit) {
+    const el = labels[labels.length - 1].el;
+    el.classList.add('pick');
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    el.addEventListener('click', e => { e.stopPropagation(); selectHit(hit); });
+  }
   lanes.forEach(lane => {
     const color = C[lane.key];
     let x = 0;
@@ -280,13 +305,14 @@ details.layers ol b { color: var(--ink); }
       if (b.out) opts.fill = 0.45;
       const cx = x + sx / 2;
       const grp = boxAt(cx, sy / 2 + 0.05, lane.z, sx, sy, sz, color, opts);
-      grp.userData.fill.userData.why = { title: b.label, sub: b.sub, why: b.why, lane: lane.key };
-      pickables.push(grp.userData.fill);
+      grp.userData.hit.userData.why = { title: b.label, sub: b.sub, why: b.why, lane: lane.key };
+      pickables.push(grp.userData.hit);
       if (b.map && b.map[2] >= 8) slices(grp, sx, sy, sz, color, Math.min(10, Math.round(Math.log2(b.map[2]))));
       if (b.tokens) slices(grp, sx, sy, sz, color, 1);
       groups.push(grp);
       centers.push(new THREE.Vector3(cx, sy / 2 + 0.05, lane.z));
       addLabel(new THREE.Vector3(cx, sy + 0.25, lane.z), `${b.label}<small>${b.sub}</small>`, '', lane.key);
+      clickableLabel(grp.userData.hit);
       x += sx + 0.95;
     });
     // connectors
@@ -298,9 +324,10 @@ details.layers ol b { color: var(--ink); }
     if (lane.key === 'act') {
       const enc = centers[4];
       const g = boxAt(enc.x, 5.6, lane.z, 2.6, 1.6, 2.6, color, { fill: 0.02, dashed: true });
-      g.userData.fill.userData.why = { title: 'CVAE encoder', sub: '17.3M · training only', why: ganttWhy, lane: 'act' };
-      pickables.push(g.userData.fill);
+      g.userData.hit.userData.why = { title: 'CVAE encoder', sub: '17.3M · training only', why: ganttWhy, lane: 'act' };
+      pickables.push(g.userData.hit);
       addLabel(new THREE.Vector3(enc.x, 6.6, lane.z), `CVAE encoder<small>17.3M · training only</small>`, '', lane.key);
+      clickableLabel(g.userData.hit);
       const dm = new THREE.LineDashedMaterial({ color, dashSize: 0.15, gapSize: 0.15, transparent: true, opacity: 0.5 });
       const dl = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(enc.x, 4.8, lane.z), new THREE.Vector3(centers[3].x, centers[3].y + 1.6, lane.z)]), dm);
       dl.computeLineDistances(); scene.add(dl);
@@ -359,44 +386,93 @@ details.layers ol b { color: var(--ink); }
   spinBtn.setAttribute('aria-pressed', String(spin));
   spinBtn.addEventListener('click', () => { spin = !spin; spinBtn.setAttribute('aria-pressed', String(spin)); });
 
-  let drag = null; const pts = new Map();
-  stage.addEventListener('pointerdown', e => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = { x: e.clientX, y: e.clientY }; spin = false; spinBtn.setAttribute('aria-pressed', 'false'); });
-  stage.addEventListener('pointermove', e => {
-    if (!pts.has(e.pointerId)) return;
-    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
-    if (pts.size === 2) {
-      const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-      if (drag && drag.pinch) goal.r = Math.min(70, Math.max(7, goal.r * drag.pinch / d));
-      drag = { pinch: d }; return;
-    }
-    goal.theta -= (e.clientX - prev[0]) * 0.006;
-    goal.phi = Math.min(1.5, Math.max(0.25, goal.phi - (e.clientY - prev[1]) * 0.005));
+  // ---- navigation: drag orbits; right-drag, shift-drag, two fingers or Pan mode pans ----
+  const panBtn = document.getElementById('v-pan');
+  let panMode = false;
+  panBtn.addEventListener('click', () => { panMode = !panMode; panBtn.setAttribute('aria-pressed', String(panMode)); panBtn.textContent = panMode ? 'Drag: pan' : 'Drag: orbit'; });
+  function stopSpin() { spin = false; spinBtn.setAttribute('aria-pressed', 'false'); }
+  function pan(dx, dy) {
+    const k = goal.r * 0.0016;
+    const rx = Math.cos(goal.theta), rz = -Math.sin(goal.theta);      // screen right, on the floor
+    const fx = -Math.sin(goal.theta), fz = -Math.cos(goal.theta);     // screen up = away from camera, on the floor
+    goal.target.x += -dx * k * rx + dy * k * fx;
+    goal.target.z += -dx * k * rz + dy * k * fz;
+  }
+  const pts = new Map(); let pinch = null, mid = null, downAt = null, moved = false;
+  stage.addEventListener('contextmenu', e => e.preventDefault());
+  stage.addEventListener('pointerdown', e => {
+    stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    downAt = [e.clientX, e.clientY]; moved = false; stopSpin(); stage.focus({ preventScroll: true });
   });
-  const end = e => { pts.delete(e.pointerId); if (pts.size < 2 && drag) drag.pinch = null; };
+  stage.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse') hover(e); return; }
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) moved = true;
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      if (pinch) goal.r = Math.min(80, Math.max(5, goal.r * pinch / d));
+      if (mid) pan(m[0] - mid[0], m[1] - mid[1]);
+      pinch = d; mid = m; return;
+    }
+    const dx = e.clientX - prev[0], dy = e.clientY - prev[1];
+    if (panMode || e.buttons === 2 || e.buttons === 4 || e.shiftKey || e.ctrlKey || e.metaKey) { pan(dx, dy); return; }
+    goal.theta -= dx * 0.006;
+    goal.phi = Math.min(1.5, Math.max(0.2, goal.phi - dy * 0.005));
+  });
+  const end = e => {
+    if (pts.size === 1 && !moved && e.type === 'pointerup' && e.button === 0) click(e);
+    pts.delete(e.pointerId); if (pts.size < 2) { pinch = null; mid = null; }
+  };
   stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
-  stage.addEventListener('wheel', e => { e.preventDefault(); goal.r = Math.min(70, Math.max(7, goal.r * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+  stage.addEventListener('wheel', e => { e.preventDefault(); stopSpin(); goal.r = Math.min(80, Math.max(5, goal.r * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+  stage.addEventListener('keydown', e => {
+    const step = 28, keys = { ArrowLeft: [step, 0], a: [step, 0], ArrowRight: [-step, 0], d: [-step, 0], ArrowUp: [0, step], w: [0, step], ArrowDown: [0, -step], s: [0, -step] };
+    const m = keys[e.key]; if (m) { e.preventDefault(); stopSpin(); pan(m[0], m[1]); }
+    if (e.key === '+' || e.key === '=') goal.r = Math.max(5, goal.r * 0.88);
+    if (e.key === '-') goal.r = Math.min(80, goal.r * 1.14);
+    if (e.key === 'Escape') select(null);
+  });
 
+  // ---- picking: click a block (or its label) to pin its explanation ----
   const tip = document.getElementById('tip');
+  const info = document.getElementById('info');
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  let downAt = null;
-  function pick(e, show) {
+  let selected = null;
+  function hitAt(e) {
     const r = stage.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hit = ray.intersectObjects(pickables, false)[0];
-    if (!hit) { if (show) tip.hidden = true; stage.style.cursor = ''; return; }
-    stage.style.cursor = 'help';
-    if (!show) return;
-    const d = hit.object.userData.why;
-    tip.innerHTML = `<b style="color:var(--${d.lane})">${d.title}</b> <span class="tsub">${d.sub}</span><p>${d.why}</p>`;
-    tip.hidden = false;
-    const x = Math.min(r.width - 300, Math.max(8, e.clientX - r.left + 14));
-    const y = Math.min(r.height - 20, Math.max(8, e.clientY - r.top + 14));
-    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    return ray.intersectObjects(pickables, false)[0];
   }
-  stage.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; }, true);
-  stage.addEventListener('pointerup', e => { if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 6) pick(e, true); downAt = null; }, true);
-  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && e.buttons === 0) pick(e, true); });
+  function hover(e) {
+    const h = hitAt(e);
+    if (!h) { tip.hidden = true; stage.style.cursor = ''; return; }
+    stage.style.cursor = 'pointer';
+    const d = h.object.userData.why, r = stage.getBoundingClientRect();
+    tip.innerHTML = `<b style="color:var(--${d.lane})">${d.title}</b> <span class="tsub">${d.sub} · click for why</span>`;
+    tip.hidden = false;
+    tip.style.left = Math.min(r.width - 260, e.clientX - r.left + 14) + 'px';
+    tip.style.top = Math.min(r.height - 30, e.clientY - r.top + 14) + 'px';
+  }
+  function select(hit) {
+    selected = hit ? hit.userData.grp : null;
+    if (!hit) { info.hidden = true; return; }
+    const d = hit.userData.why;
+    info.style.setProperty('--c', `var(--${d.lane})`);
+    info.querySelector('.i-title').textContent = d.title;
+    info.querySelector('.i-sub').textContent = d.sub;
+    info.querySelector('.i-why').textContent = d.why;
+    info.hidden = false; tip.hidden = true;
+  }
+  selectHit = select;
+  function click(e) { const h = hitAt(e); if (h) select(h.object); }
+  stage.addEventListener('dblclick', e => {
+    const h = hitAt(e); if (!h) return;
+    const p = new THREE.Vector3(); h.object.getWorldPosition(p);
+    goal.target.copy(p); goal.r = Math.min(goal.r, 11); stopSpin();
+  });
+  document.getElementById('i-close').addEventListener('click', () => select(null));
   stage.addEventListener('pointerleave', () => { tip.hidden = true; });
 
   // layer-by-layer lists under each spec card
@@ -448,6 +524,7 @@ details.layers ol b { color: var(--ink); }
       const recent = l.pulses.some(p => (now - p.t0) / TRAVEL > 0.92);
       outG.userData.fill.material.opacity = (recent ? 0.9 : outG.userData.base) * (dimmed ? 0.25 : 1);
     });
+    if (selected) selected.userData.fill.material.opacity = 0.42 + 0.12 * Math.sin(now * 5);
 
     const w = stage.clientWidth, h = stage.clientHeight;
     labels.forEach(L => {
