@@ -1,0 +1,468 @@
+<title>Three Policies, One Arm</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a full-bleed 3D stage (three lanes = three networks, data flows left to right), a floating
+   control strip on top, and a spec sheet below that stacks to one column on phones. Single dark look by choice. */
+:root {
+  color-scheme: dark;
+  --void: #07080d;
+  --ink: #e9ecf5;
+  --dim: #8a90a6;
+  --rule: #1f2333;
+  --ball: #ffa53d;      /* their balancer: ping-pong orange */
+  --cnn: #3fd8e6;       /* our CNN */
+  --act: #b48cff;       /* our ACT */
+  --panel: #0d0f17;
+  --display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+html, body { background: var(--void); color: var(--ink); }
+body { font-family: var(--display); font-size: 14px; line-height: 1.5; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { padding-block: 28px 12px; display: grid; gap: 6px; max-width: 1200px; margin: 0 auto; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+h1 { margin: 0; font-weight: 800; font-size: clamp(28px, 5vw, 52px); letter-spacing: -0.02em; line-height: 1.05; text-wrap: balance; }
+h1 em { font-style: normal; background: linear-gradient(90deg, var(--ball), var(--cnn) 55%, var(--act)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { color: var(--dim); max-width: 68ch; margin: 4px 0 0; }
+
+.stage-shell { position: relative; max-width: 1400px; margin: 8px auto 0; }
+#stage { position: relative; height: min(72vh, 720px); min-height: 420px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); overflow: hidden; touch-action: none; cursor: grab; }
+#stage:active { cursor: grabbing; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+#labels { position: absolute; inset: 0; pointer-events: none; }
+.lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-family: var(--mono); font-size: 10.5px; color: var(--ink); text-shadow: 0 0 6px #000, 0 0 2px #000; padding-bottom: 6px; transition: opacity .25s; }
+.lbl small { display: block; color: var(--dim); font-size: 9.5px; }
+.lbl.lane { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .01em; }
+.lbl.lane small { font-family: var(--mono); font-weight: 400; font-size: 10px; }
+
+.controls { position: absolute; top: 12px; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+.controls button { pointer-events: auto; font: 600 12px var(--display); color: var(--ink); background: rgba(13,15,23,.78); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 12px; cursor: pointer; backdrop-filter: blur(6px); }
+.controls button[aria-pressed="true"] { border-color: var(--ink); }
+.controls button:focus-visible { outline: 2px solid var(--cnn); outline-offset: 2px; }
+.controls .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.clock { pointer-events: none; margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--dim); background: rgba(13,15,23,.78); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; }
+.hint { position: absolute; bottom: 10px; right: max(12px, env(safe-area-inset-right, 0px)); font-family: var(--mono); font-size: 10px; color: var(--dim); pointer-events: none; }
+
+.sheet { max-width: 1200px; margin: 0 auto; padding-block: 26px 48px; display: grid; gap: 28px; }
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.spec { min-width: 0; border-top: 2px solid var(--c); padding-top: 12px; display: grid; gap: 10px; align-content: start; }
+.spec h2 { margin: 0; font-size: 18px; font-weight: 800; }
+.spec .who { font-family: var(--mono); font-size: 10.5px; color: var(--c); letter-spacing: .1em; text-transform: uppercase; }
+.big { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 600; color: var(--c); line-height: 1; }
+.big small { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 6px; }
+dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+dt { color: var(--dim); font-family: var(--mono); font-size: 11px; padding-top: 2px; }
+dd { margin: 0; }
+.take { border: 1px solid var(--rule); background: var(--panel); border-radius: 10px; padding: 16px 18px; display: grid; gap: 8px; max-width: 80ch; }
+.take h3 { margin: 0; font-size: 15px; }
+.take p { margin: 0; color: #c7cbda; }
+#tip { position: absolute; max-width: 290px; background: rgba(13,15,23,.94); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; pointer-events: none; backdrop-filter: blur(6px); }
+#tip p { margin: 4px 0 0; color: #c7cbda; }
+.tsub { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+details.layers { border-top: 1px solid var(--rule); padding-top: 8px; }
+details.layers summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--c); }
+details.layers ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 8px; font-size: 12.5px; color: #c7cbda; }
+details.layers ol b { color: var(--ink); }
+.why2 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 860px) { .why2 { grid-template-columns: minmax(0, 1fr); } }
+.why2 div { min-width: 0; }
+.why2 h4 { margin: 0 0 4px; font-size: 13px; }
+.why2 p { margin: 0; font-size: 13px; color: #c7cbda; }
+.src { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.src a { color: var(--dim); }
+</style>
+
+<header class="wrap">
+  <div class="eyebrow">SO-101 · network anatomy · drawn to log scale</div>
+  <h1>Three policies, <em>one arm</em></h1>
+  <p class="lede">Each lane is a network with data flowing left to right. Boxes are tensors: height and width are log-scaled spatial size, thickness is log-scaled channels. The glowing pulses are the moments each policy <b>looks at the camera</b>, slowed four times. Drag to orbit, scroll or pinch to zoom.</p>
+</header>
+
+<div class="stage-shell">
+  <div id="stage" aria-label="3D diagram of three neural network architectures">
+    <div id="labels"></div>
+    <div id="tip" hidden></div>
+  </div>
+  <div class="controls">
+    <button type="button" id="v-all" aria-pressed="true">All three</button>
+    <button type="button" id="v-ball" aria-pressed="false"><span class="dot" style="background:var(--ball)"></span>Their balancer</button>
+    <button type="button" id="v-cnn" aria-pressed="false"><span class="dot" style="background:var(--cnn)"></span>Our CNN</button>
+    <button type="button" id="v-act" aria-pressed="false"><span class="dot" style="background:var(--act)"></span>Our ACT</button>
+    <button type="button" id="v-spin" aria-pressed="true">Orbit</button>
+    <div class="clock" id="clock">looks per second · 30 · 0.33 · 1</div>
+  </div>
+  <div class="hint">tap or hover a block for why it is there · slow motion ×4</div>
+</div>
+
+<section class="sheet wrap">
+  <div class="cols">
+    <article class="spec" style="--c: var(--ball)">
+      <div class="who">zecice/so101-pingpong-balance</div>
+      <h2>Their balancer</h2>
+      <div class="big">not stated<small>parameters · two small MLPs</small></div>
+      <dl>
+        <dt>sees</dt><dd>Wrist camera 640×480, shrunk to 128×96. An orange colour threshold turns it into 4 numbers: x, y, radius, visible.</dd>
+        <dt>then</dt><dd>A small MLP reads the last 3 detections and estimates ball position and velocity. A PPO MLP reads that, the joint state and its last 3 actions.</dd>
+        <dt>outputs</dt><dd>5 joint deltas, one step at a time</dd>
+        <dt>looks</dt><dd>30 times a second, every step</dd>
+        <dt>trained</dt><dd>PPO in MuJoCo, ~29M steps, ~2 h. Randomized latency (0–133 ms), servo gains and ball noise.</dd>
+        <dt>result</dt><dd>113/120 in sim with the camera pipeline; "balances on the real arm" (no count given).</dd>
+      </dl>
+      <details class="layers" open><summary>Layer by layer: why each one is there</summary><ol id="layers-ball"></ol></details>
+    </article>
+    <article class="spec" style="--c: var(--cnn)">
+      <div class="who">ours · vision_h90 · encoder v2</div>
+      <h2>Our CNN</h2>
+      <div class="big">2.71M<small>parameters</small></div>
+      <dl>
+        <dt>sees</dt><dd>Raw 256×256 RGB wrist frame plus 7 numbers of arm state</dd>
+        <dt>then</dt><dd>4 conv layers (16, 32, 64, 64 channels) down to an 8×8 map, flattened to 4096. The state goes through its own 32-unit layer. Then an MLP of 512 → 512 units.</dd>
+        <dt>outputs</dt><dd>A 90-step plan: 90 × 6 joint targets (540 numbers)</dd>
+        <dt>looks</dt><dd>Once every 90 steps, every 3 s</dd>
+        <dt>trained</dt><dd>Behaviour cloning of a scripted teacher in sim, 4800 placements, 120k steps, random-shift augmentation</dd>
+        <dt>result</dt><dd>21/30 in sim (seed 202, SO-101 scene, median miss 5.9 mm). Black images: 0/30, median miss 112 mm.</dd>
+      </dl>
+      <details class="layers" open><summary>Layer by layer: why each one is there</summary><ol id="layers-cnn"></ol></details>
+    </article>
+    <article class="spec" style="--c: var(--act)">
+      <div class="who">ours · act_residual_h90 · high_lift_20261112</div>
+      <h2>Our ACT (latest)</h2>
+      <div class="big">51.6M<small>parameters · 34.2M at run time</small></div>
+      <dl>
+        <dt>sees</dt><dd>Raw 256×256 RGB wrist frame plus 7 numbers of arm state</dd>
+        <dt>then</dt><dd>ResNet-18 (ImageNet start, 11.2M) gives an 8×8×512 map: 64 image tokens. Plus a state token and a style token makes 66 tokens of 512. Transformer encoder ×4 (17.3M), then decoder ×1 with 90 queries (5.4M).</dd>
+        <dt>outputs</dt><dd>A 90-step plan of 90 × 6 joint targets. It runs the first 30 and then looks again.</dd>
+        <dt>looks</dt><dd>Once every 30 steps, every 1 s</dd>
+        <dt>trained</dt><dd>Behaviour cloning, 40k steps, on a teacher with a 100 mm lift. The 17.3M CVAE encoder is used only in training.</dd>
+        <dt>result</dt><dd>21/30 in sim (servo scene, execute 30). Black images: 0/30. Live Nov 14: 7 real carries in 17 runs.</dd>
+      </dl>
+      <details class="layers" open><summary>Layer by layer: why each one is there</summary><ol id="layers-act"></ol></details>
+    </article>
+  </div>
+
+  <div class="take">
+    <h3>Why our CNN looks so different from theirs</h3>
+    <div class="why2">
+      <div><h4>Who does the seeing</h4><p>They hand-wrote the perception: one orange ball against a plain paddle, so a colour rule finds it every time. Our cube and square can be anywhere on the bench, under randomized lighting and colours, so we make the network learn to see. That is why our first half is a stack of conv layers and theirs is a threshold.</p></div>
+      <div><h4>What the network has to output</h4><p>Their controller outputs one small correction per frame. Ours imitates a teacher that plans a whole reach, so it outputs a 90-step plan, 540 numbers, from a single look. A bigger output needs a bigger head.</p></div>
+      <div><h4>How it was trained</h4><p>Theirs is reinforcement learning. It tries, fails and learns to recover, which only works with a fast loop. Ours copies a perfect scripted teacher, so it never sees a mistake and never learns to correct one. That's why looking more often has helped us less than it helps them.</p></div>
+    </div>
+  </div>
+
+  <div class="take">
+    <h3>The difference that matters</h3>
+    <p>Our ACT is roughly a thousand times larger than anything their balancer needs, and both of our policies do use the camera: blank the images and each one drops from 21/30 to 0/30, missing the cube by about 11 cm. Their advantage is in the loop, not the network. They turn pixels into four clean numbers with a colour threshold, and they act on fresh information 30 times a second. Our policies read raw pixels and commit to a 1–3 second plan between looks, so a few millimetres of joint or calibration error have time to become a miss.</p>
+  </div>
+  <p class="src">Sources: our numbers come from the checkpoints in <code>experiments/high_lift_20261112</code> and <code>perturbed_so101_20261108</code>, plus the black-image evaluation run on 2026-11-18. Theirs come from the README at <a href="https://github.com/zecice/so101-pingpong-balance" target="_blank" rel="noopener">github.com/zecice/so101-pingpong-balance</a>, which doesn't state network sizes, so those boxes are dashed and drawn at a nominal size.</p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const labelLayer = document.getElementById('labels');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const css = getComputedStyle(document.documentElement);
+  const C = { ball: new THREE.Color(css.getPropertyValue('--ball').trim()), cnn: new THREE.Color(css.getPropertyValue('--cnn').trim()), act: new THREE.Color(css.getPropertyValue('--act').trim()) };
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x07080d, 1);
+  stage.insertBefore(renderer.domElement, labelLayer);
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x07080d, 0.018);
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 400);
+
+  // ---- scales (log) -------------------------------------------------------
+  const sp = n => 0.42 * Math.log2(n + 1);              // spatial side
+  const ch = n => 0.07 * Math.log2(n + 1) + 0.05;       // channel thickness
+  const vl = n => 0.36 * Math.log2(n + 1);              // vector length
+
+  // kind: map (h,w,c) | vec (n) | tokens (rows, width) | op (box w/ explicit dims)
+  const lanes = [
+    { key: 'ball', z: -7.5, title: 'Their balancer', sub: '30 looks/s · one action per look', period: 1 / 30, blocks: [
+      { map: [480, 640, 3], label: 'wrist frame', sub: '640×480×3', why: 'The only ball sensor. The paddle is clamped edge-on to the wrist, so the ball always sits in a predictable part of the picture.' },
+      { map: [96, 128, 3], label: 'shrink', sub: '128×96×3', why: 'Finding a bright orange ball needs very few pixels. A smaller image is faster, which keeps the loop at 30 Hz.' },
+      { op: [0.5, 1.0, 1.0], label: 'colour threshold', sub: 'orange blob', soft: true, why: 'The ball is the only orange thing in view, so a fixed rule finds it. Nothing is learned here, so it behaves the same in sim and on the real arm.' },
+      { vec: 4, label: 'x, y, r, visible', sub: '4', why: 'Four numbers replace the whole image. The radius stands in for distance, and "visible" flags frames where the ball is lost.' },
+      { tokens: [3, 4], label: 'last 3 detections', sub: '3×4', why: 'One frame gives position only. Three frames give velocity and average out detection noise.' },
+      { op: [0.9, 1.6, 1.6], label: 'estimator MLP', sub: 'size not stated', dashed: true, why: 'A small learned network turns noisy pixel detections into the ball’s position and velocity relative to the paddle.' },
+      { vec: 6, label: 'ball pos + vel', sub: '6', why: 'Exactly what the physics needs to decide a tilt: where the ball is and which way it is rolling.' },
+      { vec: 32, label: '+ joints + last 3 actions', sub: 'concat', why: 'The controller needs to know where the paddle is. Its last commands are still taking effect (servo latency), so it is told those too.' },
+      { op: [1.3, 2.4, 2.4], label: 'PPO MLP', sub: 'size not stated', dashed: true, why: 'Mapping a few clean numbers to a tilt is simple, so a small network is enough. RL learns it by trial and error in simulation.' },
+      { vec: 5, label: 'action', sub: '5 joint deltas', out: true, why: 'A small nudge every 33 ms. Any error is seen and corrected on the next step, so it never builds up.' },
+    ]},
+    { key: 'cnn', z: 0, title: 'Our CNN', sub: '0.33 looks/s · 90-step plan per look · 2.71M', period: 3, blocks: [
+      { map: [256, 256, 3], label: 'wrist frame', sub: '256×256×3', why: 'The cube and its square can be anywhere and look different every episode (randomized appearance). No fixed rule finds them, so the network must learn what to look for.' },
+      { map: [64, 64, 16], label: 'conv 4×4 /4', sub: '64×64×16', why: 'A big stride shrinks the image fast. This layer learns edges and colour patches.' },
+      { map: [32, 32, 32], label: 'conv 3×3 /2', sub: '32×32×32', why: 'Halves the resolution and doubles the channels. Each unit now sees a wider patch and combines edges into corners and shapes.' },
+      { map: [16, 16, 64], label: 'conv 3×3 /2', sub: '16×16×64', why: 'Again halves resolution. Units now respond to object-sized patterns like the cube or the square’s edge.' },
+      { map: [8, 8, 64], label: 'conv 3×3 /2', sub: '8×8×64', why: 'Stops at an 8×8 grid: each cell covers a 32-pixel patch, fine enough to say where a 12–25 px cube is. (The older v1 trunk stopped at 4×4 and could not localize well.)' },
+      { vec: 4128, label: 'flatten + state', sub: '4096 + 32', why: 'Flattens instead of pooling, so the network keeps WHERE each feature is, because location is the answer. The arm’s 7 state numbers join through a 32-unit layer.' },
+      { vec: 512, label: 'linear', sub: '512', why: 'Combines "the cube is here in the image" with "the arm is there" into a reach.' },
+      { vec: 512, label: 'linear', sub: '512', why: 'A second layer gives room for the non-linear geometry of turning an image position into joint angles.' },
+      { tokens: [90, 6], label: 'plan', sub: '90 steps × 6 joints', out: true, why: 'It imitates a scripted teacher that plans whole reaches, so one look outputs 3 s of motion. It runs all 90 steps before looking again.' },
+    ]},
+    { key: 'act', z: 7.5, title: 'Our ACT', sub: '1 look/s · runs 30 of 90 steps · 51.6M', period: 1, blocks: [
+      { map: [256, 256, 3], label: 'wrist frame', sub: '256×256×3', why: 'The same raw input as the CNN: the network learns what to look for.' },
+      { op: [2.2, 3.0, 3.0], label: 'ResNet-18', sub: '11.2M · ImageNet start', solidish: true, why: 'A standard image network pre-trained on ImageNet, so it starts out already knowing edges, textures and objects instead of learning them from scratch.' },
+      { map: [8, 8, 512], label: 'feature map', sub: '8×8×512', why: 'The same 8×8 grid as our CNN, but each cell carries 512 descriptors instead of 64: a much richer summary of each patch.' },
+      { tokens: [66, 512], label: 'tokens', sub: '64 image + state + style', why: 'Each of the 64 grid cells becomes a token. A state token (arm pose) and a style token join them, so the transformer can treat everything the same way.' },
+      { op: [2.6, 3.4, 3.4], label: 'encoder ×4', sub: '17.3M · self-attention', solidish: true, why: 'Self-attention lets every patch compare itself with every other, for example "cube" relative to "jaws" or "square". Four layers stack these comparisons.' },
+      { tokens: [66, 512], label: 'memory', sub: '66×512', why: 'The encoded scene: what is where, in context. The decoder reads from it.' },
+      { op: [1.6, 3.0, 3.0], label: 'decoder ×1', sub: '5.4M · 90 queries', solidish: true, why: 'There are 90 learned queries, one per future step. Each asks "what should step k do?" and looks up the answer in the scene memory.' },
+      { tokens: [90, 512], label: 'action tokens', sub: '90×512', why: 'One answer per future step, still as a 512-number description.' },
+      { tokens: [90, 6], label: 'plan', sub: '90 × 6 · run first 30', out: true, why: 'Each token becomes 6 joint targets. It runs the first 30 (1 s) and then looks again, so it gets three looks per plan length where the CNN gets one.' },
+    ]},
+  ];
+  const ganttWhy = 'Training only. It sees the teacher’s real actions and squeezes their "style" into one token, so the model does not average two different valid motions into a bad one. At run time the style token is set to zero.';
+  const labels = [];
+  function addLabel(pos, html, cls, lane) {
+    const el = document.createElement('div');
+    el.className = 'lbl' + (cls ? ' ' + cls : '');
+    el.innerHTML = html;
+    labelLayer.appendChild(el);
+    labels.push({ el, pos: pos.clone(), lane });
+  }
+
+  function boxAt(x, y, z, sx, sy, sz, color, opts) {
+    const g = new THREE.BoxGeometry(sx, sy, sz);
+    const grp = new THREE.Group();
+    const fill = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: opts.fill ?? 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    grp.add(fill);
+    const eg = new THREE.EdgesGeometry(g);
+    let lineMat;
+    if (opts.dashed) {
+      lineMat = new THREE.LineDashedMaterial({ color, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: 0.95 });
+    } else {
+      lineMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.95 });
+    }
+    const edges = new THREE.LineSegments(eg, lineMat);
+    if (opts.dashed) edges.computeLineDistances();
+    grp.add(edges);
+    // soft halo: a slightly larger additive shell
+    const halo = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending }));
+    halo.scale.setScalar(1.04);
+    grp.add(halo);
+    grp.position.set(x, y, z);
+    grp.userData = { fill, base: opts.fill ?? 0.1 };
+    scene.add(grp);
+    return grp;
+  }
+
+  // slices inside a feature map, so channels read as stacked sheets
+  function slices(grp, sx, sy, sz, color, n) {
+    const m = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending });
+    for (let i = 1; i < n; i++) {
+      const x = -sx / 2 + (sx * i) / n;
+      const pts = [new THREE.Vector3(x, -sy / 2, -sz / 2), new THREE.Vector3(x, sy / 2, -sz / 2), new THREE.Vector3(x, sy / 2, sz / 2), new THREE.Vector3(x, -sy / 2, sz / 2), new THREE.Vector3(x, -sy / 2, -sz / 2)];
+      grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), m));
+    }
+  }
+
+  const laneObjs = {};
+  const pickables = [];
+  lanes.forEach(lane => {
+    const color = C[lane.key];
+    let x = 0;
+    const centers = [];
+    const groups = [];
+    lane.blocks.forEach(b => {
+      let sx, sy, sz, opts = {};
+      if (b.map) { sy = sp(b.map[0]); sz = sp(b.map[1]); sx = ch(b.map[2]); opts.fill = 0.12; }
+      else if (b.vec) { sx = 0.16; sy = vl(b.vec); sz = 0.16; opts.fill = 0.35; }
+      else if (b.tokens) { sx = 0.35; sy = vl(b.tokens[0]); sz = vl(b.tokens[1]) * 0.55; opts.fill = 0.14; }
+      else { [sx, sy, sz] = b.op; opts.fill = b.solidish ? 0.07 : 0.04; opts.dashed = !!b.dashed; }
+      if (b.out) opts.fill = 0.45;
+      const cx = x + sx / 2;
+      const grp = boxAt(cx, sy / 2 + 0.05, lane.z, sx, sy, sz, color, opts);
+      grp.userData.fill.userData.why = { title: b.label, sub: b.sub, why: b.why, lane: lane.key };
+      pickables.push(grp.userData.fill);
+      if (b.map && b.map[2] >= 8) slices(grp, sx, sy, sz, color, Math.min(10, Math.round(Math.log2(b.map[2]))));
+      if (b.tokens) slices(grp, sx, sy, sz, color, 1);
+      groups.push(grp);
+      centers.push(new THREE.Vector3(cx, sy / 2 + 0.05, lane.z));
+      addLabel(new THREE.Vector3(cx, sy + 0.25, lane.z), `${b.label}<small>${b.sub}</small>`, '', lane.key);
+      x += sx + 0.95;
+    });
+    // connectors
+    const cm = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35 });
+    for (let i = 0; i < centers.length - 1; i++) {
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([centers[i], centers[i + 1]]), cm));
+    }
+    // ACT: ghost CVAE encoder above the encoder (training only)
+    if (lane.key === 'act') {
+      const enc = centers[4];
+      const g = boxAt(enc.x, 5.6, lane.z, 2.6, 1.6, 2.6, color, { fill: 0.02, dashed: true });
+      g.userData.fill.userData.why = { title: 'CVAE encoder', sub: '17.3M · training only', why: ganttWhy, lane: 'act' };
+      pickables.push(g.userData.fill);
+      addLabel(new THREE.Vector3(enc.x, 6.6, lane.z), `CVAE encoder<small>17.3M · training only</small>`, '', lane.key);
+      const dm = new THREE.LineDashedMaterial({ color, dashSize: 0.15, gapSize: 0.15, transparent: true, opacity: 0.5 });
+      const dl = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(enc.x, 4.8, lane.z), new THREE.Vector3(centers[3].x, centers[3].y + 1.6, lane.z)]), dm);
+      dl.computeLineDistances(); scene.add(dl);
+    }
+    // lane title at the start
+    addLabel(new THREE.Vector3(-1.2, 4.6, lane.z), `${lane.title}<small>${lane.sub}</small>`, 'lane', lane.key);
+    // floor stripe
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(x + 1.5, 4.2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.035, depthWrite: false }));
+    stripe.rotation.x = -Math.PI / 2; stripe.position.set(x / 2 - 0.4, 0.001, lane.z);
+    scene.add(stripe);
+    laneObjs[lane.key] = { centers, groups, length: x, color, period: lane.period, pulses: [], lastSpawn: -1e9, z: lane.z };
+  });
+
+  // floor grid
+  const grid = new THREE.GridHelper(80, 80, 0x1a1e2c, 0x11141e);
+  grid.position.set(12, 0, 0);
+  scene.add(grid);
+
+  // ---- pulses: one per "look", travelling the lane ------------------------
+  const SLOW = 4;          // slow-motion factor
+  const TRAVEL = 2.6;      // seconds (screen time) to cross a lane
+  const pulseTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'); const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.25, 'rgba(255,255,255,.6)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+  })();
+  function spawn(l) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: pulseTex, color: l.color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.scale.setScalar(0.9);
+    scene.add(s);
+    l.pulses.push({ s, t0: now });
+  }
+  function pathAt(l, u) {
+    const n = l.centers.length - 1, f = Math.min(n - 1e-6, Math.max(0, u * n)), i = Math.floor(f), k = f - i;
+    return l.centers[i].clone().lerp(l.centers[i + 1], k);
+  }
+
+  // ---- camera rig (custom orbit) -----------------------------------------
+  const rig = { theta: -0.62, phi: 1.02, r: 34, target: new THREE.Vector3(9, 1.6, 0) };
+  const goal = { theta: rig.theta, phi: rig.phi, r: rig.r, target: rig.target.clone() };
+  let spin = !reduce, focus = 'all';
+  const views = {
+    all: { theta: -0.62, phi: 1.02, r: 34, t: [9, 1.6, 0] },
+    ball: { theta: -0.35, phi: 1.12, r: 17, t: [9, 1.4, -7.5] },
+    cnn: { theta: -0.35, phi: 1.12, r: 16, t: [7.5, 1.6, 0] },
+    act: { theta: -0.35, phi: 1.12, r: 19, t: [10, 2.4, 7.5] },
+  };
+  function setView(k) {
+    focus = k; const v = views[k];
+    goal.theta = v.theta; goal.phi = v.phi; goal.r = v.r; goal.target.set(...v.t);
+    ['all', 'ball', 'cnn', 'act'].forEach(n => document.getElementById('v-' + n).setAttribute('aria-pressed', String(n === k)));
+  }
+  ['all', 'ball', 'cnn', 'act'].forEach(n => document.getElementById('v-' + n).addEventListener('click', () => setView(n)));
+  const spinBtn = document.getElementById('v-spin');
+  spinBtn.setAttribute('aria-pressed', String(spin));
+  spinBtn.addEventListener('click', () => { spin = !spin; spinBtn.setAttribute('aria-pressed', String(spin)); });
+
+  let drag = null; const pts = new Map();
+  stage.addEventListener('pointerdown', e => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = { x: e.clientX, y: e.clientY }; spin = false; spinBtn.setAttribute('aria-pressed', 'false'); });
+  stage.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (drag && drag.pinch) goal.r = Math.min(70, Math.max(7, goal.r * drag.pinch / d));
+      drag = { pinch: d }; return;
+    }
+    goal.theta -= (e.clientX - prev[0]) * 0.006;
+    goal.phi = Math.min(1.5, Math.max(0.25, goal.phi - (e.clientY - prev[1]) * 0.005));
+  });
+  const end = e => { pts.delete(e.pointerId); if (pts.size < 2 && drag) drag.pinch = null; };
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+  stage.addEventListener('wheel', e => { e.preventDefault(); goal.r = Math.min(70, Math.max(7, goal.r * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+
+  const tip = document.getElementById('tip');
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  let downAt = null;
+  function pick(e, show) {
+    const r = stage.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (!hit) { if (show) tip.hidden = true; stage.style.cursor = ''; return; }
+    stage.style.cursor = 'help';
+    if (!show) return;
+    const d = hit.object.userData.why;
+    tip.innerHTML = `<b style="color:var(--${d.lane})">${d.title}</b> <span class="tsub">${d.sub}</span><p>${d.why}</p>`;
+    tip.hidden = false;
+    const x = Math.min(r.width - 300, Math.max(8, e.clientX - r.left + 14));
+    const y = Math.min(r.height - 20, Math.max(8, e.clientY - r.top + 14));
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  stage.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; }, true);
+  stage.addEventListener('pointerup', e => { if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 6) pick(e, true); downAt = null; }, true);
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && e.buttons === 0) pick(e, true); });
+  stage.addEventListener('pointerleave', () => { tip.hidden = true; });
+
+  // layer-by-layer lists under each spec card
+  lanes.forEach(lane => {
+    const ol = document.getElementById('layers-' + lane.key);
+    if (!ol) return;
+    const items = lane.blocks.map(b => `<li><b>${b.label}</b> <span class="tsub">${b.sub}</span><br>${b.why}</li>`);
+    if (lane.key === 'act') items.push(`<li><b>CVAE encoder</b> <span class="tsub">17.3M · training only</span><br>${ganttWhy}</li>`);
+    ol.innerHTML = items.join('');
+  });
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (w < 640 && focus === 'all') { goal.r = rig.r = 48; }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- loop ---------------------------------------------------------------
+  let now = 0, last = performance.now();
+  const v = new THREE.Vector3();
+  function frame(t) {
+    const dt = Math.min(0.05, (t - last) / 1000); last = t; now += dt;
+    if (spin) goal.theta += dt * 0.06;
+    rig.theta += (goal.theta - rig.theta) * 0.08;
+    rig.phi += (goal.phi - rig.phi) * 0.08;
+    rig.r += (goal.r - rig.r) * 0.08;
+    rig.target.lerp(goal.target, 0.08);
+    camera.position.set(
+      rig.target.x + rig.r * Math.sin(rig.phi) * Math.sin(rig.theta),
+      rig.target.y + rig.r * Math.cos(rig.phi),
+      rig.target.z + rig.r * Math.sin(rig.phi) * Math.cos(rig.theta));
+    camera.lookAt(rig.target);
+
+    Object.entries(laneObjs).forEach(([key, l]) => {
+      const dimmed = focus !== 'all' && focus !== key;
+      l.groups.forEach(g => { g.userData.fill.material.opacity = g.userData.base * (dimmed ? 0.25 : 1); });
+      if (!reduce && now - l.lastSpawn >= l.period * SLOW) { spawn(l); l.lastSpawn = now; }
+      l.pulses = l.pulses.filter(p => {
+        const u = (now - p.t0) / TRAVEL;
+        if (u >= 1) { scene.remove(p.s); p.s.material.dispose(); return false; }
+        p.s.position.copy(pathAt(l, u));
+        p.s.material.opacity = (dimmed ? 0.2 : 1) * Math.min(1, (1 - u) * 4);
+        return true;
+      });
+      // the output block flashes when a plan lands
+      const outG = l.groups[l.groups.length - 1];
+      const recent = l.pulses.some(p => (now - p.t0) / TRAVEL > 0.92);
+      outG.userData.fill.material.opacity = (recent ? 0.9 : outG.userData.base) * (dimmed ? 0.25 : 1);
+    });
+
+    const w = stage.clientWidth, h = stage.clientHeight;
+    labels.forEach(L => {
+      v.copy(L.pos).project(camera);
+      const hidden = v.z > 1 || v.x < -1.1 || v.x > 1.1 || v.y < -1.1 || v.y > 1.1;
+      L.el.style.left = ((v.x + 1) / 2 * w) + 'px';
+      L.el.style.top = ((1 - v.y) / 2 * h) + 'px';
+      const dimmed = focus !== 'all' && focus !== L.lane;
+      const far = camera.position.distanceTo(L.pos);
+      L.el.style.opacity = hidden ? 0 : dimmed ? 0.12 : (L.el.classList.contains('lane') ? 1 : Math.max(0.25, Math.min(1, 46 / far - 0.4)));
+    });
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>

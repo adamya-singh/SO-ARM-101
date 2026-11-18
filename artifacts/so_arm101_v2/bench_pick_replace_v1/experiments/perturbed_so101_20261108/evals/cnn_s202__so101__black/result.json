@@ -1,0 +1,47 @@
+{
+  "execute": 90,
+  "successes": 0,
+  "rollouts": 30,
+  "pickups": 0,
+  "categories": {
+    "pickup_incomplete": 30
+  },
+  "safety_frames": 0,
+  "closure": {
+    "count": 30,
+    "lateral_median_mm": 111.52124926257383,
+    "lateral_rms_mm": 119.75454451247283,
+    "lateral_max_mm": 181.66726161076986,
+    "within_tolerance": 0,
+    "not_descended": 0,
+    "yaw_err_median_deg": 13.340387922035596,
+    "dz_median_mm": 5.529477153243597
+  },
+  "correction": {
+    "count": 30,
+    "steps": [
+      179,
+      250
+    ],
+    "lateral_rms_mm_179": 116.89503564139328,
+    "lateral_median_mm_179": 107.35870381084189,
+    "lateral_rms_mm_250": 119.75454451247283,
+    "lateral_median_mm_250": 111.52124926257383,
+    "correction_mm": -2.859508871079555,
+    "not_descended": 0
+  },
+  "report": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/evals/cnn_s202__so101__black/evaluation/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/evaluation.json",
+  "identity": {
+    "tool": "eval_policy",
+    "kind": "vision_chunked",
+    "checkpoint": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/cnn_s202/runs/shift12/models/vision_h90/2300a1acc67b3a82/model.pt",
+    "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_so101/scene_bench_pick_replace_v1.xml",
+    "scene_dependencies_sha256": "4009e71efe927174b8d4d9e046fc0be4cc3c80f822d771efbe25287f8601e3f3",
+    "suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101",
+    "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106/so101/cap4800/suites/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/suite.json",
+    "physics": "none",
+    "execute": 90,
+    "black_image": true
+  },
+  "seconds": 9.9
+}

@@ -1,0 +1,48 @@
+{
+  "execute": 90,
+  "successes": 21,
+  "rollouts": 30,
+  "pickups": 21,
+  "categories": {
+    "safety_invalidation": 9,
+    "success": 21
+  },
+  "safety_frames": 216,
+  "closure": {
+    "count": 30,
+    "lateral_median_mm": 5.911719487816336,
+    "lateral_rms_mm": 6.153985677860276,
+    "lateral_max_mm": 8.280254133628492,
+    "within_tolerance": 24,
+    "not_descended": 3,
+    "yaw_err_median_deg": 1.3923043841580238,
+    "dz_median_mm": 5.662942021109421
+  },
+  "correction": {
+    "count": 30,
+    "steps": [
+      179,
+      250
+    ],
+    "lateral_rms_mm_179": 10.502506050560596,
+    "lateral_median_mm_179": 9.627098563113764,
+    "lateral_rms_mm_250": 6.153985677860276,
+    "lateral_median_mm_250": 5.911719487816336,
+    "correction_mm": 4.34852037270032,
+    "not_descended": 3
+  },
+  "report": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/evals/cnn_s202__so101__normal/evaluation/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/evaluation.json",
+  "identity": {
+    "tool": "eval_policy",
+    "kind": "vision_chunked",
+    "checkpoint": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/cnn_s202/runs/shift12/models/vision_h90/2300a1acc67b3a82/model.pt",
+    "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_so101/scene_bench_pick_replace_v1.xml",
+    "scene_dependencies_sha256": "4009e71efe927174b8d4d9e046fc0be4cc3c80f822d771efbe25287f8601e3f3",
+    "suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101",
+    "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106/so101/cap4800/suites/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/suite.json",
+    "physics": "none",
+    "execute": 90,
+    "black_image": false
+  },
+  "seconds": 22.9
+}

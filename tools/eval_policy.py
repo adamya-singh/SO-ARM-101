@@ -46,6 +46,8 @@ def main(argv=None) -> int:
     p.add_argument("--physics", default="none", help="none, or a regime name from contracts/physics.py (bench_physics_v1, real_like_v1)")
     p.add_argument("--execute", type=int, default=90)
     p.add_argument("--workers", type=int, default=8, help="vision_chunked only (the VLA path evaluates in one process on the GPU)")
+    p.add_argument("--black-image", action="store_true",
+                   help="pixel-reliance ablation: every camera frame the policy sees is replaced with zeros")
     p.add_argument("--output-dir", type=Path, required=True)
     args = p.parse_args(argv)
     import mujoco
@@ -62,18 +64,23 @@ def main(argv=None) -> int:
     root.mkdir(parents=True, exist_ok=True)
     identity = dict(tool="eval_policy", kind=args.kind, checkpoint=str(args.checkpoint.resolve()), scene=str(args.scene.resolve()),
                     scene_dependencies_sha256=scene_dependency_hash(args.scene), suite=suite.suite_id, source_suite=str(suite_path),
-                    physics=args.physics, execute=args.execute)
+                    physics=args.physics, execute=args.execute, black_image=bool(args.black_image))
     (root / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     started = time.time()
     if args.kind == "vla":
         from so_arm101_v2.learning.vla_models import load_model
         from vla_finetune import closed_loop
-        result = closed_loop(args.scene, suite, load_model(args.checkpoint), args.execute, root / "evaluation")
+        model = load_model(args.checkpoint)
+        if args.black_image:
+            import numpy as np
+            sample = model.sample
+            model.sample = lambda frames, state, **kw: sample(np.zeros_like(frames), state, **kw)
+        result = closed_loop(args.scene, suite, model, args.execute, root / "evaluation")
         result.pop("closure_rows", None)
     else:
         from so_arm101_v2.simulation.policy_specs import PolicySpec
         from so_arm101_v2.simulation.rollout import evaluate_closed_loop
-        spec = PolicySpec(kind="vision_chunked", checkpoint=str(args.checkpoint), options=(("clamp_channels", (5,)), ("black_image", False)))
+        spec = PolicySpec(kind="vision_chunked", checkpoint=str(args.checkpoint), options=(("clamp_channels", (5,)), ("black_image", bool(args.black_image))))
         if args.execute != 90:
             raise SystemExit("vision_chunked checkpoints execute their 90-action chunks")
         report_path = evaluate_closed_loop(args.scene, suite, {"vision": spec}, root / "evaluation", environment_proven=True,
