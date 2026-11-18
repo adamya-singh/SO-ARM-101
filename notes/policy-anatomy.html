@@ -472,7 +472,9 @@ details.layers ol b { color: var(--ink); }
     const p = new THREE.Vector3(); h.object.getWorldPosition(p);
     goal.target.copy(p); goal.r = Math.min(goal.r, 11); stopSpin();
   });
-  document.getElementById('i-close').addEventListener('click', () => select(null));
+  // the panel lives inside the stage: keep its presses away from the stage's drag/pick handlers
+  ['pointerdown', 'pointerup', 'pointermove', 'dblclick', 'wheel'].forEach(t => info.addEventListener(t, e => e.stopPropagation()));
+  document.getElementById('i-close').addEventListener('click', e => { e.stopPropagation(); select(null); });
   stage.addEventListener('pointerleave', () => { tip.hidden = true; });
 
   // layer-by-layer lists under each spec card
