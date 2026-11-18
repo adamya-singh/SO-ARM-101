@@ -357,7 +357,17 @@ class MujocoTaskAdapter:
         current = self.current_act()
         if self.physics_params is None:
             return current
-        return (current + self.physics_params.sensor_noise_act(self.control_actions)).astype(np.float32)
+        return (current + self.physics_params.sensor_noise_act(self.control_actions) + self.physics_params.offset_act()).astype(np.float32)
+
+    def joint_offset_act(self) -> np.ndarray:
+        """Reported joint frame minus the true frame (contracts/physics.py joint_offset_deg); zeros when off.
+
+        A policy reads and commands in the reported frame. ``apply_policy_command`` takes reported-frame commands and
+        returns reported-frame records; a privileged controller that plans in the true frame adds this to its command.
+        """
+        if self.physics_params is None:
+            return np.zeros(6, dtype=np.float32)
+        return self.physics_params.offset_act()
 
     def _write_ctrl(self, qpos: Any) -> None:
         for actuator, value in zip(self._actuator_ids, qpos, strict=True):
@@ -484,6 +494,10 @@ class MujocoTaskAdapter:
         self._previous_privileged_snapshot = self.privileged_state()
         self._previous_contact_snapshot = self.privileged_contact_state()
         current = self.current_act()
+        offset = self.joint_offset_act()
+        shifted = bool(offset.any())
+        if shifted:     # reported frame -> true frame; the gate and the actuators work in the true frame
+            requested_act = np.asarray(requested_act, dtype=np.float32) - offset
         # The gate (nonfinite -> current; bench: any mask -> hold) is shared with
         # the physical runner so both lanes execute the identical rule.
         decision = bench_hold_decision(
@@ -504,8 +518,8 @@ class MujocoTaskAdapter:
             for actuator, value in zip(self._actuator_ids, qpos, strict=True):
                 self.data.ctrl[actuator] = float(value)
         return CommandApplication(
-            requested_act=decision.requested_act,
-            executed_act=decision.executed_act,
+            requested_act=(decision.requested_act + offset).astype(np.float32) if shifted else decision.requested_act,
+            executed_act=(decision.executed_act + offset).astype(np.float32) if shifted else decision.executed_act,
             command_bound_violation=decision.command_bound_violation,
             delta_limiter_activated=decision.delta_limiter_activated,
             nonfinite_command=decision.nonfinite,

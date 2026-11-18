@@ -22,7 +22,7 @@ import numpy as np
 
 PHYSICS_RESOLVER_VERSION = "bench_physics_v1"
 _SALT = 0x9A51C5
-_EPISODE, _PAUSE, _NOISE = 0, 1, 2
+_EPISODE, _PAUSE, _NOISE, _OFFSET = 0, 1, 2, 3
 
 # Physical normalized units (the servo's -100..100 for joints, 0..100 for the gripper) per act unit.
 _UNITS_PER_ACT = np.array([200.0 / (2 * np.pi)] * 5 + [100.0 / 1.7], dtype=np.float64)
@@ -60,6 +60,11 @@ class PhysicsRegime:
     sensor_noise_units: float = 0.3                     # Gaussian sd per joint per step on the observed joint state
     cube_mass_kg: tuple[float, float] = (0.005, 0.06)   # log-uniform; the printed cube weighs a few grams
     cube_friction: tuple[float, float] = (0.5, 1.5)     # uniform, sliding friction of the cube's geoms
+    # Joint-zero error (2026-11-18): per episode, each of the five arm joints gets a fixed offset drawn uniformly from
+    # +-joint_offset_deg. The policy's whole joint frame is shifted by it (the state it reads and the commands it
+    # sends), the teacher and the physics stay in the true frame, exactly like an encoder whose zero is off: the joint
+    # readings stop saying where the jaws are and only the image does. 0 = off (identity and draw streams unchanged).
+    joint_offset_deg: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.name or self.version != 1:
@@ -76,6 +81,10 @@ class PhysicsRegime:
         if not np.isfinite(noise) or noise < 0:
             raise ValueError("sensor_noise_units must be a finite non-negative number")
         object.__setattr__(self, "sensor_noise_units", noise)
+        offset = float(self.joint_offset_deg)
+        if not np.isfinite(offset) or not 0.0 <= offset <= 15.0:
+            raise ValueError("joint_offset_deg must lie in [0, 15]")
+        object.__setattr__(self, "joint_offset_deg", offset)
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "PhysicsRegime":
@@ -84,7 +93,10 @@ class PhysicsRegime:
         return cls(**{k: tupled(v) for k, v in raw.items()})
 
     def identity(self) -> dict[str, Any]:
-        return asdict(self)
+        record = asdict(self)
+        if record["joint_offset_deg"] == 0.0:
+            record.pop("joint_offset_deg")     # regimes without offsets keep the identity they always had
+        return record
 
 
 @dataclass(frozen=True)
@@ -102,9 +114,20 @@ class PhysicsParams:
     cube_friction: float
     pause_ms: tuple[float, float]
     sensor_noise_units: float
+    joint_offset_act: tuple[float, ...] = (0.0,) * 6    # reported joint frame minus true frame, act units (gripper 0)
 
     def as_record(self) -> dict[str, Any]:
-        return asdict(self)
+        record = asdict(self)
+        if not any(self.joint_offset_act):
+            record.pop("joint_offset_act")
+        return record
+
+    @property
+    def has_joint_offset(self) -> bool:
+        return any(self.joint_offset_act)
+
+    def offset_act(self) -> np.ndarray:
+        return np.asarray(self.joint_offset_act, dtype=np.float32)
 
     def pause_s(self, boundary: int) -> float:
         """Inference pause at chunk boundary ``boundary`` (the action index where the policy reads a frame)."""
@@ -144,12 +167,17 @@ def resolve_physics(regime: PhysicsRegime, seed: int) -> PhysicsParams:
     latency = float(rng.uniform(*regime.latency_ms)) / 1000.0
     cube_mass = float(_log_uniform(rng, regime.cube_mass_kg))
     cube_friction = float(rng.uniform(*regime.cube_friction))
+    offset = (0.0,) * 6
+    if regime.joint_offset_deg > 0.0:       # its own stream: every earlier draw is unchanged
+        bound = np.deg2rad(regime.joint_offset_deg)
+        draw = np.random.default_rng([seed, _SALT, _OFFSET, regime.version]).uniform(-bound, bound, size=5)
+        offset = tuple(float(v) for v in draw) + (0.0,)
     return PhysicsParams(
         regime=regime.name, seed=seed,
         kp_scale=tuple(float(v) for v in kp), kv_scale=tuple(float(v) for v in kv),
         friction_scale=tuple(float(v) for v in friction), arm_mass_scale=mass, latency_s=latency,
         cube_mass_kg=cube_mass, cube_friction=cube_friction, pause_ms=regime.pause_ms,
-        sensor_noise_units=regime.sensor_noise_units,
+        sensor_noise_units=regime.sensor_noise_units, joint_offset_act=offset,
     )
 
 
@@ -173,12 +201,25 @@ REGIMES: dict[str, PhysicsRegime] = {
         kp_scale=((0.7, 3.75), (0.7, 2.0), (0.7, 9.6), (0.7, 2.1), (0.7, 2.0), (0.7, 2.0)),
         kv_scale=((0.5, 2.8), (0.5, 2.0), (0.5, 6.2), (0.5, 3.4), (0.5, 2.0), (0.5, 2.0)),
         friction_scale=((0.27, 2.0), (0.12, 2.0), (0.27, 2.0), (0.11, 2.0), (0.33, 2.0), (0.5, 2.0))),
+    # Regime v3 (2026-11-18): v2 plus a per-episode joint-zero error of up to 3 deg on each arm joint. 1 deg of shoulder
+    # lift moves the jaws 3.5 mm at reach (elbow 2.1 mm), and the real arm's model is 10-35 mm off in jaw height.
+    "bench_physics_v3": PhysicsRegime(
+        name="bench_physics_v3",
+        kp_scale=((0.7, 3.75), (0.7, 2.0), (0.7, 9.6), (0.7, 2.1), (0.7, 2.0), (0.7, 2.0)),
+        kv_scale=((0.5, 2.8), (0.5, 2.0), (0.5, 6.2), (0.5, 3.4), (0.5, 2.0), (0.5, 2.0)),
+        friction_scale=((0.27, 2.0), (0.12, 2.0), (0.27, 2.0), (0.11, 2.0), (0.33, 2.0), (0.5, 2.0)),
+        joint_offset_deg=3.0),
     # Evaluation stand-in for the real arm running a fast policy (CNN / ACT infer in milliseconds): the scene's servo
     # model as measured, 50 ms command latency, no inference pause, sensor noise on, a printed few-gram cube.
     "real_like_v1": PhysicsRegime(
         name="real_like_v1", kp_scale=(1.0, 1.0), kv_scale=(1.0, 1.0), friction_scale=(1.0, 1.0),
         arm_mass_scale=(1.0, 1.0), latency_ms=(50.0, 50.0), pause_ms=(0.0, 0.0), sensor_noise_units=0.3,
         cube_mass_kg=(0.008, 0.008), cube_friction=(1.0, 1.0)),
+    # real_like_v1 with the joint-zero error of regime v3: the stand-in for an arm whose joint zeros were never measured.
+    "real_like_offset_v1": PhysicsRegime(
+        name="real_like_offset_v1", kp_scale=(1.0, 1.0), kv_scale=(1.0, 1.0), friction_scale=(1.0, 1.0),
+        arm_mass_scale=(1.0, 1.0), latency_ms=(50.0, 50.0), pause_ms=(0.0, 0.0), sensor_noise_units=0.3,
+        cube_mass_kg=(0.008, 0.008), cube_friction=(1.0, 1.0), joint_offset_deg=3.0),
 }
 
 

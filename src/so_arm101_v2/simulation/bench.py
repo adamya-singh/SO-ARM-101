@@ -120,6 +120,7 @@ def _config_record(config):
     """asdict(config) for suite digests; teacher_lift_m appears only when set, so legacy suite ids are unchanged."""
     record=asdict(config)
     if record.get('teacher_lift_m') is None:record.pop('teacher_lift_m',None)
+    if record.get('teacher_release_rows') is None:record.pop('teacher_release_rows',None)
     return record
 
 

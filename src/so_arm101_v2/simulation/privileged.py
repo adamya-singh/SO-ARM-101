@@ -504,6 +504,13 @@ class PrivilegedStagedController:
             # 45 actions up and 42 down for a lift three times the legacy one; the retreat still ends at 360.
             after_grasp = ((209, 244, 279, 284, 309, 329, 334, 360) if getattr(bench, "teacher_lift_m", None) is None
                            else (198, 243, 260, 265, 307, 325, 330, 360))
+            release_rows = getattr(bench, "teacher_release_rows", None)
+            if release_rows is not None:
+                # Slower release (bench teacher_release_rows): the opening ends 3 actions later (at 328, held to 332) and
+                # starts ``release_rows`` before that; the earlier start is taken out of the hold at the top of the lift
+                # (17 actions at 18), so the lift (45), traverse (5), set-down (42) and retreat (28) keep their length.
+                down = 328 - int(release_rows)
+                after_grasp = (198, 243, down - 47, down - 42, down, 328, 332, 360)
             self.boundaries = (0, 60) + tuple(
                 bench.observation_steps + b
                 for b in (0, 45, 70) + middle + (135, 170, 190) + after_grasp)
@@ -604,10 +611,14 @@ class PrivilegedStagedController:
         return waypoints[-1]
 
     def _act_from_plan(self, adapter: Any | None, plan_qpos: np.ndarray) -> np.ndarray:
-        return np.clip(
+        act = np.clip(
             self._to_act(self._command(adapter, plan_qpos)),
             ACT_DATASET_LOW + np.float32(1e-6), ACT_DATASET_HIGH - np.float32(1e-6),
         ).astype(np.float32)
+        # Joint-zero error (physics regime joint_offset_deg): the plan is in the true frame, the adapter takes commands
+        # in the reported frame. Zero (and skipped) without it.
+        offset = adapter.joint_offset_act() if adapter is not None and hasattr(adapter, "joint_offset_act") else None
+        return act if offset is None or not offset.any() else (act + offset).astype(np.float32)
 
     def predict(self, image: np.ndarray, current_act: np.ndarray, adapter: Any | None = None) -> np.ndarray:
         del image, current_act

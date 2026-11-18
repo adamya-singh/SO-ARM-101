@@ -237,6 +237,11 @@ class CaptureSource:
     episode_of_row: np.ndarray     # (N,) int32
     scenario_ids: list[str]
     rows: np.ndarray               # candidate sample rows (stored frames, inside the episode limit)
+    first_index: np.ndarray | None = None   # (N,) int64, first row of each row's episode
+    # Previous-command input (2026-11-18): with K > 0 the state gains, for k = 1..K, the command sent k actions ago
+    # minus the current joints (6 values each, normalised act units; zero before the episode's first command). It is
+    # what the arm was told versus where it is, which is how a policy can tell a soft servo from a stiff one.
+    prev_commands: int = 0
 
     @classmethod
     def load(cls, manifest_path: str | Path, *, name: str, episode_limit: int | None = None, frame_stride: int | None = None) -> "CaptureSource":
@@ -264,13 +269,19 @@ class CaptureSource:
             executed_norm=normalize_act(target_act(arrays)).astype(np.float32),   # label_act for perturbed-teacher captures
             progress=np.asarray(arrays["progress"], np.float32), action_index=action_index,
             last_index=last_index, episode_of_row=episode_of_row, scenario_ids=scenario_ids,
-            rows=np.flatnonzero(keep).astype(np.int64),
+            rows=np.flatnonzero(keep).astype(np.int64), first_index=starts[:-1][episode_of_row],
         )
         del arrays
         return source
 
     def state(self, rows: np.ndarray) -> np.ndarray:
-        return np.concatenate([self.current_norm[rows], self.progress[rows, None]], axis=1).astype(np.float32)
+        parts = [self.current_norm[rows], self.progress[rows, None]]
+        for k in range(1, int(self.prev_commands) + 1):
+            before = rows - k
+            lead = self.executed_norm[np.maximum(before, 0)] - self.current_norm[rows]
+            lead[before < self.first_index[rows]] = 0.0
+            parts.append(lead)
+        return np.concatenate(parts, axis=1).astype(np.float32)
 
     def targets(self, rows: np.ndarray, horizon: int) -> np.ndarray:
         """Residual chunk (len(rows), horizon, 6), identical to ``build_chunked_targets``."""

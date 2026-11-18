@@ -204,3 +204,91 @@ def test_eval_matrix_report_prints_every_cell_present(tmp_path, capsys):
     assert json.loads(out.read_text())["cells"] == ["nominal", "servo_bench_physics_v2", "stiff_elbow", "zz_new"]
     line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("pol ")][0]
     assert line.split()[1:] == ["24/30", "11/30", "24/30", "1/30"]
+
+
+# ---- joint-zero offsets (2026-11-18) -------------------------------------------------------------------------------
+
+def test_joint_offset_has_its_own_stream_and_leaves_older_regimes_unchanged():
+    v2, v3 = physics_regime("bench_physics_v2"), physics_regime("bench_physics_v3")
+    assert "joint_offset_deg" not in v2.identity() and v3.identity()["joint_offset_deg"] == 3.0
+    for seed in physics_seeds(5, 50):
+        a, b = resolve_physics(v2, seed), resolve_physics(v3, seed)
+        assert "joint_offset_act" not in a.as_record() and not a.has_joint_offset
+        assert (a.kp_scale, a.kv_scale, a.friction_scale, a.arm_mass_scale, a.latency_s, a.cube_mass_kg, a.cube_friction) == \
+            (b.kp_scale, b.kv_scale, b.friction_scale, b.arm_mass_scale, b.latency_s, b.cube_mass_kg, b.cube_friction)
+        offset = np.asarray(b.joint_offset_act)
+        assert offset[5] == 0.0 and np.all(np.abs(offset[:5]) <= np.deg2rad(3.0)) and np.any(offset[:5] != 0.0)
+    with pytest.raises(ValueError):
+        PhysicsRegime(name="bad", joint_offset_deg=20.0)
+
+
+def test_joint_offset_shifts_the_policy_frame_and_not_the_motion():
+    """The teacher's true motion is the same with and without the offset; the state it records and the commands it
+    records are both shifted by the offset, so residual targets (command minus state) are unchanged."""
+    pytest.importorskip("mujoco")
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.privileged import PrivilegedStagedController
+    plain, shifted = MujocoTaskAdapter(SERVO_SCENE), MujocoTaskAdapter(SERVO_SCENE)
+    try:
+        records = {}
+        for name, adapter, regime in (("plain", plain, "real_like_v1"), ("shifted", shifted, "real_like_offset_v1")):
+            adapter.reset(_scenario(seed=21, regime=regime))
+            controller = PrivilegedStagedController()
+            controller.reset(adapter)
+            observed, executed = [], []
+            for _ in range(150):
+                observed.append(adapter.observed_act())
+                command = adapter.apply_policy_command(controller.predict(None, adapter.current_act(), adapter))
+                executed.append(command.executed_act)
+                adapter.advance_control_period()
+            records[name] = (np.asarray(observed), np.asarray(executed), adapter.mujoco_qpos().copy())
+        offset = shifted.joint_offset_act()
+        assert np.any(offset[:5] != 0.0) and not plain.joint_offset_act().any()
+        assert np.allclose(records["plain"][2], records["shifted"][2], atol=2e-4)                    # same true motion
+        assert np.allclose(records["shifted"][0] - records["plain"][0], offset, atol=2e-4)           # state shifted
+        assert np.allclose(records["shifted"][1] - records["plain"][1], offset, atol=2e-4)           # commands shifted
+        assert np.allclose(shifted.observed_act() - shifted.current_act(), offset, atol=0.02)         # + sensor noise
+    finally:
+        plain.close(); shifted.close()
+
+
+def test_previous_command_features_match_between_the_capture_and_the_policy():
+    from so_arm101_v2.learning.pi05 import CaptureSource
+    from so_arm101_v2.learning.tiny_model import denormalize_act
+    from so_arm101_v2.simulation.residual_policy import lead_features
+    rng = np.random.default_rng(0)
+    current, executed = rng.uniform(-0.5, 0.5, (10, 6)).astype(np.float32), rng.uniform(-0.5, 0.5, (10, 6)).astype(np.float32)
+    episode = np.repeat([0, 1], 5).astype(np.int32)
+    source = CaptureSource(name="t", manifest_path=None, frames=None, current_norm=current, executed_norm=executed,
+                           progress=np.linspace(0, 1, 10, dtype=np.float32), action_index=np.tile(np.arange(5), 2),
+                           last_index=np.repeat([4, 9], 5), episode_of_row=episode, scenario_ids=["a", "b"], rows=np.arange(10),
+                           first_index=np.repeat([0, 5], 5))
+    assert source.state(np.arange(10)).shape == (10, 7)
+    source.prev_commands = 3
+    state = source.state(np.arange(10))
+    assert state.shape == (10, 25) and not state[5, 7:].any()                 # first row of an episode: nothing sent yet
+    assert np.allclose(state[6, 7:13], executed[5] - current[6]) and not state[6, 13:].any()
+    history = [denormalize_act(executed[r]) for r in (5, 6, 7)]
+    assert np.allclose(state[8, 7:], lead_features(denormalize_act(current[8]), history, 3), atol=1e-5)
+
+
+def test_release_rows_move_only_the_schedule_after_the_lift():
+    pytest.importorskip("mujoco")
+    from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
+    from so_arm101_v2.simulation.privileged import PrivilegedStagedController
+    models = SERVO_SCENE.parents[1]
+    schedules = {}
+    for name in ("bench_pick_replace_v1_so101_servo_lift100", "bench_pick_replace_v1_so101_servo_lift100_rel30"):
+        adapter = MujocoTaskAdapter(models / name / "scene_bench_pick_replace_v1.xml")
+        try:
+            from so_arm101_v2.simulation.bench import certification_suite
+            adapter.reset(certification_suite(adapter.bench, repeats=1).scenarios[0])
+            controller = PrivilegedStagedController()
+            controller.reset(adapter)
+            schedules[name] = controller.boundaries
+        finally:
+            adapter.close()
+    old, new = schedules.values()
+    assert old[:-6] == new[:-6] and old[-1] == new[-1] == 450
+    assert old[-3] - old[-4] == 18 and new[-3] - new[-4] == 30                   # the release
+    assert old[-4] - old[-5] == new[-4] - new[-5] and old[-5] - old[-6] == new[-5] - new[-6]   # set-down and traverse

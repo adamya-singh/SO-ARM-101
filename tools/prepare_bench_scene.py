@@ -169,6 +169,8 @@ def prepare(destination: Path, config: BenchConfig, *, arm_model: str = 'so100',
         payload.pop('servo',None)     # a scene without a servo block keeps the bench_config.json bytes (and hash) it always had
     if payload.get('teacher_lift_m') is None:
         payload.pop('teacher_lift_m',None)   # likewise: only a high-lift scene carries the field
+    if payload.get('teacher_release_rows') is None:
+        payload.pop('teacher_release_rows',None)
     (destination/'bench_config.json').write_text(json.dumps(payload,indent=2)+'\n')
     return scene
 
@@ -195,6 +197,9 @@ def main():
     p.add_argument('--teacher-lift-m',type=float,default=None,
         help='teacher lift height above the grasp (bench_config teacher_lift_m; default keeps the config, legacy 0.031): '
              'selects the high-lift stage schedule, e.g. 0.10')
+    p.add_argument('--teacher-release-rows',type=int,default=None,
+        help='high-lift schedule only: actions the gripper takes to open at the release (bench_config teacher_release_rows; '
+             'default keeps the config, 18 when unset), e.g. 30')
     p.add_argument('--arm',choices=['so100','so101'],default='so100',
         help="arm model: the Menagerie SO-100 (default, the scenes so far) or the Menagerie SO-101 "
              "(simulation_code/model/menagerie_so101); so101 also converts a measured_20260908b config to measured_20260908b_so101")
@@ -224,6 +229,8 @@ def main():
             **({'compensation':{k:float(v) for k,v in (item.split('=',1) for item in a.servo_compensation)}} if a.servo_compensation else {})))
     if a.teacher_lift_m is not None:
         config=replace(config,teacher_lift_m=float(a.teacher_lift_m))
+    if a.teacher_release_rows is not None:
+        config=replace(config,teacher_release_rows=int(a.teacher_release_rows))
     if a.survey_pose=='default':
         config=replace(config,viewing_qpos=tuple(float(q+d) for q,d in zip(config.reset_qpos,SURVEY_POSE_DELTA_RAD)))
     elif a.survey_pose=='reset':

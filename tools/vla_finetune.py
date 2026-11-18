@@ -139,6 +139,8 @@ def main(argv=None) -> int:
     p.add_argument("--warmup", type=int, default=None)
     p.add_argument("--shift", type=int, default=12)
     p.add_argument("--seed", type=int, default=202)
+    p.add_argument("--prev-commands", type=int, default=0,
+                   help="ACT only: add the last K commands (each minus the current joints) to the state input; 0 = off")
     p.add_argument("--num-inference-steps", type=int, default=10)
     p.add_argument("--eval-every", type=int, default=2500)
     p.add_argument("--scratch-every", type=int, default=2500)
@@ -177,6 +179,10 @@ def main(argv=None) -> int:
                                         warmup_steps=args.warmup).items() if v is not None}
     defaults.update(overrides)
     defaults.setdefault("max_steps", 30000)
+    if args.prev_commands:
+        if args.model != "act" or not 1 <= args.prev_commands <= 8:
+            raise SystemExit("--prev-commands is for ACT and must lie in [1, 8]")
+        defaults["extra"] = {"prev_commands": int(args.prev_commands)}
     config = VLAConfig(kind=args.model, random_shift=args.shift, seed=args.seed, num_inference_steps=args.num_inference_steps, **defaults)
     amp = args.amp == "on" or (args.amp == "auto" and args.model == "smolvla")
     data_dirs = [d.resolve() for d in args.data_dirs]
@@ -205,6 +211,8 @@ def main(argv=None) -> int:
     device = torch.device("cuda")
     torch.manual_seed(config.seed)
     sources = [CaptureSource.load(m, name=d.name) for m, d in zip(train_manifests, data_dirs)]
+    for source in sources:
+        source.prev_commands = int(args.prev_commands)
     stats_path = root / "stats.json"
     if stats_path.exists():
         stats = QuantileStats.from_json(json.loads(stats_path.read_text()))
@@ -261,6 +269,7 @@ def main(argv=None) -> int:
     try:
         phase("load", 0)
         heldout = CaptureSource.load(heldout_manifest, name="heldout")
+        heldout.prev_commands = int(args.prev_commands)
         scorer = HeldoutScorer(heldout, sources)
         samples_total = int(sum(s.rows.shape[0] for s in sources))
         print(f"VLA {args.model}: {info['parameters_total'] / 1e6:.0f}M parameters, {info['parameters_trainable'] / 1e6:.0f}M trainable; "

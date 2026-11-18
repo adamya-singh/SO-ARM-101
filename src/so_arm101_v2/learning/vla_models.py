@@ -448,7 +448,9 @@ class ACTModel(ResidualModel):
                         pretrained_backbone_weights=("ResNet18_Weights.IMAGENET1K_V1" if pretrained_backbone else None), device=device,
                         normalization_mapping={"VISUAL": NormalizationMode.IDENTITY, "STATE": NormalizationMode.IDENTITY,
                                                "ACTION": NormalizationMode.IDENTITY})
-        cfg.input_features = {"observation.state": PolicyFeature(type=FeatureType.STATE, shape=(STATE_DIM,)),
+        # extra["prev_commands"] = K adds 6 * K previous-command inputs to the state (learning/pi05.CaptureSource.state).
+        state_dim = STATE_DIM + 6 * int(config.extra.get("prev_commands", 0))
+        cfg.input_features = {"observation.state": PolicyFeature(type=FeatureType.STATE, shape=(state_dim,)),
                               ACTModel.IMAGE_KEY: PolicyFeature(type=FeatureType.VISUAL, shape=(3, 256, 256))}
         cfg.output_features = {"action": PolicyFeature(type=FeatureType.ACTION, shape=(ACTION_DIM,))}
         return cfg

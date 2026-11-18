@@ -72,8 +72,15 @@ class BenchConfig:
     # on the real arm reads as a wrist curl (12-16 mm rise). A value selects the high-lift schedule in
     # simulation/privileged.py: same rows up to the closed grasp (action 280), then a longer lift and set-down.
     teacher_lift_m: float | None = None
+    # High-lift schedule only (2026-11-18): actions the gripper takes to open at the release. None = the 18 of the
+    # 2026-11-12 schedule, which a policy copies faster than the soft servo follows: 12 of 30 real_like evaluations
+    # were invalidated by relative-limit frames at the release, after a good pickup. The extra actions come out of the
+    # hold at the top of the lift; the lift, the set-down and the retreat keep their durations.
+    teacher_release_rows: int | None = None
 
     def __post_init__(self):
+        if self.teacher_release_rows is not None and (self.teacher_lift_m is None or not 18 <= int(self.teacher_release_rows) <= 32):
+            raise ValueError("teacher_release_rows needs teacher_lift_m and must lie in [18, 32]")
         if self.teacher_lift_m is not None and not 0.031 < float(self.teacher_lift_m) <= 0.12:
             raise ValueError("teacher_lift_m must lie in (0.031, 0.12] m")
         if self.schema_version != 1 or self.task_id != "bench_pick_replace_v1":
