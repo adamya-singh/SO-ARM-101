@@ -11,6 +11,9 @@ by the change). Each probe is tied to one feature a closed-loop policy would nee
   move_square      the square moves while the cube is in the air          -> does the set-down follow the square?
   swap_elbow       the elbow servo changes mid-episode: the measured soft -> does it cope with a servo that changed?
                    one becomes the stiff nominal one, or the reverse
+  shift_and_swap   shift_placement and swap_elbow at the same action       -> do the two features work together?
+                   (2026-11-19, notes/recursive-generalization-20261119.md); its follow gain is read against the
+                   swap_elbow episode, so it is the effect of the shift on an arm whose elbow already changed
 
 The scripted teacher gives two reference controls. It is open-loop, so its plain episode must show a follow gain of
 zero; planned with the change known in advance (``teacher_informed``) it must show a gain of one and still succeed.
@@ -32,7 +35,8 @@ import numpy as np
 
 from so_arm101_v2.contracts.coordinates import JOINT_NAMES
 
-PROBE_NAMES = ("control", "shift_placement", "shift_cube", "drop_cube", "move_square", "swap_elbow")
+PROBE_NAMES = ("control", "shift_placement", "shift_cube", "drop_cube", "move_square", "swap_elbow", "shift_and_swap")
+GAIN_REFERENCE = {"shift_and_swap": "swap_elbow"}     # probe -> the episode its follow gain is measured against (default: control)
 CLOSURE_STEP = 250            # the row just before the jaws close (simulation/closure.py)
 LIFT_TRIGGER_M = 0.015        # drop_cube / move_square fire when the cube has risen this far
 REGRASP_HEIGHT_M = 0.010      # a second lift after the drop counts from this height
@@ -88,7 +92,7 @@ def cube_shift_on_square(adapter: Any, spec: ProbeSpec, scenario_id: str, skip: 
 
 def planned_shift(adapter: Any, spec: ProbeSpec, scenario_id: str, draw: int = 0) -> np.ndarray | None:
     """The world-xy displacement the probe will apply (None for probes that displace nothing), for candidate ``draw``."""
-    if spec.name in ("shift_placement", "move_square"):
+    if spec.name in ("shift_placement", "move_square", "shift_and_swap"):
         return probe_direction(spec.seed, scenario_id, draw) * spec.magnitude_m
     if spec.name == "shift_cube":
         return cube_shift_on_square(adapter, spec, scenario_id, skip=draw)
@@ -206,7 +210,7 @@ def run_probe_rollout(adapter: Any, contract: Any, scenario: Any, policy_factory
     from so_arm101_v2.simulation.rollout import _BLANK_WRIST_IMAGE
 
     adapter.reset(scenario)
-    displaces = spec.name in ("shift_placement", "shift_cube", "move_square")
+    displaces = spec.name in ("shift_placement", "shift_cube", "move_square", "shift_and_swap")
     shift = (np.asarray(shift, dtype=np.float64) if shift is not None else planned_shift(adapter, spec, scenario.scenario_id)) if displaces else None
     policy = policy_factory(shift)
     reset = getattr(policy, "reset", None)
@@ -230,11 +234,11 @@ def run_probe_rollout(adapter: Any, contract: Any, scenario: Any, policy_factory
     for action in range(steps):
         if event_action is None and spec.name != "control":
             lifted = float(adapter.data.body("red_block").xpos[2] - adapter.initial_cube_height) >= LIFT_TRIGGER_M
-            if spec.name in ("shift_placement", "shift_cube", "swap_elbow") and action == spec.at_action:
-                if spec.name == "swap_elbow":
+            if spec.name in ("shift_placement", "shift_cube", "swap_elbow", "shift_and_swap") and action == spec.at_action:
+                if spec.name in ("swap_elbow", "shift_and_swap"):
                     swap_elbow(adapter)
-                else:
-                    if spec.name == "shift_placement":
+                if spec.name != "swap_elbow":
+                    if spec.name != "shift_cube":
                         shift_square(adapter, shift)
                     shift_cube(adapter, shift)
                 event_action = action
@@ -301,7 +305,7 @@ def policy_factory(kind: str, checkpoint: str | None, execute: int, spec: ProbeS
     if kind == "teacher":
         return lambda shift: TeacherPolicy()
     if kind == "teacher_informed":
-        informed = "place" if spec.name == "move_square" else "reach" if spec.name in ("shift_placement", "shift_cube") else None
+        informed = "place" if spec.name == "move_square" else "reach" if spec.name in ("shift_placement", "shift_cube", "shift_and_swap") else None
         return lambda shift: TeacherPolicy(informed, shift, cube_only=spec.name == "shift_cube")
     if kind == "vision_chunked":
         from so_arm101_v2.simulation.policy_specs import PolicySpec
@@ -332,7 +336,7 @@ def _rollout_task(task: tuple) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
 
 def shift_key(spec_name: str) -> str | None:
     """The shift-plan entry a probe uses: move_square displaces the square by the same vector as shift_placement."""
-    return {"shift_placement": "placement", "move_square": "placement", "shift_cube": "cube"}.get(spec_name)
+    return {"shift_placement": "placement", "move_square": "placement", "shift_cube": "cube", "shift_and_swap": "placement"}.get(spec_name)
 
 
 def _plan_task(task: tuple) -> tuple[str, dict[str, Any]]:
@@ -442,8 +446,10 @@ def _gain(displacement: np.ndarray, shift: np.ndarray) -> np.ndarray:
 
 
 def paired_metrics(spec: ProbeSpec, control_rows: Sequence[Mapping[str, Any]], control: Mapping[str, np.ndarray],
-                   probe_rows: Sequence[Mapping[str, Any]], probe: Mapping[str, np.ndarray]) -> dict[str, Any]:
-    """Summary of one probe against its control. Rates are over all scenarios unless a key says otherwise."""
+                   probe_rows: Sequence[Mapping[str, Any]], probe: Mapping[str, np.ndarray],
+                   reference: tuple[Sequence[Mapping[str, Any]], Mapping[str, np.ndarray]] | None = None) -> dict[str, Any]:
+    """Summary of one probe against its control. Rates are over all scenarios unless a key says otherwise.
+    ``reference`` (rows, trace) replaces the control for the follow gain only (``GAIN_REFERENCE``)."""
     index = {r["scenario_id"]: i for i, r in enumerate(control_rows)}
     if any(r["scenario_id"] not in index for r in probe_rows):
         raise ValueError("every probed scenario needs its control episode")
@@ -471,9 +477,16 @@ def paired_metrics(spec: ProbeSpec, control_rows: Sequence[Mapping[str, Any]], c
         reaction_act_median=float(np.median(reaction[fired])) if fired.any() else None,
         probe_limit_frames=int(sum(r["limit_frames"] for r in probe_rows)), control_limit_frames=int(sum(r["limit_frames"] for r in control_rows)),
     )
-    if spec.name in ("shift_placement", "shift_cube"):
+    if spec.name in ("shift_placement", "shift_cube", "shift_and_swap"):
         shift = np.array([r["shift_xy_m"] for r in probe_rows], dtype=np.float64)
-        moved = (probe["jaw"][:, CLOSURE_STEP, :2] - control["jaw"][:, CLOSURE_STEP, :2]).astype(np.float64)
+        base_jaw = control["jaw"]
+        if spec.name in GAIN_REFERENCE:
+            if reference is None:
+                raise ValueError(f"{spec.name} needs its {GAIN_REFERENCE[spec.name]} episodes as the gain reference")
+            where = {r["scenario_id"]: i for i, r in enumerate(reference[0])}
+            base_jaw = reference[1]["jaw"][[where[r["scenario_id"]] for r in probe_rows]]
+            out["gain_reference"] = GAIN_REFERENCE[spec.name]
+        moved = (probe["jaw"][:, CLOSURE_STEP, :2] - base_jaw[:, CLOSURE_STEP, :2]).astype(np.float64)
         gain = _gain(moved, shift)
         out.update(follow_gain_mean=float(gain.mean()), follow_gain_median=float(np.median(gain)), follow_gain_ci95=_interval(gain),
                    follow_gain_where_control_picked=_mean(gain[picked_c]),
@@ -498,6 +511,6 @@ def paired_metrics(spec: ProbeSpec, control_rows: Sequence[Mapping[str, Any]], c
     return out
 
 
-__all__ = ["CLOSURE_STEP", "PROBE_NAMES", "ProbeSpec", "STIFF_ELBOW", "TeacherPolicy", "cube_shift_on_square", "drop_cube",
+__all__ = ["CLOSURE_STEP", "GAIN_REFERENCE", "PROBE_NAMES", "ProbeSpec", "STIFF_ELBOW", "TeacherPolicy", "cube_shift_on_square", "drop_cube",
            "SOFT_ELBOW", "paired_metrics", "plan_shifts", "planned_shift", "policy_factory", "probe_direction", "run_probe", "run_probe_rollout",
            "shift_cube", "shift_key", "shift_square", "shifted_world", "swap_elbow"]

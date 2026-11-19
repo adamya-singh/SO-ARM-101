@@ -131,6 +131,10 @@ def main(argv=None) -> int:
     p.add_argument("--model", required=True, choices=("smolvla", "act"))
     p.add_argument("--output-dir", type=Path, required=True)
     p.add_argument("--data-dirs", type=Path, nargs="+", default=DEFAULT_DATA)
+    p.add_argument("--episode-limits", type=int, nargs="+", default=None,
+                   help="one per --data-dirs: train on the first N placements of that capture (0 = all)")
+    p.add_argument("--init-checkpoint", type=Path, default=None,
+                   help="ACT: start from this fine-tuned checkpoint (its weights and its normalisation statistics) instead of the pretrained base")
     p.add_argument("--scene", type=Path, default=DEFAULT_MODEL)
     p.add_argument("--steps", type=int, default=None)
     p.add_argument("--batch", type=int, default=None)
@@ -189,6 +193,13 @@ def main(argv=None) -> int:
     config = VLAConfig(kind=args.model, random_shift=args.shift, seed=args.seed, num_inference_steps=args.num_inference_steps, **defaults)
     amp = args.amp == "on" or (args.amp == "auto" and args.model == "smolvla")
     data_dirs = [d.resolve() for d in args.data_dirs]
+    limits = [None] * len(data_dirs)
+    if args.episode_limits is not None:
+        if len(args.episode_limits) != len(data_dirs) or min(args.episode_limits) < 0:
+            raise SystemExit("--episode-limits needs one non-negative value per --data-dirs entry")
+        limits = [int(n) or None for n in args.episode_limits]
+    if args.init_checkpoint is not None and args.model != "act":
+        raise SystemExit("--init-checkpoint is for ACT")
     train_manifests = [Path((d / "train_manifest.path").read_text().strip()) for d in data_dirs]
     heldout_manifest = Path((data_dirs[0] / "heldout_manifest.path").read_text().strip())
     suite = load_suite_from_path(Path((data_dirs[0] / "heldout_suite.path").read_text().strip()))
@@ -199,6 +210,10 @@ def main(argv=None) -> int:
                     heldout_manifest=str(heldout_manifest), heldout_suite=suite.suite_id, rollout_repeats=suite.repeats,
                     scene_dependencies_sha256=scene_hash, execs=args.execs, rl_steps=args.rl_steps, eval_every=args.eval_every,
                     rehearsal=bool(args.rehearsal), references=tracking.REFERENCES, tranche=args.tranche)
+    if args.episode_limits is not None:       # only when used, so earlier runs keep their identity
+        identity["episode_limits"] = [int(n) for n in args.episode_limits]
+    if args.init_checkpoint is not None:
+        identity["init_checkpoint"] = str(args.init_checkpoint.resolve())
     if not args.probe:
         write_immutable_json(root / "identity.json", identity)
 
@@ -213,16 +228,28 @@ def main(argv=None) -> int:
 
     device = torch.device("cuda")
     torch.manual_seed(config.seed)
-    sources = [CaptureSource.load(m, name=d.name) for m, d in zip(train_manifests, data_dirs)]
+    sources = [CaptureSource.load(m, name=d.name, episode_limit=n) for m, d, n in zip(train_manifests, data_dirs, limits)]
     for source in sources:
         source.prev_commands = int(args.prev_commands)
     stats_path = root / "stats.json"
+    init = None
+    if args.init_checkpoint is not None:
+        init = torch.load(args.init_checkpoint, map_location="cpu", weights_only=False)
+        if init.get("model_kind") != "act_residual_h90" or dict(init["config"].get("extra") or {}) != dict(defaults.get("extra") or {}):
+            raise SystemExit(f"{args.init_checkpoint} is not an ACT checkpoint with this input layout")
     if stats_path.exists():
         stats = QuantileStats.from_json(json.loads(stats_path.read_text()))
+    elif init is not None:
+        stats = QuantileStats.from_json(init["stats"])      # the weights were trained under these statistics
+        atomic_json(stats_path, stats.to_json())
     else:
         stats = QuantileStats.from_sources(sources, config.chunk_horizon, seed=config.seed)
         atomic_json(stats_path, stats.to_json())
-    model, info = build_model(config, stats, "cuda")
+    model, info = build_model(config, stats, "cuda", load_pretrained=init is None)
+    if init is not None:
+        model.load_state(init["state_dict"], init.get("buffers"))     # a resume overwrites these from scratch.pt below
+        print(f"VLA starts from {args.init_checkpoint}", flush=True)
+        del init
     named = [(n, p) for n, p in model.policy.named_parameters() if p.requires_grad]
     autocast = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if amp else contextlib.nullcontext
 

@@ -1,0 +1,95 @@
+{
+  "registered": "2026-11-19, before any cell of this tranche ran",
+  "verdicts": {
+    "both_split__so101:shift_placement": [
+      "present",
+      "partial"
+    ],
+    "both_split_exec30__so101:shift_placement": [
+      "present"
+    ],
+    "both_split__so101:swap_elbow": [
+      "present"
+    ],
+    "both_split__so101:shift_and_swap": [
+      "present",
+      "partial"
+    ],
+    "both_split_exec30__so101:swap_elbow": [
+      "present"
+    ],
+    "both_split_exec30__so101:shift_and_swap": [
+      "present",
+      "partial"
+    ],
+    "both_full__so101:shift_placement": [
+      "present"
+    ],
+    "both_full_exec30__so101:shift_placement": [
+      "present"
+    ],
+    "both_full__so101:swap_elbow": [
+      "present"
+    ],
+    "both_full__so101:shift_and_swap": [
+      "present",
+      "partial"
+    ],
+    "both_full_exec30__so101:swap_elbow": [
+      "present"
+    ],
+    "both_full_exec30__so101:shift_and_swap": [
+      "present",
+      "partial"
+    ],
+    "base_act__so101:shift_and_swap": [
+      "absent"
+    ],
+    "base_act_exec30__so101:shift_and_swap": [
+      "absent"
+    ],
+    "pert_act__so101:shift_and_swap": [
+      "absent"
+    ],
+    "physv2_act__so101:shift_and_swap": [
+      "absent",
+      "partial"
+    ],
+    "physv2_act_exec30__so101:shift_and_swap": [
+      "present",
+      "partial"
+    ],
+    "base_cnn_s202__so101:shift_and_swap": [
+      "absent"
+    ],
+    "base_cnn_s101__so101:shift_and_swap": [
+      "absent"
+    ],
+    "base_cnn_s303__so101:shift_and_swap": [
+      "absent"
+    ],
+    "pert_cnn_s202__so101:shift_and_swap": [
+      "absent"
+    ],
+    "pert_cnn_s101__so101:shift_and_swap": [
+      "absent"
+    ],
+    "pert_cnn_s303__so101:shift_and_swap": [
+      "absent"
+    ],
+    "physv2_cnn_s202__so101:shift_and_swap": [
+      "absent"
+    ],
+    "physv2_cnn_s101__so101:shift_and_swap": [
+      "absent"
+    ],
+    "physv2_cnn_s303__so101:shift_and_swap": [
+      "absent"
+    ]
+  },
+  "order": {
+    "margin": 0.1,
+    "motor": "the perturbed-teacher start keeps at least 0.10 more of its pickups under swap_elbow than the baseline start, mean over N = 300/1200/4800 and seeds 202/101 (low confidence)",
+    "look": "the physics-v2 start reads at least 0.10 more follow gain under shift_placement than the baseline start, mean over N = 300/1200/4800 (moderate confidence: it starts at +0.38 against +0.04)"
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "identity": {
+    "tool": "feature_probes",
+    "kind": "teacher_informed",
+    "checkpoint": null,
+    "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_so101/scene_bench_pick_replace_v1.xml",
+    "scene_dependencies_sha256": "4009e71efe927174b8d4d9e046fc0be4cc3c80f822d771efbe25287f8601e3f3",
+    "suite": "bench_pick_replace_v1_seed31_n100_appearance_placement_e16f57e9ef76",
+    "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/suites/bench_pick_replace_v1_seed31_n100_appearance_placement_e16f57e9ef76/suite.json",
+    "scenarios": 100,
+    "execute": 90,
+    "probe_seed": 0,
+    "at_action": 100,
+    "magnitude_m": 0.02,
+    "cube_magnitude_m": 0.01,
+    "plan": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/plans/so101.json"
+  },
+  "metrics": {
+    "control": {
+      "scenarios": 100,
+      "successes": 100,
+      "pickups": 100,
+      "limit_frames": 0
+    },
+    "shift_placement": {
+      "probe": {
+        "name": "shift_placement",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 100,
+      "probe_successes": 100,
+      "pickup_retention": 1.0,
+      "reaction_act_median": 0.31649816036224365,
+      "probe_limit_frames": 0,
+      "control_limit_frames": 0,
+      "follow_gain_mean": 0.9793826081273653,
+      "follow_gain_median": 0.9902872841855599,
+      "follow_gain_ci95": [
+        0.9619886640418822,
+        0.9912873751905834
+      ],
+      "follow_gain_where_control_picked": 0.9793826081273653,
+      "residual_mm_median": 0.2500004834434933,
+      "verdict": "present"
+    },
+    "shift_cube": {
+      "probe": {
+        "name": "shift_cube",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 100,
+      "probe_successes": 100,
+      "pickup_retention": 1.0,
+      "reaction_act_median": 0.1586545705795288,
+      "probe_limit_frames": 0,
+      "control_limit_frames": 0,
+      "follow_gain_mean": 0.9782284877535565,
+      "follow_gain_median": 0.9911564935372794,
+      "follow_gain_ci95": [
+        0.9575889558222157,
+        0.9910535656895962
+      ],
+      "follow_gain_where_control_picked": 0.9782284877535565,
+      "residual_mm_median": 0.1320624891810537,
+      "verdict": "present"
+    },
+    "drop_cube": {
+      "probe": {
+        "name": "drop_cube",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 0,
+      "probe_successes": 0,
+      "pickup_retention": 0.0,
+      "reaction_act_median": 0.0,
+      "probe_limit_frames": 13,
+      "control_limit_frames": 0,
+      "regrasps": 0,
+      "regrasp_rate": 0.0,
+      "verdict": "absent"
+    },
+    "move_square": {
+      "probe": {
+        "name": "move_square",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 100,
+      "probe_successes": 100,
+      "pickup_retention": 1.0,
+      "reaction_act_median": 0.3132350444793701,
+      "probe_limit_frames": 0,
+      "control_limit_frames": 0,
+      "compared": 100,
+      "follow_gain_mean": 0.9869874124651828,
+      "follow_gain_median": 0.9899551281384666,
+      "follow_gain_ci95": [
+        0.9834836272128372,
+        0.9897917616132862
+      ],
+      "on_moved_square": 100,
+      "verdict": "present"
+    },
+    "swap_elbow": {
+      "probe": {
+        "name": "swap_elbow",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 33,
+      "probe_successes": 31,
+      "pickup_retention": 0.33,
+      "reaction_act_median": 0.0,
+      "probe_limit_frames": 8888,
+      "control_limit_frames": 0,
+      "closure_change_mm_median": 0.9946189421956702,
+      "closure_height_change_mm_median": 0.19397400319576263,
+      "closure_lateral_change_mm_median": 0.8160764882332423,
+      "verdict": "absent"
+    }
+  },
+  "seconds": 151.2
+}

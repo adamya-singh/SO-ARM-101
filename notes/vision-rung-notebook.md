@@ -1718,3 +1718,22 @@ the same episode left alone, on 100 teacher-screened held-out placements (suite 
 - Some 20 mm shifts are unreachable for the teacher, so each scene gets a teacher-admitted shift plan.
 - Queued as tsp 166-170 (plan, rehearsal gate, controls, headline at the front; the rest at the back). No learned
   policy result yet.
+
+## 2026-11-19: feature probes headline result; stacking, combination and order queued
+
+Feature probes headline (tsp 169, nominal SO-101, 100 placements, `experiments/feature_probes_20261118/matrix.json`):
+
+- Controls: plain teacher follow gain +0.02, informed teacher +0.98 with 100/100.
+- `shift_placement`: baseline CNN +0.01 (46/227 pickups kept), perturbed-teacher CNN +0.55 (139/246), baseline ACT
+  +0.04 / +0.06 (execute 90 / 30), perturbed-teacher ACT +0.73, physics v2 CNN +0.11, physics v2 ACT +0.38 / +0.87.
+- `swap_elbow` pickups kept: baseline CNN 68/227, baseline ACT 35/87 and 2/87, perturbed-teacher CNN 41/246,
+  physics v2 CNN 190/202, physics v2 ACT 62/73 and 59/67.
+- Link 3: rank correlation of follow gain and pickups kept, +0.90 over 15 cells.
+- 12 of 13 registered predictions held; baseline ACT at execute 30 was predicted partial or present and read absent.
+  Physics v2 ACT at execute 30 follows the shift (+0.87) with no data change aimed at it (not registered).
+- Open: controls job 168 exited 1 (the teacher has no IK solution for some placements on the high-lift scene and the
+  run stops); plain teacher reads -0.16 for `shift_cube` on the servo scene (bound 0.15); tsp 170 still queued.
+
+Those results test one change -> one feature. The curriculum claim needs stacking, combination and order, queued
+today: `notes/recursive-generalization-20261119.md` (new probe `shift_and_swap`, trainer switches `--init-checkpoint`
+and `--episode-limits`, report `tools/recursive_generalization_report.py`).

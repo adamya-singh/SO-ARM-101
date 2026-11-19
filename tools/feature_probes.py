@@ -53,6 +53,9 @@ def verdict(name: str, m: dict) -> str:
     if name == "swap_elbow":
         keep = m.get("pickup_retention")
         return "n/a" if keep is None else "present" if keep >= COPES else "absent" if keep <= BREAKS else "partial"
+    if name == "shift_and_swap":      # both features in one episode: the weaker of the two readings
+        parts = [verdict("shift_placement", m), verdict("swap_elbow", m)]
+        return "n/a" if "n/a" in parts else min(parts, key=("absent", "partial", "present").index)
     raise ValueError(name)
 
 
@@ -60,6 +63,9 @@ def headline(name: str, m: dict) -> str:
     if name in ("shift_placement", "shift_cube", "move_square"):
         gain = m.get("follow_gain_mean")
         return "-" if gain is None else f"{gain:+.2f}"
+    if name == "shift_and_swap":
+        gain = m.get("follow_gain_mean")
+        return "-" if gain is None or m.get("pickup_retention") is None else f"{gain:+.2f} {m['probe_pickups']}/{m['control_pickups']}"
     if name == "drop_cube":
         return "-" if m.get("regrasp_rate") is None else f"{m['regrasps']}/{m['fired']}"
     return "-" if m.get("pickup_retention") is None else f"{m['probe_pickups']}/{m['control_pickups']}"
@@ -129,6 +135,11 @@ def cmd_run(args) -> int:
         raise SystemExit("--checkpoint is required for a learned policy")
     suite, suite_path = load_suite(args.suite, args.limit)
     names = ["control"] + [n for n in (args.probes or P.PROBE_NAMES[1:]) if n != "control"]
+    for name in list(names):          # a probe read against another probe's episodes runs after it
+        needs = P.GAIN_REFERENCE.get(name)
+        if needs and needs not in names:
+            names.insert(names.index(name), needs)
+    names.sort(key=lambda n: n in P.GAIN_REFERENCE)
     root = args.output_dir.resolve()
     root.mkdir(parents=True, exist_ok=True)
     plan_path = args.plan or root.parent.parent / "plans" / f"{scene_name(args.scene)}.json"
@@ -178,7 +189,9 @@ def cmd_run(args) -> int:
             metrics[name] = dict(scenarios=len(rows[name]), successes=sum(bool(r["success"]) for r in rows[name]), pickups=picked,
                                  limit_frames=sum(r["limit_frames"] for r in rows[name]))
         else:
-            metrics[name] = P.paired_metrics(spec, rows["control"], traces["control"], rows[name], traces[name])
+            needs = P.GAIN_REFERENCE.get(name)
+            metrics[name] = P.paired_metrics(spec, rows["control"], traces["control"], rows[name], traces[name],
+                                             reference=(rows[needs], traces[needs]) if needs else None)
             metrics[name]["verdict"] = verdict(name, metrics[name])
     result = dict(identity=identity, metrics=metrics, seconds=round(time.time() - started, 1))
     (root / "result.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -235,14 +248,15 @@ def cmd_report(args) -> int:
         policy, scene = cell.split("__", 1)
         if policy not in ("teacher", "teacher_informed"):
             continue
-        for p in ("shift_placement", "shift_cube", "move_square"):
+        for p in ("shift_placement", "shift_cube", "move_square", "shift_and_swap"):
             if p not in entry:
                 continue
             gain = entry[p].get("follow_gain_mean")
             if policy == "teacher":
                 ok = gain is not None and abs(gain) <= CONTROL_ZERO
             else:
-                rate = entry[p]["probe_successes"] / max(entry[p]["scenarios"], 1)
+                # shift_and_swap: the teacher's plan does not survive the changed elbow, so only its gain is a control
+                rate = 1.0 if p == "shift_and_swap" else entry[p]["probe_successes"] / max(entry[p]["scenarios"], 1)
                 ok = gain is not None and CONTROL_ONE[0] <= gain <= CONTROL_ONE[1] and rate >= CONTROL_ONE_SUCCESS
             controls.setdefault(scene, {})[f"{policy}:{p}"] = dict(gain=gain, ok=bool(ok))
     predictions = json.loads(args.predictions.read_text()) if args.predictions and args.predictions.exists() else {}

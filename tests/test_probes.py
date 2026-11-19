@@ -152,6 +152,9 @@ def test_report_verdicts_follow_the_registered_thresholds():
     assert verdict("move_square", dict(follow_gain_mean=None)) == "n/a"
     assert verdict("drop_cube", dict(regrasp_rate=0.02)) == "absent" and verdict("drop_cube", dict(regrasp_rate=0.6)) == "present"
     assert verdict("swap_elbow", dict(pickup_retention=0.9)) == "present" and verdict("swap_elbow", dict(pickup_retention=0.3)) == "absent"
+    both = dict(follow_gain_mean=0.7, follow_gain_ci95=[0.6, 0.8], pickup_retention=0.9)
+    assert verdict("shift_and_swap", both) == "present" and verdict("shift_and_swap", dict(both, pickup_retention=0.3)) == "absent"
+    assert verdict("shift_and_swap", dict(both, follow_gain_mean=0.3)) == "partial"     # the weaker reading decides
 
 
 def test_shift_plan_admits_only_displacements_the_teacher_completes(nominal, suite):
@@ -168,3 +171,22 @@ def test_shift_plan_admits_only_displacements_the_teacher_completes(nominal, sui
         P.run_probe(NOMINAL, one, "teacher", None, 90, P.ProbeSpec("shift_cube"), plan=none)
     rows, _ = P.run_probe(NOMINAL, one, "teacher", None, 90, P.ProbeSpec("drop_cube"), plan=none)     # needs no displacement
     assert len(rows) == 1
+
+
+def test_combined_probe_is_the_shift_on_an_arm_whose_elbow_changed(nominal, suite):
+    scenario = suite.scenarios[1]
+    out = {}
+    for kind in ("teacher", "teacher_informed"):
+        runs = {name: run(nominal, scenario, kind, name) for name in ("control", "swap_elbow", "shift_and_swap")}
+        spec, row, trace = runs["shift_and_swap"]
+        assert row["event_action"] == spec.at_action and abs(np.hypot(*row["shift_xy_m"]) - 0.020) < 1e-9
+        stack = lambda item: {k: v[None] for k, v in item[2].items()}
+        with pytest.raises(ValueError):
+            P.paired_metrics(spec, [runs["control"][1]], stack(runs["control"]), [row], stack(runs["shift_and_swap"]))
+        out[kind] = P.paired_metrics(spec, [runs["control"][1]], stack(runs["control"]), [row], stack(runs["shift_and_swap"]),
+                                     reference=([runs["swap_elbow"][1]], stack(runs["swap_elbow"])))
+        assert out[kind]["gain_reference"] == "swap_elbow" and out[kind]["pickup_retention"] is not None
+    assert abs(out["teacher"]["follow_gain_mean"]) < 0.2 and 0.8 < out["teacher_informed"]["follow_gain_mean"] < 1.2
+    adapter = nominal[0]                          # the swapped elbow does not leak into the next episode
+    adapter.reset(scenario)
+    assert np.allclose(adapter.model.actuator_gainprm[adapter._actuator_ids[P.ELBOW], 0], P.STIFF_ELBOW[0])
