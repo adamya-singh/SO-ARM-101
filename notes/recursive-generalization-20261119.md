@@ -1,7 +1,6 @@
 # Do the features stack, combine and build on each other? (2026-11-19)
 
-Status: experiments 2 and 3 complete, experiment 1 complete for `both_split`; `both_full` stopped on a CUDA error at
-step 17,500 and is resumed as tsp 254/255. Results below; everything under "Predictions" was written before any cell ran.
+Status: complete (`both_full` stopped on a CUDA error at step 17,500, was resumed as tsp 254/255 and finished 2026-11-21). Results below; everything under "Predictions" was written before any cell ran.
 
 ## Why this follows the feature probes
 
@@ -172,3 +171,15 @@ What happened to the feature the start already had:
 - Not supported: order. For this pair the features are independent and cheap, so a curriculum has nothing to save.
 - The pair was a weak test of "recursive": neither feature needs the other. A test needs a feature that is built on
   an earlier one (a retry after a failed grasp needs looking; set-down on a moved square needs the held-cube state).
+
+### Addendum: `both_full` (2026-11-21)
+
+| ACT policy | Unprobed successes (90 / 30) | Follow gain | Pickups kept, elbow soft | Both changes: gain, kept, product |
+|---|---|---|---|---|
+| `both_split` | 83 / 66 | +0.74 / +0.91 | 63 of 87 (72%) / 65 of 82 (79%) | +0.44, 0.30, 0.28 / +0.80, 0.77, 0.73 |
+| `both_full` | 76 / 80 | +0.81 / +0.89 | 63 of 86 (73%) / 55 of 88 (63%) | +0.56, 0.42, 0.34 / +0.70, 0.62, 0.59 |
+
+Twice the data of each kind does not lift the elbow reading to the motor-only policy's 85% / 88%, so the shortfall
+of the mixed policies is not from halving the data. Mixing in the nominal-scene perturbed-teacher data costs some
+of the elbow feature (mild dilution), while the follow gain is unaffected. All four `swap_elbow` "present"
+predictions for the mixed policies failed (partial); the combination still tracks the independent product.
