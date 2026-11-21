@@ -331,7 +331,14 @@ def _rollout_task(task: tuple) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     from so_arm101_v2.contracts.pick_place import load_pick_place_contract
     adapter = _adapter(model_path)
     contract = load_pick_place_contract(contract_name, bench_config=adapter.bench)
-    return run_probe_rollout(adapter, contract, scenario, policy_factory(kind, checkpoint, execute, spec), spec, shift)
+    try:
+        return run_probe_rollout(adapter, contract, scenario, policy_factory(kind, checkpoint, execute, spec), spec, shift)
+    except RuntimeError as exc:
+        # The scripted teacher cannot plan every placement on every scene (the 100 mm lift has no IK solution on a few
+        # of the nominal scene's placements). Such a scenario is left out of the teacher's cell; anything else is an error.
+        if kind in ("teacher", "teacher_informed") and "privileged IK failed" in str(exc):
+            return None
+        raise
 
 
 def shift_key(spec_name: str) -> str | None:
@@ -418,6 +425,12 @@ def run_probe(model_path: str | Path, suite: Any, kind: str, checkpoint: str | N
             with ProcessPoolExecutor(min(int(workers), len(tasks)), mp_context=multiprocessing.get_context("spawn"),
                                      initializer=_rollout_worker_init) as pool:
                 results = list(pool.map(_rollout_task, tasks))
+    skipped = sum(r is None for r in results)
+    results = [r for r in results if r is not None]
+    if skipped:
+        print(f"PROBE {spec.name}: {skipped} of {len(scenarios)} scenarios left out (the teacher has no plan for them)", flush=True)
+    if not results:
+        raise RuntimeError(f"the teacher has no plan for any scenario of {spec.name}")
     rows = [row for row, _ in results]
     traces = {name: np.stack([trace[name] for _, trace in results]) for name in results[0][1]}
     return rows, traces

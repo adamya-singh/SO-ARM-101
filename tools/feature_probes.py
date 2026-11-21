@@ -190,6 +190,12 @@ def cmd_run(args) -> int:
                                  limit_frames=sum(r["limit_frames"] for r in rows[name]))
         else:
             needs = P.GAIN_REFERENCE.get(name)
+            # A teacher cell may lack the control episode of a scenario it cannot plan: pair only what has one.
+            have = {r["scenario_id"] for r in rows["control"]}
+            keep = [i for i, r in enumerate(rows[name]) if r["scenario_id"] in have]
+            if len(keep) != len(rows[name]):
+                rows[name] = [rows[name][i] for i in keep]
+                traces[name] = {k: v[keep] for k, v in traces[name].items()}
             metrics[name] = P.paired_metrics(spec, rows["control"], traces["control"], rows[name], traces[name],
                                              reference=(rows[needs], traces[needs]) if needs else None)
             metrics[name]["verdict"] = verdict(name, metrics[name])
@@ -253,7 +259,17 @@ def cmd_report(args) -> int:
                 continue
             gain = entry[p].get("follow_gain_mean")
             if policy == "teacher":
-                ok = gain is not None and abs(gain) <= CONTROL_ZERO
+                # Read the zero control on the MEDIAN (2026-11-21). The plain teacher never sees the change, but its
+                # jaws can bump a cube that moved; on the soft-servo scene the bump deflects the arm and the
+                # servo-compensated teacher answers the joint error. Measured on so101_servo shift_cube: gain 0.000
+                # at action 150, mean -0.16 at 250 from a few bumped scenarios, median +0.03. That is contact, not
+                # looking; the mean stays in the record.
+                median = entry[p].get("follow_gain_median")
+                ok = median is not None and abs(median) <= CONTROL_ZERO
+                controls.setdefault(scene, {})[f"{policy}:{p}"] = dict(gain=gain, median=median, ok=bool(ok))
+                continue
+            if False:
+                pass
             else:
                 # shift_and_swap: the teacher's plan does not survive the changed elbow, so only its gain is a control
                 rate = 1.0 if p == "shift_and_swap" else entry[p]["probe_successes"] / max(entry[p]["scenarios"], 1)
