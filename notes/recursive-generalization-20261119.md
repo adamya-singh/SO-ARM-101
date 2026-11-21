@@ -1,6 +1,7 @@
 # Do the features stack, combine and build on each other? (2026-11-19)
 
-Status: built, tested, queued (see "Queue"). Everything under "Predictions" was written before any cell ran.
+Status: experiments 2 and 3 complete, experiment 1 complete for `both_split`; `both_full` stopped on a CUDA error at
+step 17,500 and is resumed as tsp 254/255. Results below; everything under "Predictions" was written before any cell ran.
 
 ## Why this follows the feature probes
 
@@ -117,3 +118,57 @@ About 22 hours of GPU time at the back of the shared queue, one job at a time:
 
 Because `shift_and_swap` is now one of the default probes, the feature probes' remaining stage (tsp 170) also runs
 it on every cell it visits.
+
+## Results (2026-11-21, nominal SO-101 scene, 100 placements, `report.json`)
+
+### 1. Stacking: both features in one policy, the motor one just under its bar
+
+| ACT policy | Unprobed successes | Follow gain (execute 90 / 30) | Pickups kept, elbow soft (90 / 30) |
+|---|---|---|---|
+| neither | 87 | +0.04 / +0.06 | 35 of 87 / 2 of 87 |
+| look only | 76 | +0.73 / (7 of 100 unprobed) | 26 of 77 |
+| motor only | 66 | +0.38 / +0.87 | 62 of 73 / 59 of 67 |
+| `both_split` | 83 | +0.74 / +0.91 | 63 of 87 (72%) / 65 of 82 (79%) |
+
+The registered "present" for `swap_elbow` failed (72% and 79% against the 80% bar). The follow gain equals the
+look-only policy's on half its data. No interference.
+
+### 2. Combination: kept pickups match the independent product
+
+| ACT policy | Follow gain | Pickups kept | Product of single retentions |
+|---|---|---|---|
+| neither, execute 90 | +0.01 | 0.08 | 0.06 |
+| look only, execute 90 | +0.48 | 0.12 | 0.25 |
+| motor only, execute 90 / 30 | +0.23 / +0.71 | 0.37 / 0.81 | 0.30 / 0.75 |
+| `both_split`, execute 90 / 30 | +0.44 / +0.80 | 0.30 / 0.77 | 0.28 / 0.73 |
+
+Every CNN family reads absent (pooled pickups kept 0.04 to 0.26). The features combine like independent parts at
+execute 30 and nothing handles the combination at execute 90. The motor-only ACT does as well as `both_split`.
+`both_split` at execute 90 was predicted present or partial and read absent.
+
+### 3. Order: no effect in either direction
+
+Target feature after 5000 steps on the first N placements (seeds 202 / 101 for `motor`):
+
+| Direction, start | N = 0 | 300 | 1200 | 4800 |
+|---|---|---|---|---|
+| `motor` from baseline | 0.40 | 0.74 / 0.73 | 0.75 / 0.74 | 0.79 / 0.75 |
+| `motor` from look only | 0.34 | 0.74 / 0.70 | 0.76 / 0.76 | 0.75 / 0.78 |
+| `look` from baseline | +0.04 | +0.62 | +0.68 | +0.68 |
+| `look` from motor only | +0.38 | +0.64 | +0.68 | +0.71 |
+
+Mean lead of the start that has the other feature: -0.00 (`motor`) and +0.02 (`look`), against the registered
+0.10. Both predictions failed. Each feature is learned from 300 placements in 5000 steps from any start.
+
+What happened to the feature the start already had:
+
+- look-only start trained on motor data keeps following the shift (+0.69 to +0.85);
+- motor-only start trained on perturbed-teacher data loses the elbow feature (0.85 to about 0.33);
+- baseline start trained on motor data gains some follow gain it was never taught (+0.04 to +0.20..0.33).
+
+### Reading
+
+- Supported: the two features stack in one policy and combine in an episode no training data contains.
+- Not supported: order. For this pair the features are independent and cheap, so a curriculum has nothing to save.
+- The pair was a weak test of "recursive": neither feature needs the other. A test needs a feature that is built on
+  an earlier one (a retry after a failed grasp needs looking; set-down on a moved square needs the held-cube state).

@@ -72,7 +72,36 @@
       "closure_height_change_mm_median": 0.9795408695936203,
       "closure_lateral_change_mm_median": 2.419982192803067,
       "verdict": "absent"
+    },
+    "shift_and_swap": {
+      "probe": {
+        "name": "shift_and_swap",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 67,
+      "control_successes": 66,
+      "probe_pickups": 2,
+      "probe_successes": 2,
+      "pickup_retention": 0.029850746268656716,
+      "reaction_act_median": 0.8620921969413757,
+      "probe_limit_frames": 2031,
+      "control_limit_frames": 7,
+      "gain_reference": "swap_elbow",
+      "follow_gain_mean": 0.023035753518685448,
+      "follow_gain_median": 0.023624038458445275,
+      "follow_gain_ci95": [
+        -0.04961577324084573,
+        0.09513617404408421
+      ],
+      "follow_gain_where_control_picked": 0.07396723947540391,
+      "residual_mm_median": 20.01733679363142,
+      "verdict": "absent"
     }
   },
-  "seconds": 155.5
+  "seconds": 0.1
 }

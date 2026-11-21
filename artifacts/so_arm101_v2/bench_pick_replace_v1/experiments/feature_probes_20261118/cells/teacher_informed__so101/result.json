@@ -22,112 +22,6 @@
       "pickups": 100,
       "limit_frames": 0
     },
-    "shift_placement": {
-      "probe": {
-        "name": "shift_placement",
-        "at_action": 100,
-        "magnitude_m": 0.02,
-        "cube_magnitude_m": 0.01,
-        "seed": 0
-      },
-      "scenarios": 100,
-      "fired": 100,
-      "control_pickups": 100,
-      "control_successes": 100,
-      "probe_pickups": 100,
-      "probe_successes": 100,
-      "pickup_retention": 1.0,
-      "reaction_act_median": 0.31649816036224365,
-      "probe_limit_frames": 0,
-      "control_limit_frames": 0,
-      "follow_gain_mean": 0.9793826081273653,
-      "follow_gain_median": 0.9902872841855599,
-      "follow_gain_ci95": [
-        0.9619886640418822,
-        0.9912873751905834
-      ],
-      "follow_gain_where_control_picked": 0.9793826081273653,
-      "residual_mm_median": 0.2500004834434933,
-      "verdict": "present"
-    },
-    "shift_cube": {
-      "probe": {
-        "name": "shift_cube",
-        "at_action": 100,
-        "magnitude_m": 0.02,
-        "cube_magnitude_m": 0.01,
-        "seed": 0
-      },
-      "scenarios": 100,
-      "fired": 100,
-      "control_pickups": 100,
-      "control_successes": 100,
-      "probe_pickups": 100,
-      "probe_successes": 100,
-      "pickup_retention": 1.0,
-      "reaction_act_median": 0.1586545705795288,
-      "probe_limit_frames": 0,
-      "control_limit_frames": 0,
-      "follow_gain_mean": 0.9782284877535565,
-      "follow_gain_median": 0.9911564935372794,
-      "follow_gain_ci95": [
-        0.9575889558222157,
-        0.9910535656895962
-      ],
-      "follow_gain_where_control_picked": 0.9782284877535565,
-      "residual_mm_median": 0.1320624891810537,
-      "verdict": "present"
-    },
-    "drop_cube": {
-      "probe": {
-        "name": "drop_cube",
-        "at_action": 100,
-        "magnitude_m": 0.02,
-        "cube_magnitude_m": 0.01,
-        "seed": 0
-      },
-      "scenarios": 100,
-      "fired": 100,
-      "control_pickups": 100,
-      "control_successes": 100,
-      "probe_pickups": 0,
-      "probe_successes": 0,
-      "pickup_retention": 0.0,
-      "reaction_act_median": 0.0,
-      "probe_limit_frames": 13,
-      "control_limit_frames": 0,
-      "regrasps": 0,
-      "regrasp_rate": 0.0,
-      "verdict": "absent"
-    },
-    "move_square": {
-      "probe": {
-        "name": "move_square",
-        "at_action": 100,
-        "magnitude_m": 0.02,
-        "cube_magnitude_m": 0.01,
-        "seed": 0
-      },
-      "scenarios": 100,
-      "fired": 100,
-      "control_pickups": 100,
-      "control_successes": 100,
-      "probe_pickups": 100,
-      "probe_successes": 100,
-      "pickup_retention": 1.0,
-      "reaction_act_median": 0.3132350444793701,
-      "probe_limit_frames": 0,
-      "control_limit_frames": 0,
-      "compared": 100,
-      "follow_gain_mean": 0.9869874124651828,
-      "follow_gain_median": 0.9899551281384666,
-      "follow_gain_ci95": [
-        0.9834836272128372,
-        0.9897917616132862
-      ],
-      "on_moved_square": 100,
-      "verdict": "present"
-    },
     "swap_elbow": {
       "probe": {
         "name": "swap_elbow",
@@ -150,7 +44,36 @@
       "closure_height_change_mm_median": 0.19397400319576263,
       "closure_lateral_change_mm_median": 0.8160764882332423,
       "verdict": "absent"
+    },
+    "shift_and_swap": {
+      "probe": {
+        "name": "shift_and_swap",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 100,
+      "control_successes": 100,
+      "probe_pickups": 37,
+      "probe_successes": 36,
+      "pickup_retention": 0.37,
+      "reaction_act_median": 0.31649816036224365,
+      "probe_limit_frames": 7790,
+      "control_limit_frames": 0,
+      "gain_reference": "swap_elbow",
+      "follow_gain_mean": 0.3493435083991672,
+      "follow_gain_median": 0.9847144618685406,
+      "follow_gain_ci95": [
+        0.02573646050471749,
+        0.6319067029110664
+      ],
+      "follow_gain_where_control_picked": 0.3493435083991672,
+      "residual_mm_median": 0.4640355511619056,
+      "verdict": "absent"
     }
   },
-  "seconds": 151.2
+  "seconds": 24.8
 }

@@ -1,0 +1,185 @@
+{
+  "identity": {
+    "tool": "feature_probes",
+    "kind": "vision_chunked",
+    "checkpoint": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/base_cnn_s101/runs/shift12/models/vision_h90/1004baa1933d4fd0/model.pt",
+    "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_so101_servo/scene_bench_pick_replace_v1.xml",
+    "scene_dependencies_sha256": "e2767224081652d9aa6ca9e388ae0a201c2b8fc2c8e2d299933f0e842ed91fb4",
+    "suite": "bench_pick_replace_v1_seed31_n100_appearance_placement_e16f57e9ef76",
+    "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/suites/bench_pick_replace_v1_seed31_n100_appearance_placement_e16f57e9ef76/suite.json",
+    "scenarios": 100,
+    "execute": 90,
+    "probe_seed": 0,
+    "at_action": 100,
+    "magnitude_m": 0.02,
+    "cube_magnitude_m": 0.01,
+    "plan": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/plans/so101_servo.json"
+  },
+  "metrics": {
+    "control": {
+      "scenarios": 100,
+      "successes": 12,
+      "pickups": 13,
+      "limit_frames": 2797
+    },
+    "shift_placement": {
+      "probe": {
+        "name": "shift_placement",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 6,
+      "probe_successes": 4,
+      "pickup_retention": 0.46153846153846156,
+      "reaction_act_median": 0.8585216999053955,
+      "probe_limit_frames": 2882,
+      "control_limit_frames": 2797,
+      "follow_gain_mean": -0.022989590316394585,
+      "follow_gain_median": 0.003050446861019215,
+      "follow_gain_ci95": [
+        -0.16583964749757504,
+        0.09461815840803874
+      ],
+      "follow_gain_where_control_picked": 0.15115205540903812,
+      "residual_mm_median": 20.048264498919544,
+      "verdict": "absent"
+    },
+    "shift_cube": {
+      "probe": {
+        "name": "shift_cube",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 8,
+      "probe_successes": 7,
+      "pickup_retention": 0.6153846153846154,
+      "reaction_act_median": 0.13435974717140198,
+      "probe_limit_frames": 2801,
+      "control_limit_frames": 2797,
+      "follow_gain_mean": 0.04934732706774147,
+      "follow_gain_median": 0.014598009132956589,
+      "follow_gain_ci95": [
+        -0.020504378527606698,
+        0.11780113267908454
+      ],
+      "follow_gain_where_control_picked": 0.2656890610585736,
+      "residual_mm_median": 9.983353921359132,
+      "verdict": "absent"
+    },
+    "drop_cube": {
+      "probe": {
+        "name": "drop_cube",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 44,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 0,
+      "probe_successes": 0,
+      "pickup_retention": 0.0,
+      "reaction_act_median": 0.8647446632385254,
+      "probe_limit_frames": 2914,
+      "control_limit_frames": 2797,
+      "regrasps": 0,
+      "regrasp_rate": 0.0,
+      "verdict": "absent"
+    },
+    "move_square": {
+      "probe": {
+        "name": "move_square",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 44,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 14,
+      "probe_successes": 6,
+      "pickup_retention": 1.0769230769230769,
+      "reaction_act_median": 0.10735547542572021,
+      "probe_limit_frames": 2797,
+      "control_limit_frames": 2797,
+      "compared": 13,
+      "follow_gain_mean": 0.2756391900912483,
+      "follow_gain_median": 0.31559042568552764,
+      "follow_gain_ci95": [
+        0.1527025181322676,
+        0.3831083056850354
+      ],
+      "on_moved_square": 6,
+      "verdict": "partial"
+    },
+    "swap_elbow": {
+      "probe": {
+        "name": "swap_elbow",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 60,
+      "probe_successes": 57,
+      "pickup_retention": 4.615384615384615,
+      "reaction_act_median": 0.28667330741882324,
+      "probe_limit_frames": 4,
+      "control_limit_frames": 2797,
+      "closure_change_mm_median": 6.73203955399349,
+      "closure_height_change_mm_median": -0.9634848684072495,
+      "closure_lateral_change_mm_median": 5.93333261142603,
+      "verdict": "present"
+    },
+    "shift_and_swap": {
+      "probe": {
+        "name": "shift_and_swap",
+        "at_action": 100,
+        "magnitude_m": 0.02,
+        "cube_magnitude_m": 0.01,
+        "seed": 0
+      },
+      "scenarios": 100,
+      "fired": 100,
+      "control_pickups": 13,
+      "control_successes": 12,
+      "probe_pickups": 17,
+      "probe_successes": 13,
+      "pickup_retention": 1.3076923076923077,
+      "reaction_act_median": 0.8640519976615906,
+      "probe_limit_frames": 0,
+      "control_limit_frames": 2797,
+      "gain_reference": "swap_elbow",
+      "follow_gain_mean": 0.04410625766495529,
+      "follow_gain_median": 0.01711060072067659,
+      "follow_gain_ci95": [
+        -0.016664459682874576,
+        0.10581292755045124
+      ],
+      "follow_gain_where_control_picked": 0.24233711034552588,
+      "residual_mm_median": 19.832714137086676,
+      "verdict": "absent"
+    }
+  },
+  "seconds": 315.8
+}
