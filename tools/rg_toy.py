@@ -401,8 +401,8 @@ def experiments():
     # v8: with the output kept unsaturated the ladder WITHOUT replay chains in 4 seeds of 5, WITH replay in none. The
     # replayed stages are shaped, and their shaping punishes letting go of the cube anywhere but exactly on the target,
     # which swamps the success-only last stage. Here a stage is shaped while it is new and replayed success-only after.
-    def ladder_sp(low="all", high="all"):
-        o, l, c, pl, f = one("over", low), one("lift", low), one("carry", high), one("place", high), one("full_sparse", high)
+    def ladder_sp(low="all", high="all", lift=None):
+        o, l, c, pl, f = one("over", low), one("lift", lift or low), one("carry", high), one("place", high), one("full_sparse", high)
         sp = lambda x: (x[0] + "_sp", x[1], x[2], 1)
         w2 = lambda x: (x[0], x[1], x[2], 2)
         return [dict(mix=[o], steps=M), dict(mix=[w2(l), sp(o)], steps=M), dict(mix=[w2(c), sp(l), sp(o)], steps=M),
@@ -411,6 +411,8 @@ def experiments():
         l2("v8_ladder_spreplay", ladder_sp()),
         l2("v8_low_all_high_L", ladder_sp(low="all", high="L")),
         l2("v8_low_L_high_L", ladder_sp(low="L", high="L")),
+        # how far up does it carry? only the lowest stage (over) is trained everywhere; lift and everything above on L
+        l2("v8_over_all_rest_L", ladder_sp(low="all", high="L", lift="L")),
     ]
     return dict(e1=e1, e2=e2, e3=e3, e4=e4, e5=e5, e6=e6, e7=e7, e8=e8, e9=e9, e10=e10)
 
