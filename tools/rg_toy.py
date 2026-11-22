@@ -37,12 +37,12 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_toy_20261122"
-TASKS = ("reach", "lift", "place", "full_sparse", "full_dense", "over", "carry", "over_sp", "lift_sp", "carry_sp")
+TASKS = ("reach", "lift", "place", "full_sparse", "full_dense", "over", "carry", "over_sp", "lift_sp", "carry_sp", "place_sp")
 # v2 tasks (after the first result, see the note): "over" = low over the cube whatever the gripper does, "carry" = the held
 # cube is over the target. over, lift, carry and full are prefixes of one another: the best action in a state is the same
 # in all of them, so they can be trained in sequence or mixed without one undoing another. reach and place are not
 # (reach forbids closing, place rewards the release that lift punishes). "_sp" = no shaping, +1 at success only.
-BASE = {"over_sp": "over", "lift_sp": "lift", "carry_sp": "carry"}
+BASE = {"over_sp": "over", "lift_sp": "lift", "carry_sp": "carry", "place_sp": "place"}
 STEP, GRASP_XY, GRASP_Z, LIFT_Z, PLACE_XY, HORIZON = 0.05, 0.04, 0.05, 0.2, 0.05, 80
 Z_MAX = 0.5
 
@@ -89,7 +89,7 @@ class Env:
                 self.c[i_near, 1] = self.rng.uniform(0.03, 0.97, i_near.size)
             self.p[i] = np.stack([region_x(self.rng, m, rc), self.rng.uniform(0, 1, m), self.rng.uniform(0, Z_MAX, m)], 1)
             self.closed[i] = False; self.held[i] = False
-            if TASKS[task] == "place":       # starts in the air holding the cube
+            if BASE.get(TASKS[task], TASKS[task]) == "place":       # starts in the air holding the cube
                 self.p[i, 2] = self.rng.uniform(0.1, 0.4, m)
                 self.c[i] = self.p[i]; self.closed[i] = True; self.held[i] = True
         self.time[idx] = 0; self.probed[idx] = False
@@ -188,7 +188,7 @@ EVALS = {      # name -> mix
     "full_LtoR": [("full_sparse", "L", "R", 1)], "full_RtoL": [("full_sparse", "R", "L", 1)],
     "full_all": [("full_sparse", "all", "all", 1)],
     "over_all": [("over", "all", "all", 1)], "lift_all": [("lift", "all", "all", 1)], "carry_all": [("carry", "all", "all", 1)],
-    "carry_R": [("carry", "R", "R", 1)],
+    "carry_R": [("carry", "R", "R", 1)], "place_all": [("place", "all", "all", 1)],
 }
 
 
@@ -219,7 +219,7 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
         next_eval = total + eval_every
         end = total + phase["steps"]
         while total < end:
-            O, CO, A, R, D, V, LP = [], [], [], [], [], [], []
+            O, CO, A, R, D, V, LP, TK = [], [], [], [], [], [], [], []
             for _ in range(rollout):
                 with torch.no_grad():
                     o, co = torch.from_numpy(obs), torch.from_numpy(env.critic_obs())
@@ -227,7 +227,7 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
                     dist = torch.distributions.Normal(mean, log_std.exp())
                     action = dist.sample()
                     lp = dist.log_prob(action).sum(1)
-                O.append(o); CO.append(co); A.append(action); V.append(value); LP.append(lp)
+                O.append(o); CO.append(co); A.append(action); V.append(value); LP.append(lp); TK.append(torch.from_numpy(env.task.copy()))
                 obs, reward, done, _ = env.step(action.numpy())
                 R.append(torch.from_numpy(reward)); D.append(torch.from_numpy(done.astype(np.float32)))
             with torch.no_grad():
@@ -240,14 +240,26 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
                 adv[t] = gae
             O, CO, A, LP = torch.cat(O), torch.cat(CO), torch.cat(A), torch.cat(LP)
             adv = torch.cat(adv); ret = adv + torch.cat(V)
-            adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+            if condition.get("per_task_adv"):      # each task's advantages on their own scale: a success-only stage is not
+                tk = torch.cat(TK)                 # drowned by the shaped stages replayed beside it
+                for task_id in tk.unique():
+                    m = tk == task_id
+                    adv[m] = (adv[m] - adv[m].mean()) / (adv[m].std() + 1e-8)
+            else:
+                adv = (adv - adv.mean()) / (adv.std() + 1e-8)
             n = O.shape[0]
             for _ in range(epochs):
                 for idx in torch.randperm(n).split(batch):
-                    dist = torch.distributions.Normal(actor(O[idx]), log_std.exp())
+                    pre_l2 = float(condition.get("pre_l2", 0.0))
+                    if pre_l2:          # the squashed actor is (mlp, tanh): penalise the value before the tanh
+                        pre = actor[0](O[idx])
+                        mean, penalty = torch.tanh(pre), pre_l2 * pre.pow(2).mean()
+                    else:
+                        mean, penalty = actor(O[idx]), 0.0
+                    dist = torch.distributions.Normal(mean, log_std.exp())
                     lp = dist.log_prob(A[idx]).sum(1)
                     ratio = (lp - LP[idx]).exp()
-                    loss = -torch.min(ratio * adv[idx], ratio.clamp(1 - clip, 1 + clip) * adv[idx]).mean() \
+                    loss = penalty - torch.min(ratio * adv[idx], ratio.clamp(1 - clip, 1 + clip) * adv[idx]).mean() \
                         + 0.5 * (critic(CO[idx]).squeeze(1) - ret[idx]).pow(2).mean() - ent * dist.entropy().sum(1).mean()
                     opt.zero_grad(); loss.backward()
                     torch.nn.utils.clip_grad_norm_(list(actor.parameters()) + list(critic.parameters()), 0.5)
@@ -347,7 +359,60 @@ def experiments():
         sq("v4_low_L_high_L", then("full_sparse", low="L", high="L")),
         sq("v4_dense_full_L", [dict(mix=[one("full_dense", "L")], steps=6 * M)]),
     ]
-    return dict(e1=e1, e2=e2, e3=e3, e4=e4, e5=e5, e6=e6)
+    # v5: with the bounded mean the prefix stages are learned but the last step (letting go over the target) is found in
+    # 1 seed of 5. Add it as its own stage, practised from where the stage before it ends: "place" starts holding the
+    # cube in the air, has the full task's reward, and is consistent with over / lift / carry (none of them reaches a
+    # state where letting go is right).
+    def ladder(replay=True, low="all", high="all"):
+        o, l, c, pl, f = one("over", low), one("lift", low), one("carry", high), one("place", high), one("full_sparse", high)
+        if not replay:
+            return [dict(mix=[x], steps=M) for x in (o, l, c, pl)] + [dict(mix=[f], steps=3 * M)]
+        w2 = lambda x: (x[0], x[1], x[2], 2)
+        return [dict(mix=[o], steps=M), dict(mix=[w2(l), o], steps=M), dict(mix=[w2(c), l, o], steps=M), dict(mix=[w2(pl), c, l, o], steps=M),
+                dict(mix=[(f[0], f[1], f[2], 3), pl, c, l, o], steps=3 * M)]
+    e7 = [
+        sq("v5_ladder_place", ladder()),
+        sq("v5_ladder_place_noreplay", ladder(replay=False)),
+        sq("v5_low_all_high_L", ladder(low="all", high="L")),
+        sq("v5_low_L_high_L", ladder(low="L", high="L")),
+    ]
+    # v6: in v5 replay made chaining WORSE (1 seed of 5 against 2 of 5 without). Guess: the success-only last stage is
+    # drowned by the shaped stages replayed beside it, because advantages are normalised over the whole batch.
+    pt = lambda name, phases: dict(name=name, phases=phases, squash=True, per_task_adv=True)
+    e8 = [
+        pt("v6_ladder_place", ladder()),
+        pt("v6_prefix_then_sparse", then("full_sparse")),
+        pt("v6_low_all_high_L", ladder(low="all", high="L")),
+        pt("v6_low_L_high_L", ladder(low="L", high="L")),
+    ]
+    # v7: traced one failing v5 seed. It carries the cube to the target in 100% of episodes and then holds it there with
+    # the gripper output at exactly 1.00: the tanh is saturated, its gradient is zero, and the "place" stage itself was
+    # never learned (0%). The bounded mean was not enough; here the value before the tanh is also kept small (L2 0.01).
+    l2 = lambda name, phases: dict(name=name, phases=phases, squash=True, pre_l2=0.01)
+    e9 = [
+        l2("v7_ladder_place", ladder()),
+        l2("v7_ladder_place_noreplay", ladder(replay=False)),
+        l2("v7_prefix_then_sparse", then("full_sparse")),
+        l2("v7_low_all_high_L", ladder(low="all", high="L")),
+        l2("v7_low_L_high_L", ladder(low="L", high="L")),
+        l2("v7_flat_dense", [dict(mix=[one("full_dense")], steps=6 * M)]),
+        l2("v7_dense_full_L", [dict(mix=[one("full_dense", "L")], steps=6 * M)]),
+    ]
+    # v8: with the output kept unsaturated the ladder WITHOUT replay chains in 4 seeds of 5, WITH replay in none. The
+    # replayed stages are shaped, and their shaping punishes letting go of the cube anywhere but exactly on the target,
+    # which swamps the success-only last stage. Here a stage is shaped while it is new and replayed success-only after.
+    def ladder_sp(low="all", high="all"):
+        o, l, c, pl, f = one("over", low), one("lift", low), one("carry", high), one("place", high), one("full_sparse", high)
+        sp = lambda x: (x[0] + "_sp", x[1], x[2], 1)
+        w2 = lambda x: (x[0], x[1], x[2], 2)
+        return [dict(mix=[o], steps=M), dict(mix=[w2(l), sp(o)], steps=M), dict(mix=[w2(c), sp(l), sp(o)], steps=M),
+                dict(mix=[w2(pl), sp(c), sp(l), sp(o)], steps=M), dict(mix=[(f[0], f[1], f[2], 3), sp(pl), sp(c), sp(l), sp(o)], steps=3 * M)]
+    e10 = [
+        l2("v8_ladder_spreplay", ladder_sp()),
+        l2("v8_low_all_high_L", ladder_sp(low="all", high="L")),
+        l2("v8_low_L_high_L", ladder_sp(low="L", high="L")),
+    ]
+    return dict(e1=e1, e2=e2, e3=e3, e4=e4, e5=e5, e6=e6, e7=e7, e8=e8, e9=e9, e10=e10)
 
 
 def _job(task):

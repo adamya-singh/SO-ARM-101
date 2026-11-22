@@ -231,6 +231,8 @@ class VecArm:
 R, D, G, L = "reach", "descend", "grasp", "lift"
 CONDITIONS = {      # phases: (task mix, steps)
     "staged": [([(R, 1)], 1_500_000), ([(D, 2), (R, 1)], 1_500_000), ([(G, 2), (D, 1), (R, 1)], 2_000_000), ([(L, 2), (G, 1), (D, 1), (R, 1)], 2_000_000)],
+    # v3: no replay (in the toy, replaying shaped stages blocked the next stage), outputs kept unsaturated
+    "staged_noreplay": [([(R, 1)], 1_500_000), ([(D, 1)], 1_500_000), ([(G, 1)], 2_000_000), ([(L, 1)], 2_000_000)],
     "flat": [([(L, 1)], 7_000_000)],
     "all_at_once": [([(L, 1), (G, 1), (D, 1), (R, 1)], 7_000_000)],
 }
@@ -286,9 +288,10 @@ def train(name, phases, seed, workers, envs_per_worker, root, rollout=128, eval_
             adv = (adv - adv.mean()) / (adv.std() + 1e-8)
             for _ in range(epochs):
                 for idx in torch.randperm(O.shape[0]).split(batch):
-                    dist = torch.distributions.Normal(actor(O[idx]), log_std.exp())
+                    pre = actor[0](O[idx])          # (mlp, tanh): the value before the tanh is kept small so no output
+                    dist = torch.distributions.Normal(torch.tanh(pre), log_std.exp())     # saturates and freezes (toy lesson 4)
                     ratio = (dist.log_prob(A[idx]).sum(1) - LP[idx]).exp()
-                    loss = -torch.min(ratio * adv[idx], ratio.clamp(1 - clip, 1 + clip) * adv[idx]).mean() \
+                    loss = 0.01 * pre.pow(2).mean() - torch.min(ratio * adv[idx], ratio.clamp(1 - clip, 1 + clip) * adv[idx]).mean() \
                         + 0.5 * (critic(O[idx]).squeeze(1) - ret[idx]).pow(2).mean() - ent * dist.entropy().sum(1).mean()
                     opt.zero_grad(); loss.backward()
                     torch.nn.utils.clip_grad_norm_(params, 0.5)
