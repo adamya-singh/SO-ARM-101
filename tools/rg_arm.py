@@ -37,8 +37,14 @@ DEFAULT_ROOT = E / "rg_arm_20261122"
 SCENE = ROOT / "simulation_code/model/bench_pick_replace_v1_so101/scene_bench_pick_replace_v1.xml"
 TRAIN_SUITE = E / "perturbed_so101_20261108/capture7200/train_suite.path"
 EVAL_SUITE = E / "feature_probes_20261118/probe_suite.path"
-TASKS = ("reach", "lift")
-HORIZON, ACTION_SCALE, HOVER_M, REACH_TOL_M, LIFT_M = 150, 0.06, 0.045, 0.015, 0.030
+TASKS = ("reach", "descend", "grasp", "lift")
+# v2 (same day): the first lift runs stayed at 0. The gripper starts nearly closed (0.23) and the teacher opens it to 0.86
+# before it descends, grasps at 0.19 with the jaw point 23 mm above the cube centre; the v1 reward pulled a closed gripper
+# onto the cube. The four tasks are now prefixes of one another (toy lesson 1) under ONE potential, and differ only in
+# where they end:  reach = open gripper at the hover point, descend = open gripper at the grasp point, grasp = strict
+# two-sided grasp, lift = strict grasp 30 mm up.
+HORIZON, ACTION_SCALE, HOVER_M, REACH_TOL_M, LIFT_M = 200, 0.06, 0.045, 0.015, 0.030
+GRASP_Z_M, OPEN, CLOSED, DESCEND_TOL_M = 0.023, 0.70, 0.19, 0.008
 OBS_DIM = 6 + 3 + 3 + 3 + 2 + 1 + 1 + 1 + 1
 
 
@@ -71,13 +77,24 @@ class ArmEnv:
         jaw, cube = self.jaw(), a.data.body("red_block").xpos
         square = np.asarray(a.square_center_xy, dtype=np.float64)
         return np.concatenate([a.current_act() / 3.0, jaw * 4, cube * 4, (cube - jaw) * 10, square * 4, [self.gain * 30],
-                               [float(self.strict)], [self.t / HORIZON], [1.0 if self.task == "lift" else -1.0]]).astype(np.float32)
+                               [float(self.strict)], [self.t / HORIZON], [0.0]]).astype(np.float32)
+
+    def geometry(self):
+        jaw = self.jaw()
+        xy = float(np.linalg.norm(jaw[:2] - self.cube0[:2]))
+        funnel = self.cube0[2] + GRASP_Z_M + (HOVER_M - GRASP_Z_M) * min(xy / 0.03, 1.0)     # allowed height falls as the jaws centre
+        return jaw, xy, float(abs(jaw[2] - funnel)), float(self.adapter.current_act()[5])
 
     def potential(self):
-        jaw, cube = self.jaw(), self.adapter.data.body("red_block").xpos
-        if self.task == "reach":
-            return -10.0 * float(np.linalg.norm(jaw - (self.cube0 + [0, 0, HOVER_M])))
-        return -10.0 * float(np.linalg.norm(jaw - cube)) + 60.0 * min(self.gain, LIFT_M) + (0.5 if self.strict else 0.0)
+        """One potential for every task: centre over the cube with the gripper open, come down the funnel, close, lift."""
+        if self.strict or self.gain > 0.005:
+            return 6.0 + 60.0 * min(self.gain, LIFT_M)
+        _, xy, dz, grip = self.geometry()
+        approach = -10.0 * xy - 10.0 * dz
+        at_cube = xy < 0.012 and dz < 0.012
+        opened = 2.0 * min(grip, OPEN) / OPEN
+        closing = 2.0 + 2.0 * (OPEN - float(np.clip(grip, CLOSED, OPEN))) / (OPEN - CLOSED)
+        return approach + (closing if at_cube and self.task in ("grasp", "lift") else opened)
 
     def step(self, action):
         from so_arm101_v2.contracts.physical import _mask_reason, bench_hold_decision, physical_normalized_to_act
@@ -103,12 +120,17 @@ class ArmEnv:
         unsafe = bool(pickup.unsafe_contact)
         jaw, cube = self.jaw(), a.data.body("red_block").xpos
         pushed = float(np.linalg.norm(cube[:2] - self.cube0[:2]))
+        grip = float(a.current_act()[5])
+        grasp_point = self.cube0 + [0, 0, GRASP_Z_M]
         if self.task == "reach":
-            success = float(np.linalg.norm(jaw - (self.cube0 + [0, 0, HOVER_M]))) < REACH_TOL_M and pushed < 0.005
-            failed = unsafe or pushed > 0.010
+            success = float(np.linalg.norm(jaw - (self.cube0 + [0, 0, HOVER_M]))) < REACH_TOL_M and pushed < 0.005 and grip >= OPEN
+        elif self.task == "descend":
+            success = float(np.linalg.norm(jaw - grasp_point)) < DESCEND_TOL_M and pushed < 0.005 and grip >= OPEN
+        elif self.task == "grasp":
+            success = self.strict
         else:
             success = self.strict and self.gain >= LIFT_M
-            failed = unsafe
+        failed = unsafe or (pushed > 0.010 and not self.strict and self.gain < 0.005)
         phi = self.potential()
         reward = (phi - self.phi) + 5.0 * success - 0.02 * held - 0.5 * failed
         self.phi = phi
@@ -125,18 +147,20 @@ def _worker(conn, seed, n_envs):
     import mujoco  # noqa: F401
     train, held_out = _suite(TRAIN_SUITE), _suite(EVAL_SUITE)
     envs = [ArmEnv(train, seed * 1000 + i) for i in range(n_envs)]
-    task = "reach"
+    rng = np.random.default_rng(seed + 7)
+    mix = [("reach", 1.0)]
+    draw = lambda: mix[int(rng.choice(len(mix), p=np.array([w for _, w in mix]) / sum(w for _, w in mix)))][0]
     while True:
         cmd, payload = conn.recv()
-        if cmd == "reset":
-            task = payload
-            conn.send(np.stack([e.reset(task) for e in envs]))
+        if cmd == "reset":          # payload: [(task, weight), ...]; each episode draws its task
+            mix = payload
+            conn.send(np.stack([e.reset(draw()) for e in envs]))
         elif cmd == "step":
             out = []
             for e, a in zip(envs, payload):
                 o, r, d, info = e.step(a)
                 if d:
-                    o = e.reset(task)
+                    o = e.reset(draw())
                 out.append((o, r, d, info["success"], info["unsafe"]))
             conn.send(out)
         elif cmd == "eval_reset":       # payload: (task, indices of held-out scenarios)
@@ -170,8 +194,8 @@ class VecArm:
             conn.send((cmd, payload))
         return [conn.recv() for conn in self.conns]
 
-    def reset(self, task):
-        return np.concatenate(self.call("reset", [task] * len(self.conns)))
+    def reset(self, mix):
+        return np.concatenate(self.call("reset", [mix] * len(self.conns)))
 
     def step(self, actions):
         out = [x for part in self.call("step", np.split(actions, len(self.conns))) for x in part]
@@ -204,10 +228,11 @@ class VecArm:
             conn.send(("close", None))
 
 
-CONDITIONS = {
-    "reach": [("reach", 3_000_000)],
-    "lift_flat": [("lift", 10_000_000)],
-    "reach_then_lift": [("reach", 3_000_000), ("lift", 7_000_000)],
+R, D, G, L = "reach", "descend", "grasp", "lift"
+CONDITIONS = {      # phases: (task mix, steps)
+    "staged": [([(R, 1)], 1_500_000), ([(D, 2), (R, 1)], 1_500_000), ([(G, 2), (D, 1), (R, 1)], 2_000_000), ([(L, 2), (G, 1), (D, 1), (R, 1)], 2_000_000)],
+    "flat": [([(L, 1)], 7_000_000)],
+    "all_at_once": [([(L, 1), (G, 1), (D, 1), (R, 1)], 7_000_000)],
 }
 
 
@@ -216,7 +241,7 @@ def train(name, phases, seed, workers, envs_per_worker, root, rollout=128, eval_
     from rg_toy import make_nets
     torch.set_num_threads(2)
     torch.manual_seed(seed)
-    actor, critic, log_std = make_nets(torch, obs_dim=OBS_DIM, act_dim=6, width=256)
+    actor, critic, log_std = make_nets(torch, obs_dim=OBS_DIM, act_dim=6, width=256, squash=True)     # bounded mean (toy lesson 3)
     params = list(actor.parameters()) + list(critic.parameters())
     opt = torch.optim.Adam(params + [log_std], lr=3e-4)
     gamma, lam, clip, epochs, batch, ent = 0.99, 0.95, 0.2, 4, 1024, 0.001
@@ -230,13 +255,13 @@ def train(name, phases, seed, workers, envs_per_worker, root, rollout=128, eval_
         curve.append(row)
         (out / "curve.json").write_text(json.dumps(dict(condition=name, phases=phases, seed=seed, curve=curve)) + "\n")
         torch.save(dict(actor=actor.state_dict(), critic=critic.state_dict(), log_std=log_std.detach()), out / "policy.pt")
-        print(f"{name} s{seed} phase {phase} steps {total}: reach {row['reach']['success']:.2f} lift {row['lift']['success']:.2f} "
-              f"unsafe {row['reach']['unsafe']:.2f}/{row['lift']['unsafe']:.2f} std {log_std.exp().mean():.2f} "
+        print(f"{name} s{seed} phase {phase} steps {total}: " + " ".join(f"{t} {row[t]['success']:.2f}" for t in TASKS)
+              + f" unsafe(lift) {row['lift']['unsafe']:.2f} std {log_std.exp().mean():.2f} "
               f"{total / max(time.time() - started, 1):.0f} steps/s", flush=True)
 
     record(-1)
-    for k, (task, steps) in enumerate(phases):
-        obs = vec.reset(task)
+    for k, (mix, steps) in enumerate(phases):
+        obs = vec.reset(mix)
         end, next_eval = total + int(steps * scale), total + eval_every
         while total < end:
             O, A, R, D, V, LP = [], [], [], [], [], []
@@ -286,8 +311,7 @@ def cmd_report(args):
         data = json.loads(path.read_text())
         print(path.parent.name)
         for row in data["curve"]:
-            print(f"  phase {row['phase']:>2} steps {row['steps']:>9} ({row['seconds']:>6} s): reach {row['reach']['success']:.2f} "
-                  f"lift {row['lift']['success']:.2f} unsafe {row['reach']['unsafe']:.2f}/{row['lift']['unsafe']:.2f}")
+            print(f"  phase {row['phase']:>2} steps {row['steps']:>9} ({row['seconds']:>6} s): " + " ".join(f"{t} {row[t]['success']:.2f}" for t in TASKS if t in row))
     return 0
 
 

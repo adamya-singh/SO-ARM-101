@@ -37,7 +37,12 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = ROOT / "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_toy_20261122"
-TASKS = ("reach", "lift", "place", "full_sparse", "full_dense")
+TASKS = ("reach", "lift", "place", "full_sparse", "full_dense", "over", "carry", "over_sp", "lift_sp", "carry_sp")
+# v2 tasks (after the first result, see the note): "over" = low over the cube whatever the gripper does, "carry" = the held
+# cube is over the target. over, lift, carry and full are prefixes of one another: the best action in a state is the same
+# in all of them, so they can be trained in sequence or mixed without one undoing another. reach and place are not
+# (reach forbids closing, place rewards the release that lift punishes). "_sp" = no shaping, +1 at success only.
+BASE = {"over_sp": "over", "lift_sp": "lift", "carry_sp": "carry"}
 STEP, GRASP_XY, GRASP_Z, LIFT_Z, PLACE_XY, HORIZON = 0.05, 0.04, 0.05, 0.2, 0.05, 80
 Z_MAX = 0.5
 
@@ -97,20 +102,30 @@ class Env:
     def success(self):
         over = (np.linalg.norm(self.p[:, :2] - self.c[:, :2], axis=1) < GRASP_XY) & (self.p[:, 2] < GRASP_Z)
         placed = ~self.held & (self.c[:, 2] == 0) & (np.linalg.norm(self.c[:, :2] - self.t, axis=1) < PLACE_XY)
-        name = np.array(TASKS)[self.task]
-        return np.where(name == "reach", over & ~self.closed & ~self.held, np.where(name == "lift", self.held & (self.c[:, 2] >= LIFT_Z), placed))
+        name = self.names()
+        carried = self.held & (np.linalg.norm(self.c[:, :2] - self.t, axis=1) < PLACE_XY)
+        return np.select([name == "reach", name == "over", name == "lift", name == "carry"],
+                         [over & ~self.closed & ~self.held, over, self.held & (self.c[:, 2] >= LIFT_Z), carried], placed)
+
+    def names(self):
+        return np.array([BASE.get(t, t) for t in TASKS])[self.task]
+
+    def critic_obs(self):          # the critic alone is told the task: the same state is worth different amounts in different tasks
+        return np.concatenate([self.obs(), np.eye(len(TASKS), dtype=np.float32)[self.task]], 1)
 
     def potential(self):
         """Shaping potential: distance to the cube before the grasp, height then distance to the target after it."""
         to_cube = np.linalg.norm(self.p - self.c * [1, 1, 0], axis=1)
         to_target = np.linalg.norm(self.c[:, :2] - self.t, axis=1)
-        name = np.array(TASKS)[self.task]
+        name = self.names()
         before = -to_cube
         held = 0.5 + np.minimum(self.c[:, 2], LIFT_Z) / LIFT_Z * 0.5
-        carry = np.where((name == "lift"), held, held + (1.5 - to_target))
-        dropped = np.where(name == "lift", before, np.where(to_target < PLACE_XY, 3.0, before))      # on the table again
+        carry = np.where((name == "lift") | (name == "over"), held, held + (1.5 - to_target))
+        placed = (to_target < PLACE_XY) & ((name == "full_dense") | (name == "place"))
+        dropped = np.where(placed, 3.0, before)      # on the table again
         phi = np.where(self.held, carry, dropped)
-        return np.where(name == "full_sparse", 0.0, phi)
+        sparse = np.array([t.endswith("_sp") or t == "full_sparse" for t in TASKS])[self.task]
+        return np.where(sparse, 0.0, phi)
 
     def step(self, action):
         a = np.clip(action, -1, 1)
@@ -138,10 +153,14 @@ class Env:
         return self.obs(), reward.astype(np.float32), done, info
 
 
-def make_nets(torch, obs_dim=10, act_dim=4, width=128):
+def make_nets(torch, obs_dim=10, act_dim=4, width=128, critic_dim=None, squash=False):
     nn = torch.nn
     mlp = lambda out: nn.Sequential(nn.Linear(obs_dim, width), nn.Tanh(), nn.Linear(width, width), nn.Tanh(), nn.Linear(width, out))
-    actor, critic = mlp(act_dim), mlp(1)
+    actor = mlp(act_dim)
+    if squash:      # mean action kept inside [-1, 1]: a habit trained to certainty can still be explored away from
+        actor = nn.Sequential(actor, nn.Tanh())
+    obs_dim = critic_dim or obs_dim
+    critic = mlp(1)
     log_std = nn.Parameter(torch.full((act_dim,), -0.5))
     return actor, critic, log_std
 
@@ -168,6 +187,8 @@ EVALS = {      # name -> mix
     "full_L": [("full_sparse", "L", "L", 1)], "full_R": [("full_sparse", "R", "R", 1)],
     "full_LtoR": [("full_sparse", "L", "R", 1)], "full_RtoL": [("full_sparse", "R", "L", 1)],
     "full_all": [("full_sparse", "all", "all", 1)],
+    "over_all": [("over", "all", "all", 1)], "lift_all": [("lift", "all", "all", 1)], "carry_all": [("carry", "all", "all", 1)],
+    "carry_R": [("carry", "R", "R", 1)],
 }
 
 
@@ -183,7 +204,7 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
     import torch
     torch.set_num_threads(1)
     torch.manual_seed(seed)
-    actor, critic, log_std = make_nets(torch)
+    actor, critic, log_std = make_nets(torch, critic_dim=10 + len(TASKS), squash=bool(condition.get("squash")))
     opt = torch.optim.Adam(list(actor.parameters()) + list(critic.parameters()) + [log_std], lr=3e-4)
     gamma, lam, clip, epochs, batch, ent = 0.98, 0.95, 0.2, 4, 2048, 0.003
     curve, total, started = [], 0, time.time()
@@ -191,30 +212,33 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
     row(-1)
     for k, phase in enumerate(condition["phases"]):
         env = Env(n_envs, phase["mix"], seed * 100 + k)
+        if phase.get("reset_std"):          # exploration back to its starting width for the new stage
+            with torch.no_grad():
+                log_std.fill_(-0.5)
         obs = env.obs()
         next_eval = total + eval_every
         end = total + phase["steps"]
         while total < end:
-            O, A, R, D, V, LP = [], [], [], [], [], []
+            O, CO, A, R, D, V, LP = [], [], [], [], [], [], []
             for _ in range(rollout):
                 with torch.no_grad():
-                    o = torch.from_numpy(obs)
-                    mean, value = actor(o), critic(o).squeeze(1)
+                    o, co = torch.from_numpy(obs), torch.from_numpy(env.critic_obs())
+                    mean, value = actor(o), critic(co).squeeze(1)
                     dist = torch.distributions.Normal(mean, log_std.exp())
                     action = dist.sample()
                     lp = dist.log_prob(action).sum(1)
-                O.append(o); A.append(action); V.append(value); LP.append(lp)
+                O.append(o); CO.append(co); A.append(action); V.append(value); LP.append(lp)
                 obs, reward, done, _ = env.step(action.numpy())
                 R.append(torch.from_numpy(reward)); D.append(torch.from_numpy(done.astype(np.float32)))
             with torch.no_grad():
-                last = critic(torch.from_numpy(obs)).squeeze(1)
+                last = critic(torch.from_numpy(env.critic_obs())).squeeze(1)
             adv, gae = [None] * rollout, torch.zeros(n_envs)
             for t in reversed(range(rollout)):          # a time-out is treated as an end (the horizon is in no input; fine for a toy)
                 nxt = last if t == rollout - 1 else V[t + 1]
                 delta = R[t] + gamma * nxt * (1 - D[t]) - V[t]
                 gae = delta + gamma * lam * (1 - D[t]) * gae
                 adv[t] = gae
-            O, A, LP = torch.cat(O), torch.cat(A), torch.cat(LP)
+            O, CO, A, LP = torch.cat(O), torch.cat(CO), torch.cat(A), torch.cat(LP)
             adv = torch.cat(adv); ret = adv + torch.cat(V)
             adv = (adv - adv.mean()) / (adv.std() + 1e-8)
             n = O.shape[0]
@@ -224,7 +248,7 @@ def train(condition, seed, n_envs=256, rollout=64, eval_every=250_000, log=None)
                     lp = dist.log_prob(A[idx]).sum(1)
                     ratio = (lp - LP[idx]).exp()
                     loss = -torch.min(ratio * adv[idx], ratio.clamp(1 - clip, 1 + clip) * adv[idx]).mean() \
-                        + 0.5 * (critic(O[idx]).squeeze(1) - ret[idx]).pow(2).mean() - ent * dist.entropy().sum(1).mean()
+                        + 0.5 * (critic(CO[idx]).squeeze(1) - ret[idx]).pow(2).mean() - ent * dist.entropy().sum(1).mean()
                     opt.zero_grad(); loss.backward()
                     torch.nn.utils.clip_grad_norm_(list(actor.parameters()) + list(critic.parameters()), 0.5)
                     opt.step()
@@ -271,7 +295,59 @@ def experiments():
             dict(mix=[("reach", "all", "all", 1), ("lift", "all", "all", 1), ("place", "L", "L", 1)], steps=3 * M),
             dict(mix=[("full_sparse", "L", "L", 3), ("reach", "all", "all", 1), ("lift", "all", "all", 1), ("place", "L", "L", 1)], steps=3 * M)]),
     ]
-    return dict(e1=e1, e2=e2)
+    one = lambda task, region="all", w=1: (task, region, region, w)
+    def prefix(suffix, replay, region_low="all", region_high="all"):
+        o, l, c, f = one("over" + suffix, region_low), one("lift" + suffix, region_low), one("carry" + suffix, region_high), one("full_sparse", region_high)
+        if not replay:
+            return [dict(mix=[o], steps=M), dict(mix=[l], steps=M), dict(mix=[c], steps=M), dict(mix=[f], steps=3 * M)]
+        return [dict(mix=[o], steps=M), dict(mix=[(l[0], l[1], l[2], 2), o], steps=M), dict(mix=[(c[0], c[1], c[2], 2), l, o], steps=M),
+                dict(mix=[(f[0], f[1], f[2], 3), c, l, o], steps=3 * M)]
+    e3 = [      # v2 of e1: stages that are prefixes of the full task; the critic is told the task in every condition
+        dict(name="v2_flat_dense", phases=[dict(mix=[one("full_dense")], steps=6 * M)]),
+        dict(name="v2_flat_sparse", phases=[dict(mix=[one("full_sparse")], steps=6 * M)]),
+        dict(name="v2_prefix_shaped", phases=prefix("", False)),
+        dict(name="v2_prefix_shaped_replay", phases=prefix("", True)),
+        dict(name="v2_prefix_sparse", phases=prefix("_sp", False)),
+        dict(name="v2_prefix_sparse_replay", phases=prefix("_sp", True)),
+        dict(name="v2_prefix_all_at_once", phases=[dict(mix=[one("over"), one("lift"), one("carry"), one("full_sparse")], steps=6 * M)]),
+        dict(name="v2_old_parts_replay", phases=e1[3]["phases"]),      # the conflicting v1 stages, now with the task-aware critic
+    ]
+    e4 = [      # v2 of e2: the low stages (over, lift) everywhere, the high stages (carry, full) on the left half only
+        dict(name="v2_low_all_high_L", phases=prefix("", True, "all", "L")),
+        dict(name="v2_low_L_high_L", phases=prefix("", True, "L", "L")),
+        dict(name="v2_dense_full_L", phases=[dict(mix=[one("full_dense", "L")], steps=6 * M)]),
+        dict(name="v2_low_all_high_all", phases=prefix("", True, "all", "all")),
+    ]
+    def then(final, replay=True, low="all", high="all", reset_std=False):
+        phases = prefix("", replay, low, high)
+        last = phases[-1]
+        last["mix"] = [(final, m[1], m[2], m[3]) if m[0] == "full_sparse" else m for m in last["mix"]]
+        if reset_std:
+            last["reset_std"] = True
+        return phases
+    e5 = [      # v3: the prefix stages were learned (over, lift, carry all near 1.0) but the sparse last stage was never found
+        dict(name="v3_prefix_then_dense", phases=then("full_dense")),
+        dict(name="v3_prefix_then_dense_noreplay", phases=then("full_dense", replay=False)),
+        dict(name="v3_prefix_then_sparse_stdreset", phases=then("full_sparse", reset_std=True)),
+        dict(name="v3_all_dense_mix", phases=[dict(mix=[one("over"), one("lift"), one("carry"), one("full_dense")], steps=6 * M)]),
+        dict(name="v3_low_all_high_L_dense", phases=then("full_dense", low="all", high="L")),
+        dict(name="v3_low_L_high_L_dense", phases=then("full_dense", low="L", high="L")),
+    ]
+    # v4: v3 still failed with a shaped last stage. The gripper output is unbounded and "closed" is right in every stage
+    # state, so its mean runs far past the threshold and no exploration noise ever opens it. Here the mean is squashed.
+    sq = lambda name, phases: dict(name=name, phases=phases, squash=True)
+    e6 = [
+        sq("v4_flat_dense", [dict(mix=[one("full_dense")], steps=6 * M)]),
+        sq("v4_flat_sparse", [dict(mix=[one("full_sparse")], steps=6 * M)]),
+        sq("v4_prefix_then_sparse", then("full_sparse")),
+        sq("v4_prefix_then_sparse_noreplay", then("full_sparse", replay=False)),
+        sq("v4_prefix_then_dense", then("full_dense")),
+        sq("v4_prefix_all_at_once_sparse", [dict(mix=[one("over"), one("lift"), one("carry"), one("full_sparse")], steps=6 * M)]),
+        sq("v4_low_all_high_L", then("full_sparse", low="all", high="L")),
+        sq("v4_low_L_high_L", then("full_sparse", low="L", high="L")),
+        sq("v4_dense_full_L", [dict(mix=[one("full_dense", "L")], steps=6 * M)]),
+    ]
+    return dict(e1=e1, e2=e2, e3=e3, e4=e4, e5=e5, e6=e6)
 
 
 def _job(task):
@@ -312,11 +388,13 @@ def cmd_report(args):
         runs.setdefault(data["condition"]["name"], []).append(data)
     if not runs:
         raise SystemExit("no runs")
-    keys = ["full_all", "full_L", "full_R", "full_LtoR", "full_RtoL", "reach_R", "lift_R", "place_R", "probe_drop_all", "probe_shift_all"]
+    keys = ["full_all", "full_L", "full_R", "full_LtoR", "full_RtoL", "over_all", "lift_all", "carry_all", "lift_R", "carry_R", "probe_drop_all", "probe_shift_all"]
     table = {}
     print(f"{'condition':<40}{'seeds':>6}" + "".join(f"{k.replace('probe_', 'p_'):>12}" for k in keys) + "   steps to 0.8 full_all")
     for name, items in runs.items():
-        final = {k: [r["curve"][-1][k] for r in items if r["curve"][-1][k] is not None] for k in keys}
+        if getattr(args, "prefix", None) and not name.startswith(args.prefix):
+            continue
+        final = {k: [r["curve"][-1][k] for r in items if r["curve"][-1].get(k) is not None] for k in keys}
         phase_ends = {}
         for r in items:          # the evaluation at the end of every phase, on the full task
             last = {}
@@ -348,9 +426,11 @@ def main(argv=None):
     r.add_argument("--workers", type=int, default=8)
     r.add_argument("--scale", type=float, default=1.0, help="multiply every phase's steps (smoke tests)")
     r.add_argument("--root", type=Path, default=DEFAULT_ROOT)
+    r.add_argument("--prefix", default=None, help="report only conditions whose name starts with this")
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("report")
     t.add_argument("--root", type=Path, default=DEFAULT_ROOT)
+    t.add_argument("--prefix", default=None)
     t.set_defaults(func=cmd_report)
     args = p.parse_args(argv)
     return args.func(args)
