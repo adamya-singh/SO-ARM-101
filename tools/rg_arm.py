@@ -45,6 +45,7 @@ TASKS = ("reach", "descend", "grasp", "lift")
 # two-sided grasp, lift = strict grasp 30 mm up.
 HORIZON, ACTION_SCALE, HOVER_M, REACH_TOL_M, LIFT_M = 200, 0.06, 0.045, 0.015, 0.030
 GRASP_Z_M, OPEN, CLOSED, DESCEND_TOL_M = 0.023, 0.70, 0.19, 0.008
+SPLIT_Y = 0.0      # set from the training suite's median at import by split_y()
 OBS_DIM = 6 + 3 + 3 + 3 + 2 + 1 + 1 + 1 + 1
 
 
@@ -54,17 +55,27 @@ class ArmEnv:
         from so_arm101_v2.simulation.adapter import MujocoTaskAdapter
         self.adapter = MujocoTaskAdapter(SCENE)
         self.contract = load_pick_place_contract("bench_pick_replace_v1", bench_config=self.adapter.bench)
-        self.scenarios, self.rng = scenarios, np.random.default_rng(seed)
+        self.rng = np.random.default_rng(seed)
+        self.use(scenarios)
         self.task = "reach"
         self.order = None
+
+    def use(self, scenarios):
+        """Scenario pool and its halves: L = square centre left of the workspace midline (y below SPLIT_Y), R = the rest."""
+        self.scenarios = scenarios
+        y = np.array([s.square_center_xy[1] for s in scenarios])
+        self.regions = dict(all=np.arange(len(scenarios)), L=np.flatnonzero(y < SPLIT_Y), R=np.flatnonzero(y >= SPLIT_Y))
 
     def jaw(self):
         d = self.adapter.data
         return 0.5 * (d.site("fixed_jaw_tip").xpos + d.site("moving_jaw_tip").xpos)
 
-    def reset(self, task, index=None):
+    def reset(self, task, index=None, region="all"):
         self.task = task
-        scenario = self.scenarios[int(self.rng.integers(len(self.scenarios))) if index is None else index]
+        if index is None:
+            pool = self.regions[region]
+            index = int(pool[self.rng.integers(len(pool))])
+        scenario = self.scenarios[index]
         self.adapter.reset(scenario)
         self.t = 0
         self.cube0 = self.adapter.data.body("red_block").xpos.copy()
@@ -143,36 +154,47 @@ def _suite(pointer):
     return load_suite_from_path(Path(Path(pointer).read_text().strip())).scenarios
 
 
+def split_y(scenarios):
+    return float(np.median([s.square_center_xy[1] for s in scenarios]))
+
+
 def _worker(conn, seed, n_envs):
     import mujoco  # noqa: F401
+    global SPLIT_Y
     train, held_out = _suite(TRAIN_SUITE), _suite(EVAL_SUITE)
+    SPLIT_Y = split_y(train)
     envs = [ArmEnv(train, seed * 1000 + i) for i in range(n_envs)]
     rng = np.random.default_rng(seed + 7)
-    mix = [("reach", 1.0)]
-    draw = lambda: mix[int(rng.choice(len(mix), p=np.array([w for _, w in mix]) / sum(w for _, w in mix)))][0]
+    mix = [("reach", 1.0, "all")]
+    def draw():          # (task, region) for the next episode
+        item = mix[int(rng.choice(len(mix), p=np.array([m[1] for m in mix]) / sum(m[1] for m in mix)))]
+        return item[0], (item[2] if len(item) > 2 else "all")
+    def fresh(e):
+        task, region = draw()
+        return e.reset(task, region=region)
     while True:
         cmd, payload = conn.recv()
         if cmd == "reset":          # payload: [(task, weight), ...]; each episode draws its task
             mix = payload
-            conn.send(np.stack([e.reset(draw()) for e in envs]))
+            conn.send(np.stack([fresh(e) for e in envs]))
         elif cmd == "step":
             out = []
             for e, a in zip(envs, payload):
                 o, r, d, info = e.step(a)
                 if d:
-                    o = e.reset(draw())
+                    o = fresh(e)
                 out.append((o, r, d, info["success"], info["unsafe"]))
             conn.send(out)
         elif cmd == "eval_reset":       # payload: (task, indices of held-out scenarios)
             task_eval, indices = payload
             for e in envs:
-                e.scenarios = held_out
+                e.use(held_out)
             conn.send(np.stack([e.reset(task_eval, index=i) for e, i in zip(envs, indices)]))
         elif cmd == "eval_step":
             conn.send([e.step(a) for e, a in zip(envs, payload)])
         elif cmd == "train_mode":
             for e in envs:
-                e.scenarios = train
+                e.use(train)
             conn.send(True)
         elif cmd == "close":
             return
@@ -202,11 +224,12 @@ class VecArm:
         return (np.stack([o[0] for o in out]), np.array([o[1] for o in out], np.float32), np.array([o[2] for o in out]),
                 np.array([o[3] for o in out]), np.array([o[4] for o in out]))
 
-    def evaluate(self, torch, actor, task, episodes=96):
-        """Mean action on the first ``episodes`` held-out placements (rounded down to a multiple of the env count)."""
+    def evaluate(self, torch, actor, task, episodes=96, indices_all=None):
+        """Mean action on held-out placements (the first ``episodes``, or ``indices_all``), rounded down to a multiple of the env count."""
         ok, unsafe, total = 0, 0, 0
-        for start in range(0, episodes - self.n + 1, self.n):
-            indices = np.arange(start, start + self.n)
+        indices_all = np.arange(episodes) if indices_all is None else np.asarray(indices_all)
+        for start in range(0, len(indices_all) - self.n + 1, self.n):
+            indices = indices_all[start:start + self.n]
             obs = np.concatenate(self.call("eval_reset", [(task, part) for part in np.split(indices, len(self.conns))]))
             alive = np.ones(self.n, bool)
             for _ in range(HORIZON):
@@ -234,6 +257,10 @@ CONDITIONS = {      # phases: (task mix, steps)
     # v3: no replay (in the toy, replaying shaped stages blocked the next stage), outputs kept unsaturated
     "staged_noreplay": [([(R, 1)], 1_500_000), ([(D, 1)], 1_500_000), ([(G, 1)], 2_000_000), ([(L, 1)], 2_000_000)],
     "flat": [([(L, 1)], 7_000_000)],
+    # inheritance in the arm sim (toy result 2): reach on every placement or on the left half only, then descend on the
+    # left half only (reach replayed; one potential, so the replay is consistent). Read: descend on the RIGHT half.
+    "inherit_reach_all": [([(R, 1, "all")], 1_500_000), ([(D, 2, "L"), (R, 1, "all")], 1_500_000)],
+    "inherit_reach_L": [([(R, 1, "L")], 1_500_000), ([(D, 2, "L"), (R, 1, "L")], 1_500_000)],
     "all_at_once": [([(L, 1), (G, 1), (D, 1), (R, 1)], 7_000_000)],
 }
 
@@ -253,14 +280,23 @@ def train(name, phases, seed, workers, envs_per_worker, root, rollout=128, eval_
     curve, total, started = [], 0, time.time()
 
     def record(phase):
-        row = dict(steps=total, phase=phase, seconds=round(time.time() - started), **{t: vec.evaluate(torch, actor, t) for t in TASKS})
+        row = dict(steps=total, phase=phase, seconds=round(time.time() - started), **{t: vec.evaluate(torch, actor, t) for t in tasks})
+        for t in ("reach", "descend") if halves else ():
+            for side, idx in halves.items():
+                row[f"{t}_{side}"] = vec.evaluate(torch, actor, t, indices_all=idx)
         curve.append(row)
         (out / "curve.json").write_text(json.dumps(dict(condition=name, phases=phases, seed=seed, curve=curve)) + "\n")
         torch.save(dict(actor=actor.state_dict(), critic=critic.state_dict(), log_std=log_std.detach()), out / "policy.pt")
-        print(f"{name} s{seed} phase {phase} steps {total}: " + " ".join(f"{t} {row[t]['success']:.2f}" for t in TASKS)
-              + f" unsafe(lift) {row['lift']['unsafe']:.2f} std {log_std.exp().mean():.2f} "
+        print(f"{name} s{seed} phase {phase} steps {total}: " + " ".join(f"{t} {v['success']:.2f}" for t, v in row.items() if isinstance(v, dict))
+              + f" std {log_std.exp().mean():.2f} "
               f"{total / max(time.time() - started, 1):.0f} steps/s", flush=True)
 
+    tasks, halves = TASKS, None
+    if name.startswith("inherit"):
+        held = _suite(EVAL_SUITE)
+        y = np.array([s.square_center_xy[1] for s in held])
+        cut = split_y(_suite(TRAIN_SUITE))
+        tasks, halves = (), dict(L=np.flatnonzero(y < cut), R=np.flatnonzero(y >= cut))
     record(-1)
     for k, (mix, steps) in enumerate(phases):
         obs = vec.reset(mix)
@@ -314,7 +350,7 @@ def cmd_report(args):
         data = json.loads(path.read_text())
         print(path.parent.name)
         for row in data["curve"]:
-            print(f"  phase {row['phase']:>2} steps {row['steps']:>9} ({row['seconds']:>6} s): " + " ".join(f"{t} {row[t]['success']:.2f}" for t in TASKS if t in row))
+            print(f"  phase {row['phase']:>2} steps {row['steps']:>9} ({row['seconds']:>6} s): " + " ".join(f"{t} {v['success']:.2f}" for t, v in row.items() if isinstance(v, dict)))
     return 0
 
 
