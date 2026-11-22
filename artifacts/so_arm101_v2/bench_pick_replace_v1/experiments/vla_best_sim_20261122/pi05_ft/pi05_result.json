@@ -1,0 +1,728 @@
+{
+ "identity": {
+  "tool": "pi05_finetune",
+  "config": {
+   "pretrained": "lerobot/pi05_base",
+   "tokenizer": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/pretrained/paligemma_tokenizer",
+   "train_scope": "expert_lora",
+   "lora_rank": 16,
+   "lora_alpha": 16.0,
+   "batch_size": 32,
+   "micro_batch": 16,
+   "max_steps": 5000,
+   "learning_rate": 2.5e-05,
+   "lora_learning_rate": 0.0001,
+   "warmup_steps": 500,
+   "final_lr_fraction": 0.1,
+   "weight_decay": 0.01,
+   "grad_clip": 1.0,
+   "random_shift": 12,
+   "chunk_horizon": 90,
+   "tokenizer_max_length": 64,
+   "num_inference_steps": 10,
+   "gradient_checkpointing": true,
+   "seed": 202
+  },
+  "train_manifests": [
+   "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/capture_v2/capture_train/oracle/bench_pick_replace_v1_seed17_n7200_appearance_placement_physics_2cb7c221ce7f/cebc7c087d1dca6d/manifest.json"
+  ],
+  "heldout_manifest": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/capture_v2/capture_heldout/oracle/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/2af3b6c613576d01/manifest.json",
+  "heldout_suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101",
+  "rollout_repeats": 3,
+  "scene_dependencies_sha256": "de39e89892d712ae3e4306d3d18b38b6a9851f01cba3190df98a14d1f9775530",
+  "execs": [
+   30
+  ],
+  "eval_every": 1000,
+  "pretrained_revision": "b211f3d44c36b6acfcf7ae94a64e8e96f75a64ba",
+  "rehearsal": false,
+  "references": {
+   "cnn4800_heldout_start_90": 0.00036,
+   "working_policy_start_90": 2.5e-06,
+   "cnn4800_successes": 6,
+   "cnn_best_pooled_rate": 0.36666666666666664,
+   "cnn4800_closure_lateral_median_mm": 5.1,
+   "working_policy_closure_lateral_median_mm": 1.7,
+   "grasp_tolerance_mm": 8.0
+  }
+ },
+ "info": {
+  "loaded": 811,
+  "skipped": [],
+  "missing": [],
+  "lora_modules": 285,
+  "parameters_total": 3380841744,
+  "parameters_trainable": 457506336
+ },
+ "final": {
+  "heldout_start_0": 0.0002903547137975693,
+  "heldout_start_90": 0.0007508678827434778,
+  "per_pose": {
+   "pose_000": 0.002102940110489726,
+   "pose_001": 0.00031628747819922864,
+   "pose_002": 0.000248498487053439,
+   "pose_003": 0.000313354074023664,
+   "pose_004": 0.001465448527596891,
+   "pose_005": 0.0004528542631305754,
+   "pose_006": 0.00025310146156698465,
+   "pose_007": 0.0008477127412334085,
+   "pose_008": 0.0007207456510514021,
+   "pose_009": 0.0007877355092205107
+  },
+  "median": 0.0005867999570909888,
+  "max": 0.002102940110489726,
+  "poses_under_threshold": 1,
+  "poses": 10,
+  "heldout_starts_180_270_360": 0.00020614711684174836,
+  "train_start_90": 0.0017028376460075378,
+  "ratio_start_90": 0.44095095296017084,
+  "heldout_start_90_deg_rms": 4.932354346647114
+ },
+ "rollouts": {
+  "30": {
+   "execute": 30,
+   "successes": 7,
+   "rollouts": 30,
+   "safety_frames": 460,
+   "pickups": 16,
+   "categories": {
+    "safety_invalidation": 12,
+    "not_settled": 9,
+    "success": 7,
+    "pickup_incomplete": 2
+   },
+   "per_scenario": {
+    "pose_000": 0,
+    "pose_001": 0,
+    "pose_002": 0,
+    "pose_003": 0,
+    "pose_004": 3,
+    "pose_005": 3,
+    "pose_006": 1,
+    "pose_007": 0,
+    "pose_008": 0,
+    "pose_009": 0
+   },
+   "closure": {
+    "count": 30,
+    "lateral_median_mm": 6.765674672666149,
+    "lateral_rms_mm": 17.116356432479545,
+    "lateral_max_mm": 49.65935306646369,
+    "within_tolerance": 3,
+    "not_descended": 24,
+    "yaw_err_median_deg": 3.2864060539736784,
+    "dz_median_mm": 8.971286968494297
+   },
+   "closure_rows": [
+    {
+     "along": 64.50566731053962,
+     "perp": 7.725311873329947,
+     "height": 75.5215736229827,
+     "rel_yaw": 69.75092156465207,
+     "lat": 49.65935306646369,
+     "dz": 42.93335623981937,
+     "yaw_err": 4.487440089074354,
+     "scenario_id": "pose_000",
+     "repeat": 0
+    },
+    {
+     "along": 64.50566731053962,
+     "perp": 7.725311873329947,
+     "height": 75.5215736229827,
+     "rel_yaw": 69.75092156465207,
+     "lat": 49.65935306646369,
+     "dz": 42.93335623981937,
+     "yaw_err": 4.487440089074354,
+     "scenario_id": "pose_000",
+     "repeat": 1
+    },
+    {
+     "along": 64.50566731053962,
+     "perp": 7.725311873329947,
+     "height": 75.5215736229827,
+     "rel_yaw": 69.75092156465207,
+     "lat": 49.65935306646369,
+     "dz": 42.93335623981937,
+     "yaw_err": 4.487440089074354,
+     "scenario_id": "pose_000",
+     "repeat": 2
+    },
+    {
+     "along": 12.407019513718398,
+     "perp": 13.237197264992561,
+     "height": 39.60967669662369,
+     "rel_yaw": 74.89635678362457,
+     "lat": 4.573360879249676,
+     "dz": 7.021459313460355,
+     "yaw_err": 0.6579951298981399,
+     "scenario_id": "pose_001",
+     "repeat": 0
+    },
+    {
+     "along": 12.407019513718398,
+     "perp": 13.237197264992561,
+     "height": 39.60967669662369,
+     "rel_yaw": 74.89635678362457,
+     "lat": 4.573360879249676,
+     "dz": 7.021459313460355,
+     "yaw_err": 0.6579951298981399,
+     "scenario_id": "pose_001",
+     "repeat": 1
+    },
+    {
+     "along": 12.407019513718398,
+     "perp": 13.237197264992561,
+     "height": 39.60967669662369,
+     "rel_yaw": 74.89635678362457,
+     "lat": 4.573360879249676,
+     "dz": 7.021459313460355,
+     "yaw_err": 0.6579951298981399,
+     "scenario_id": "pose_001",
+     "repeat": 2
+    },
+    {
+     "along": 11.643235122452337,
+     "perp": -1.136548745353682,
+     "height": 65.02734266976698,
+     "rel_yaw": 67.68172974915332,
+     "lat": 11.007705759807848,
+     "dz": 32.43912528660365,
+     "yaw_err": 6.556631904573109,
+     "scenario_id": "pose_002",
+     "repeat": 0
+    },
+    {
+     "along": 11.643235122452337,
+     "perp": -1.136548745353682,
+     "height": 65.02734266976698,
+     "rel_yaw": 67.68172974915332,
+     "lat": 11.007705759807848,
+     "dz": 32.43912528660365,
+     "yaw_err": 6.556631904573109,
+     "scenario_id": "pose_002",
+     "repeat": 1
+    },
+    {
+     "along": 11.643235122452337,
+     "perp": -1.136548745353682,
+     "height": 65.02734266976698,
+     "rel_yaw": 67.68172974915332,
+     "lat": 11.007705759807848,
+     "dz": 32.43912528660365,
+     "yaw_err": 6.556631904573109,
+     "scenario_id": "pose_002",
+     "repeat": 2
+    },
+    {
+     "along": 8.891572012711823,
+     "perp": 17.024984527102138,
+     "height": 42.26858344639072,
+     "rel_yaw": 76.90621907568952,
+     "lat": 9.702557253826136,
+     "dz": 9.680366063227389,
+     "yaw_err": 2.6678574219630917,
+     "scenario_id": "pose_003",
+     "repeat": 0
+    },
+    {
+     "along": 8.389824182126148,
+     "perp": 15.967279335170987,
+     "height": 41.03331314784131,
+     "rel_yaw": 76.84006032737659,
+     "lat": 9.2387592684689,
+     "dz": 8.44509576467798,
+     "yaw_err": 2.601698673650162,
+     "scenario_id": "pose_003",
+     "repeat": 1
+    },
+    {
+     "along": 8.474139483953318,
+     "perp": 16.210483552287283,
+     "height": 41.38759079698434,
+     "rel_yaw": 76.63347475360176,
+     "lat": 9.355667227628112,
+     "dz": 8.799373413821009,
+     "yaw_err": 2.3951130998753314,
+     "scenario_id": "pose_003",
+     "repeat": 2
+    },
+    {
+     "along": 13.983134442209332,
+     "perp": 16.09308807593096,
+     "height": 39.71261641709295,
+     "rel_yaw": 73.07896932145832,
+     "lat": 6.765674672666149,
+     "dz": 7.12439903392962,
+     "yaw_err": 1.1593923322681121,
+     "scenario_id": "pose_004",
+     "repeat": 0
+    },
+    {
+     "along": 13.983134442209332,
+     "perp": 16.09308807593096,
+     "height": 39.71261641709295,
+     "rel_yaw": 73.07896932145832,
+     "lat": 6.765674672666149,
+     "dz": 7.12439903392962,
+     "yaw_err": 1.1593923322681121,
+     "scenario_id": "pose_004",
+     "repeat": 1
+    },
+    {
+     "along": 13.983134442209332,
+     "perp": 16.09308807593096,
+     "height": 39.71261641709295,
+     "rel_yaw": 73.07896932145832,
+     "lat": 6.765674672666149,
+     "dz": 7.12439903392962,
+     "yaw_err": 1.1593923322681121,
+     "scenario_id": "pose_004",
+     "repeat": 2
+    },
+    {
+     "along": 11.96654862959262,
+     "perp": 13.933230994949303,
+     "height": 36.31915167851734,
+     "rel_yaw": 72.46165440782718,
+     "lat": 5.397047543545813,
+     "dz": 3.730934295354011,
+     "yaw_err": 1.776707245899246,
+     "scenario_id": "pose_005",
+     "repeat": 0
+    },
+    {
+     "along": 11.688913749074441,
+     "perp": 14.56942404036179,
+     "height": 36.68838794663621,
+     "rel_yaw": 72.10532824318112,
+     "lat": 6.083570309967973,
+     "dz": 4.100170563472879,
+     "yaw_err": 2.133033410545309,
+     "scenario_id": "pose_005",
+     "repeat": 1
+    },
+    {
+     "along": 12.082840376108052,
+     "perp": 14.365821592939847,
+     "height": 36.371096231326156,
+     "rel_yaw": 72.39045050737786,
+     "lat": 5.70845166674238,
+     "dz": 3.7828788481628237,
+     "yaw_err": 1.8479111463485651,
+     "scenario_id": "pose_005",
+     "repeat": 2
+    },
+    {
+     "along": 7.456796259242899,
+     "perp": 8.42953995834684,
+     "height": 41.73141790633092,
+     "rel_yaw": 77.91651894488017,
+     "lat": 7.478761330142343,
+     "dz": 9.143200523167586,
+     "yaw_err": 3.678157291153738,
+     "scenario_id": "pose_006",
+     "repeat": 0
+    },
+    {
+     "along": 7.700665752679302,
+     "perp": 8.499131382687652,
+     "height": 41.74759750080308,
+     "rel_yaw": 77.91968592306878,
+     "lat": 7.228091586922819,
+     "dz": 9.15938011763975,
+     "yaw_err": 3.6813242693423547,
+     "scenario_id": "pose_006",
+     "repeat": 1
+    },
+    {
+     "along": 8.682126863804807,
+     "perp": 8.444173724334618,
+     "height": 40.51219577111907,
+     "rel_yaw": 78.47341705448902,
+     "lat": 6.263243215122511,
+     "dz": 7.923978387955735,
+     "yaw_err": 4.23505540076259,
+     "scenario_id": "pose_006",
+     "repeat": 2
+    },
+    {
+     "along": 14.077145447396951,
+     "perp": 13.070062252331882,
+     "height": 42.97425298865121,
+     "rel_yaw": 79.34432570781023,
+     "lat": 3.7689497663452594,
+     "dz": 10.386035605487876,
+     "yaw_err": 5.105964054083799,
+     "scenario_id": "pose_007",
+     "repeat": 0
+    },
+    {
+     "along": 13.967632469483238,
+     "perp": 12.993502487054673,
+     "height": 43.17648313909325,
+     "rel_yaw": 79.43175661358647,
+     "lat": 3.719319871973752,
+     "dz": 10.588265755929918,
+     "yaw_err": 5.1933949598600435,
+     "scenario_id": "pose_007",
+     "repeat": 1
+    },
+    {
+     "along": 14.077145447396951,
+     "perp": 13.070062252331882,
+     "height": 42.97425298865121,
+     "rel_yaw": 79.34432570781023,
+     "lat": 3.7689497663452594,
+     "dz": 10.386035605487876,
+     "yaw_err": 5.105964054083799,
+     "scenario_id": "pose_007",
+     "repeat": 2
+    },
+    {
+     "along": 15.863240662292576,
+     "perp": 11.280044640485105,
+     "height": 44.99513287144156,
+     "rel_yaw": 77.13301647052005,
+     "lat": 2.1364764342848632,
+     "dz": 12.40691548827823,
+     "yaw_err": 2.8946548167936186,
+     "scenario_id": "pose_008",
+     "repeat": 0
+    },
+    {
+     "along": 15.863240662292576,
+     "perp": 11.280044640485105,
+     "height": 44.99513287144156,
+     "rel_yaw": 77.13301647052005,
+     "lat": 2.1364764342848632,
+     "dz": 12.40691548827823,
+     "yaw_err": 2.8946548167936186,
+     "scenario_id": "pose_008",
+     "repeat": 1
+    },
+    {
+     "along": 15.863240662292576,
+     "perp": 11.280044640485105,
+     "height": 44.99513287144156,
+     "rel_yaw": 77.13301647052005,
+     "lat": 2.1364764342848632,
+     "dz": 12.40691548827823,
+     "yaw_err": 2.8946548167936186,
+     "scenario_id": "pose_008",
+     "repeat": 2
+    },
+    {
+     "along": 11.425548284097863,
+     "perp": 18.23052390302134,
+     "height": 35.63398675789611,
+     "rel_yaw": 79.11693716578601,
+     "lat": 9.492743993689523,
+     "dz": 3.045769374732778,
+     "yaw_err": 4.878575512059584,
+     "scenario_id": "pose_009",
+     "repeat": 0
+    },
+    {
+     "along": 12.033772840317027,
+     "perp": 17.681720419343474,
+     "height": 35.90754080166921,
+     "rel_yaw": 78.87518167199505,
+     "lat": 8.768174196012922,
+     "dz": 3.319323418505874,
+     "yaw_err": 4.636820018268622,
+     "scenario_id": "pose_009",
+     "repeat": 1
+    },
+    {
+     "along": 10.836846700211707,
+     "perp": 18.045147082734157,
+     "height": 35.29096145167893,
+     "rel_yaw": 79.1446821723376,
+     "lat": 9.553765998752388,
+     "dz": 2.7027440685155995,
+     "yaw_err": 4.906320518611167,
+     "scenario_id": "pose_009",
+     "repeat": 2
+    }
+   ],
+   "rollout_rows": [
+    {
+     "scenario_id": "pose_000",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_000",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08239132212174063
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08239132212174063
+    },
+    {
+     "scenario_id": "pose_001",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08239132212174063
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_002",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0837972793580373
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08407586364850014
+    },
+    {
+     "scenario_id": "pose_003",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0839570205261406
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08189426234894623
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08189426234894623
+    },
+    {
+     "scenario_id": "pose_004",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08189426234894623
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 0,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08762704563728047
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 1,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08668141270848079
+    },
+    {
+     "scenario_id": "pose_005",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.087602260970391
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.08581244872313534
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "pickup_incomplete",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.08551297052550713
+    },
+    {
+     "scenario_id": "pose_006",
+     "repeat": 2,
+     "success": true,
+     "invalidated": false,
+     "failure_category": "success",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.08607769474833746
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0038803182582615135
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.003858910592925766
+    },
+    {
+     "scenario_id": "pose_007",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.0038803182582615135
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 0,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.003623586184670931
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 1,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.003623586184670931
+    },
+    {
+     "scenario_id": "pose_008",
+     "repeat": 2,
+     "success": false,
+     "invalidated": true,
+     "failure_category": "safety_invalidation",
+     "pickup_completed": false,
+     "maximum_height_gain_m": 0.003623586184670931
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 0,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0826932634620258
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 1,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0828691391522707
+    },
+    {
+     "scenario_id": "pose_009",
+     "repeat": 2,
+     "success": false,
+     "invalidated": false,
+     "failure_category": "not_settled",
+     "pickup_completed": true,
+     "maximum_height_gain_m": 0.0824494467081621
+    }
+   ],
+   "seconds": 354.2,
+   "report": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/pi05_ft/evaluations/exec30/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/evaluation.json"
+  }
+ },
+ "wandb": {
+  "id": "a6oyfhh9",
+  "url": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/a6oyfhh9"
+ }
+}
