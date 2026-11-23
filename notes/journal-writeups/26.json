@@ -1,0 +1,282 @@
+{
+  "question": "The randomized-look policy passes every check and succeeds in the simulator. On the real arm it runs the whole plan and closes its jaws beside the cube. Is the miss caused by where the cube is, by the camera, or by the joint map?",
+  "measure": "Where the cube really is, in mm on the table, read from the real start frame through the calibrated lens (back-projection), against the pose the task assumes. And for each live attempt: how many steps ran, what stopped it, and how far the gripper closed (about 0.5 units means it closed on nothing).",
+  "outcome": "Placement. The cube sat about 40 mm farther from the base and 11 mm to the side of the task pose; training covered plus or minus 10 mm. A second problem: a strict safety rule froze the arm when the servo lagged. Both were fixed. No grasp yet.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. The policy here is the randomized-look one from experiment 25. It only trained with the cube within plus or minus 10 mm of one spot: the centre of a square 8.5 inches from the front edge of the arm's base.\n\nBack-projection means taking a pixel in the camera image and working out which point on the table it shows, using the calibrated lens model and the camera's pose. The joint map converts servo readings into joint angles.\n\nThe runner's safety gate checks every command. One rule, the relative limit, refuses a command that is more than 20 units ahead of where the servo is. Until this experiment a refused command meant a hold: the arm stays put for that step, and 15 holds in a row abort the run. The real-frame gate (experiment 25) checks that the first chunk on a real start frame holds still.",
+  "parts": [
+    {
+      "title": "Attempts 3 and 4: does the plan run on the arm?",
+      "why": "First live trial of the policy that passed the real-frame gate.",
+      "did": "Ran the policy with auto-confirm under the owner's standing authorization.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Attempt",
+          "What happened",
+          "Why"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "3",
+              "refused before the episode",
+              "first chunk grazed the floor: shoulder moved 1.2 units, touched -92.12, one hold"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "4",
+              "427 actions at 30 Hz, 0 overruns, then abort",
+              "gripper closed to 0.55 units (on nothing); release jump gave 15 holds"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "same checkpoint in the simulator",
+              "success, 431 actions",
+              "ends its descent with the square between the jaws"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "After attempt 3 the gate was loosened to version 2 (up to 3 holds, 0.5 units of floor margin; the known failure sits at 23 holds). Attempt 4 ran the whole plan: look up, descend, open, close, release. It closed on nothing, with the cube still on the towel beside the jaws. The abort came at the release: a 50-unit gripper jump against the 20-unit relative limit."
+    },
+    {
+      "title": "Where was the cube?",
+      "why": "Measure the world before blaming the model.",
+      "did": "Back-projected the real start frame onto the table. Ran the same back-projection on the simulated frame as a check.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Quantity",
+          "Task assumes",
+          "Measured on the bench"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "cube near edge, forward (y)",
+              "270.5 mm",
+              "305 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "cube top face, forward (y)",
+              "",
+              "about 319 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "cube sideways (x)",
+              "0",
+              "about +11 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "what sits at y = 280 mm",
+              "the centre of the square",
+              "the towel's near edge"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "check: sim frame, square near edge",
+              "",
+              "reproduced to 0.2 mm"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "The towel's near edge, not its centre, was at the 8.5 inch mark. So the cube was about 40 mm farther and 11 mm to the side of the pose the policy trained around. The check on the simulated frame says this is placement, not a camera or joint-map error. A later finding weakens the exact figure: the cube reading shifts by about 25 mm with the arm's pose."
+    },
+    {
+      "title": "Attempts 5 to 9: a placement check, and a safety rule that cannot work on real servos",
+      "why": "With the cube known to be off, the runner should refuse to run and say how to move it.",
+      "did": "Added a cube-placement gate (refuse beyond 15 mm, print a move instruction) and tried again as the owner re-placed the cube.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Attempt",
+          "What happened",
+          "Why"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "5",
+              "refused by the real-frame gate",
+              "shoulder 3.07 units; towel bunched, cube off it after attempt 4"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "6",
+              "refused by the placement gate",
+              "cube read 46 mm beyond the task pose"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "7, 8",
+              "refused by the placement gate",
+              "18 and 25 mm beyond"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "9",
+              "ran, abort at step 129",
+              "tolerance widened to 35 mm (cube 19 mm beyond); 16 holds in the lift"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "In attempt 9 the lift chunk climbed about 4 units per step and the servo lagged. Once the gap passed the 20-unit relative limit, the hold rule froze the arm while the chunk's targets kept moving on, so the abort was certain. Fix: on a relative-limit-only violation, send the rate-limited command and continue. Range and floor limits still hold. The simulator never triggers this limit, so scored rollouts do not change."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The same checkpoint succeeds through the same runner in the simulator (431 actions), so the plan and the runner are not the fault",
+      "ok": true
+    },
+    {
+      "text": "The back-projection reproduces the simulated square's near edge to 0.2 mm",
+      "ok": true
+    },
+    {
+      "text": "run.json agrees with the notes: attempt 4 aborted at 427 actions, attempt 9 at 129",
+      "ok": true
+    },
+    {
+      "text": "The 40 mm figure is not exact. Episodes 11 to 13 showed the camera reading of the cube shifts by about 25 mm between two arm poses (experiment 28)",
+      "ok": false
+    },
+    {
+      "text": "No controlled test: the cube was moved by hand between attempts and each condition was tried once",
+      "ok": false
+    },
+    {
+      "text": "The record says 20 to 40 mm off. The sources give 40 mm (attempt 4) and readings of 46, 18, 25 and 19 mm on later attempts",
+      "ok": true
+    }
+  ],
+  "meaning": "Two things stood between the policy and a real grasp, and neither was the network. The bench was set up with the towel's near edge where its centre should be, and the hold-on-any-violation rule could not work with real motor lag. With the cube re-placed, the tolerance widened to 35 mm and the gate changed to rate-limit and continue, the next attempt (experiment 27) succeeded.",
+  "lesson": "When a real run fails, measure the world before blaming the model. And test your safety rules against real motor lag: a rule that never fires in the simulator can make a real run impossible.",
+  "next": [
+    {
+      "title": "Run again with both fixes (experiment 27)",
+      "why": "Cube inside the widened tolerance, gate rate-limits and continues."
+    },
+    {
+      "title": "Settle the camera's placement reading with a ruler",
+      "why": "The reading may carry a few degrees of pitch bias; it later proved pose-dependent by about 25 mm."
+    },
+    {
+      "title": "The release jump",
+      "why": "After a missed grasp the gripper goes 0 to 50 in one step and trips the 20-unit limiter. In the simulator the jaws never reach 0."
+    }
+  ],
+  "log": "**TL;DR:** The plan ran fine but the jaws closed beside the cube, because the\ncube sat 20-40 mm off from where the task assumed, and a strict safety rule kept\nfreezing the arm.\n\n**Problem.** The randomized-look policy ran on the real arm and missed.\n\n*How we know:* attempt 4 ran 427 steps at 30 Hz with no timing misses, and the\ngripper closed on nothing. The same policy in sim succeeds.\n\n**Experiment.** Map the real start frame onto the table through the calibrated\nlens (back-projection) to measure where the cube actually was. Then refuse to\nrun unless the cube is close enough, and print how to move it.\n\n*What we hope to learn:* whether the miss is the cube's placement, the camera,\nor the joint map.\n\n**Outcome.** The towel's near edge was right where the square's centre should\nbe, so the cube was about 40 mm farther than intended and 11 mm to the side.\nTraining only covered ±10 mm. Attempt 5 failed the real-frame check (the cube had\nbeen knocked off the towel), and the new placement check refused 6-8 (46, 18\nand 25 mm off). Attempt 9 ran, but the lift outran the servo:\n\n- The safety rule froze the arm whenever a command jumped too far ahead of the\n  servo, while the plan kept moving on. Like a driver who brakes every time the\n  car lags the pedal. Fix: on a speed-only violation, send the speed-limited\n  command and keep going. Range limits still stop it.\n\nLater I found the cube reading shifts by about 25 mm with the arm's pose, so the\n40 mm isn't exact.\n\n**Takeaway:** when a real run fails, measure the world before blaming the model,\nand test your safety rules against real motor lag.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · live attempts 3 to 9 · no grasp; two fixes made",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "Attempt 3",
+        "note": "Refused on a floor graze; gate became real_frame_gate_v2.",
+        "state": "trouble"
+      },
+      {
+        "name": "Attempt 4",
+        "note": "Full plan, 427 actions, closed on nothing, abort at the release.",
+        "state": "trouble"
+      },
+      {
+        "name": "Back-projection analysis",
+        "note": "Cube about 40 mm beyond and 11 mm beside the task pose.",
+        "state": "done"
+      },
+      {
+        "name": "Cube-placement gate",
+        "note": "Refuses beyond 15 mm with a move instruction; a watch tool polls the camera.",
+        "state": "done"
+      },
+      {
+        "name": "Attempts 5 to 8",
+        "note": "Refused: bunched towel, then 46, 18 and 25 mm.",
+        "state": "trouble"
+      },
+      {
+        "name": "Attempt 9",
+        "note": "Lift outran the servo; hold cascade; abort at step 129.",
+        "state": "trouble"
+      },
+      {
+        "name": "Gate fix",
+        "note": "bench_clip_decision: rate-limit and continue on the relative limit.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 65f0fd0 (episode 4), 5d02633 (analysis), e4b77f5 (placement gate), 2345ef1, 9a7b24a, 872baca (attempts 5 to 8), 8e2d467 (attempt 9), fb2efa3 (gate fix)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 26",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/26-live-misses.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections 'Live attempts 3 and 4' and the first paragraph of 'First successful live episode' (2026-09-10)"
+      },
+      {
+        "path": "memory/appearance-randomization-20260910.md",
+        "note": "project memory note: attempts 3 to 9 in brief"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/run.json",
+        "note": "status aborted, actions 427"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_04_20260910/analysis",
+        "note": "video sheet, joints, cube_placement_vs_nominal.png"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_09_20260910/run.json",
+        "note": "status aborted, actions 129"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/appearance_policy_nominal_20260910",
+        "note": "the same checkpoint in the runner's simulator backend"
+      },
+      {
+        "path": "commits 65f0fd0 · 5d02633 · e4b77f5 · 8e2d467 · fb2efa3",
+        "note": "episode 4 · analysis · placement gate · attempt 9 · gate fix"
+      }
+    ]
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "question": "The real camera bends the image and the sim rendered a perfect pinhole. Can the sim render through the real lens instead, so a policy trained in sim takes raw real frames with nothing to fix at deploy time? And does the recipe still learn?",
+  "measure": "Two things. The lens fit: its error in pixels and how far from the image centre the model is valid (it must reach the corners). The policy: successes out of 30 on held-out cube positions, safety frames, and the same with a black image, against the pinhole-scene run of experiment 22.",
+  "outcome": "Yes. The refitted lens model has 1.651 px error and is valid to 1873 px, past the corners. The same recipe on the lens-matched scene got 3/3 and 30/30 with zero safety frames (black image 0/3 and 0/30). The position that failed in experiment 22 went 3/3. The whole run took 94 minutes instead of 5.5 hours.",
+  "setup": "A policy is the network that drives the arm. Here it is the vision policy from August: it sees only the wrist camera image (256x256) and the arm's joint readings, never the cube position. It outputs a chunk of 90 actions at a time (H90), so it gets a fresh look every 90 steps of the 480-step episode.\n\nThe teacher is a hand-written script that solves the task using the true cube position. The policy is trained to copy the teacher's episodes.\n\nHeld-out means cube positions the policy never saw in training: 10 new positions, 3 tries each, so 30 rollouts (a rollout is one full episode run by the policy in the simulator). Nominal is the normal cube position, 3 tries.\n\nA safety frame is a simulation step where a command broke a safety limit. Zero is the goal. The gripper clamp is a rule from August that clips the gripper command to its allowed range.\n\nThe black-image ablation runs the same policy with the camera image replaced by black. If it still succeeds, it was not using the camera. A seed is the random number that fixes the network's starting weights and data order; different seeds can give different results.\n\nBarrel distortion is the way a wide lens bends straight lines outward near the edges. A pinhole image has none. There are two ways to make sim and real images agree: straighten (undistort) every real frame before the policy sees it, or make the simulator bend its images the same way the real lens does. The owner chose the second on Sep 9, with the policy seeing the whole 1920x1080 frame squashed to 256x256.\n\nThat choice needs a lens model that is valid over the whole frame. The Sep 8 fit (experiment 21) used views near the image centre only.\n\nA scene is the simulator's world file; its hash (here 7c765d4b) changes whenever the camera or lens settings change, so results from different scenes cannot be mixed up.",
+  "parts": [
+    {
+      "title": "Does the lens model cover the whole frame?",
+      "why": "The Sep 8 model stopped being valid 929 px from the centre, but the corners are 1101 px out. The outer 11% of the frame had no usable model, and the policy sees the edges too.",
+      "did": "Captured 17 more checkerboard views at the edges and corners, guided by a live preview window that showed where to hold the phone. That made 46 views (29 old plus 17 new). Fitted five lens models and selected a richer one with 8 distortion coefficients and a free principal point (the pixel where the lens axis hits the sensor).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Lens fit",
+          "Views",
+          "Vertical field of view",
+          "Error (RMS)",
+          "Valid out to",
+          "Corners at"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Sep 8: 5 coefficients, centre fixed",
+              "29 centre views (the note for exp. 21 counts 38)",
+              "44.0 deg",
+              "1.9 px",
+              "929 px",
+              "1101 px"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Sep 9: rational 8 coefficients, free centre",
+              "46",
+              "44.85 deg",
+              "1.651 px",
+              "1873 px",
+              "1185 px"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The new model reaches the corners with data behind it: 235 board corners in the outer ring (beyond 800 px) at 1.1 px RMS. The principal point is (867.5, 531.9), left of the image centre. Correcting it moved the projected square about 100 px sideways onto the real one. The two bottom-centre cells are always filled by the fixed gripper jaw and were left out."
+    },
+    {
+      "title": "Does the recipe still learn when the sim renders through the lens?",
+      "why": "If a policy trained on lens-matched images scores as well, nothing extra is needed at deploy time.",
+      "did": "The sim renders a wide 90.34 degree pinhole image at 1600x900 and resamples it through the lens model to the 256x256 observation (about 28 ms per frame). The real side uses an exact area filter on the raw frame. Teacher re-certified 15/15 on the new scene, owner re-signed the camera review, then the same recipe as experiment 22: 400 positions, seed 202, 120,000 steps, one run.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Suite",
+          "Policy input",
+          "Success",
+          "Safety frames"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "exp. 22, pinhole scene (tinmahze)",
+              "nominal",
+              "camera",
+              "3/3",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "exp. 22, pinhole scene (tinmahze)",
+              "held-out",
+              "camera",
+              "27/30",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "exp. 22, pinhole scene (tinmahze)",
+              "held-out",
+              "black image",
+              "0/30",
+              "2055"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "lens scene 7c765d4b (iziftplw)",
+              "nominal",
+              "camera",
+              "3/3",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lens scene 7c765d4b (iziftplw)",
+              "held-out",
+              "camera",
+              "30/30",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lens scene 7c765d4b (iziftplw)",
+              "nominal",
+              "black image",
+              "0/3",
+              "48"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lens scene 7c765d4b (iziftplw)",
+              "held-out",
+              "black image",
+              "0/30",
+              "492"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Held-out is perfect, 30/30, where the pinhole scene scored 27/30. The one position that failed before (pose_006) succeeds in all three tries. Zero safety frames across all 33 camera rollouts, and a black image drops it to 0, so it relies on the pixels. With one seed, 27 to 30 is suggestive, not established."
+    },
+    {
+      "title": "Why did the run take 94 minutes instead of 5.5 hours?",
+      "why": "Faster runs mean more experiments per day, but only if the speed-up does not change the numbers.",
+      "did": "Made capture run in parallel across 10 worker processes. Found training was limited by the disk: random reads from the 37.7 GB frame file capped at about 13 batches per second while a GPU step takes 5.3 ms. Added a lossless in-RAM frame cache (42 times smaller, 0.89 GB, 53 s to build).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Total wall clock",
+          "Training speed"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "exp. 22 (tinmahze)",
+              "5.5 h, including a 2 h screen",
+              "about 10.2 steps/s"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "this run (iziftplw)",
+              "94 min (capture about 20 min, training 29.5 min, evals about 5 min)",
+              "about 68 steps/s"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The frame cache is bit-identical to reading from disk and gave 57.8 steps per second in the benchmark, about 68 in the run. Physics outputs of the parallel capture are byte-identical. One side finding: the GPU renderer jitters by one grey level on a few pixels from run to run, so image hashes are records, not proof of reproducibility."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe, seed, data counts and held-out positions as experiment 22; only the scene's camera and lens changed.",
+      "ok": true
+    },
+    {
+      "text": "The lens model is one piece of code used on both the sim side and the real side, and it is part of the scene hash.",
+      "ok": true
+    },
+    {
+      "text": "The speed-ups are pinned by tests as bitwise-neutral, so they do not explain the score change.",
+      "ok": true
+    },
+    {
+      "text": "The numbers in the notes match evaluation_summary.json and progress.json in the run folder.",
+      "ok": true
+    },
+    {
+      "text": "One seed per scene. 27/30 against 30/30 could be seed luck.",
+      "ok": false
+    },
+    {
+      "text": "The 30 rollouts are 10 positions repeated 3 times, so the difference is one position.",
+      "ok": false
+    },
+    {
+      "text": "A residual was accepted at sign-off: the sim square sits about 140 px (about 6 degrees of pitch) lower than the real paper towel. A pitch refit was offered and declined for now.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. This policy then failed on the real arm (experiment 24): its first action chunk was off on the real frame because of how the real scene looks.",
+      "ok": false
+    },
+    {
+      "text": "Cube positions still vary only within 10 mm of the square centre.",
+      "ok": false
+    }
+  ],
+  "meaning": "From here, policies trained on scene 7c765d4b and later take raw camera frames; real frames are never undistorted for them. The camera gate was re-signed and a real-arm runner was built the same evening. The first real attempts (experiment 24) showed that matching the lens geometry was not enough: the look of the real image still threw the policy off, which led to appearance randomization (experiment 25).",
+  "lesson": "Make the sim's observation match the real sensor exactly, flaws included, instead of cleaning the real data to match the sim.",
+  "next": [
+    {
+      "title": "Run this policy on the real arm (experiment 24)",
+      "why": "Geometry now matches; the open question is whether the real image is close enough."
+    },
+    {
+      "title": "Refit the camera pitch",
+      "why": "About 140 px of vertical residual was accepted for now."
+    },
+    {
+      "title": "A second seed on each scene",
+      "why": "To tell whether 27 to 30 is the lens or luck."
+    }
+  ],
+  "log": "**TL;DR:** I made the sim render through the real lens instead of straightening\nreal images, and the same recipe got 30/30.\n\n**Problem.** The real camera bends the image (barrel distortion), the sim was a\nperfect pinhole, and my first lens fit only held near the centre.\n\n*How we know:* the fit was only valid out to 929 px from centre, and the frame's\ncorners are 1,101 px out. The policy sees the whole frame, edges included.\n\n**Experiment.** Capture 17 more checkerboard views at the edges and corners (46\ntotal), with a live preview window telling me where to hold the phone, and fit\na richer 8-coefficient lens model. Then make the sim render wide and resample\nthrough that lens, so its images look like the real camera's. Same training\nrecipe.\n\n*What we hope to learn:* whether the model covers the full frame, and whether a\npolicy trained on lens-matched images needs no fixing at deploy time.\n\n**Outcome.** 1.65 px error out to the corners, field of view 44.85 degrees. The\nrun got 3/3 and 30/30 with zero safety frames (black images 0/30), and the\nposition that failed in entry 22 now went 3/3. End to end it took 94 minutes\ninstead of 5.5 hours, thanks to caching frames in RAM.\n\n- Matching the sim to the camera means nothing extra at deploy time. Like\n  learning to read someone's handwriting instead of making them type.\n\nOne seed, so 27 to 30 is suggestive, not proven. And this policy failed on the\nreal arm (entry 24).\n\n**Takeaway:** make the sim's observation match the real sensor exactly, flaws\nincluded.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 9, 2026 · 6 stages · 94 min wall for the run · nothing left",
+    "watch": [
+      {
+        "title": "W&B run iziftplw",
+        "note": "second bench run, lens-matched scene, project so-arm101-v2-scaling",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/iziftplw"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "guided checkerboard capture",
+        "note": "17 new edge and corner views with a live preview; 46 in total.",
+        "state": "done"
+      },
+      {
+        "name": "lens refit",
+        "note": "Rational 8-coefficient model, 1.651 px RMS, fovy 44.85, valid to 1873 px.",
+        "state": "done"
+      },
+      {
+        "name": "lens in the simulator",
+        "note": "Wide pinhole render resampled through the lens. Scene hash 7c765d4b. Teacher 15/15.",
+        "state": "done"
+      },
+      {
+        "name": "camera review re-signed",
+        "note": "Owner: the review images look good for now. Pitch refit declined.",
+        "state": "done"
+      },
+      {
+        "name": "pipeline speed-ups",
+        "note": "Parallel capture and the in-RAM frame cache. Rehearsal on the lens scene passed.",
+        "state": "done"
+      },
+      {
+        "name": "run and evaluate",
+        "note": "Queue job 0 with 10 workers: capture about 20 min, training 29.5 min, evals about 5 min.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 199d91e (lens refit), e67f031 (lens model), 457116b (pipeline efficiency), b619110 (lens scene, re-certified, run queued), 42ae818 (result recorded)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 23 exists",
+        "ok": true
+      },
+      {
+        "text": "Logged to W&B as run iziftplw",
+        "ok": true
+      },
+      {
+        "text": "Review record exists: inspection/camera_review_20260909.json, with the two review images in readme-assets/",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/23-lens-matched-sim.md",
+        "note": "research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "'Lens recalibration with edge coverage' and 'Lens-matched simulator and the second bench run' with the tables"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "runbook: 'Lens model and observation (2026-09-09)'"
+      },
+      {
+        "path": "memory/lens-recalibration-20260909.md",
+        "note": "project memory note on the refit"
+      },
+      {
+        "path": "memory/bench-lens-run-20260909.md",
+        "note": "project memory note on the run and the owner's decisions"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics.json",
+        "note": "selected lens model (opened: 1.651 px, 44.85, 1872.9 px, 235 outer corners)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics_20260908_centre.json",
+        "note": "the older centre-only fit (opened: 29 views)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/evaluation_summary.json",
+        "note": "the numbers (opened, match the notes)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/progress.json",
+        "note": "status complete, elapsed 5627.5 s, 68.8 steps/s"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_lens_20260909/experiment.json",
+        "note": "lens block: render 90.34 deg at 1600x900, observation 256"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_20260908/evaluation_summary.json",
+        "note": "baseline run of experiment 22"
+      },
+      {
+        "path": "readme-assets/bench-lens-review-observation-pair-20260909.png",
+        "note": "review image (listed, not opened)"
+      },
+      {
+        "path": "commits 199d91e · e67f031 · 457116b · b619110 · 42ae818",
+        "note": "refit · lens · efficiency · scene and queue · result"
+      }
+    ]
+  }
+}

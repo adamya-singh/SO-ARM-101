@@ -1,0 +1,312 @@
+{
+  "question": "The real arm is an SO-101 but the simulator used the older SO-100 model. If we switch the simulator to the SO-101 and change nothing else, do the same recipes give the same scores?",
+  "measure": "Held-out successes out of 30 for the same ACT and CNN recipes on three scenes: the SO-100, the SO-101 with the bench's own dynamics, and the SO-101 with the dynamics its model file ships with. Also the lateral (sideways) jaw error at step 250, just before the jaws close.",
+  "outcome": "The scores did not match: they went up. ACT 20 to 27 of 30, CNN 6 to 15 of 30. Aim is about the same, so the gain is grasp tolerance: the SO-101 gripper accepts grasps the SO-100 gripper rejected.",
+  "setup": "A policy is the network that drives the arm from the wrist camera image and the joint angles. It is trained by imitation: a scripted teacher, which knows where the cube is, solves the task in the simulator, and the policy learns to copy it. Each policy outputs a chunk: the next 90 joint commands at once. \"Execute 90\" runs the whole chunk before looking again. \"Execute 30\" looks again after 30 commands and replaces the rest (replanning). There are two kinds of policy here: a CNN (a small image network trained from scratch, always execute 90) and ACT (a transformer policy, fine-tuned). PPO is a reinforcement-learning method run on top of the ACT fine-tune. Held-out means 10 cube placements the policy never trained on, each tried 3 times, so scores are out of 30. Menagerie is a public collection of robot models for the MuJoCo simulator. Until now the simulator used Menagerie's SO-100 with an SO-101 camera mount. The project left the official SO-101 model in August because its collision shapes made the grasp impossible. Menagerie now ships an SO-101 with box and sphere gripper pads that fix this. Two SO-101 scenes were built. One keeps the bench's dynamics (how stiff the simulated servos are and how the physics is stepped). The other uses Menagerie's dynamics as shipped (kp 998, timestep 0.005 s). The calibrated camera and the jaw-tip reference points were carried over from the SO-100 by a rigid transform, so the camera sits within 0.2 mm and 0.001 degrees of where it was. This was step 3 of the outside review's three steps. The bar written before the run was a match: each SO-101 score within 4 of the SO-100's.",
+  "parts": [
+    {
+      "title": "Does the teacher still work, with nothing retuned?",
+      "why": "A new arm model can silently break the grasp geometry. The teacher must pass before any policy result is trusted.",
+      "did": "Ran the teacher's certification (30 rollouts) on each scene with unchanged settings.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Scene",
+          "Teacher"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "SO-100",
+              "30 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SO-101, bench dynamics",
+              "30 of 30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SO-101, Menagerie dynamics",
+              "30 of 30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The teacher certifies on both new scenes. The hand-eye residual, a camera calibration error, is equal on both arms (115.55 against 115.59 px)."
+    },
+    {
+      "title": "Do the same recipes give the same scores?",
+      "why": "Identical settings on a new model flush out model problems. A match would mean the switch is safe.",
+      "did": "On each SO-101 scene: captured 4800 and 2400 placements with the baseline's seeds, fine-tuned ACT with the baseline's exact config, and trained the CNN (seed 202) with the baseline's recipe.",
+      "predictions": [
+        {
+          "text": "ACT on the SO-101, bench dynamics: within 4 of the SO-100's 20/30",
+          "result": "failed"
+        },
+        {
+          "text": "CNN on the SO-101, bench dynamics: within 4 of the SO-100's 6/30",
+          "result": "failed"
+        },
+        {
+          "text": "ACT on the SO-101, Menagerie dynamics: within 4 of 20/30",
+          "result": "failed"
+        },
+        {
+          "text": "CNN on the SO-101, Menagerie dynamics: within 4 of 6/30",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "SO-100",
+          "SO-101, bench dynamics",
+          "SO-101, Menagerie dynamics"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Teacher",
+              "30",
+              "30",
+              "30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "ACT, execute 90",
+              "20",
+              "27",
+              "26"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "ACT, execute 30",
+              "20",
+              "25",
+              "26"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "CNN, seed 202",
+              "6",
+              "15",
+              "12"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "ACT lateral rms at step 250, execute 90 (mm)",
+              "3.3",
+              "4.0",
+              "4.7"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "CNN lateral rms at step 250 (mm)",
+              "8.1",
+              "9.3",
+              "13.6"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "All four \"match\" bars failed, in the good direction: ACT at execute 90 and the CNN score 6 to 9 higher than on the SO-100. The SO-100 column is the baseline. Dynamics barely matter (27 against 26, 15 against 12)."
+    },
+    {
+      "title": "Where does the gain come from?",
+      "why": "A higher score could mean better aim or a more forgiving grasp. They mean different things for the real arm.",
+      "did": "The 2026-11-07 analysis sorted rollouts by lateral error at step 250 and counted successes in each band, and counted failure reasons.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Lateral error",
+          "SO-100 ACT",
+          "SO-101 ACT",
+          "SO-100 CNN",
+          "SO-101 CNN"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "0 to 3 mm",
+              "17 of 21",
+              "9 of 9",
+              "0 of 6",
+              "none"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "3 to 6 mm",
+              "3 of 6",
+              "15 of 18",
+              "6 of 12",
+              "3 of 9"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "6 to 10 mm",
+              "0 of 3",
+              "3 of 3",
+              "0 of 3",
+              "9 of 9"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Aim did not improve (ACT rms 3.3 against 4.0 mm). Success at a given error rose sharply. Unsafe-contact failures fell from 7 to 0 for ACT and 10 to 3 for the CNN. The SO-101's box and sphere pads forgive what the SO-100's gripper punished."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same data recipe, seeds and training config on all three scenes; same 10 held-out placements, rebased to SO-101 joint angles",
+      "ok": true
+    },
+    {
+      "text": "Teacher 30 of 30 on all three scenes with unchanged settings",
+      "ok": true
+    },
+    {
+      "text": "Camera carried over within 0.2 mm and 0.001 degrees",
+      "ok": true
+    },
+    {
+      "text": "One seed per policy per scene",
+      "ok": false
+    },
+    {
+      "text": "A more forgiving simulator is not proven to be a more faithful one. The September live repeat missed at about 10 mm, which the SO-101 simulator would often accept. The real arm's tolerance is unmeasured.",
+      "ok": false
+    },
+    {
+      "text": "benchmark.json counts all safety invalidations for ACT at execute 90 as 7 (SO-100) and 3 (SO-101); the notebook's 7 to 0 is the unsafe-contact subset",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "The decision on 2026-11-07: the SO-101 with bench dynamics becomes the base model for everything after. It also re-opened experiment 41: the perturbed teacher improved aim but the SO-100 gripper did not reward it, so it is re-run on the SO-101 (experiment 46). One catch found here: the physics randomization of experiment 42 admits only 107 of 200 draws on the plain SO-101 scene, so it needs an SO-101 version of the measured-servo scene first (experiment 44).",
+  "lesson": "When a score jumps after a model change, split it into \"aims better\" and \"is forgiven more\". Here it was all forgiveness, and that is only good news if the real gripper is as forgiving.",
+  "next": [
+    {
+      "title": "Make the SO-101 the base and build its measured-servo scene",
+      "why": "Done as experiment 44."
+    },
+    {
+      "title": "Re-run the perturbed teacher on the SO-101",
+      "why": "Done as experiment 46."
+    },
+    {
+      "title": "Measure the real gripper's grasp tolerance",
+      "why": "Still unmeasured; it decides whether the forgiving simulator is the faithful one."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Built and queued Nov 6, analysed Nov 7. 9 jobs behind a rehearsal gate, nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "scenes",
+        "note": "Vendored Menagerie's SO-101, two scenes, camera and joint map carried over, teacher 30 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "rehearsal gate",
+        "note": "Rehearsal jobs ran first; the benchmark depended on the last one.",
+        "state": "done"
+      },
+      {
+        "name": "SO-101, bench dynamics",
+        "note": "Capture 4800, capture 2400, ACT fine-tune, CNN seed 202.",
+        "state": "done"
+      },
+      {
+        "name": "SO-101, Menagerie dynamics",
+        "note": "The same four jobs.",
+        "state": "done"
+      },
+      {
+        "name": "report",
+        "note": "tools/so101_benchmark_report.py wrote benchmark.json.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: ed13f9e (scenes and queue), 3b6e9d2 (held-out rebase, rehearsal gate), 7ae07cd (job ids), 38d9fa5 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in notes/vision-rung-notebook.md, section dated 2026-11-07",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/handoff-20261105.md",
+        "note": "step 3 as specified"
+      },
+      {
+        "path": "tools/tranche_20261106.json",
+        "note": "the \"within 4 of 30\" bars written before the run"
+      },
+      {
+        "path": "simulation_code/queue_so101_benchmark_20261106.sh",
+        "note": "the queue"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106/benchmark.json",
+        "note": "teacher, ACT and CNN on the three scenes, verdicts"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106/physics_scan_so101.json",
+        "note": "107 of 200 draws admitted on the plain SO-101 scene"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Steps 1-3 ... analysed together (2026-11-07)\": error bands, unsafe contact, caveat"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/so101-benchmark-20261106.md",
+        "note": "what was built, camera carry-over, gotchas"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/steps-1-3-analysis-20261107.md",
+        "note": "the analysis in short"
+      },
+      {
+        "path": "commits ed13f9e, 3b6e9d2, 7ae07cd, 38d9fa5",
+        "note": "built, gate, job ids, analysis"
+      }
+    ]
+  }
+}

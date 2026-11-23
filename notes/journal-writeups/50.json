@@ -1,0 +1,252 @@
+{
+  "question": "Was our comparison of the small CNN with ACT fair? If the CNN gets the same data, the same task and the same right to replan, how does it compare?",
+  "measure": "Successes out of 30 per policy (10 held-out placements run 3 times) in four servo settings, with pickups and the lateral median (sideways jaw-to-cube distance in mm before closing) beside them. The CNN has three training seeds, so its counts are out of 90.",
+  "outcome": "On the same data, replanning every 30 steps, the CNN is level with ACT: 64 of 90 against 21 of 30 on the measured-servo scene. With real-like servos it has more successes (41 of 90 against 8 of 30) but fewer pickups (43 of 90 against 20 of 30), so \"better on real-like servos\" holds for successes only.",
+  "setup": "A policy is the network that drives the arm. It reads a wrist-camera frame and the joint angles and outputs a chunk of the next 90 joint commands. We have two kinds. ACT is a transformer with 51.6 M parameters. The CNN is a small convolutional network with 2.71 M. \"Execute 30\" means the policy runs 30 commands of its chunk and then plans again from a new frame. \"Execute 90\" means it runs the whole chunk. Until now the two were never compared on equal terms. The best CNN was trained on 4800 of 7200 placements with a 31 mm lift and could only run whole 90-step chunks. The high-lift ACT (experiment 48) was trained on all 7149 accepted placements of the 100 mm lift capture and replans every 30. So the CNN was given replanning (\"execute N\" of its chunk), and the CNN recipe was retrained on the high-lift capture, all 7149 placements, with seeds 202, 101 and 303. The four cells are: nominal scene, measured-servo scene, servo scene with real-like physics (imitates the real arm's soft servos), and servo scene with physics v2 (servo strength random per joint). A safety frame is a command the simulator's gate rejects. One safety frame invalidates the episode even if the cube was picked up.",
+  "parts": [
+    {
+      "title": "With replanning every 30 steps, does the CNN match ACT?",
+      "why": "Execute 30 is how ACT runs on the real arm, so this is the comparison that matters for choosing a policy.",
+      "did": "Evaluated the three fair CNNs and the high-lift ACT at execute 30 on the same 10 held-out placements in the four cells. CNN cells show seeds 202 / 101 / 303 and their sum.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Cell",
+          "ACT successes",
+          "CNN successes",
+          "ACT pickups",
+          "CNN pickups",
+          "ACT lateral median",
+          "CNN lateral median"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "nominal",
+              "20/30",
+              "12 / 18 / 16 = 46/90",
+              "23",
+              "12 / 18 / 17",
+              "9.0 mm",
+              "12.9 / 10.1 / 11.7 mm"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo",
+              "21/30",
+              "17 / 23 / 24 = 64/90",
+              "24",
+              "17 / 23 / 24",
+              "7.6 mm",
+              "6.6 / 7.6 / 4.5 mm"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + real-like",
+              "8/30",
+              "14 / 14 / 13 = 41/90",
+              "20",
+              "14 / 15 / 14",
+              "7.8 mm",
+              "6.4 / 10.2 / 8.6 mm"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + physics v2",
+              "5/30",
+              "10 / 9 / 5 = 24/90",
+              "17",
+              "11 / 12 / 11",
+              "11.0 mm",
+              "11.2 / 13.0 / 13.4 mm"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "On the measured-servo scene the two are level: 64 of 90 is 21 per 30. On the nominal scene the CNN is behind (46 of 90 against 20 of 30). With real-like and physics v2 servos the CNN has more successes but fewer pickups. ACT picks up 20 and 17 of 30 there and then loses most of them to safety frames. Experiment 48 traced 12 of ACT's real-like failures to the gripper release, after the cube is down. In this table the ACT columns are the baseline and the CNN columns are ours."
+    },
+    {
+      "title": "How much of the CNN's score comes from replanning?",
+      "why": "The old CNNs could not replan. This separates the effect of replanning from the effect of the data.",
+      "did": "Evaluated the same three CNNs at execute 90 (whole chunk, no replanning inside it) and compared with execute 30.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Cell",
+          "CNN execute 90 (pooled)",
+          "CNN execute 30 (sum of seeds)",
+          "ACT execute 90",
+          "ACT execute 30"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "nominal",
+              "48/90",
+              "46/90",
+              "20/30",
+              "20/30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo",
+              "49/90",
+              "64/90",
+              "18/30",
+              "21/30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + real-like",
+              "33/90",
+              "41/90",
+              "11/30",
+              "8/30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + physics v2",
+              "27/90",
+              "24/90",
+              "8/30",
+              "5/30"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Replanning helps the CNN on the measured-servo scene (49 to 64 of 90) and with real-like servos (33 to 41). It makes no clear difference on the nominal scene or under physics v2. The seeds spread widely at execute 90: on the servo scene they score 18, 21 and 10 of 30."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same capture (all 7149 placements), same scene, same 10 held-out placements and the same evaluation tool for both policies.",
+      "ok": true
+    },
+    {
+      "text": "Each policy keeps its own recipe: the CNN trains 120,000 steps, ACT fine-tunes 40,000 steps. Data and task are matched, compute is not.",
+      "ok": false
+    },
+    {
+      "text": "ACT has one seed, the CNN three. One CNN seed moves by up to 11 of 30 in the same cell (10 to 21 on servo at execute 90).",
+      "ok": false
+    },
+    {
+      "text": "Every 30 is 10 placements run 3 times. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "No note analyses this result. The memory note still says \"queued\". The numbers here are read from matrix.json and the per-cell result.json files. The execute-30 sums (46, 64, 41, 24) are the three per-seed counts added up; the report file only pools execute 90.",
+      "ok": false
+    },
+    {
+      "text": "The record's \"holds up better on real-like servos\" is true for successes (41/90 against 8/30). On pickups ACT is ahead (20/30 against 43/90).",
+      "ok": false
+    }
+  ],
+  "meaning": "The earlier picture, that ACT is clearly the better policy, came from an unequal comparison. Given the same data and replanning, a network with 2.71 M parameters against ACT's 51.6 M reaches the same success count on the measured-servo scene. The plan written before the run said: if the CNN matches, it is the candidate for a fast closed loop, because it is cheap enough to replan often. ACT still grasps more often under random servo physics, so the CNN has not replaced it. The fair CNNs went on to be probed in experiment 52.",
+  "lesson": "Before saying one model beats another, list what else differed between them. Here it was the data, the lift height and the right to replan, and the gap closed once they were matched.",
+  "next": [
+    {
+      "title": "Probe both policies mid-episode (experiment 52)",
+      "why": "Equal scores do not show that the two policies do the same thing. The probes test whether each one follows a cube that moves."
+    },
+    {
+      "title": "Retrain both on the slow-release teacher",
+      "why": "ACT's real-like and physics v2 success counts are held down by release safety frames, which hides the true comparison in those cells."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 18 · 3 CNN trainings, 24 evaluations, 1 report · queued 15:24, report written 17:01",
+    "watch": [],
+    "command": "simulation_code/queue_fair_cnn_20261118.sh [--dry-run]",
+    "stages": [
+      {
+        "name": "CNN seeds 202, 101, 303",
+        "note": "CNN recipe (v2 encoder, 120k steps, shift 12, stride 30) on all 7149 high-lift placements. Queue jobs 77 to 79.",
+        "state": "done"
+      },
+      {
+        "name": "24 evaluations",
+        "note": "Three seeds, execute 90 and 30, four cells. Queue jobs 80 to 103.",
+        "state": "done"
+      },
+      {
+        "name": "report",
+        "note": "matrix.json. Queue job 104.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: f6532ca (CNN replanning and the queue script)",
+        "ok": true
+      },
+      {
+        "text": "No note with the result. Only the memory note from queue time, which still says \"queued\".",
+        "ok": false
+      },
+      {
+        "text": "matrix.json is not tracked in git",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/fair_cnn_20261118/matrix.json",
+        "note": "CNN successes per seed and cell; pooled execute 90"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/fair_cnn_20261118/evals/*/result.json",
+        "note": "CNN pickups and lateral medians"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/matrix.json",
+        "note": "ACT successes per cell"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/evals/*/result.json",
+        "note": "ACT pickups and lateral medians"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/fair-cnn-20261118.md",
+        "note": "why it was unfair, what was built, how to read it"
+      },
+      {
+        "path": "notes/pixel-reliance-ablation-20261118.md",
+        "note": "parameter counts (ACT 51.6 M, CNN 2.71 M)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/QUEUE_LOG.txt",
+        "note": "queue line of 2026-11-18 15:24"
+      },
+      {
+        "path": "simulation_code/queue_fair_cnn_20261118.sh",
+        "note": "the queue script"
+      },
+      {
+        "path": "commit f6532ca",
+        "note": "built and queued"
+      }
+    ]
+  }
+}

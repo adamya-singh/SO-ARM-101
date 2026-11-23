@@ -1,0 +1,345 @@
+{
+  "question": "The placement policies no longer memorize, yet they score only 6 to 15 of 30 and catch the cube by an edge. Why, and which part of the policy should the next work fix?",
+  "measure": "Where the jaw is just before closing (step 250), relative to the cube, in millimetres, for every held-out rollout. The working policy's jaw position is the target. Also the same error before and after the second chunk (step 179 against step 250).",
+  "outcome": "The grasp tolerance is about 8 mm and the policies scatter by about 10 mm. The chunk made from the close-up view at step 180 corrects nothing: 11.4 mm before, 11.2 mm after. The earlier claim that the loss had stopped predicting success was wrong.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. This is an analysis of existing rollouts, not a new training run. It covers the runs of experiments 32 to 35: random shift 4 and 12, 480k steps, 2400 placements at three seeds, and 4800 placements. The working policy is the older one that scores 30/30 held-out when the square never moves. At step 180 the arm has finished its first descent and the camera is 46 mm above the cube, so the second chunk is predicted from a close-up view. Lateral error is the sideways distance between where the jaw is and where it should be. Open-loop means acting without using new observations to correct.",
+  "parts": [
+    {
+      "title": "How does the loss compare with a policy that works?",
+      "why": "A number means nothing alone. 3e-4 looked small next to the 4e-3 the tranche started from. This comparison had been skipped.",
+      "did": "Looked up the same step-90 loss for the working fixed-square policy and converted both to physical units. One normalised action unit is pi radians, so the joint error is the square root of the loss times 180 degrees.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Loss, step-90 chunk",
+          "Joint error (rms)",
+          "Error at the jaw"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "working policy, fixed square",
+              "2.5e-6",
+              "0.28 deg",
+              "about 1.7 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "placement policies",
+              "3.4e-4 to 6e-4",
+              "3.1 deg at 3e-4",
+              "about 10 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The placement policies are about 150x above the working policy. The earlier statements that they were 'within 2 to 4x of the working policy' and that 'the loss stops predicting success near 3e-4' were wrong. The loss was saying the policies are about ten times too imprecise, and it was right."
+    },
+    {
+      "title": "How far off is the jaw at closing, and how much error can a grasp take?",
+      "why": "A loss averaged over 90 steps and 6 joints is a long way from 'did the jaw close around the cube'.",
+      "did": "Computed the jaw midpoint from the logged joint angles at step 250 for the first try at each of 10 held-out placements, per run. The working policy puts it at the same point on all ten placements (median scatter 1.7 mm, max 4.1 mm); that point is the target.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run (10 placements)",
+          "Succeed",
+          "Lateral error median / max (mm)",
+          "Not descended",
+          "Yaw error median (deg)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "working fixed-square policy",
+              "10",
+              "1.7 / 4.1",
+              "0",
+              "n/a"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1200 / 120k / shift 0",
+              "0",
+              "21.7 / 57.3",
+              "4",
+              "8.4"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1200 / 120k / shift 4",
+              "3",
+              "9.3 / 22.7",
+              "3",
+              "6.2"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "1200 / 120k / shift 12",
+              "3",
+              "8.8 / 18.0",
+              "3",
+              "3.5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "1200 / 480k / shift 12",
+              "0",
+              "12.5 / 23.2",
+              "3",
+              "3.7"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400 / shift 12 / seed 202",
+              "5",
+              "10.0 / 16.5",
+              "4",
+              "2.0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400 / shift 12 / seed 101",
+              "2",
+              "11.9 / 15.0",
+              "3",
+              "3.7"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400 / shift 12 / seed 303",
+              "4",
+              "9.4 / 44.5",
+              "3",
+              "3.9"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "4800 / shift 12",
+              "2",
+              "5.1 / 12.9",
+              "2",
+              "2.7"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Pooled over the six shift-12 runs (60 rollouts): successes have a lateral median of 4.6 mm, edge-lifts 12.0 mm, misses 14.0 mm. Among rollouts that did descend, 13 of 20 succeed under 8 mm and 3 of 22 above it. So the tolerance is about 8 mm, the scatter is about 10 mm rms (11 at 1200 placements, 8 at 4800), and a third to a half land inside. That is the 6 to 15 of 30. Yaw is not the limit (2 to 4 degrees median; successes reach 10)."
+    },
+    {
+      "title": "Is the error a bias or a scatter?",
+      "why": "A pull toward the middle of the table means the network is under-fitted and more training fixes it. An even scatter means it cannot see well enough.",
+      "did": "Regressed jaw position on target position about the centre of the training placements. A slope of 1 means no pull toward the middle.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Slopes are 0.95 to 1.00 and the mean radial errors are -0.2 to -5 mm. It is scatter, not bias. One distant look at a cube 12 to 25 pixels wide delivers about 10 mm."
+    },
+    {
+      "title": "Does the second look correct the error?",
+      "why": "At step 180 the cube fills a large part of the image, so fixing a 10 mm error from there should be easy.",
+      "did": "Compared the lateral error rms at step 179 (end of the first descent chunk) with step 250 (just before closing).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run (shift 12)",
+          "Step 179 (mm rms)",
+          "Step 250 (mm rms)",
+          "Slope at 179 / 250"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1200 placements",
+              "11.4",
+              "11.2",
+              "0.98 / 0.99"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400, seed 202",
+              "11.6",
+              "10.9",
+              "0.98 / 0.98"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400, seed 101",
+              "11.4",
+              "10.7",
+              "1.00 / 1.00"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400, seed 303",
+              "16.6",
+              "17.0",
+              "0.95 / 0.95"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "4800, seed 202",
+              "9.7",
+              "8.1",
+              "0.99 / 0.98"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The second chunk removes almost none of the error. In 18 of 60 rollouts it does not even finish the descent (the jaw stalls 40 to 47 mm above the cube); those 18 hold zero successes and all 11 collisions. The cause is in the data: the teacher is perfectly centred at step 180 in every training episode, so the network never saw an off-centre view together with its fix. Offline that chunk scores 1e-6 because it is scored on the teacher's centred frames. This is covariate shift: the policy visits states in closed loop that its training data never contained."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The target comes from a policy that succeeds on all ten held-out placements, with a median scatter of 1.7 mm",
+      "ok": true
+    },
+    {
+      "text": "The lateral error at closing is steadier across seeds than the success count (median 10.0, 11.9, 9.4 mm against 15, 6, 12 of 30)",
+      "ok": true
+    },
+    {
+      "text": "Per-run rows use the first of three tries at each of 10 placements, so n is 10 per run and 60 pooled",
+      "ok": false
+    },
+    {
+      "text": "The 8 mm tolerance is read from 42 rollouts that descended, in 4 mm bins (4/10, 9/10, 2/10, 1/12). It is an estimate, not a sharp edge",
+      "ok": false
+    },
+    {
+      "text": "The millimetre figures tied to the loss (1.7 mm, 10 mm) are a conversion through joint angles, described in the source as approximate",
+      "ok": false
+    },
+    {
+      "text": "An analysis after the fact, with no bar written down before it. Simulation only",
+      "ok": false
+    },
+    {
+      "text": "It corrects two claims in the Sep 12 and Sep 13 notebook entries; both are marked in place",
+      "ok": false
+    }
+  ],
+  "meaning": "The policy is open-loop after the survey frame: one distant look has to deliver all of the sideways precision, and it delivers about 10 mm against an 8 mm tolerance and a working policy at 1.7 mm. Data does improve it (11 to 8 mm from 1200 to 4800 placements) but on the ladder's exponent the road to 2 to 3 mm is tens of thousands of placements. So the next work is not more data and not a square localiser, which would attack the same distant look. It is a perturbed-teacher capture: push the teacher sideways by about 15 mm during the first descent, record how it corrects, and let the step-180 chunk learn to centre. Judged by lateral error at step 250 against step 179 (target under 4 mm), the not-descended count (target 0), then pooled rollouts.",
+  "lesson": "Convert your loss into the units of the task, compare it with a system that works, and measure the failing thing directly in closed loop. A model trained only on perfect runs cannot fix its own mistakes, however good the loss looks.",
+  "next": [
+    {
+      "title": "Perturbed-teacher capture (DART-style)",
+      "why": "Random lateral offset of about 15 mm on the pre-grasp waypoint during steps 90 to 179, teacher corrects in 180 to 269, so the second look learns to centre."
+    },
+    {
+      "title": "Closure error in mm as a standing metric",
+      "why": "Report it beside held-out loss for every placement run; promote the analysis script to a tool."
+    },
+    {
+      "title": "Fitting checks (v3 encoder, 240k steps at 4800), then a localiser",
+      "why": "Only after the second look works, and only if the survey chunk still limits."
+    }
+  ],
+  "log": "**TL;DR:** Measured in millimetres, the arm lands about 10 mm off against an\n8 mm tolerance, and its second look at the cube fixes none of it.\n\n**Problem.** Every placement policy scored somewhere from 6 to 15 out of 30, and\nthe failures were cubes caught by an edge. I had concluded the loss had stopped\npredicting success.\n\n*How we know it was wrong:* the policy that works 30/30 on a fixed target has a\nloss of 2.5e-6. These had 3e-4 to 6e-4, 150x worse. In real units that's about\n0.3 degrees of joint error versus 3, or roughly 1.7 mm versus 10 mm at the jaw.\n\n**Experiment.** For every rollout, compute where the jaw was just before\nclosing, relative to the cube, using the working policy's jaw position as the\ntarget. Then check if the error is a bias or a scatter, and whether the second\nchunk (predicted from the close-up view at step 180) shrinks it.\n\n*What we hope to learn:* how big the grasp tolerance is, how far off we are, and\nwhich part of the policy to fix.\n\n**Outcome.**\n\n- Tolerance is about 8 mm. Within 8 mm, 13 of 20 tries succeeded; beyond it, 3\n  of 22. The policies scatter by about 10 mm (8 mm at 4800 placements), which is\n  exactly a third to a half succeeding.\n- It's scatter, not bias (slope 0.95 to 1.00). One distant look at a cube 12 to\n  25 pixels wide is just good to about 10 mm.\n- The second look corrects nothing: 11.4 mm before that chunk, 11.2 mm after.\n  In training the script is always perfectly centred at step 180, so the network\n  never saw an off-centre view with its fix. It's entry 02's covariate shift\n  again, hidden one chunk later.\n\nNext: push the script off course on purpose during training, so the second look\nlearns to centre on the cube.\n\n**Takeaway:** convert your loss into real units, compare it to something that\nworks, and measure the failing thing directly. A model trained only on perfect\nruns can't fix mistakes, no matter how good the loss looks.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 18, 2026 · analysis of existing rollouts, no new training",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "baseline check",
+        "note": "The working policy's step-90 loss (2.5e-6) and the conversion to degrees and millimetres.",
+        "state": "done"
+      },
+      {
+        "name": "closure error",
+        "note": "Jaw midpoint against the cube at step 250 for every run, by outcome and by lateral distance.",
+        "state": "done"
+      },
+      {
+        "name": "shrinkage test",
+        "note": "Regression of jaw position on target position: slopes 0.95 to 1.00.",
+        "state": "done"
+      },
+      {
+        "name": "second-chunk test",
+        "note": "Lateral error at step 179 against step 250.",
+        "state": "done"
+      },
+      {
+        "name": "corrections",
+        "note": "The wrong claims in the notebook, runbook and README corrected in place.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 851e8b1 (analysis), c574b99 (docs made consistent), 51d2cc2 (intern explanation)",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry, intern note and research-log entry 36 written",
+        "ok": true
+      },
+      {
+        "text": "The analysis script is not yet a tool; the notebook says to promote it with the next tranche",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/36-closure-in-mm.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry 'Tranche analysis (2026-09-18)': all tables and the decision"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation, sections 7 to 10"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/tranche_analysis_20260918/closure_error_vs_reference.txt",
+        "note": "per-run and per-outcome closure errors, the 8 mm bins"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/tranche_analysis_20260918/shrinkage.txt",
+        "note": "slopes and rms at steps 179 and 250"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/tranche-analysis-20260918.md",
+        "note": "memory note: findings and the correction"
+      },
+      {
+        "path": "commits 851e8b1 · c574b99 · 51d2cc2",
+        "note": "analysis · docs · intern note"
+      }
+    ]
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "question": "The network memorizes exact training images. If every training image is slid a few pixels at random each time it is used, does it learn where the cube is instead?",
+  "measure": "The ratio of held-out loss to training loss on the chunk that starts at step 90 (thousands means memorizing, near 1 means none), the per-placement median loss, and closed-loop successes out of 30.",
+  "outcome": "The ratio fell from 5250x to 168x (4 px) and 15x (12 px). Closed loop went from 0/30 to 9/30 at both shifts. The failures changed from collisions and misses to cubes caught by an edge.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. The scaling ladder (experiment 31) showed the network memorizing: held-out loss thousands of times the training loss, and a lookup table beating it. Random-shift augmentation (the DrQ trick) pads each training image by s pixels and crops it back to 256x256 at a random offset, with the same label. Evaluation images are never shifted. A safety frame is a step where the simulated arm breaks a safety limit; fewer is better.",
+  "parts": [
+    {
+      "title": "Does a random shift close the gap between training and held-out loss?",
+      "why": "If the network memorizes exact pixels, taking away the fixed pixels should force it to learn where the cube sits. If nothing changes, the network cannot localize and a different model is needed.",
+      "did": "Trained the ladder's point (1200 placements, v2 encoder, 120k steps, seed 202) with shift 4 and shift 12. The ladder's unshifted model is the baseline, re-scored per placement and given the 30 rollouts it did not have.",
+      "predictions": [
+        {
+          "text": "Number to watch, written in the ladder decision: per-placement held-out loss at step 90, median under 2.5e-4 on all 10 placements",
+          "result": "half"
+        }
+      ],
+      "table": {
+        "head": [
+          "Shift",
+          "Train loss",
+          "Held-out loss",
+          "Ratio",
+          "Per-placement median",
+          "Placements <= 2.5e-4",
+          "Closed loop",
+          "Safety frames"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "0 px",
+              "8.0e-7",
+              "4.2e-3",
+              "5250x",
+              "1.1e-3",
+              "0/10",
+              "0/30",
+              "525"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "4 px",
+              "8.0e-6",
+              "1.3e-3",
+              "168x",
+              "1.3e-3",
+              "1/10",
+              "9/30",
+              "279"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "12 px",
+              "4.1e-5",
+              "6.2e-4",
+              "15x",
+              "2.4e-4",
+              "5/10",
+              "9/30",
+              "193"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The gap closed 350x. At shift 12 the median reached 2.4e-4 and five placements are under 2.5e-4 (none before), so the bar is met for the median but not for all ten placements. The mean held-out loss (6.2e-4) is now close to the lookup baseline for 1200 placements (6.0e-4). The shifted runs were still descending at 120k steps."
+    },
+    {
+      "title": "What kind of failures are left?",
+      "why": "Closed loop is the same 9/30 at shift 4 and 12, so the count alone does not say what improved.",
+      "did": "Sorted the first try at each of the 10 placements by what happened to the cube.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Shift",
+          "Success",
+          "Collision",
+          "Miss",
+          "Lifted by an edge",
+          "Grasped then lost"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "0 px",
+              "0",
+              "5",
+              "3",
+              "2",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "4 px",
+              "3",
+              "2",
+              "2",
+              "3",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "12 px",
+              "3",
+              "1",
+              "2",
+              "3",
+              "1"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The gross failures (collide, miss) became precision failures. A cube lifted by an edge is carried 20 to 30 mm and dropped at release: the descent found the cube but landed slightly off a centred grasp. All of the held-out error is still in the step-90 chunk; later chunks score 1e-7 to 1e-4 at every shift."
+    }
+  ],
+  "trust": [
+    {
+      "text": "One change only. Same capture, encoder, steps, stride and seed as the baseline",
+      "ok": true
+    },
+    {
+      "text": "Shift 0 leaves every identity and digest unchanged (pinned by test), and the baseline re-scored at the ladder's value (4.18e-3) before anything else ran",
+      "ok": true
+    },
+    {
+      "text": "One training seed. Experiment 34 later showed the count out of 30 moves by about 9 between runs of equal loss",
+      "ok": false
+    },
+    {
+      "text": "Each score out of 30 is 10 placements times 3 tries that end the same way",
+      "ok": false
+    },
+    {
+      "text": "The notebook first said these policies were within 2 to 4x of the working policy's loss. That was corrected on 2026-09-18: the working policy is at 2.5e-6, so they are 15x to 400x above it per placement",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "Input augmentation was the lever the ladder said it was. With memorizing mostly blocked, held-out loss follows training loss, so data and steps can matter again. The decision was to keep shift 12 and test each one: more steps and the full 2400 placements (experiment 33). No policy from this run was a candidate for the real arm.",
+  "lesson": "When a model memorizes, make memorizing impossible instead of adding capacity. One change to the data loader did more than 15 scaling runs.",
+  "next": [
+    {
+      "title": "Shift 12 with 480k steps, and with 2400 placements (experiment 33)",
+      "why": "The curve was still descending and the ratio was low enough for scale to matter again."
+    },
+    {
+      "title": "Shift 16 to 24",
+      "why": "Recorded as an option only if the first step stalls, since 12 px is already half a cube width. Not run."
+    }
+  ],
+  "log": "**TL;DR:** Sliding every training image a few pixels at random cut memorization\n350x and took closed loop from 0/30 to 9/30.\n\n**Problem.** The network was memorizing exact images instead of learning where\nthe cube is.\n\n*How we know:* at 1200 placements its held-out error was 5250x its training\nerror, it scored 0/30 on new placements, and a lookup table beat it (entry 31).\nI didn't know if the network could localize the cube at all.\n\n**Experiment.** Random-shift augmentation (the DrQ trick): every time a training\nimage is used, pad it and crop it back at a random offset of up to 4 or 12\npixels, with the same label. Nothing else changed.\n\n*What we hope to learn:* if it's memorizing exact pixels, removing that fixed\nidentity forces it to learn where the cube sits in the scene, so the gap should\ncollapse. If nothing changes, the network can't localize and I need a different\nmodel.\n\n**Outcome.** The gap collapsed:\n\n| shift | held-out / training error | closed loop |\n|---|---|---|\n| 0 px | 5250x | 0/30 |\n| 4 px | 168x | 9/30 |\n| 12 px | 15x | 9/30 |\n\n- Why it works: a memorized lookup needs the same pixels every time, and now it\n  never gets them. Like flashcards that get shuffled and reworded every pass, so\n  the only way through is learning the concept.\n- The failures changed kind. At 0 px the arm collided or missed the cube\n  completely. At 12 px it found the cube but often caught it by an edge and\n  dropped it at release.\n\n**Takeaway:** when a model memorizes, make memorizing impossible instead of\nadding capacity. One change to the data loader beat 15 scaling runs.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 12, 2026 · one queue job, 1 h 25 min wall",
+    "watch": [
+      {
+        "title": "W&B random-shift-92f07142",
+        "note": "run id 8okj7i9y",
+        "href": ""
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "baseline re-score",
+        "note": "The ladder's unshifted model, scored per placement and given 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "shift 4",
+        "note": "Train, score, 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "shift 12",
+        "note": "Train, score, 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "analysis",
+        "note": "Later chunks and failure taxonomy.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 6b4d936 (augmentation, per-placement scorer, tool), fc52cd0 (result)",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry and research-log entry 32 written",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/32-random-shift.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry 'Random-shift augmentation (2026-09-12)': tables, readings, decision"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation, section 4"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_20260912/",
+        "note": "augmentation.json, analysis_rollouts.txt, analysis_later_chunks.txt (cited by the notebook)"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/augmentation-run-20260912.md",
+        "note": "memory note with the same table"
+      },
+      {
+        "path": "tools/augmentation_run.py",
+        "note": "the tool that ran it"
+      },
+      {
+        "path": "commits 6b4d936 · fc52cd0",
+        "note": "code · result"
+      }
+    ]
+  }
+}

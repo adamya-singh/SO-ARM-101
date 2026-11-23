@@ -1,0 +1,276 @@
+{
+  "question": "Does a joint angle in the simulator mean the same angle on the real arm? The mapping between the two (the joint map) had been assumed in June, never measured.",
+  "measure": "For each joint, how many degrees the June map is off from a map built from the motor encoders (4096 counts per turn). Then whether the scripted teacher still passes its 15-episode certification on the corrected arm.",
+  "outcome": "No. Against the final map the June map had the wrist roll about 94 degrees off, the elbow about 14, the wrist flex 12 to 23, the shoulder lift about 2.5, and the pan scale up to 30 degrees off at the ends of travel. The first reading on Sep 7 (three joints about 90 degrees off) was partly wrong and was corrected.",
+  "setup": "The real arm's motors report positions in their own units (encoder counts, 4096 per full turn). The simulator uses joint angles of the arm model. The joint map converts one into the other: for each joint a zero (which count means angle 0) and a scale (how many counts per degree). If it is wrong, a pose commanded in the simulator is a different pose on the real arm.\n\nThe June 2026 map assumed that each motor's calibrated range lines up with the model's joint range. Nobody measured it.\n\nThe arm has five joints plus the gripper: pan (base rotation), shoulder lift, elbow, wrist flex and wrist roll.\n\nThe teacher is the hand-written script whose episodes the policy (the network that drives the arm) learns from. Certification is its fixed test: 15 episodes, all must finish with zero safety frames (simulation steps where a command broke a safety limit).",
+  "parts": [
+    {
+      "title": "What do the encoders say the zeros and scales are?",
+      "why": "In the live viewer the sim gripper was visibly rotated against the real one: the wrist roll looked a quarter turn off. That needed a measurement of every joint, not a guess.",
+      "did": "With torque off, recorded the raw encoder counts in two poses: the arm resting under gravity, and the model's all-zero pose (arm straight out, jaws vertical) held by hand. The owner also turned the wrist roll by hand from 2023 to 3089 counts (+93.7 degrees) to pin its direction. Built a new map, measured_20260907, from the exact 4096 counts per turn and those zero counts.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Rest pose in model degrees",
+          "pan",
+          "lift",
+          "elbow",
+          "wrist flex",
+          "roll"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "June map",
+              "-0.5",
+              "-180.8",
+              "178.4",
+              "41.5",
+              "-1.9"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "measured_20260907 (first reading)",
+              "0.1",
+              "-85.3",
+              "92.5",
+              "41.6",
+              "-99.5"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The first reading: joint ranges off by up to 37% and three zeros (shoulder lift, elbow, wrist roll) each about 90 degrees off. The hand-held reference was judged good to roughly 3 degrees. That judgement was wrong, see the next part."
+    },
+    {
+      "title": "Was the first reading right?",
+      "why": "The zero pose was held by hand. A reference pose is a measurement too, and it can be wrong.",
+      "did": "The next day's checkerboard calibration (experiment 21) showed the hand-held pose had the upper arm raised and the elbow bent. The shoulder lift and elbow zeros were moved back and the final map is measured_20260908b. The June map was then compared with that final map. The correction was written into the notes on Sep 30.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Joint",
+          "June map off, first reading (Sep 7)",
+          "June map off, against the final map"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "wrist roll",
+              "about 90 deg",
+              "about 94 deg"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "elbow",
+              "about 90 deg",
+              "about 14 deg"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "shoulder lift",
+              "about 90 deg",
+              "about 2.5 deg"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "wrist flex",
+              "",
+              "12 to 23 deg"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pan",
+              "",
+              "scale up to 30 deg off at the ends of travel"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Only the wrist roll was really a quarter turn off. Under the final map the real arm rests at shoulder lift -178.6 degrees and elbow 173.5, close to the June map's -180.8 and 178.4. So the Sep 7 claim that the August poses were impossible for the real arm was withdrawn. They were wrong for the real arm, mostly in wrist roll, but reachable."
+    },
+    {
+      "title": "Can the teacher still do the task on the corrected arm?",
+      "why": "Under the Sep 7 map the old 78 degree, near-horizontal approach was not feasible, so the teacher needed a new approach before any data capture.",
+      "did": "Scanned approach pitch (0 to 15 degrees) and grasp height offset (0 to 8 mm) on the five certification positions. Chose pitch 5 degrees, offset 3 mm, the centre of the clean window. Ran certification.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Pitch",
+          "offset 0",
+          "2 mm",
+          "4 mm",
+          "6 mm",
+          "8 mm"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "0 deg",
+              "5/5, 755 corner rejections",
+              "5/5 clean",
+              "5/5 clean",
+              "4/5",
+              "0/5"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "5 deg (chosen, offset 3 mm)",
+              "4/5",
+              "5/5 clean",
+              "5/5 clean",
+              "5/5, corner rejections",
+              "0/5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "8 to 15 deg",
+              "IK failures",
+              "",
+              "",
+              "",
+              ""
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Certified 15/15, deterministic, zero safety frames, 151 strict-grasp frames per episode (scene f198fce2). The feasibility reasoning used the Sep 7 map; the teacher was certified again under the final map at the same 5 degree approach."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The map uses the exact encoder scale of 4096 counts per turn, not an assumed range.",
+      "ok": true
+    },
+    {
+      "text": "The wrist-roll direction was checked by the owner turning the joint by hand (+93.7 degrees).",
+      "ok": true
+    },
+    {
+      "text": "The old map is kept as legacy_affine_v1 so August results stay reproducible; the bench scene is bound to the measured map and it is hashed into every capture identity.",
+      "ok": true
+    },
+    {
+      "text": "The Sep 7 notes and the Sep 30 correction disagree. This write-up uses the later one: only the wrist roll is about a quarter turn off, and the 'physically unreachable' claim is withdrawn.",
+      "ok": false
+    },
+    {
+      "text": "The Sep 7 zero reference was a pose held by hand and was mis-held (upper arm raised, elbow bent).",
+      "ok": false
+    },
+    {
+      "text": "The pan sign was carried over from the old map and was not yet checked on the arm on this date.",
+      "ok": false
+    },
+    {
+      "text": "The rest-pose table is the first reading. For the final map the sources give only lift -178.6, elbow 173.5 and wrist flex 61.6.",
+      "ok": false
+    }
+  ],
+  "meaning": "Every August result came from the June map, so its simulated poses do not match the real arm. The bench work from here uses a measured map. The camera comparison (experiment 19) was redone on the corrected arm: the size gap fell from 4.1 to 2.6 times, so what remained was the camera model, which became the next measurement.",
+  "lesson": "Measure the mapping between your hardware and your model, and treat your own reference pose as a measurement that can be wrong too.",
+  "next": [
+    {
+      "title": "Calibrate the lens and check the zeros with a checkerboard (experiment 21)",
+      "why": "The sim still put the square below the frame and 2.6 times too small."
+    },
+    {
+      "title": "Verify the pan sign on the arm",
+      "why": "It was carried over, not measured. A Sep 9 commit (b34770a) records it confirmed on the arm."
+    }
+  ],
+  "log": "**TL;DR:** No: the wrist roll was a quarter turn off and other joints were off\nby up to 30 degrees, though my first measurement made it look even worse than\nit was.\n\n**Problem.** In the live viewer, the sim gripper was visibly rotated compared to\nthe real one, and the wrist roll was a quarter turn off.\n\n*How we know:* I could see it. The June joint map was never measured; it assumed\neach motor's calibrated range lined up with the model's joint range.\n\n**Experiment.** With torque off, read the raw motor encoders in two poses: the\narm resting under gravity, and the model's all-zero pose held by hand.\n\n*What we hope to learn:* the true zero and scale of every joint.\n\n**Outcome.** The new map, built from the encoder counts (4096 per turn), showed\nranges off by up to 37% and three zeros about 90 degrees off: shoulder lift,\nelbow and wrist roll. I moved the script to a near-vertical approach and\nre-certified it 15/15.\n\n- Two of those three were wrong. My hand-held \"zero pose\" had the upper arm\n  raised and the elbow bent, so the next day's calibration (entry 21) moved\n  them back. Against the final map, the June map had the wrist roll 94 degrees\n  off, the elbow about 14, the wrist flex 12-23, the shoulder lift only 2.5, and\n  the pan's scale up to 30 degrees off at the ends of its travel.\n- So the old map turned commanded poses into slightly different real poses,\n  and one very different wrist. Like a map with one street labeled wrong: most\n  routes still work, until you need that street.\n\nEvery August result came from that map, so its poses don't match the real arm.\n\n**Takeaway:** measure the mapping between your hardware and your model, and\ntreat your own reference pose as a measurement that can be wrong too.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 7, 2026 · 3 stages · corrected on Sep 8 (final map) and Sep 30 (notes)",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "two encoder recordings",
+        "note": "Gravity rest, and the model's all-zero pose held by hand. Torque off, read-only.",
+        "state": "done"
+      },
+      {
+        "name": "new joint map measured_20260907",
+        "note": "Zero counts: pan 1957, lift 2003, elbow 2114, wrist flex 2031, roll 3113.",
+        "state": "done"
+      },
+      {
+        "name": "teacher retuned and certified",
+        "note": "5 degree approach, 3 mm offset, 15/15.",
+        "state": "done"
+      },
+      {
+        "name": "first reading corrected",
+        "note": "The hand-held pose was mis-held. Final map measured_20260908b on Sep 8; notes corrected Sep 30.",
+        "state": "trouble"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: f75d519 (record the joint-map mismatch), 02ab0bc (replace the assumed joint map with one measured from the encoder)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 20 exists and carries the correction",
+        "ok": true
+      },
+      {
+        "text": "Both encoder recordings are saved under joint_references/",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/20-joint-map.md",
+        "note": "research-log entry"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "runbook: 'Joint map' section with the Sep 30 correction; 'Retune under the physical joint ranges'"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "September 7 entry, corrected in place"
+      },
+      {
+        "path": "memory/joint-map-measured-20260907.md",
+        "note": "project memory note, with the correction"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133225_wrist_roll_jaws_horizontal_rest_396aa222.json",
+        "note": "encoder recording at rest (listed, not opened)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/joint_references/2026-09-07T133609_full_model_zero_reference_hand_held_25d117ec.json",
+        "note": "encoder recording of the hand-held zero pose (listed, not opened)"
+      },
+      {
+        "path": "src/so_arm101_v2/data/resources/physical_joint_map_20260907.json",
+        "note": "the Sep 7 map (listed, not opened)"
+      },
+      {
+        "path": "commits f75d519 · 02ab0bc",
+        "note": "mismatch recorded · measured map"
+      }
+    ]
+  }
+}

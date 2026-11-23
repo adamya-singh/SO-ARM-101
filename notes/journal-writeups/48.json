@@ -1,0 +1,309 @@
+{
+  "question": "If we retrain the policy to lift the cube 100 mm instead of about 31 mm, does it still work in simulation, and does it carry the cube on the real arm?",
+  "measure": "In simulation: successes out of 30 (10 held-out placements run 3 times) in four servo settings, against the physics v2 ACT. On the real arm: per run, whether the cube was carried through the lift (read from the gripper reading while closed) or missed.",
+  "outcome": "In simulation it matches the earlier policy with default servos but drops to 8 of 30 with real-like servos, because of safety frames at the gripper release (20 of 30 without them). Live, 7 of 17 runs carried the cube with a real lift of about 100 mm, 6 missed, and placements 320 mm or farther failed.",
+  "setup": "A policy is the network that drives the arm. Here it is ACT, which reads a wrist-camera frame and the joint angles and outputs the next 90 joint commands (a chunk). \"Execute 30\" means it runs 30 commands and then plans again. The teacher is the scripted controller in the simulator that knows the true cube position. Its episodes are the training data. Held-out placements are cube positions the policy never trained on. Experiment 47 showed that on the real arm the teacher's 31 mm lift looks like a wrist curl: the shoulder moves about half of what is commanded, so the jaws rise 12 to 16 mm and pull back. The owner asked for a retrain that lifts much higher. The new teacher lifts 100 mm. We captured 7200 placements with it under physics v2 (servo strength drawn at random per joint, soft to stiff) and fine-tuned ACT for 40,000 steps. \"Real-like\" is a servo setting that imitates the measured soft servos of the real arm. A safety frame is a command the simulator's gate rejects. Any safety frame invalidates the episode.",
+  "parts": [
+    {
+      "title": "Does the high lift keep the simulation scores?",
+      "why": "A new teacher schedule could break something that worked. The physics v2 ACT is the policy to beat.",
+      "did": "Evaluated the high-lift ACT on the same 10 held-out placements, 3 repeats, at execute 30 and 90, in four cells: nominal scene, measured-servo scene, servo scene with real-like physics, servo scene with physics v2.",
+      "predictions": [
+        {
+          "text": "Judge against the physics v2 ACT at execute 30: 24 nominal, 19 real-like (written when the run was queued)",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Cell (successes of 30)",
+          "Physics v2 ACT, exec 30",
+          "High-lift ACT, exec 30",
+          "Physics v2 ACT, exec 90",
+          "High-lift ACT, exec 90"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "nominal",
+              "24",
+              "20",
+              "21",
+              "20"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo",
+              "18",
+              "21",
+              "21",
+              "18"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + real-like",
+              "19",
+              "8",
+              "19",
+              "11"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "servo + physics v2",
+              "11",
+              "5",
+              "8",
+              "8"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "It fails the bar on real-like servos (8 against 19). But in that cell it picks the cube up in 20 of 30 episodes, against 21 for the physics v2 ACT. Of the 22 invalid episodes, 12 are safety frames at the gripper release (rows 407 to 419): the high-lift schedule opens the gripper in about 14 rows where the old one took about 18, and the command gets ahead of the slow gripper. The cube is already set down by then. Without those frames it would be 20 of 30 against 19. In the table the physics v2 columns are the baseline and the high-lift columns are ours."
+    },
+    {
+      "title": "Does it carry the cube on the real arm?",
+      "why": "The whole point of the retrain was a lift you can see on the real arm.",
+      "did": "Ran the policy live at execute 30 on Nov 14 and 15 (episodes 36 to 56), moving the cube between runs. Distances are from the base to the cube.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Outcome",
+          "Runs",
+          "Episodes"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "carried through the lift",
+              "7",
+              "40, 42, 47, 50, 52, 54, 55"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "missed (gripper closed on nothing)",
+              "6",
+              "43, 44, 45, 48, 53, 56"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "grasped and lifted, then stopped by a guard",
+              "2",
+              "36 (wrist limit, 327 mm), 51 (height guard)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "left the survey pose early, stopped by a guard",
+              "2",
+              "39, 46 (cube at 321 mm or farther)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "7 carries in 17 runs. Episode 40 was the first real high lift: the shoulder moved 16 of 18 commanded units and the jaws rose about 105 mm by FK (forward kinematics, the jaw position computed from joint readings). Near placements work. At 320 mm or farther the run hits the wrist limit or leaves the survey pose early. The release safety frames from simulation did not abort live runs: the real runner slows the command and continues (1 to 6 rate-limited gripper frames per run)."
+    },
+    {
+      "title": "Why do six grasps miss?",
+      "why": "The answer decides between retraining with more data and fixing the arm's geometry.",
+      "did": "Compared the 9 runs that grasped (7 carries plus the 2 stopped after the lift) with the 6 misses, and with simulation episodes that descended.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Measurement",
+          "Sim, descended episodes",
+          "Live, grasped (9)",
+          "Live, missed (6)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "picked up",
+              "21 / 21 (real-like), 24 / 24 (servo)",
+              "9",
+              "0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "jaw height at row 240 by FK, mm (relative only)",
+              "-",
+              "mean 6.5 (range -22..19)",
+              "mean 18.4 (12..25)"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "commanded vs measured at row 240, worst joint, deg",
+              "-",
+              "<= 2.7",
+              "<= 1.9"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "lift starts at the row-270 replan",
+              "0 of 45 (earliest row 293)",
+              "2 of 9",
+              "4 of 6"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "In the misses the jaws stop short of the cube and about 12 mm higher. The arm is within 3 degrees of its command in both groups, so the policy commands the short stop. In simulation a descended episode always picks up. The cube's position estimated from the survey pose and from the reset pose disagrees by a median 22 mm along the reach (the survey says nearer), in the same direction as the miss. The simulation column is the baseline here."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Simulation: same 10 held-out placements, same tool and same four cells for both policies.",
+      "ok": true
+    },
+    {
+      "text": "Every count out of 30 is 10 placements run 3 times, so the real sample is 10. One training seed.",
+      "ok": false
+    },
+    {
+      "text": "Of the 7 carries, only episode 42 was confirmed by eye. 50 and 52 are inferred from a gripper reading of 5.1 to 5.2.",
+      "ok": false
+    },
+    {
+      "text": "15 grasp attempts is a small sample: 6 misses of 15 has an interval of about 16 to 68 %.",
+      "ok": false
+    },
+    {
+      "text": "The sources disagree on the live tally. The memory note counts 15 runs on Nov 15; the notebook entry of Nov 17 (later, used here) counts 17. On Nov 18 the memory note adds two more confirmed carries (episodes 57, 58) and says \"9 carries in 17 policy runs\", which does not add up with 17 runs before them.",
+      "ok": false
+    },
+    {
+      "text": "The fine-tune crashed twice with a CUDA error (steps 2520 and about 5000). The third run finished. The cause was not found.",
+      "ok": false
+    },
+    {
+      "text": "The 22 mm disagreement between the two cube estimates was not checked in simulation.",
+      "ok": false
+    }
+  ],
+  "meaning": "The high lift is real: the arm carries the cube about 100 mm when the grasp lands. The misses are not a training problem. The policy's precision in simulation is fine, and the real arm follows its commands. What is off is the geometry between the real arm and the simulator. Decision of Nov 17: measure and fix the geometry first (board-pose camera check at the survey pose; watch the survey-versus-reset disagreement, target under 5 mm), only then retrain with a gripper release over at least 20 rows, and spend no more data or training steps on this.",
+  "lesson": "Count pickups as well as successes. The 8 of 30 looked like a broken policy, and it was 12 episodes invalidated by a gripper release that took about 14 rows where the old one took about 18, after the cube was already down.",
+  "next": [
+    {
+      "title": "Fix the real-versus-simulator geometry",
+      "why": "The two cube estimates disagree by a median 22 mm, in the direction of the misses."
+    },
+    {
+      "title": "Retrain with a slower gripper release",
+      "why": "The release frames cost 12 of 30 episodes in the real-like cell. Experiment 51 builds its baseline this way (release over 30 actions)."
+    },
+    {
+      "title": "Check that the policies use the camera at all (experiment 49)",
+      "why": "A policy that ignores the image would also stop short."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 12 to 17 · capture, fine-tune, 8 simulation cells, live episodes 36 to 56, miss analysis · two more live carries on Nov 18",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "high-lift teacher",
+        "note": "Lift 100 mm. On the 10 held-out poses: 9/10 clean, 27/30 real-like, 25/30 physics v2 (old teacher: 10/10, 27/30, 25/30).",
+        "state": "done"
+      },
+      {
+        "name": "capture 7200 placements",
+        "note": "Physics v2, measured-servo scene.",
+        "state": "done"
+      },
+      {
+        "name": "ACT fine-tune, 40,000 steps",
+        "note": "Two CUDA crashes, then a clean third run. Held-out loss 2.9e-4.",
+        "state": "trouble"
+      },
+      {
+        "name": "8 simulation cells and report",
+        "note": "Execute 30 and 90 in four cells.",
+        "state": "done"
+      },
+      {
+        "name": "live runs, episodes 36 to 56",
+        "note": "Nov 14 and 15. Arm parked with torque off after each.",
+        "state": "done"
+      },
+      {
+        "name": "miss analysis",
+        "note": "Nov 17. Decision: geometry first.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 6694ebc (high-lift teacher, queue), a9a76f5 (sim matrix, live runs 36 to 56, miss analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in the notebook entry of 2026-11-17",
+        "ok": true
+      },
+      {
+        "text": "The simulation matrix file is not tracked in git",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry \"High-lift ACT ... why half the grasps miss\": sim table, live tally, miss table"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/matrix.json",
+        "note": "high-lift successes per cell"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/evals/*/result.json",
+        "note": "pickups per cell (20 in real-like, execute 30)"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/high-lift-20261112.md",
+        "note": "why, teacher scores, release diagnosis, per-episode live log, episodes 57 and 58"
+      },
+      {
+        "path": "notes/high_lift_live_grasp_frames_20261115.png",
+        "note": "frames at rows 90 / 240 / 270 (existence checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/QUEUE_LOG.txt",
+        "note": "queue and the re-queue after the CUDA crashes"
+      },
+      {
+        "path": "simulation_code/queue_high_lift_20261112.sh",
+        "note": "the queue script"
+      },
+      {
+        "path": "commits 6694ebc · a9a76f5",
+        "note": "built and queued · results and analysis"
+      }
+    ]
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "question": "What lens does the real wrist camera have, where does it sit, and are the arm's joint zeros right now?",
+  "measure": "The lens's field of view and fit error in pixels. And the board scatter: a checkerboard lying still on the table should come out in the same place from every arm pose if the arm model is right, so the spread of its computed position (in mm) measures how wrong the joint zeros are.",
+  "outcome": "The lens has a 44.0 degree vertical field of view with strong barrel distortion, not the 72 degrees the sim used. The mount is the official part. Three joint zeros needed one more correction: the still board scattered by 61 mm with the old zeros and about 21 to 23 mm with corrected ones. The teacher re-certified 15/15.",
+  "setup": "Experiment 19 found the sim camera did not show what the real camera shows. Experiment 20 measured the joint map (the conversion between motor counts and model joint angles), but even with it the sim square was 218 px wide against the real 574 px, 2.6 times too small.\n\nField of view is the angle the lens sees; fovy is the vertical one. Barrel distortion is the way a wide lens bends straight lines outward near the edges. Lens calibration fits both from many pictures of a checkerboard of known size. The RMS error is the typical distance, in pixels, between where the fitted model says a board corner should be and where it was seen.\n\nA joint zero is the motor count that means angle 0 for a joint. Forward kinematics is computing where the camera is from the joint angles and the arm model. PnP is computing where the camera is from a picture of a known board. If the two disagree, the arm model or its zeros are wrong.\n\nThe teacher is the scripted controller whose episodes the policy learns from. Its certification is 15 episodes that must all pass. Gate 1 is the camera review the owner must sign before data capture.",
+  "parts": [
+    {
+      "title": "What is the lens?",
+      "why": "The sim used 72 degrees from the arm model. A spec found online for this camera family said 103. The night-one guess was about 36. None was measured.",
+      "did": "Showed a checkerboard at true size on an iPhone 15 Plus (squares of 8.835 mm) to the camera: 29 hand-held views plus 9 flat on the table, 38 in all. Fitted the lens with OpenCV, principal point fixed at the image centre, five distortion coefficients.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Source",
+          "Vertical field of view",
+          "Notes"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "sim before (Menagerie model)",
+              "72 deg",
+              "pinhole, no distortion"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "spec found online",
+              "103 deg",
+              "wrong for this lens"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "measured, 38 checkerboard views",
+              "44.0 deg",
+              "fovx 71.5 deg, 1.9 px RMS, k1 -0.57 (strong barrel)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "44.0 degrees. The mount turned out to be the official SO-ARM101 small camera mount, the same part the model already places on the gripper, so the camera position was known and only the lens and the joint zeros were in question."
+    },
+    {
+      "title": "Are the joint zeros right?",
+      "why": "With the right lens the camera view still did not fit. Something in the arm's shape had to be wrong.",
+      "did": "Laid the phone flat on the mat and posed the arm by hand, torque off. Kept 9 frames where all 98 board corners were seen together with a joint reading. For each frame, computed the board's position in the world through the arm model and the camera, under candidate zeros.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Joint zeros",
+          "Board scatter over 9 frames",
+          "Pixel RMS over 882 corners"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Sep 7 map (hand-held reference)",
+              "61 mm",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "board-only fit: lift -72.3, elbow +60.0, wrist flex +20.0 deg",
+              "21 mm (19 mm in the tie-break comparison)",
+              "73 (72 in the tie-break comparison)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "photo-anchored, final: -93.25, +81.0, +20.0 deg",
+              "23 mm",
+              "78"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Rotations from the encoders matched the camera's to 2.5 degrees, so scales and signs were right. Camera height disagreed with the arm model by up to 10 cm, so the arm's shape was wrong. The cause: the hand-held zero pose of Sep 7 had the upper arm raised and the elbow bent."
+    },
+    {
+      "title": "The board cannot tell a shoulder error from an elbow error. What can?",
+      "why": "Two quite different sets of zeros fit the board almost equally well (19 against 23 mm). The data could not separate them.",
+      "did": "The owner took one side photo of the arm at rest: upper arm flat pointing backward, forearm flat pointing forward on top of it. Chose the zeros that make both bars flat in the sim. Then re-ran the teacher certification on the corrected arm.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Under the board-only zeros the sim's upper arm was tilted 21 degrees and the board floated 27 mm above the table. The photo-anchored zeros (map measured_20260908b) make both bars flat and put the board at table height. Rest pose: lift -178.6, elbow 173.5, wrist flex 61.6 degrees. Teacher re-certified 15/15, deterministic, zero safety frames (scene 6477c4bd). The owner signed the camera review and gate 1 closed."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Three separate checks point the same way: rotation agreement (2.5 degrees), camera height (off by up to 10 cm), and board scatter (61 mm down to about 21 mm).",
+      "ok": true
+    },
+    {
+      "text": "The side photo is an independent measurement that the board data could not provide.",
+      "ok": true
+    },
+    {
+      "text": "The camera position was pinned to the known mount (within 10 mm) instead of being fitted freely; free fits had diverged.",
+      "ok": true
+    },
+    {
+      "text": "A residual of 73 to 78 px RMS remains, about 1.6 cm at working distance.",
+      "ok": false
+    },
+    {
+      "text": "The lens fit only held near the centre: valid to 929 px from the centre while the corners are 1101 px out. It was refitted the next day to 44.85 degrees (experiment 23).",
+      "ok": false
+    },
+    {
+      "text": "Joint readings come from hand-held poses, good to about 1 unit. The real square is a folded paper towel larger than the 50.8 mm model square.",
+      "ok": false
+    },
+    {
+      "text": "Sources differ on view counts: the research log and notebook say 38 views; the saved centre-only intrinsics file lists 29 views. The runbook explains it as 29 hand-held plus 9 flat.",
+      "ok": false
+    },
+    {
+      "text": "Two withdrawn claims from Sep 7 sit in the older notes: 'the board is rotated 180 degrees' and 'the mount is a different part'.",
+      "ok": false
+    }
+  ],
+  "meaning": "Gate 1 closed on Sep 8 and the first bench training run was launched that night (experiment 22). At this point the sim still rendered a perfect pinhole image, so the plan was to undistort real frames before the policy saw them. That plan was replaced a day later by making the sim render through the real lens (experiment 23).",
+  "lesson": "A still object seen from many poses is a free calibration rig. When the data cannot separate two explanations, get one more independent measurement.",
+  "next": [
+    {
+      "title": "First bench training run on the calibrated scene (experiment 22)",
+      "why": "The teacher and camera gates were both closed."
+    },
+    {
+      "title": "Refit the lens with views at the edges and corners (experiment 23)",
+      "why": "The Sep 8 fit had no valid model for the outer 11% of the frame."
+    }
+  ],
+  "log": "**TL;DR:** A checkerboard on my phone showed the lens is 44 degrees, not the 72\nthe sim used, and the arm's joint zeros needed one more correction.\n\n**Problem.** Even with the new joint map, the sim still put the square below the\nframe and 2.6x too small.\n\n*How we know:* redoing entry 19's overlay gave a 218 px square against the real\n574 px. I didn't know the lens, the mount position, or whether the zeros were\nfinally right.\n\n**Experiment.** Show a checkerboard on my iPhone to the camera: 38 views to fit\nthe lens (OpenCV calibration), then 9 frames with the phone lying flat on the\nmat while the arm moves, comparing where the board appears with where the arm\nmodel says the camera is. One side photo of the resting arm to break a tie.\n\n*What we hope to learn:* the lens's field of view and distortion, where the\ncamera sits, and whether the joint zeros are right.\n\n**Outcome.** Field of view 44 degrees with strong barrel distortion (the\npublished 103 for this camera is wrong for this lens). The mount is the official\npart, placed within a centimetre:\n\n- A flat board doesn't move, so if the arm model is right, every view should put\n  it in the same place. With the old zeros it scattered by 61 mm; with corrected\n  ones it agreed to about 21-23 mm. Like triangulating a landmark from several spots.\n- The board couldn't tell a shoulder error from an elbow error. The side photo\n  could, and settled the final zeros.\n\nThe script re-certified 15/15, and I signed off the camera review.\n\n**Takeaway:** a still object seen from many poses is a free calibration rig. When\nyour data can't separate two explanations, get one more independent measurement.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 8, 2026 · 5 stages · lens refitted the next day",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "lens fit",
+        "note": "38 phone-checkerboard views: fovy 44.0, fovx 71.5, 1.9 px RMS.",
+        "state": "done"
+      },
+      {
+        "name": "flat-board frames",
+        "note": "9 frames with all 98 corners and joint readings. The first, symmetric board flipped its corner order and was replaced.",
+        "state": "trouble"
+      },
+      {
+        "name": "zeros from board scatter",
+        "note": "61 mm with the Sep 7 zeros, 21 mm with shifts of -72.3 / +60.0 / +20.0 degrees. Map measured_20260908.",
+        "state": "done"
+      },
+      {
+        "name": "photo anchor",
+        "note": "Side photo of the rest pose settles -93.25 / +81.0 / +20.0. Map measured_20260908b.",
+        "state": "done"
+      },
+      {
+        "name": "teacher re-certified, gate 1 signed",
+        "note": "15/15 on scene 6477c4bd; camera review record accepted.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 0965b8c (calibrate the camera, correct the zeros), 037fbc1 (photo anchor), 2065457 (gate 1 sign-off), 4e12e09 (side photo filed)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 21 exists",
+        "ok": true
+      },
+      {
+        "text": "Review record exists: inspection/camera_review_20260908.json",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/21-lens-and-zeros.md",
+        "note": "research-log entry"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "runbook: 'Camera calibration and joint-zero correction (2026-09-08)'"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "September 8 entry"
+      },
+      {
+        "path": "memory/camera-hand-eye-20260908.md",
+        "note": "project memory note: method and findings"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/camera_intrinsics_20260908_centre.json",
+        "note": "the Sep 8 centre-only lens fit (opened: 29 views, coverage note)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/zero_and_camera_refine.json",
+        "note": "hand-eye record (listed, not opened)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/camera_calibration/zero_refine_photo_anchored.json",
+        "note": "photo-anchored zeros (listed, not opened)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/camera_review_20260908.json",
+        "note": "signed gate 1 record (listed, not opened)"
+      },
+      {
+        "path": "readme-assets/bench-rest-side-20260908.jpg",
+        "note": "the side photo of the rest pose"
+      },
+      {
+        "path": "src/so_arm101_v2/data/resources/physical_joint_map_20260908b.json",
+        "note": "the final joint map (listed, not opened)"
+      },
+      {
+        "path": "commits 0965b8c · 037fbc1 · 2065457 · 4e12e09",
+        "note": "calibration · photo anchor · sign-off · photo filed"
+      }
+    ]
+  }
+}

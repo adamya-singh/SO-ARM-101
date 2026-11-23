@@ -1,0 +1,355 @@
+{
+  "question": "If every training episode draws its own servo stiffness, friction and delay around the measured real servo, does the policy cope with the real-arm stand-in without losing the normal simulator?",
+  "measure": "Held-out successes out of 30 in four versions of the simulator (cells): nominal (the stiff default), servo (the soft servo measured in October), servo + real_like (soft servo, 50 ms delay, sensor noise, 8 g cube: the real-arm stand-in), and servo + random (a new random draw on every try).",
+  "outcome": "It works on the soft servo it was trained around (15 to 18 of 30, where stiff-trained policies score 0 to 3) and fails on the stiff default (3 of 30). It learned that one servo. It did not learn servos in general.",
+  "setup": "A policy is the network that drives the arm from the wrist camera image and the joint angles. It is trained by imitation: a scripted teacher, which knows where the cube is, solves the task in the simulator, and the policy learns to copy it. Each policy outputs a chunk: the next 90 joint commands at once. \"Execute 90\" runs the whole chunk before looking again. \"Execute 30\" looks again after 30 commands and replaces the rest (replanning). There are two kinds of policy here: a CNN (a small image network trained from scratch, always execute 90) and ACT (a transformer policy, fine-tuned). PPO is a reinforcement-learning method run on top of the ACT fine-tune. Held-out means 10 cube placements the policy never trained on, each tried 3 times, so scores are out of 30. A servo is the motor in a joint. In the default (nominal) simulator the servos are stiff: a joint goes almost exactly where it is told (stiffness kp 50, friction 0.1 on every joint). A probe in October measured the real elbow as soft: it sags and stops short of its target. The measured-servo scene is a copy of the simulator with those measured values. On it the teacher is compensated: it commands a little past the target so the soft joint lands in the right place. Physics randomization means each training episode gets its own draw of servo stiffness, damping, friction, arm mass, command delay (latency), an inference pause of 0 to 1000 ms during which the physics keeps running, sensor noise, and cube mass and friction. The regime here is called bench_physics_v1 and is centred on the October servo model. This was step 2 of the outside review's three steps. The arm model is still the SO-100. A relative limit is a safety rule that holds a command too far from where the joint is.",
+  "parts": [
+    {
+      "title": "Can the teacher still solve the task under random physics?",
+      "why": "Training data only contains episodes the teacher completes safely. If most draws are unsolvable the capture is small and biased.",
+      "did": "A feasibility scan on the measured-servo scene: random draws, admit the ones the teacher completes with no safety violation. Two fixes were made between scans.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Scan",
+          "Admitted"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "First scan",
+              "73 of 200"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Teacher paces its gripper opening",
+              "141 of 200"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Also raise the low end of stiffness from 0.5 to 0.7",
+              "247 of 300"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Most early failures were gripper relative-limit holds at the release under latency. After the two fixes 82% of draws are admitted. The teacher misses one held-out placement (pose_000) on the servo scene, so the best possible score on servo cells is 27 of 30."
+    },
+    {
+      "title": "Does it beat the stiff-trained policies on the soft servo, and what does it cost on the stiff one?",
+      "why": "The bar written before the run: beat the matching baseline in the servo and servo + real_like cells, and lose at most 3 of 30 on the nominal scene.",
+      "did": "Captured 7200 placements under random draws. Trained three CNN seeds on the first 4800, fine-tuned ACT on all 7200, ran PPO on top. Evaluated everything with tools/eval_policy.py at execute 90.",
+      "predictions": [
+        {
+          "text": "CNN, pooled over seeds: beats the CNN baseline on servo and servo + real_like, losing at most 3/30 on nominal",
+          "result": "half"
+        },
+        {
+          "text": "ACT fine-tune: beats the baseline ACT fine-tune on servo and servo + real_like, losing at most 3/30 on nominal",
+          "result": "half"
+        },
+        {
+          "text": "ACT + PPO: beats the baseline ACT + PPO on servo and servo + real_like, losing at most 3/30 on nominal",
+          "result": "half"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Nominal",
+          "Servo",
+          "Servo + real_like",
+          "Servo + random"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Baseline ACT fine-tune (stiff-trained)",
+              "20",
+              "3",
+              "0",
+              "2"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Baseline ACT + PPO",
+              "24",
+              "3",
+              "0",
+              "3"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Baseline CNN, 4800 placements",
+              "6",
+              "0",
+              "1",
+              "1"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed-teacher ACT fine-tune (exp. 41)",
+              "18",
+              "6",
+              "0",
+              "1"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed-teacher CNN, 3 seeds, of 90",
+              "",
+              "8",
+              "0",
+              "2"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Physics ACT fine-tune",
+              "3",
+              "15",
+              "15",
+              "4"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Physics ACT + PPO",
+              "3",
+              "18",
+              "17",
+              "5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Physics ACT + PPO, execute 30",
+              "0",
+              "27 (trainer's own evaluation)",
+              "20",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Physics CNN, 3 seeds pooled, of 90",
+              "2",
+              "21",
+              "20",
+              "5"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Half of each bar held. On the soft servo and the real-arm stand-in the new policies win clearly: every stiff-trained policy collapses there. On the nominal scene they lose far more than 3: ACT falls from 20 and 24 to 3. The fully random cell is low for everyone."
+    },
+    {
+      "title": "Why does the nominal scene collapse?",
+      "why": "The handoff assumed that ranges that are too wide only make a policy more cautious. A score of 3 of 30 says something else happened.",
+      "did": "Compared the nominal scene's values with the trained ranges. Built two diagnostic scenes from the servo scene, each with one property set to its nominal value, and ran the physics ACT + PPO on them.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Scene",
+          "Physics ACT + PPO"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Servo scene",
+              "18 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Servo scene, elbow at nominal stiffness",
+              "0 of 30 (execute 30: 1 of 30)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Servo scene, friction at nominal",
+              "3 of 30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The nominal scene is outside what was trained: elbow kp 50 against a trained 4.5 to 13, friction 0.1 against trained minima of 0.12 to 0.39 on five joints. Changing either one alone breaks the policy. On the servo scene the policy commands the elbow 2.9 units ahead of where it is, which is the teacher's compensation for sag, learned. With a stiff elbow that lead falls to 0.9 and the jaw stops 4.7 mm higher (29.3 against 24.6 mm over the cube centre), so 21 of 30 rollouts end as an incomplete pickup."
+    },
+    {
+      "title": "Does replanning more often fix it?",
+      "why": "If the policy could see its error on the next look, execute 30 would correct it.",
+      "did": "Ran the physics ACT + PPO at execute 30 on the real_like, nominal and stiff-elbow cells.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Replanning helps soft servos (real_like 17 to 20) and not stiff ones (0 on nominal, 1 on the stiff elbow). The error is a fixed offset the policy cannot sense from one frame and its joint angles."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same held-out placements and the same 3 tries for every cell and policy; all numbers are in one matrix.json",
+      "ok": true
+    },
+    {
+      "text": "The bar was written in the tranche manifest before the run",
+      "ok": true
+    },
+    {
+      "text": "Three CNN seeds",
+      "ok": true
+    },
+    {
+      "text": "One ACT seed, one PPO run",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. The servo scene is a stand-in for the real arm, fitted from one probe",
+      "ok": false
+    },
+    {
+      "text": "Baseline and perturbed-teacher policies were only evaluated in the three servo cells of this matrix; their nominal scores come from their own earlier evaluations",
+      "ok": false
+    },
+    {
+      "text": "The memory note records the physics ACT fine-tune at 18/30 on the servo scene from the trainer's own evaluation; the later matrix.json says 15/30. The table uses the matrix.",
+      "ok": false
+    },
+    {
+      "text": "The run was restarted twice (a capture failure, then out-of-memory kills). The re-run skipped finished parts.",
+      "ok": false
+    }
+  ],
+  "meaning": "Randomizing around the measured soft servo produced a soft-servo policy, which is useful only if the real arm really is that soft. Nobody had confirmed that. So the decision on 2026-11-07 was: read the real servo gains, and build a second regime that spans soft to stiff (experiment 45), judged on the nominal scene and on servo + real_like together at execute 30, target at least 15 of 30 on both. The memory note adds a rule for these policies: they are trained on compensated commands, so the runner's servo assist must be off when they run.",
+  "lesson": "\"Wide\" randomization only covers what its ranges contain. Check that every scene you will test on lies inside the trained ranges before reading the scores.",
+  "next": [
+    {
+      "title": "Physics regime v2, spanning soft to stiff",
+      "why": "Done as experiment 45. It passes: 24 nominal and 19 real_like at execute 30."
+    },
+    {
+      "title": "Read the real servo P gain",
+      "why": "Done as experiment 44. It decides which end of the range the real arm sits on."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Queued Nov 6 (00:54), re-queued twice, analysed Nov 7. Nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "capture",
+        "note": "7200 placements under random draws. First try failed at pose_044: unsafe contact after task success. Fixed with --skip-failed and re-queued.",
+        "state": "trouble"
+      },
+      {
+        "name": "CNN seeds 202, 101, 303",
+        "note": "On the first 4800 placements. Killed out of memory once, fixed, re-run.",
+        "state": "trouble"
+      },
+      {
+        "name": "ACT fine-tune",
+        "note": "On all 7200 placements.",
+        "state": "done"
+      },
+      {
+        "name": "ACT PPO",
+        "note": "Every training episode under its own draw. Killed out of memory once, fixed, re-run.",
+        "state": "trouble"
+      },
+      {
+        "name": "evaluation matrix",
+        "note": "Nominal, servo, servo + real_like, servo + random, for new, step-1 and baseline policies.",
+        "state": "done"
+      },
+      {
+        "name": "report",
+        "note": "tools/eval_matrix_report.py wrote matrix.json.",
+        "state": "done"
+      },
+      {
+        "name": "diagnostic scenes",
+        "note": "Stiff elbow and low friction, added in the Nov 7 analysis.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 2736343 and 157b1fa (built), ebfd93e (job ids), 7dd23ea and 1634be7 and ed08f35 (fixes and re-queue), 38d9fa5 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in notes/vision-rung-notebook.md, section dated 2026-11-07",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/handoff-20261105.md",
+        "note": "step 2 as specified, the servo model values"
+      },
+      {
+        "path": "tools/tranche_20261105b.json",
+        "note": "the bars written before the run"
+      },
+      {
+        "path": "simulation_code/queue_physics_rand_20261105.sh",
+        "note": "the queue"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/physics_rand_20261105/matrix.json",
+        "note": "every cell's successes"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/physics_rand_20261105/feasibility_scan.json, feasibility_scan_gripcap.json, feasibility_scan_final.json",
+        "note": "73/200, 141/200, 247/300"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/analysis_20261107/",
+        "note": "diagnostic scenes and their evaluations"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Steps 1-3 ... analysed together (2026-11-07)\": table, lead, jaw height"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/physics-randomization-20261105.md",
+        "note": "how the regime works, scan, troubles"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/steps-1-3-analysis-20261107.md",
+        "note": "the analysis in short"
+      },
+      {
+        "path": "commits 2736343, 157b1fa, ebfd93e, 7dd23ea, 1634be7, ed08f35, 38d9fa5",
+        "note": "built, fixes, analysis"
+      }
+    ]
+  }
+}

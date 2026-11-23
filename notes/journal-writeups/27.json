@@ -1,0 +1,200 @@
+{
+  "question": "With the cube re-placed and the safety rule fixed (experiment 26), does the whole chain work end to end on the real arm?",
+  "measure": "One live episode. Did all 480 actions run, how many safety holds and timing misses, where the gripper stopped when it closed (0.5 units means nothing in the jaws), how high the jaw tips rose, and where the cube ended.",
+  "outcome": "Yes, once. Episode 10 ran all 480 actions with zero holds and zero overruns. The gripper stopped at 6 units on the cube, lifted it 18.6 mm, held about 4.7 s, released, and the cube ended within 3 mm of its start. First live success of the project.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. The policy is the randomized-look checkpoint from experiment 25 (run ytn3eygr), trained in simulation only. The task: pick a 20 mm cube off a square, lift it, put it back, retreat.\n\nEvery earlier real attempt had missed or aborted. Experiment 26 found two causes. The cube was not where the task assumed, and a safety rule froze the arm whenever the servo lagged a fast command. A hold is a step where the safety gate refuses the command and the arm stays put. The gate now sends a speed-limited command and continues instead.\n\nThe runner reads the cube's position from the start frame through the lens (back-projection) and refuses to run if it is too far from the task pose. That tolerance was widened from 15 mm to 35 mm. Forward kinematics means computing where the jaw tips are from the measured joint angles.",
+  "parts": [
+    {
+      "title": "Episode 10: does it grasp, lift and replace?",
+      "why": "One clean run shows the chain is possible on hardware: camera, policy, safety gate, servos.",
+      "did": "Ran the policy from the start pose with the cube read 27 mm beyond the task pose and 8 mm right.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Actions",
+          "Holds",
+          "Gripper stops at",
+          "Result"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "attempt 4 (exp. 26)",
+              "427, aborted",
+              "15 at the release",
+              "0.55 units",
+              "closed on nothing"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "attempt 9 (exp. 26)",
+              "129, aborted",
+              "16 in the lift",
+              "",
+              "hold cascade"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 10",
+              "480 of 480",
+              "0",
+              "6 units",
+              "grasp, 18.6 mm lift, replace"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "All 480 actions at 30 Hz, zero holds, zero overruns. The gripper closed at about step 270 and stopped at 6 units; closing on nothing reaches 0.5, so it was holding the cube. The jaw tips rose 18.6 mm (51 to 70 mm) and held for about 4.7 s. The release at about step 407 took five rate-limited steps with no holds. Then the arm retreated."
+    },
+    {
+      "title": "Where did the cube end?",
+      "why": "The task is pick and replace, so the cube has to come back to where it was.",
+      "did": "Back-projected the cube before and after the episode.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Cube position (camera reading)",
+          "Before",
+          "After"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "forward",
+              "301.7 mm",
+              "300.1 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lateral",
+              "7.6 mm",
+              "4.6 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The cube ended on the towel within 3 mm of where it started."
+    }
+  ],
+  "trust": [
+    {
+      "text": "run.json records status completed with 480 actions",
+      "ok": true
+    },
+    {
+      "text": "The grasp is shown three ways: gripper stopped at 6 units, jaw-tip height from the joints, and the camera video",
+      "ok": true
+    },
+    {
+      "text": "One episode. It proves the chain can work, not that it is reliable (experiment 28 is the repeat)",
+      "ok": false
+    },
+    {
+      "text": "The lift height comes from forward kinematics of the jaw tips, not from a direct measurement of the cube",
+      "ok": false
+    },
+    {
+      "text": "The grasp worked with the cube read 20 to 27 mm beyond the task pose, outside the plus or minus 10 mm the policy trained on. The notes suspect the camera reading is biased by a few degrees of pitch. This was left open",
+      "ok": false
+    },
+    {
+      "text": "It needed two changes made the same day: the rate-limit-and-continue gate and the 35 mm placement tolerance",
+      "ok": false
+    }
+  ],
+  "meaning": "A policy trained only in simulation picked up and replaced a real cube. So the lens match, the randomized looks, the runner and the fixed safety gate are enough for the chain to work at least once. It says nothing yet about how often. The decision was to run it again straight away (experiment 28).",
+  "lesson": "One success proves it is possible, not that it is learned. The next question is always whether it repeats.",
+  "next": [
+    {
+      "title": "Repeat it (experiment 28)",
+      "why": "A single run cannot show reliability."
+    },
+    {
+      "title": "Measure the cube's distance with a ruler",
+      "why": "Would settle whether the camera's placement reading is biased, and whether to correct the tolerance or the camera pitch."
+    }
+  ],
+  "log": "**TL;DR:** Yes, once: the real arm grasped the cube, lifted it 18.6 mm, and put\nit back within 3 mm of where it started.\n\n**Problem.** Every real attempt so far had missed or aborted (entries 24 and 26).\n\n*How we know:* the fixes from entry 26 were in, and the cube read 27 mm beyond\nthe task pose, inside the widened 35 mm tolerance.\n\n**Experiment.** Episode 10: the randomized-look policy, with the speed-limited\nsafety rule, from the start pose.\n\n*What we hope to learn:* whether the whole chain works end to end on hardware.\n\n**Outcome.** All 480 actions at 30 Hz, zero holds, zero timing misses:\n\n- The gripper stopped at 6 units. Closing on nothing goes down to 0.5, so it was\n  holding the cube.\n- It lifted 18.6 mm, held about 4.7 s, released, and retreated, and the cube\n  ended within 3 mm of its start.\n\nIt worked with the cube read 20-27 mm off, which suggests the placement reading\ncarries a few degrees of camera tilt.\n\n**Takeaway:** one success proves it's possible, not that it's learned. The next\nquestion is always whether it repeats.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · one live episode (episode 10) · completed",
+    "watch": [],
+    "command": "tools/run_physical_episode.py --enable-motion --yes --no-preview --checkpoint <96bc418e model.pt>   (moves the real arm)",
+    "stages": [
+      {
+        "name": "Placement check",
+        "note": "Cube read 27 mm beyond the task pose, 8 mm right; inside the 35 mm tolerance.",
+        "state": "done"
+      },
+      {
+        "name": "Observation prefix and look-up",
+        "note": "Prefix check 0.026 rad, then the lift to the viewing pose.",
+        "state": "done"
+      },
+      {
+        "name": "Descent and grasp",
+        "note": "Gripper closed at about step 270, stopped at 6 units.",
+        "state": "done"
+      },
+      {
+        "name": "Lift and hold",
+        "note": "18.6 mm by jaw-tip kinematics, about 4.7 s.",
+        "state": "done"
+      },
+      {
+        "name": "Release and retreat",
+        "note": "Release at about step 407, five rate-limited steps, no holds.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: fb2efa3 (gate fix), c649621 (episode 10 evidence), 74be1ac (docs)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 27",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/27-first-live-success.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section 'First successful live episode on the physical arm' (2026-09-10)"
+      },
+      {
+        "path": "memory/appearance-randomization-20260910.md",
+        "note": "project memory note: episode 10 summary and the run command"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_10_20260910/run.json",
+        "note": "status completed, actions 480"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_10_20260910",
+        "note": "steps.csv, boundaries/, camera.mp4, analysis/joints.png, analysis/video_sheet.png"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/models/vision_h90/96bc418efb97e58c/model.pt",
+        "note": "the checkpoint that ran"
+      },
+      {
+        "path": "commits fb2efa3 · c649621 · 74be1ac",
+        "note": "gate fix · episode 10 · docs"
+      }
+    ]
+  }
+}

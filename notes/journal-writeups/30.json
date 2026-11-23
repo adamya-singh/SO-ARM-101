@@ -1,0 +1,232 @@
+{
+  "question": "Run 4 memorized its 400 placements (experiment 29). The usual fix for memorizing is more data. Do 3 times the placements and twice the training steps close the gap?",
+  "measure": "The same two readings as experiment 29. Successes out of 30 on the same 10 held-out placements. And training loss against held-out loss on the chunk that starts at step 90. If data is the problem, the held-out loss falls and the ratio shrinks.",
+  "outcome": "No. Held-out 3/30 again. Training loss on the step-90 chunk halved to 7.0e-6, held-out loss went from 1.9e-3 to 2.9e-3, and the ratio grew from 136 times to 417 times. It memorized 1200 images as easily as 400.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. It is trained by imitation: a scripted teacher that knows the cube's exact position solves the task in the simulator, and the network learns to copy it from images. The loss is the mean squared difference between the network's chunk and the teacher's, in normalized joint units.\n\nOn the real arm the policy went to one learned spot (experiment 28). So the training data changed: the square and cube can now be anywhere in a 14 by 10 inch rectangle, at a yaw (rotation on the table) of up to plus or minus 45 degrees. One position and angle is a placement. Held-out means 10 placements the network never trained on; each is tried 3 times, giving a score out of 30.\n\nThe arm first rises to a survey pose so the camera sees the table. The chunk that starts at step 90 is made from that survey image and plans the descent to the cube. It is the one chunk that must read where the cube is. The cube is 12 to 25 pixels wide in that 256-pixel image.\n\nIn experiment 29 a policy trained on 400 placements scored 3/30. Its loss on the step-90 chunk was 136 times higher on held-out placements than on training placements. That pattern is memorization: the network stored its training scenes instead of learning the rule 'cube here, so go there'.",
+  "parts": [
+    {
+      "title": "Does the closed-loop score improve?",
+      "why": "Closed loop means the network drives the simulated arm. It is the result that matters.",
+      "did": "Run 5: 1200 placements, 240k steps, same recipe and the same held-out placements (W&B pfavtk49).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Placements / steps",
+          "Nominal",
+          "Held-out",
+          "Held-out, random looks",
+          "Safety frames (held-out)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "run 4 (exp. 29)",
+              "400 / 120k",
+              "0/3",
+              "3/30",
+              "0/30",
+              "293"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "run 5",
+              "1200 / 240k",
+              "0/3",
+              "3/30",
+              "3/30",
+              "846"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The same 3/30, with the same mix of failures: 18 safety invalidations and 9 incomplete pickups. The three successes are again one placement, but a different one: far/centre here, mid/right in run 4. The survey move is still learned (prefix 63/63)."
+    },
+    {
+      "title": "Did the memorization gap shrink?",
+      "why": "A learner that generalizes should lower its held-out loss when it sees 3 times as many unique scenes.",
+      "did": "Scored the run-5 checkpoint with the run-4 method on the same held-out capture.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Chunk start",
+          "Run 4: train / held-out (ratio)",
+          "Run 5: train / held-out (ratio)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "step 0 (survey move)",
+              "3.0e-6 / 1.2e-5 (4.1x)",
+              "6.5e-7 / 1.4e-6 (2x)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "step 90 (descent from the survey image)",
+              "1.4e-5 / 1.9e-3 (136x)",
+              "7.0e-6 / 2.9e-3 (417x)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "steps 180, 270, 360",
+              "5.6e-6 / 1.8e-5 (3.2x)",
+              "3.2e-6 / 1.6e-5 (5x)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The gap grew. Training loss halved. Held-out loss on the one chunk that must read the square's position stayed at 2e-3 to 3e-3. So the data axis is exhausted for this architecture. The open question is whether the cause is the small image encoder (8k parameters, a 12 to 25 pixel cube) or something missing in the inputs."
+    },
+    {
+      "title": "Does the survey move still transfer to real frames?",
+      "why": "The real-frame gate has to pass before any live trial.",
+      "did": "Ran the offline real-frame gate on the recorded frames of episodes 02 and 10.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "PASS on both, with 16 of 16 photometric edits each. The first move is fine on real frames. The descent is what fails, so no live trial was run with this checkpoint."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe, seed, held-out placements and scoring method as run 4; both runs' numbers match their heldout_fit.json",
+      "ok": true
+    },
+    {
+      "text": "Two things changed at once: 3 times the placements and 2 times the steps. Their effects are not separated here",
+      "ok": false
+    },
+    {
+      "text": "One training seed; 3/30 against 3/30 is too few successes to compare on its own, so the loss carries the argument",
+      "ok": false
+    },
+    {
+      "text": "Run 5 trained on every 9th frame, run 4 on every 3rd. The notes argue this does not matter because chunks only start at multiples of 90",
+      "ok": false
+    },
+    {
+      "text": "The later explainer note quotes 8e-7 against 4e-3 (5000x) for a 1200-placement policy. That is a scaling-ladder model, not this run; run 5 is 417x",
+      "ok": true
+    },
+    {
+      "text": "Simulation only. No live trial",
+      "ok": false
+    }
+  ],
+  "meaning": "More data did not help, which rules out the cheapest fix. The decision: no live trial, and the fixed-square policy (ytn3eygr) stays the one that runs on the arm. Instead of guessing the next knob, a scaling ladder was started (experiment 31): three encoder sizes at 300 to 2400 placements, plus a steps sweep. If bigger encoders bend the held-out curve down, the encoder was the bottleneck. If everything is flat, the next lever is input augmentation such as random shifts.",
+  "lesson": "When more data makes the gap bigger, data is not the bottleneck.",
+  "next": [
+    {
+      "title": "Scaling ladder: placements x encoder size x steps (experiment 31)",
+      "why": "Separates a capacity problem from a problem in what the inputs can tell the network."
+    },
+    {
+      "title": "Random-shift augmentation",
+      "why": "Named as the next lever if every encoder is flat: it forces the network to locate the cube instead of memorizing images."
+    }
+  ],
+  "log": "**TL;DR:** No: 1200 placements and twice the training got the same 3/30, and the\nmemorization gap grew to 417x.\n\n**Problem.** Run 4 memorized its 400 placements (entry 29).\n\n*How we know:* its test error on the first descent chunk was 136x its training\nerror. The usual fix for memorizing is more data.\n\n**Experiment.** 1200 placements, 240k steps, same recipe and test set.\n\n*What we hope to learn:* if data is the problem, the gap shrinks.\n\n**Outcome.** Same 3/30, with the same mix of failures. Training error on that\nchunk halved, to 7e-6. Test error stayed at 2.9e-3, so the gap went from 136x to\n417x. The survey move itself still worked on real frames.\n\n- It memorized 1200 images as easily as 400. Like handing a bigger flashcard\n  deck to someone who memorizes cards.\n\nNo live trial with this one. Next: a proper scaling ladder to find out which\nknob, if any, helps.\n\n**Takeaway:** when more data makes the gap bigger, data isn't the bottleneck.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · finished 19:11 · 247 min wall · W&B pfavtk49 · nothing left",
+    "watch": [
+      {
+        "title": "W&B run pfavtk49",
+        "note": "Fifth bench run, 1200 placements, 240k steps",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/pfavtk49"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "Queued",
+        "note": "tsp job 3 at 15:04, with --train-count 1200 --frame-stride 9 --max-steps 240000.",
+        "state": "done"
+      },
+      {
+        "name": "Capture",
+        "note": "1200 placements, about 150 min.",
+        "state": "done"
+      },
+      {
+        "name": "Training",
+        "note": "240k steps, about 31 min at about 134 steps per second, GPU frame store.",
+        "state": "done"
+      },
+      {
+        "name": "Evaluation",
+        "note": "Nominal 0/3, held-out 3/30, held-out appearance 3/30, prefix 63/63.",
+        "state": "done"
+      },
+      {
+        "name": "Real-frame check",
+        "note": "PASS on episodes 02 and 10, 16/16 edits each.",
+        "state": "done"
+      },
+      {
+        "name": "Train against held-out",
+        "note": "Scored by hand with the run-4 method: start 90 at 417x.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: ecc8603 (queued), 09bcd02 (result: held-out 3/30, start-90 gap 417x, no live trial)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 30",
+        "ok": true
+      },
+      {
+        "text": "evaluation_summary.json and heldout_fit.json match the write-up",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/30-placement-run-5.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section 'Run 5 (2026-09-10): 3x the placements, same result, larger gap'; run 4 sections for the baseline"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "the later intern explanation; its 5000x row is a ladder model"
+      },
+      {
+        "path": "memory/placement-randomization-20260910.md",
+        "note": "project memory note: run 5 flags, times, result"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910b/evaluation_summary.json",
+        "note": "run 5 success counts by region, safety frames"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910b/heldout_fit.json",
+        "note": "run 5 losses and ratios"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/heldout_fit.json",
+        "note": "run 4 losses and ratios (baseline)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluation_summary.json",
+        "note": "run 4 counts (baseline)"
+      },
+      {
+        "path": "commits ecc8603 · 09bcd02",
+        "note": "queued · result"
+      }
+    ]
+  }
+}

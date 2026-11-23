@@ -1,0 +1,244 @@
+{
+  "question": "The 90-command policy grasps the cube but asks for commands past the arm's limits. Which fix stops that: a decoder that cannot output an impossible command, a penalty during training, the correction data, or a mix?",
+  "measure": "Three tries of the pick and place from the normal start, in simulation. To pass, all 3 must succeed with zero safety frames. All five versions run to the end so we learn which ingredient matters.",
+  "outcome": "Only one version passed: noisy inputs plus a penalty for infeasible commands, on the original 450 rows. 3 of 3, the full pick and place, 32.4 mm peak lift, zero safety frames. It is the first learned policy in the project to pass.",
+  "setup": "A policy is the network that drives the arm. This one is a chunked clone: it copies a hand-written teacher script, reads the state once, and outputs the next 90 commands (a chunk), which the arm runs without looking again. Experiment 07 showed it can grasp, then saturates: it asks for commands outside the safe range or for moves too big for one step.\n\nSafety frames are steps where a guard tripped. Clipped: the command was outside the safe joint range. Limited: the command asked for too large a move in one step. Unsafe: an unsafe contact.\n\nEvery command in the training data is safe (at least 0.004 inside the range, steps 6.3x under the per-step cap). So saturation is the network guessing badly in states it never trained on, and the plain copy loss never sees it.\n\nTwo mechanisms were tried. The hard one is a bounded decoder: each of the 90 commands is built as a limited step from the previous one and clamped into the safe range, so an out-of-range command cannot be produced. The soft one is a noise penalty: at each training step, add Gaussian noise (sigma 0.05) to the 10 inputs, and penalize (weight 1.0) any predicted command outside the safe range or stepping too fast.\n\nCorrection data is 4,818 extra rows that show the teacher steering back from off-track states. Experiment 07's side check allowed it to be tried here.",
+  "parts": [
+    {
+      "title": "Which of five versions passes?",
+      "why": "Stopping at the first pass would say that something works. Running all five says which ingredient does the work.",
+      "did": "Trained five 90-command policies (width 256, seed 101, 30,000 steps): decoder only, corrections + decoder, noise penalty only, corrections + noise penalty, corrections only. Each ran 3 times from the normal start. The unprotected policy from experiment 07 is the reference and was not re-run.",
+      "predictions": [
+        {
+          "text": "Some version passes 3 of 3 with zero safety frames",
+          "result": "held"
+        },
+        {
+          "text": "Risk written down beforehand: the hard decoder can still trip the step limiter, because that check compares against the measured, lagging pose",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Version",
+          "Data",
+          "Result",
+          "What went wrong"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "no protection (experiment 07)",
+              "450 rows",
+              "failed",
+              "150 clipped / 82 limited / 20 unsafe per try"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "bounded decoder only",
+              "450 rows",
+              "failed",
+              "0 clipped, 71 limited + 5 unsafe"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "corrections + bounded decoder",
+              "450 + 4,818 rows",
+              "failed",
+              "262 limited + 13 unsafe"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "noise penalty only",
+              "450 rows",
+              "PASSED 3/3",
+              "zero safety frames, 32.4 mm peak lift"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "corrections + noise penalty",
+              "450 + 4,818 rows",
+              "failed",
+              "180 clipped / 182 limited / 3 unsafe, 2.9 mm lift"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "corrections only",
+              "450 + 4,818 rows",
+              "failed",
+              "184 clipped + 136 limited, 0.2 mm lift"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The soft penalty alone passed, and it was the cheapest to train (about 10 minutes). Its penalty term ended at 0.0: the network learned to keep its commands feasible in a noise neighborhood of every training state. The hard decoder never clipped, as designed, and failed anyway on the limiter. Correction data hurt every version it was in."
+    },
+    {
+      "title": "Does the result survive on the right simulator version?",
+      "why": "The first run of this gate used MuJoCo 3.11 by accident (experiment 09). A decision that later work depends on has to hold on the pinned 3.9.0.",
+      "did": "Re-ran the whole gate under 3.9.0 with the correction data re-captured. Re-ran it again on Aug 6 after training moved to the GPU.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Gate run",
+          "Simulator / training",
+          "Status",
+          "Winning checkpoint"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1a78ec8affead704 (Aug 3)",
+              "MuJoCo 3.11, CPU",
+              "promoted_noise_penalty_only",
+              "models/chunked_h90/2b6195d619ab531b"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "46de62c4f6d1b78f (Aug 4)",
+              "MuJoCo 3.9.0, CPU",
+              "promoted_noise_penalty_only",
+              "byte-identical"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "32f8972f7996b5f6 (Aug 6)",
+              "MuJoCo 3.9.0, GPU regime v2",
+              "promoted_noise_penalty_only",
+              "same attribution per version"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Same winner each time. The 3.9.0 re-run is the authoritative record."
+    }
+  ],
+  "trust": [
+    {
+      "text": "All five versions share the horizon, network width, seed, optimizer and step count. Only the data and the mechanism change.",
+      "ok": true
+    },
+    {
+      "text": "The candidates, the pass rule and the promotion order were written down before the run, and all five ran to completion.",
+      "ok": true
+    },
+    {
+      "text": "Re-run under the pinned MuJoCo 3.9.0: identical attribution and a byte-identical promoted checkpoint.",
+      "ok": true
+    },
+    {
+      "text": "The two runs disagree on how corrections + noise penalty fails. Under 3.11 it was safe but did nothing (0.3 mm lift, pickup_incomplete). Under 3.9.0 it fails on safety. The table uses the later 3.9.0 run for that row; the other failure rows are from the note's table of the first run.",
+      "ok": false
+    },
+    {
+      "text": "One start position, one seed. The policy trained on one episode and looks at the world about five times per episode.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only, and the policy reads exact simulator state, not a camera.",
+      "ok": false
+    }
+  ],
+  "meaning": "The project has its first promoted policy, checkpoint models/chunked_h90/2b6195d619ab531b. The noise shows the network what to do slightly off its training states, and the penalty keeps those answers in bounds. Correction data is the wrong supplement for a 90-command policy: it puts nearly identical states next to completely different 90-step futures (training max error 0.86 to 1.08 against 0.046 for the winner). The only follow-up the proposal allowed is a broader test of the promoted policy: five start positions, then mid-task starts (experiment 10).",
+  "lesson": "Run every arm of an ablation. Five answers taught far more than one pass, and a soft penalty beat a hard guarantee.",
+  "next": [
+    {
+      "title": "Test the promoted policy away from its training start (experiment 10)",
+      "why": "It passed on one start only. It may just be replaying the recording."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Aug 3, 2026 · 5 versions trained and evaluated · re-run under MuJoCo 3.9.0 on Aug 4 and under GPU training on Aug 6",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "five trainings",
+        "note": "30,000 steps each. The winner took about 10 minutes.",
+        "state": "done"
+      },
+      {
+        "name": "five evaluations",
+        "note": "3 deterministic rollouts each from the normal start.",
+        "state": "done"
+      },
+      {
+        "name": "gate decision",
+        "note": "promoted_noise_penalty_only (saturation_gates/1a78ec8affead704).",
+        "state": "done"
+      },
+      {
+        "name": "re-run under MuJoCo 3.9.0",
+        "note": "saturation_gates/46de62c4f6d1b78f. The first run had used 3.11 by accident.",
+        "state": "trouble"
+      },
+      {
+        "name": "re-run under numerics regime v2",
+        "note": "saturation_gates/32f8972f7996b5f6. Same status and attribution.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 54f5e43 (saturation attribution and the first promotion)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 08 written (commit 87667eb)",
+        "ok": true
+      },
+      {
+        "text": "First gate report quarantined with the 3.11 artifacts; the 3.9.0 re-run is the active record",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/08-first-promoted-policy.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/saturation-attribution-proposal.md",
+        "note": "the proposal, the result table, both addenda"
+      },
+      {
+        "path": "notes/parallel-execution-infrastructure.md",
+        "note": "the 3.9.0 re-run and the byte-identical checkpoint"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/saturation_gates/46de62c4f6d1b78f/report.json",
+        "note": "authoritative gate report (3.9.0)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/saturation_gates/32f8972f7996b5f6/report.json",
+        "note": "the regime-v2 confirmation"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/saturation_gates/1a78ec8affead704/report.json",
+        "note": "the first, quarantined gate report"
+      },
+      {
+        "path": "commit 54f5e43",
+        "note": "saturation attribution and promotion"
+      }
+    ]
+  },
+  "log": "**TL;DR:** Training on noisy inputs with a penalty for impossible commands gave\nthe first learned policy to pass: 3/3, full pick and place, zero safety frames.\n\n**Problem.** The 90-step chunk policy could grasp, but it saturated: it asked\nfor commands past the arm's limits.\n\n*How we know:* 150 clipped, 82 limited and 20 unsafe frames per try (entry 07).\nI didn't know which fix would work, or if the correction data would help here.\n\n**Experiment.** Five versions of the 90-step policy, all run to the end instead\nof stopping at the first pass: a hard decoder that physically can't output\nout-of-bounds commands; a soft penalty (add noise to the inputs while training,\nand penalize any predicted command outside the safe range or moving too fast);\nthe correction data alone; and two combinations.\n\n*What we hope to learn:* running all five tells me which ingredient matters,\nnot just whether something passes.\n\n**Outcome.** The soft penalty alone passed: 3/3, full pick and place through\nrelease and retreat, 32.4 mm lift, zero safety frames, about 10 minutes of\ntraining.\n\n- The noise shows the network what to do slightly off its training states, and\n  the penalty keeps those answers in bounds. Like practicing a route with\n  guardrails on both sides.\n- The hard decoder never clipped and failed anyway: the safety check compares\n  against the arm's measured position, and servo lag tripped it. I'd written\n  that risk down beforehand.\n- The correction data hurt every version it was in. Over 90 steps, nearly\n  identical states have totally different futures.\n\nAfter the MuJoCo mix-up (entry 09) I re-ran this on the right version: same\nwinner, byte-identical checkpoint.\n\n**Takeaway:** run every arm of an ablation. Five answers taught way more than\none pass, and a soft penalty beat a hard guarantee."
+}

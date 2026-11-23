@@ -1,0 +1,342 @@
+{
+  "question": "At 25 training positions the state policy solved 18 of 30 held-out rollouts and vision solved none. Is that a shortage of data? Does the score climb with 50, 100, 200 and 400 positions?",
+  "measure": "Successes out of 30 on the same 10 held-out positions (3 repeats each) at every data size, plus safety frames. The test set is frozen: the same for every row and never tuned on.",
+  "outcome": "Yes. The state policy reached 30/30 with zero safety frames at 400 positions. Vision at a fixed 20,000 steps was erratic (0, 6, 14, 9, 18), but at 400 positions and 120,000 steps three seeds scored 24, 30 and 24 out of 30.",
+  "setup": "A policy is the network that drives the arm. The teacher is a hand-written script that does the task using the cube's exact position from the simulator; the policy is trained to copy the teacher's recorded commands. The policy outputs a chunk: the next 90 commands at once. A seed is the random number that starts training; the same recipe with a different seed gives a different policy. A rollout is one full attempt. A safety frame is one step where the policy asks a joint to leave its allowed range or to move faster than the per-step cap; a rollout with safety frames does not count. The state policy reads the cube's exact position from the simulator. The vision policy gets the wrist camera image, the joint commands and a progress clock: inputs a real arm has. Held-out positions are test positions never used in training. The gripper clamp clips the gripper command to its limits at run time; from this experiment on the vision policy carries it too. The previous experiment built a generator of random cube positions that keeps only positions the teacher completes cleanly, trained on 25 of them, and got 18/30 (state) and 0/30 (vision) on 10 held-out positions. The state failures sat where the 25 positions left gaps. Here the same recipe is repeated on bigger training sets, one new set per size. An epoch is one pass over the training data: at a fixed number of steps, more data means fewer passes over each example.",
+  "parts": [
+    {
+      "title": "Does the held-out score climb with more training positions?",
+      "why": "If the failures are coverage gaps, more positions should fill them with no change to the recipe.",
+      "did": "For each size: generate a screened set of positions, record the teacher with frames, train the state policy (width 512, 90,000 steps) and the vision policy (20,000 steps), and test both on the frozen 10 positions.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Training positions",
+          "State + clamp",
+          "Vision + clamp, 20k steps",
+          "Safety frames (state / vision)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "25 (previous experiment)",
+              "18/30",
+              "0/30 (no clamp)",
+              "57 / 848"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "50",
+              "27/30",
+              "6/30",
+              "0 / 396"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "100",
+              "27/30",
+              "14/30",
+              "9 / 31"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "200",
+              "27/30",
+              "9/30",
+              "6 / 9"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "400",
+              "30/30",
+              "18/30",
+              "0 / 642"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "For the state policy, data coverage was the whole story: 18, then 27 at three sizes (a different single position failing each time), then 30/30 with zero safety frames at 400. That is the first perfect held-out score in the project. Vision at fixed steps goes up and down, which more data alone does not explain."
+    },
+    {
+      "title": "Is vision short of data or short of training?",
+      "why": "With steps fixed at 20,000, each example is seen less often as the data grows. Data size and training per example change together, so the vision column mixes two effects.",
+      "did": "A probe: the same 200-position data, trained for 60,000 steps instead of 20,000.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Vision + clamp on 200 positions",
+          "Held-out",
+          "Safety frames",
+          "Training error (MSE)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "20,000 steps",
+              "9/30",
+              "9",
+              "2.0e-5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "60,000 steps",
+              "24/30",
+              "51",
+              "2.9e-6"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Three times the steps on the same data turned 9/30 into 24/30. Vision was starved of training, not of data. The rule from here on: training steps scale with the size of the dataset."
+    },
+    {
+      "title": "Vision at 400 positions with training scaled to match",
+      "why": "If vision with enough training approaches the state policy's 30/30, then a policy using only inputs a real arm has can do the task on unseen positions.",
+      "did": "Trained vision on the 400-position recording for 120,000 steps (about the same number of passes, roughly 40 epochs, as the 60,000-step probe on 200 positions) on seeds 101, 202 and 303.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Vision + clamp on 400 positions",
+          "Held-out",
+          "Safety frames",
+          "Failure mix",
+          "Training MSE"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "20,000 steps",
+              "18/30",
+              "642",
+              "3 pickup_incomplete, 3 not_settled, 6 safety_invalidation",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "120,000 steps, seed 101",
+              "24/30",
+              "0",
+              "6 pickup_incomplete",
+              "2.03e-6"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "120,000 steps, seed 202",
+              "30/30",
+              "0",
+              "none",
+              "2.18e-6"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "120,000 steps, seed 303",
+              "24/30",
+              "3",
+              "3 pickup_incomplete, 3 safety_invalidation",
+              "2.21e-6"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Mean 26/30. Seed 202 is the first perfect held-out score from camera input alone. The spread across seeds (24 to 30) says the recipe is not yet robust to the seed. Under-trained vision is also unsafe vision: 642 safety frames at 20,000 steps against 0, 0 and 3 at 120,000."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The same frozen 10 held-out positions (30 rollouts) for every row, never tuned on.",
+      "ok": true
+    },
+    {
+      "text": "The state recipe is unchanged across all sizes; only the amount of teacher data changes.",
+      "ok": true
+    },
+    {
+      "text": "The probe changes only the number of steps on the same 200-position data.",
+      "ok": true
+    },
+    {
+      "text": "The success counts and safety frames in the tables match the sweep logs (SWEEP_LOG.txt and VISION_N400_LOG.txt).",
+      "ok": true
+    },
+    {
+      "text": "One state policy and one vision policy per data size, so the 27, 27, 27 plateau and the vision zigzag each rest on single runs.",
+      "ok": false
+    },
+    {
+      "text": "The 25-position vision row has no gripper clamp; the other vision rows do.",
+      "ok": false
+    },
+    {
+      "text": "10 test positions: one failing position moves the score by 3 of 30. All positions are ones the teacher can solve.",
+      "ok": false
+    },
+    {
+      "text": "Exploratory mode: nothing registered before the run. The note says a promotion claim on either 30/30 needs a pre-registered gate first.",
+      "ok": false
+    },
+    {
+      "text": "The research log notes that all of August ran on a simulator whose joint map and camera later turned out to be wrong, so these numbers do not transfer to the real arm.",
+      "ok": false
+    }
+  ],
+  "meaning": "Both gaps from the previous experiment were about scale. The state policy needed more positions and nothing else. The vision policy needed more positions and training that grows with them. The core question of the vision rung, whether pixels can replace the privileged cube position, is answered yes in this simulator at 400 positions. It is a promising recipe and not a finished one: two of three seeds stop at 24/30. The note's options from here are more data or more training per seed for robustness, and a pre-registered gate if either 30/30 is to be claimed formally. The sweep also forced two pieces of infrastructure: streaming writes for frame files larger than RAM (38 GB at 400 positions), and frame prefetching that made vision training 3.2 times faster with bitwise-identical results.",
+  "lesson": "Scale training steps with the data. A curve drawn at fixed steps can make more data look useless when the model is only under-trained.",
+  "next": [
+    {
+      "title": "Make the vision recipe robust across seeds",
+      "why": "24, 30, 24: one perfect seed is not a solved recipe. The note names more data or more training per seed."
+    },
+    {
+      "title": "A pre-registered gate for the 30/30 scores",
+      "why": "These are exploratory numbers. The project's rule is that a promotion claim needs a prediction on record first."
+    },
+    {
+      "title": "Scratch checkpoints for long vision trainings",
+      "why": "Training could not resume mid-run (a checkpoint is written only at the end). Noted as a gap before longer runs."
+    }
+  ],
+  "log": "**TL;DR:** More random positions alone took the state policy to a perfect 30/30,\nand vision reached 24-30/30 once training time grew with the data.\n\n**Problem.** At 25 positions, the state policy got 18/30 and vision 0/30.\n\n*How we know:* the state policy failed exactly where the 25 positions left gaps\n(entry 16). I didn't know if vision would follow.\n\n**Experiment.** Same recipe, same 10 test positions, training on 50, 100, 200\nand 400 positions. Vision first at a fixed 20k steps, then at 400 positions with\n120k steps on 3 seeds.\n\n*What we hope to learn:* if it's a data problem, the curve climbs.\n\n**Outcome.**\n\n| positions | state | vision (20k steps) |\n|---|---|---|\n| 50 | 27/30 | 6/30 |\n| 100 | 27/30 | 14/30 |\n| 200 | 27/30 | 9/30 |\n| 400 | **30/30**, 0 bad frames | 18/30, 642 bad frames |\n\nVision at 400 positions and 120k steps: 24, 30 and 24 out of 30 across seeds.\n\n- Fixed steps with more data means fewer passes over each example, and vision\n  needs more of them. Like doubling the reading list without more study time.\n- Undertrained vision is unsafe vision: 642 bad frames at 400 positions and 20k\n  steps.\n\n*Note:* all of August ran on a sim whose joint map and camera turned out to be\nwrong (entries 20-21), so these numbers don't transfer to the real arm. The\nlessons do.\n\n**Takeaway:** scale training steps with the data. And one 30/30 seed with\nothers at 24 is a promising recipe, not a solved one.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 7 to 8, 2026 · overnight sweep of four data sizes (about 15 h), one probe, then three 120k-step vision seeds · finished Aug 8 08:17",
+    "watch": [
+      {
+        "title": "Vision n400 120k, seed 101",
+        "note": "24/30, 0 safety frames. Ran before the prefetch fix, about 11 h.",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/g4ffymz6"
+      },
+      {
+        "title": "Vision n400 120k, seed 202",
+        "note": "30/30, 0 safety frames. About 3.5 h.",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/tk261t1v"
+      },
+      {
+        "title": "Vision n400 120k, seed 303",
+        "note": "24/30, 3 safety frames. About 3.5 h.",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/4p7rxads"
+      }
+    ],
+    "command": "bash simulation_code/queue_scaling_curve_20260807.sh",
+    "stages": [
+      {
+        "name": "50 positions",
+        "note": "Suite seed 9. State 27/30 (0 safety frames), vision 6/30 (396).",
+        "state": "done"
+      },
+      {
+        "name": "100 positions",
+        "note": "State 27/30 (9), vision 14/30 (31).",
+        "state": "done"
+      },
+      {
+        "name": "200 positions",
+        "note": "State 27/30 (6), vision 9/30 (9).",
+        "state": "done"
+      },
+      {
+        "name": "probe: 200 positions, 60k steps",
+        "note": "Vision 24/30 (51 safety frames).",
+        "state": "done"
+      },
+      {
+        "name": "400 positions",
+        "note": "The 38 GB frames file hit a MemoryError at publish. Fixed with a streaming write and retried. State 30/30 (0), vision 18/30 (642).",
+        "state": "trouble"
+      },
+      {
+        "name": "vision 400 positions, 120k steps, seed 101",
+        "note": "24/30. Disk-bound before the prefetch fix (about 11k steps/h).",
+        "state": "done"
+      },
+      {
+        "name": "vision 400 positions, 120k steps, seed 202",
+        "note": "30/30. The log shows two W&B runs for this seed (x3s8mzyh, then tk261t1v) and a resume queue script exists.",
+        "state": "trouble"
+      },
+      {
+        "name": "vision 400 positions, 120k steps, seed 303",
+        "note": "24/30, 3 safety frames. Sweep finished 2026-08-08 08:17.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 64b77bd (sweep), 691dc24 (queue the 120k vision runs), 2050fd1 (prefetch)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md, sections Data-scaling curve and Vision n400 @120k",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 17 exists",
+        "ok": true
+      },
+      {
+        "text": "No pre-registered gate was run for either 30/30",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/17-data-scaling.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections Data-scaling curve and Vision n400 @120k: all three tables"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/randomized_scaling/SWEEP_LOG.txt",
+        "note": "per-size summaries: successes, safety frames, failure types"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/randomized_scaling/VISION_N400_LOG.txt",
+        "note": "the three 120k seeds, W&B addresses, finish time"
+      },
+      {
+        "path": "memory/data-scaling-curve.md",
+        "note": "project memory note: results and infrastructure"
+      },
+      {
+        "path": "simulation_code/queue_scaling_curve_20260807.sh",
+        "note": "the overnight sweep queue"
+      },
+      {
+        "path": "simulation_code/queue_n400_retry_20260807.sh",
+        "note": "retry of the 400-position size after the publish fix"
+      },
+      {
+        "path": "simulation_code/queue_vision_n400_20260807.sh",
+        "note": "queue for the 120k vision seeds"
+      },
+      {
+        "path": "simulation_code/queue_vision_n400_resume_20260808.sh",
+        "note": "resume queue for the 120k vision seeds"
+      },
+      {
+        "path": "commits 64b77bd · 691dc24 · 2050fd1",
+        "note": "sweep · 120k queue · prefetch"
+      }
+    ]
+  }
+}

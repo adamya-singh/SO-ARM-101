@@ -1,0 +1,271 @@
+{
+  "question": "In October the big pretrained models did poorly: pi0.5 15/30, SmolVLA 2/30. Since then the recipe changed a lot for ACT. Do the big models do better on that same recipe, and does RL on top help?",
+  "measure": "Successes out of 30 simulated episodes: 10 held-out cube poses (poses never trained on), 3 repeats each. Also pickups, and closure: how far sideways the jaws are from the cube when they close (median, mm). The grasp tolerance is 8.0 mm.",
+  "outcome": "SmolVLA went from 2/30 to 14/30 with the same model settings. pi0.5, half-trained, scored 7/30 with 16 pickups. Neither reaches ACT (21 and 24 of 30). RL on the SmolVLA fine-tune then scored 19/30; that last result is not analysed yet.",
+  "setup": "A policy is the network that drives the arm. ACT is the small policy this project trains from zero. pi0.5 and SmolVLA are big models pretrained on other robots' data (called VLAs, vision-language-action models). Fine-tuning means training them further on our data.\n\nThe October runs (experiments 37 and 40) used the old SO-100 scene, captures without randomized physics and a 25 mm lift. Since then the ACT recipe changed: the SO-101 gripper (wider grasp tolerance), the measured servo model, physics v2 (servo gains randomized from soft to stiff), a 100 mm lift, a slow release, and execute 30 (the policy predicts a chunk of actions and replans every 30 steps). None of that had reached the big models.\n\nHere both are fine-tuned on the same data and scene as the tuned ACT baseline of 2026-11-18: 7150 placements (capture_v2, physics v2), scene so101_servo_lift100_rel30, the same 10 held-out poses x 3, execute 30. SmolVLA: 30,000 steps, batch 32, frozen language model (the October settings). pi0.5: LoRA rank 16 (a small trainable add-on), 5,000 steps where October had 10,000, cut to fit the night.\n\nA safety invalidation is an episode thrown out because a command broke a safety rule. \"Not settled\" means the cube was picked up but the episode did not end with it at rest on the target. Held-out loss is the prediction error on the held-out poses (lower is better), measured at chunk start 90.",
+  "parts": [
+    {
+      "title": "Do the big models work on the recipe that works for ACT?",
+      "why": "If the October scores were caused by the recipe and not the models, the big models are back in play.",
+      "did": "Fine-tuned SmolVLA and pi0.5 on the tuned-baseline data and scene, then ran the same 30 held-out episodes ACT is scored on.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Held-out loss (start 90)",
+          "Successes",
+          "Pickups",
+          "Closure, median",
+          "Failures"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "ACT, tuned baseline (seeds 202 / 101)",
+              "3.4e-4 / 3.2e-4",
+              "21 / 24 of 30",
+              "24 / 27",
+              "5.2 mm",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SmolVLA, October recipe",
+              "",
+              "2 of 30 (0 of 30 at execute 30)",
+              "",
+              "13 mm",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5, October recipe, 10,000 steps",
+              "2.5e-4",
+              "15 of 30",
+              "",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SmolVLA",
+              "1.6e-3",
+              "14 of 30",
+              "17",
+              "13.2 mm",
+              "10 safety, 3 not settled, 3 pickup incomplete"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pi0.5, 5,000 steps",
+              "7.5e-4",
+              "7 of 30",
+              "16",
+              "6.8 mm",
+              "12 safety, 9 not settled, 2 pickup incomplete"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "For SmolVLA the recipe, not the model, was what held it back: 2/30 to 14/30 with the same settings. Its closing error is still 13 mm, the same as in October, so the gain is the SO-101's grasp tolerance and the task changes, not better placement. pi0.5 picks up about as often (16 against 17) with half the closing error, but loses 9 episodes after the pickup and 12 to safety. Its loss was still falling (1.1e-3 at 4,000 steps, 7.5e-4 at 5,000), so this is not its ceiling."
+    },
+    {
+      "title": "Does RL on top of the SmolVLA fine-tune help? (result in, not analysed)",
+      "why": "In October, RL in the simulator improved fine-tuned policies (experiment 40). The note queued the same step for SmolVLA.",
+      "did": "ReinFlow PPO (trial-and-error training that starts from the fine-tune) for 20,000 episodes, execute 30, physics v2 drawn per episode, seed 202. Then the same 30 held-out episodes. During training a 20-pose monitor set was scored every 480 episodes.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Successes",
+          "Pickups",
+          "Closure, median",
+          "Within tolerance",
+          "Failures"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "SmolVLA fine-tune",
+              "14 of 30",
+              "17",
+              "13.2 mm",
+              "9 of 30",
+              "10 safety, 3 not settled, 3 pickup incomplete"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SmolVLA fine-tune + RL",
+              "19 of 30",
+              "20",
+              "9.7 mm",
+              "12 of 30",
+              "10 safety, 1 pickup incomplete"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The report file gives 19 of 30 after RL against 14 of 30 before, on the same held-out suite, with the same 10 safety invalidations. No note describes this result and nobody has analysed it. Read it with care: the 20-pose monitor score moved between 0.25 and 0.6 during training with no clear trend (0.5 at the start, 0.25 at 19,680 episodes, 0.6 at the end), and 30 episodes are 10 poses repeated 3 times."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same data, scene, held-out poses and execute 30 as the tuned ACT baseline.",
+      "ok": true
+    },
+    {
+      "text": "SmolVLA used the October model settings, so its change is the recipe.",
+      "ok": true
+    },
+    {
+      "text": "The RL run was scored on the same held-out suite as the fine-tune it started from.",
+      "ok": true
+    },
+    {
+      "text": "pi0.5 is half-trained (5,000 steps, October had 10,000), so its 7/30 is not a fair comparison with October's 15/30.",
+      "ok": false
+    },
+    {
+      "text": "ACT saw 5x the samples: 5.1 M against 0.96 M for SmolVLA and 0.16 M for pi0.5.",
+      "ok": false
+    },
+    {
+      "text": "One seed per big model. 30 episodes are 10 poses x 3 repeats. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "The RL result (19/30) is read from result.json only. It is in no note and has not been analysed.",
+      "ok": false
+    },
+    {
+      "text": "No prediction or pass bar was written down before these runs.",
+      "ok": false
+    }
+  ],
+  "meaning": "The October verdict on SmolVLA (\"barely worked\") was a verdict on the recipe. On the current recipe it is a working policy, though still behind ACT and still closing 13 mm off. pi0.5 places better (6.8 mm) but needs its full training before it can be judged. The note's plan: give pi0.5 the full 10,000 steps before any RL (about 7 more hours), and read its 9 \"not settled\" episodes, which point at the release or the set-down.",
+  "lesson": "A model comparison is only as good as the recipe each model was given. SmolVLA went from 2/30 to 14/30 without touching the model.",
+  "next": [
+    {
+      "title": "Analyse the RL-on-SmolVLA result",
+      "why": "19/30 is in the report file but in no note. The monitor curve is noisy, so check whether the gain is real."
+    },
+    {
+      "title": "Train pi0.5 to the full 10,000 steps",
+      "why": "Its loss was still falling at 5,000. About 7 more hours."
+    },
+    {
+      "title": "Read the pi0.5 \"not settled\" episodes",
+      "why": "9 losses after a good pickup points at the release or the set-down."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 22 to 23 · fine-tunes done Nov 22, RL on SmolVLA finished about 03:00 on Nov 23 · RL result not analysed",
+    "watch": [
+      {
+        "title": "SmolVLA fine-tune",
+        "note": "W&B run stdc1vmk",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/stdc1vmk"
+      },
+      {
+        "title": "pi0.5 fine-tune",
+        "note": "W&B run a6oyfhh9",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/a6oyfhh9"
+      },
+      {
+        "title": "RL on SmolVLA",
+        "note": "W&B run hh4wrtf7",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/hh4wrtf7"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "rehearsals",
+        "note": "The first pi0.5 rehearsal failed on import lerobot (stale install paths in its env). Fixed with PYTHONPATH and re-run.",
+        "state": "trouble"
+      },
+      {
+        "name": "SmolVLA fine-tune",
+        "note": "30,000 steps. A pi0.5 rehearsal run beside it slowed it from 75 to 3 samples/s for about 15 minutes.",
+        "state": "done"
+      },
+      {
+        "name": "pi0.5 fine-tune",
+        "note": "LoRA rank 16, 5,000 steps (the queue script planned 6,000; cut to fit the night).",
+        "state": "done"
+      },
+      {
+        "name": "RL rehearsal",
+        "note": "Gate for the RL run. Passed.",
+        "state": "done"
+      },
+      {
+        "name": "RL on SmolVLA",
+        "note": "20,000 episodes. Finished, not aborted. Held-out 19 of 30.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: d9e5a0e (queue script), ddb1d73 (fine-tune results and note)",
+        "ok": true
+      },
+      {
+        "text": "Write-up for the fine-tunes: notes/vla-best-sim-20261122.md",
+        "ok": true
+      },
+      {
+        "text": "The RL result is not in the note (its status line still says queued) and not analysed",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vla-best-sim-20261122.md",
+        "note": "the write-up for the two fine-tunes, with the ACT and October baselines"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/smolvla_ft/result.json",
+        "note": "SmolVLA: 14/30, pickups, closure, failure categories (checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/pi05_ft/pi05_result.json",
+        "note": "pi0.5: 7/30, pickups, closure, failure categories (checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/rl_smolvla/result.json",
+        "note": "RL on SmolVLA: 19/30, closure, monitor history; the only source for part 2"
+      },
+      {
+        "path": "simulation_code/queue_vla_best_sim_20261122.sh",
+        "note": "the queue for the fine-tunes"
+      },
+      {
+        "path": "memory/overnight-rg-vla-20261122.md",
+        "note": "project memory note for the night"
+      },
+      {
+        "path": "commits d9e5a0e · ddb1d73",
+        "note": "queued · fine-tune results"
+      }
+    ]
+  }
+}

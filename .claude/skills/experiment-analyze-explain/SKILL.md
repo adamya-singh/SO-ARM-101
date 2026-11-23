@@ -97,6 +97,21 @@ you are confounding and why that is acceptable.
   number to watch. Runbook status if the plan changed. Memory file for the project state.
 - Keep the analysis artifacts (held-out capture manifest, `heldout_fit.json`) force-added under
   `artifacts/` so the numbers are reproducible; commit.
+- **Journal write-up** (user request 2026-11-23: every experiment is written up, automatically). The
+  user reads experiments in the Agentic Journal, where each one opens to two tabs, "Understand it"
+  and "Run and watch", filled from `notes/journal-writeups/<NN>.json`. Writing that file is part of
+  finishing the analysis, not an extra:
+  1. `python tools/journal_writeup.py record` lists the journal's experiments. If this one has no
+     record yet, create it with `add` (see "When an experiment is queued" in `AGENTS.md`).
+  2. Write `notes/journal-writeups/<NN>.json` from the Part 4 explanation: the short version, the
+     setup, one part per measurement step (why, what we did, the predictions that were registered
+     before the run and whether each held, the table with its baseline rows, the conclusion), what
+     makes the comparison fair and its limits, what it means, the one lesson, the follow-ups, and
+     how the run went. Fields and rules: `notes/journal-writeups/README.md`; model: `53.json`.
+  3. `python tools/journal_writeup.py put <NN>` validates and uploads it. Then set the record's
+     outcome: `python tools/journal_writeup.py update <NN> patch.json` with `status` (`worked`,
+     `failed`, `mixed` or `finding`), a one-line `answer` and up to eight `numbers`.
+  4. Commit the JSON file with the note. Tell the user it is in the journal.
 
 ## Part 4: explain to a new intern
 

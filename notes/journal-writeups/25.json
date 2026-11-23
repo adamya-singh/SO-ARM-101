@@ -1,0 +1,231 @@
+{
+  "question": "The policy broke on its first real camera frame (experiment 24). If every training episode gets a random look, does the policy stay calm on real frames and keep its simulation score?",
+  "measure": "Two things. Successes out of 30 on held-out poses in the simulator (10 poses the policy never trained on, 3 tries each). And the real-frame gate: on a recorded real start frame, how far the first chunk moves the shoulder and elbow (it must be at most 3 units, with no safety holds).",
+  "outcome": "Yes. Held-out 30/30 with zero safety frames, 29/30 under random looks, and the real-frame gate passes (shoulder 0.70 units, elbow 0.61, zero holds). The old policy fails the same gate with 25.15 units and 23 holds.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. It is trained by imitation of a scripted teacher in the simulator.\n\nIn experiment 24 the policy trained on one rendered look of the scene, and its first chunk on the real camera frame drove the arm the wrong way. A safety hold is a step where the safety gate refuses the command and the arm stays put.\n\nAppearance randomization means every training episode is rendered with a different random look: lights and shadows, colours and tints, a speckled ground, a towel of random size (0.9 to 1.6 times) and angle (plus or minus 10 degrees), small camera jitter, and random brightness, contrast, noise and blur. The task itself does not change. Cube positions still vary by plus or minus 10 mm only.\n\nThe real-frame gate is an offline check written in this experiment. It feeds a recorded real start frame to the policy and looks at the first chunk. At the start pose the right answer is to hold still. The black-image ablation is a control: run the policy with a black image to see how much it relies on the camera.",
+  "parts": [
+    {
+      "title": "Can an offline check catch the experiment 24 failure?",
+      "why": "If the check cannot tell the broken policy from a working one, passing it means nothing.",
+      "did": "Built the gate and ran it on the old lens policy with the recorded episode 2 frame, and on the simulated start frame.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Lens policy (old), first chunk on",
+          "Shoulder moves",
+          "Elbow moves",
+          "Holds",
+          "Gate"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "recorded real frame (episode 2)",
+              "25.15",
+              "21.07",
+              "23",
+              "FAIL"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "simulated start frame",
+              "0.47",
+              "0.45",
+              "",
+              "PASS"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "The gate fails the old policy on the real frame and passes it on the simulated frame. So it catches the live failure without moving the arm."
+    },
+    {
+      "title": "Does the randomized-look policy pass the gate and keep its score?",
+      "why": "Randomizing the look could make the task harder to learn. It has to pass the gate without losing the simulation result.",
+      "did": "Third bench run (W&B ytn3eygr): same recipe as the lens run, with a random look per training episode. Then the standard evaluations, a new evaluation under random looks (10 poses x 3 draws), and the gate.",
+      "predictions": [
+        {
+          "text": "Real-frame gate: first chunk on the recorded real frame moves shoulder and elbow at most 3 units, with no holds and above the floor",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Nominal",
+          "Held-out",
+          "Held-out, random looks",
+          "Black image, held-out",
+          "Real frame: shoulder / elbow / holds"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "lens policy, one look (exp. 23)",
+              "3/3",
+              "30/30",
+              "",
+              "0/33 (nominal + held-out)",
+              "25.15 / 21.07 / 23, FAIL"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "random looks (this run)",
+              "3/3",
+              "30/30",
+              "29/30",
+              "12/30",
+              "0.70 / 0.61 / 0, PASS"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "It keeps 30/30 with zero safety frames and passes the gate. It also passes 16 of 16 brightness and contrast edits of the real frame. The one miss under random looks was a rollout with 50 safety frames."
+    },
+    {
+      "title": "Does it still use the camera?",
+      "why": "A policy can score well by ignoring the image and replaying a memorized motion.",
+      "did": "Black-image ablation on the same poses.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "With a black image it scores 12/30 on held-out poses (3/3 nominal), each with 672 safety frames, against 30/30 with the image. So the pixels are used. But earlier runs scored 0/33 blind, so randomizing the look also made the policy lean more on its joint angles for these plus or minus 10 mm poses."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe, seed (202) and step count (120k) as the lens run; the look is the only change in training",
+      "ok": true
+    },
+    {
+      "text": "The gate was calibrated on the known failure before the run: the old policy fails it on the real frame and passes on the simulated one",
+      "ok": true
+    },
+    {
+      "text": "The scene with all randomization off renders byte-identical to the signed review images, and the teacher was re-certified 15/15 on the new scene",
+      "ok": true
+    },
+    {
+      "text": "One training seed",
+      "ok": false
+    },
+    {
+      "text": "The gate is one recorded real frame plus 16 photometric edits of it. Passing says the first chunk holds still. It does not say the grasp will work (see experiment 26)",
+      "ok": false
+    },
+    {
+      "text": "Blind success rose from 0/33 to 12/30: part of the score no longer needs the camera",
+      "ok": false
+    },
+    {
+      "text": "The research log says the sim-frame chunk moved 0.5 units; the notebook gives 0.47 / 0.45 for the old policy and 0.22 / 0.25 for the new one",
+      "ok": true
+    }
+  ],
+  "meaning": "This policy (checkpoint 96bc418e of run ytn3eygr) became the one that ran on the real arm in experiments 26 to 28. The real-frame gate became a standing rule: the pipeline runs it after evaluation, and the runner runs it live at the start pose and refuses the episode if it fails. A cost showed up too: the noisy frames defeat the compressed frame cache, so training ran at about 10.6 steps per second (263 minutes of wall time).",
+  "lesson": "When real frames differ from simulation, randomize everything that is not the task, and gate on recorded real frames before touching hardware.",
+  "next": [
+    {
+      "title": "Live trial on the arm (experiment 26)",
+      "why": "The gate passes, and the owner gave standing authorization on Sep 10."
+    },
+    {
+      "title": "A faster frame store for noisy frames",
+      "why": "Training dropped to about 10.6 steps per second. The next run used GPU-resident frames."
+    }
+  ],
+  "log": "**TL;DR:** Randomizing lighting, colors, textures and camera details kept 30/30\nin sim and passed a check on real recorded frames.\n\n**Problem.** On the real start frame the policy panicked (entry 24).\n\n*How we know:* on the real frame its first chunk moved the shoulder 25 units and\nhit 23 safety holds. On the sim frame: 0.5 units.\n\n**Experiment.** Give every training episode a random look: lights and shadows,\ncolors and tints, speckled ground, a towel of random size and angle, small\ncamera jitter, and random brightness, contrast, noise and blur. Same recipe. New\nrule before touching the arm: the policy's first chunk on recorded real frames\nhas to stay still.\n\n*What we hope to learn:* if it passes the real-frame check and keeps its sim\nscore, it's ready for the arm.\n\n**Outcome.** Normal start 3/3, new positions 30/30 (29/30 under random looks).\nOn the real frames: shoulder moved 0.7 units, elbow 0.6, zero holds, and it\npassed all 16 brightness and contrast edits.\n\n- It can't rely on any particular look, so it keys on what stays the same: the\n  cube and the square. Like recognizing a friend in any lighting because you've\n  seen them in lots of it.\n- Side effect: with a black image it still got 12/30, so it also leans more on\n  its joint angles.\n\nThis became the policy that ran on the arm.\n\n**Takeaway:** when real frames differ from sim, randomize everything that isn't\nthe task, and gate on recorded real frames before touching hardware.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · 263 min wall · W&B ytn3eygr · nothing left",
+    "watch": [
+      {
+        "title": "W&B run ytn3eygr",
+        "note": "Third bench run, appearance recipe",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/ytn3eygr"
+      }
+    ],
+    "command": "simulation_code/queue_bench_pipeline.sh <inspection/camera_review_20260910.json> experiments/seed202_120k_appearance_20260910 --appearance --workers 8",
+    "stages": [
+      {
+        "name": "Appearance regime, scene slots, applier",
+        "note": "Five committed tranches. Scene hash fcead5c7. Teacher re-certified 15/15.",
+        "state": "done"
+      },
+      {
+        "name": "Real-frame gate built and calibrated",
+        "note": "Old policy: FAIL on the episode 2 frame, PASS on the simulated frame.",
+        "state": "done"
+      },
+      {
+        "name": "Camera review re-signed",
+        "note": "The owner confirmed the review on the regenerated scene.",
+        "state": "done"
+      },
+      {
+        "name": "Training, 120k steps",
+        "note": "About 10.6 steps per second; the noisy frames defeat the zlib frame cache.",
+        "state": "done"
+      },
+      {
+        "name": "Evaluation",
+        "note": "Nominal 3/3, held-out 30/30, held-out appearance 29/30, black image 12/30.",
+        "state": "done"
+      },
+      {
+        "name": "Real-frame check",
+        "note": "PASS: shoulder 0.70, elbow 0.61, 0 holds, 16/16 photometric edits.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 3eaf50d, 91fa7f0, 0d54493, 158acc6, a47d533 (tranches 1 to 5), 3927de6 (review re-signed), a6f9a7c (results in docs)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 25",
+        "ok": true
+      },
+      {
+        "text": "evaluation_summary.json matches the write-up: 3/3, 30/30 (0 safety frames), 29/30 (50), black 12/30 (672)",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/25-appearance-randomization.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections 'Appearance randomization tranche' and 'Third bench run, appearance recipe' (2026-09-10)"
+      },
+      {
+        "path": "memory/appearance-randomization-20260910.md",
+        "note": "project memory note: tranches, gate calibration, run result, queue command"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/evaluation_summary.json",
+        "note": "success counts and safety frames"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_appearance_20260910/real_frame_check_offline.json",
+        "note": "the gate result (numbers taken from the notebook)"
+      },
+      {
+        "path": "simulation_code/queue_bench_pipeline.sh",
+        "note": "the pipeline queue script"
+      },
+      {
+        "path": "commits 3eaf50d · 91fa7f0 · 0d54493 · 158acc6 · a47d533 · a6f9a7c",
+        "note": "tranches 1 to 5 · results"
+      }
+    ]
+  }
+}

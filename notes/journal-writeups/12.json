@@ -1,0 +1,307 @@
+{
+  "question": "The best policy gets 9 of 15 and fails on small gripper overshoots. Does a decaying learning rate remove them? Does a bigger budget help further? Does the answer repeat across seeds?",
+  "measure": "Clean successes out of 15 tries (5 cube starts x 3 tries; clean means success with zero safety frames), and total safety frames summed over the 15 tries. Pass is 15 of 15 with zero safety frames.",
+  "outcome": "Cosine decay took the score from 9 to 12 of 15 and the safety frames from 210 to 12. Bigger budgets went backwards (9, 9 and 3 of 15). Three seeds of the best recipe gave 12, 12 and 3. Nothing reached 15 of 15.",
+  "setup": "A policy is the network that drives the arm. This one is a chunked clone: it copies a hand-written teacher script that reads exact simulator state, looks at the state once, and outputs the next 90 commands (a chunk), which the arm runs without looking again. It is trained on the teacher recorded from 5 cube starts (2,250 rows).\n\nSafety frames are steps where a guard tripped. Clipped: the command was outside the safe joint range. Limited: the command asked for too large a move in one step. Unsafe: an unsafe contact. A try with any safety frame does not count, even if the cube ends up in place.\n\nThe control is the best arm of experiment 11: width 512 (units per hidden layer), 90,000 steps, a fixed learning rate of 1e-3. It scored 9 of 15 with 210 safety frames. All of its violations were the gripper, most of them after step 450, where the teacher's 450-step recording has ended but the 480-step try goes on.\n\nThe learning rate is the size of each training update. A cosine schedule (here cosine_floor_v1) starts at 1e-3 and glides down to 1e-5 by the last step. The glide is stretched over however many steps the run has.\n\nA seed sets the random starting weights and the training noise. Running the same recipe with other seeds shows how much of a score is luck.\n\nThree stages ran in order, with the rules written down first. Schedule: cosine against the fixed-rate control; cosine is kept only if it strictly improves. Budget: 150,000 steps, 300,000 steps, or width 1024. Seeds: seeds 202 and 303 of the best cell so far.",
+  "parts": [
+    {
+      "title": "Does cosine decay beat a fixed learning rate?",
+      "why": "The remaining failures are small overshoots. Tiny final updates might settle the network enough to remove them.",
+      "did": "Trained one cell: width 512, 90,000 steps, cosine from 1e-3 to 1e-5. Compared it with the stored control. Then ran the frame analysis on what still failed.",
+      "predictions": [
+        {
+          "text": "The cell passes 15 of 15 with zero safety frames",
+          "result": "failed"
+        },
+        {
+          "text": "Caveat written beforehand: learning-rate decay is not expected to fix the frames past step 450",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Cell",
+          "Learning rate",
+          "Clean successes",
+          "Total safety frames",
+          "Violations after step 450"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "control (experiment 11)",
+              "fixed 1e-3",
+              "9 of 15",
+              "210",
+              "27 of 33"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "cosine_w512_90k",
+              "cosine 1e-3 to 1e-5",
+              "12 of 15",
+              "12",
+              "0 of 4"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Cosine strictly improves, so the next stage inherits it. The spike after the end of the recording is gone, which the caveat did not expect. The 4 remaining violations are the gripper at set-down and release in the normal start, by at most 0.005797. The failing start moved: the normal start now fails while all four shifted starts pass."
+    },
+    {
+      "title": "Does a bigger budget finish the job?",
+      "why": "If decay helps, more steps or more width under the same schedule might close the last 3 tries.",
+      "did": "Three cells under cosine: 150,000 steps, 300,000 steps, and width 1024 at 90,000 steps. All ran to completion.",
+      "predictions": [
+        {
+          "text": "Some budget cell passes 15 of 15 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Cell",
+          "Width",
+          "Steps",
+          "Clean successes",
+          "Total safety frames",
+          "Offline MSE"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "cosine_w512_90k",
+              "512",
+              "90,000",
+              "12 of 15",
+              "12",
+              "1.13e-7"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "steps150k",
+              "512",
+              "150,000",
+              "9 of 15",
+              "33",
+              "6.81e-8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "steps300k",
+              "512",
+              "300,000",
+              "9 of 15",
+              "15",
+              "2.89e-8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "width1024",
+              "1,024",
+              "90,000",
+              "3 of 15",
+              "66",
+              "1.21e-7"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Status budget_not_resolved. The curve bent the wrong way. The note's reading: the schedule stretches with the budget, so a longer run spends longer at a high learning rate. Training error kept falling while closed-loop results got worse."
+    },
+    {
+      "title": "Does the best recipe repeat across seeds?",
+      "why": "One seed at 12 of 15 could be the recipe or could be luck.",
+      "did": "Trained seeds 202 and 303 of cosine_w512_90k. Seed 101 is the record from part 1.",
+      "predictions": [
+        {
+          "text": "Seeds 202 and 303 both pass 15 of 15 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Seed",
+          "Clean successes",
+          "Total safety frames",
+          "Failing starts"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "101",
+              "12 of 15",
+              "12",
+              "normal"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "202",
+              "12 of 15",
+              "6",
+              "cube x + 1.5 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "303",
+              "3 of 15",
+              "63",
+              "four of five starts"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Status seeds_not_resolved, the end of this run of experiments. Which start fails changes with the seed, and one seed in three collapses."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Cells, selection rules, pass bar and the caveat were written down before any run. Each stage report embeds the hash of the one before.",
+      "ok": true
+    },
+    {
+      "text": "Same 2,250 rows and the same frozen recipe everywhere; each cell changes only the registered factor.",
+      "ok": true
+    },
+    {
+      "text": "All cells trained under the same pinned GPU setup (numerics regime v2).",
+      "ok": true
+    },
+    {
+      "text": "The budget report's stored best cell said steps300k, because the code left the schedule cell out of the ranking. It was caught before the seeds stage, fixed and pinned by a test. Under the written rule the best cell is cosine_w512_90k.",
+      "ok": false
+    },
+    {
+      "text": "An earlier version of the notes gave the control 33 safety frames. That is the number of distinct violations in the unique failing tries. The total over 15 tries is 210 (corrected 2026-09-30); this write-up uses 210.",
+      "ok": false
+    },
+    {
+      "text": "The three tries per start are identical repeats, so 15 tries are 5 distinct results per policy.",
+      "ok": false
+    },
+    {
+      "text": "The seed stage covers the best cell only. Every other cell is one seed. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "Frame analysis was done for seed 101 only, so where seeds 202 and 303 fail within the episode is not in the notes.",
+      "ok": false
+    }
+  ],
+  "meaning": "Cosine decay is a real gain and was adopted as the standard schedule for later chunked training: about 17x fewer safety frames, and the spike after the end of the recording gone on seed 101. But 12, 12 and 3 across seeds means the policy sits on a boundary, not that optimization is nearly done. The pre-registered caveat named the next action: stop tuning and align the teacher with the task, so that the last 30 steps are trained, not improvised (450-step teacher against a 480-step try). That became the next proposal, with at least 3 seeds.",
+  "lesson": "A 12 against 3 spread across seeds means you are standing on a knife edge. Do not celebrate one seed, and do not assume a bigger budget is a better one when the schedule depends on it.",
+  "next": [
+    {
+      "title": "Extend the teacher to 480 steps (horizon alignment, experiment 13)",
+      "why": "The pre-registered next action: train the final chunk, do not let it be improvised."
+    },
+    {
+      "title": "Use at least 3 seeds from now on",
+      "why": "The measured spread makes single-seed results unreliable on this recipe."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Aug 6, 2026 · 3 stages (about 13, 55 and 25 minutes) · status seeds_not_resolved · nothing left",
+    "watch": [],
+    "command": "so-arm101-v2-sim run-precision-stage --stage {schedule,budget,seeds}",
+    "stages": [
+      {
+        "name": "failure-frame analysis of the control",
+        "note": "Step 1 of the tranche: 33 violations, all gripper, 27 past step 450.",
+        "state": "done"
+      },
+      {
+        "name": "schedule",
+        "note": "precision_gates/f0a6169e8c0f05e7: schedule_selected_cosine_floor_v1. 12 of 15, 12 frames.",
+        "state": "done"
+      },
+      {
+        "name": "budget",
+        "note": "precision_gates/0cb6ded4f78a0a68: budget_not_resolved. Stored best-cell field was wrong and corrected by addendum.",
+        "state": "trouble"
+      },
+      {
+        "name": "seeds",
+        "note": "precision_gates/6d2c95a8f577c95b: seeds_not_resolved. 12, 12, 3.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 3d38205 (the precision tranche), 1abfbea (the frame-analysis tool)",
+        "ok": true
+      },
+      {
+        "text": "Results for all three stages written into the proposal note",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 12 written (commit 87667eb)",
+        "ok": true
+      },
+      {
+        "text": "The immutable budget report still carries the wrong best_cell field; the proposal note holds the correction",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/12-learning-rate-schedule.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/precision-tranche-proposal.md",
+        "note": "the proposal, the caveat, all three stage results"
+      },
+      {
+        "path": "notes/precision-schedule-failure-analysis.md",
+        "note": "the 4 remaining violating frames of the cosine cell"
+      },
+      {
+        "path": "notes/scaling-failure-frame-analysis.md",
+        "note": "the control's 33 violations"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/precision_gates/f0a6169e8c0f05e7/report.json",
+        "note": "schedule stage report"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/precision_gates/0cb6ded4f78a0a68/report.json",
+        "note": "budget stage report"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/precision_gates/6d2c95a8f577c95b/report.json",
+        "note": "seeds stage report"
+      },
+      {
+        "path": "simulation_code/queue_precision_tranche_20260806.sh",
+        "note": "the queue script"
+      },
+      {
+        "path": "memory: precision-tranche.md",
+        "note": "project memory note with the findings"
+      },
+      {
+        "path": "commits 3d38205 · 1abfbea",
+        "note": "precision tranche · frame analysis"
+      }
+    ]
+  },
+  "log": "**TL;DR:** Decaying the learning rate cut bad frames 17x and got 12/15, but\nbigger budgets made it worse and seeds scattered 12, 12 and 3.\n\n**Problem.** The best policy got 9/15, failing on small gripper overshoots.\n\n*How we know:* 210 safety frames across the 15 tries (entry 11). I didn't know\nif better optimization would polish them away.\n\n**Experiment.** Three stages, rules written down beforehand: cosine\nlearning-rate decay to a small floor versus a fixed rate; then bigger budgets\n(150k steps, 300k steps, or width 1024); then two more seeds of the best one.\n\n*What we hope to learn:* if decay polishes the overshoot away and it holds\nacross seeds, this rung is done.\n\n**Outcome.** Cosine got 12/15 with 12 safety frames, down from 210. The rest\ndidn't hold up:\n\n- Bigger budgets went backwards (9, 9 and 3 out of 15). The schedule stretches\n  with the budget, so a longer run spends longer at a high learning rate and\n  ends less polished.\n- Seeds came out 12, 12 and 3. Which start failed moved around too: the normal\n  start failed while all the shifted ones passed.\n\nCosine helps because it takes big steps early and tiny ones at the end to\nsettle. Like parking: fast down the street, slow into the spot.\n\n**Takeaway:** a 12 vs 3 spread across seeds means you're standing on a knife\nedge. Don't celebrate one seed, and don't assume a bigger budget is a better\none when the schedule depends on it."
+}

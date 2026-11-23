@@ -1,0 +1,331 @@
+{
+  "question": "Going from 1200 to 2400 placements paid. Does doubling again, to 4800, keep paying?",
+  "measure": "Held-out loss on the step-90 chunk against a bar set before the run (under 3.4e-4, the best 2400 seed), the ratio of held-out to training loss, and closed-loop successes out of 30.",
+  "outcome": "Memorizing was gone (ratio 1.6x). Held-out loss was 3.6e-4, inside the 2400 band and not under the bar. Closed loop was 6/30, with half the placements lifting the cube by an edge. The first reading of why was wrong and was corrected on Sep 18.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. The recipe so far: a 12 px random shift of every training image so the network cannot memorize exact images, 120k steps, 2400 placements. Three seeds of it gave held-out loss 3.4e-4 to 5.8e-4 and closed loop 15, 6 and 12 of 30 (experiment 34). A full capture of 4800 placements would be about 450 GB, so this capture stored only every 30th camera frame (15 GB), since training never reads the rest. That is the frame stride: 30 here against 18 for the 2400 runs, which gives 16 stored rows per episode instead of 27.",
+  "parts": [
+    {
+      "title": "Does 4800 beat the 2400 band?",
+      "why": "If held-out loss drops below the best 2400 seed, data still pays. If not, something else is the limit.",
+      "did": "Captured 4800 new screened placements (suite seed 14) and trained the same shift-12 recipe on them for 120k steps (seed 202, frame stride 30). Same ten held-out placements.",
+      "predictions": [
+        {
+          "text": "Bar set the day before: held-out loss must land under 3.4e-4 to be distinguishable from the 2400 recipe's best seed",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Run",
+          "Train loss",
+          "Held-out loss",
+          "Ratio",
+          "Per-placement median",
+          "Worst placement",
+          "Placements <= 2.5e-4",
+          "Closed loop"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "2400, stride 18, seed 202",
+              "9.8e-5",
+              "5.7e-4",
+              "5.8x",
+              "3.0e-4",
+              "1.9e-3",
+              "3/10",
+              "15/30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400, stride 18, seed 101",
+              "1.3e-4",
+              "5.8e-4",
+              "4.4x",
+              "4.0e-4",
+              "1.5e-3",
+              "2/10",
+              "6/30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400, stride 18, seed 303",
+              "1.1e-4",
+              "3.4e-4",
+              "3.3x",
+              "2.6e-4",
+              "7.9e-4",
+              "5/10",
+              "12/30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "4800, stride 30, seed 202",
+              "2.2e-4",
+              "3.6e-4",
+              "1.6x",
+              "3.2e-4",
+              "8.9e-4",
+              "3/10",
+              "6/30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "3.6e-4 sits inside the 2400 seed band and is not under 3.4e-4, so at one seed the step from 2400 to 4800 is not resolved. The per-placement profile is the flattest yet (no placement above 1e-3)."
+    },
+    {
+      "title": "Is it still memorizing?",
+      "why": "A ratio near 1 with both losses high means the network is no longer memorizing but has not finished fitting.",
+      "did": "Read the held-out curve logged during training.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Step",
+          "4800: held-out / train / ratio",
+          "2400 seed 202: held-out / train / ratio"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "5k",
+              "4.85e-3 / 4.19e-3 / 1.2x",
+              "5.80e-3 / 4.28e-3 / 1.4x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "45k",
+              "7.45e-4 / 7.60e-4 / 1.0x",
+              "1.03e-3 / 4.70e-4 / 2.2x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "85k",
+              "4.34e-4 / 3.27e-4 / 1.3x",
+              "6.29e-4 / 1.95e-4 / 3.2x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "120k",
+              "3.65e-4 / 1.86e-4 / 2.0x",
+              "5.70e-4 / 1.04e-4 / 5.5x"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Held-out tracks training for the whole run, so memorizing is solved at 4800 placements with shift 12. The limit is now fitting: training loss is 2x higher than at 2400 and still falling. Twice the scenes with the same 120k steps means each scene is seen half as often."
+    },
+    {
+      "title": "Why only 6/30?",
+      "why": "The loss improved and the outcome did not, which needs an explanation before the next run.",
+      "did": "Sorted the first try at each of the 10 placements by what happened to the cube.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Success",
+          "Lifted by an edge",
+          "Collision",
+          "Miss",
+          "Grasped then lost"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "2400 seed 202",
+              "5",
+              "2",
+              "1",
+              "2",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400 seed 101",
+              "2",
+              "3",
+              "2",
+              "2",
+              "1"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400 seed 303",
+              "4",
+              "1",
+              "2",
+              "2",
+              "1"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "4800 seed 202",
+              "2",
+              "5",
+              "2",
+              "0",
+              "1"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Half the placements catch the cube by an edge. The first reading was that the loss had 'stopped predicting success' near 3e-4, because every placement was thought to be within 2 to 4x of the working policy. That was wrong. The working fixed-square policy is at 2.5e-6, about 150x below these runs. 3e-4 is about 3 degrees of joint error, about 10 mm at the jaw, against a grasp tolerance of about 8 mm. The loss and the outcome agree (experiment 36)."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe, same seed (202), same ten held-out placements as the 2400 runs",
+      "ok": true
+    },
+    {
+      "text": "The bar (under 3.4e-4) was written down before the run",
+      "ok": true
+    },
+    {
+      "text": "Confound: frame stride 30 against 18 changes rows per episode (16 against 27). A 2400-placement run at stride 30 would separate 'twice the scenes' from 'fewer rows per scene'. It was not run",
+      "ok": false
+    },
+    {
+      "text": "One seed at 4800, and counts out of 30 spread 6 to 15 across seeds at 2400. Each count is 10 placements times 3 identical tries",
+      "ok": false
+    },
+    {
+      "text": "The original 'ruled out' line and decision in the notebook are marked corrected and superseded on 2026-09-18",
+      "ok": false
+    },
+    {
+      "text": "Capture time: the research log says about 11 hours of CPU; the notebook says 14.3 h including a 4 h pause",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "Memorizing is no longer the problem, and more data alone did not lift closed loop. The decision recorded on Sep 13 (build a jaw-versus-cube measurement at closing, then a square localiser) was partly carried out and partly superseded: the measurement was made on Sep 18 and pointed to a perturbed-teacher capture before any localiser. The base recipe kept is shift 12, 120k steps, 2400 to 4800 placements.",
+  "lesson": "When the metric improves and the outcome does not, do not decide the metric broke until you have compared it against a system that works.",
+  "next": [
+    {
+      "title": "Measure the jaw-to-cube error at closing, in millimetres (experiment 36)",
+      "why": "The failing thing is where the jaw is at one moment, which a loss averaged over 90 steps and 6 joints does not show directly."
+    },
+    {
+      "title": "2400 placements at stride 30",
+      "why": "The control for the stride confound. Recorded as not run."
+    },
+    {
+      "title": "240k steps and the v3 encoder at 4800",
+      "why": "Cheap fitting checks now that the ratio is 1.6x. Moved behind the perturbed-teacher capture on Sep 18."
+    }
+  ],
+  "log": "**TL;DR:** Memorization was fully gone (held-out error only 1.6x training), but\nclosed loop fell to 6/30, and I misread why.\n\n**Problem.** Placements were the axis that paid (entry 33), so the obvious next\nstep was more of them.\n\n*How we know:* going from 1200 to 2400 placements took the held-out gap from 15x\nto 3-6x and the pooled score to 33/90. I didn't know if that trend kept going.\n\n**Experiment.** Capture 4800 new placements (about 11 hours of CPU), and train\nthe same shift-12 recipe on them. To make it fit on disk, the capture stored only\nevery 30th camera frame: 15 GB instead of about 450 GB, since training never\nreads the rest.\n\n*What we hope to learn:* if held-out error drops below the best 2400 seed\n(3.4e-4), data still pays. If not, something else is limiting.\n\n**Outcome.** Held-out error 3.6e-4, inside the 2400 band. Closed loop 6/30, and\nhalf the placements caught the cube by an edge:\n\n- The gap closed to 1.6x, so the network now learns the rule instead of the\n  examples. But training error itself was 2x higher and still falling. With\n  twice the scenes and the same steps, each one gets seen half as often. Like a\n  class twice the size with the same hours of teaching.\n- I wrote that the loss had \"stopped predicting success\" because it looked low\n  enough. That was wrong (entry 36): it was still 150x above the policy that\n  actually works.\n\n**Takeaway:** when the metric improves and the outcome doesn't, don't decide the\nmetric broke until you've compared it against a system that works.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 13, 2026 · capture queued Sep 12, then one training run",
+    "watch": [
+      {
+        "title": "W&B 1vk19et1",
+        "note": "the 4800-placement run",
+        "href": ""
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "strided capture tooling",
+        "note": "Capture can store every Nth frame; loader refuses rows that were not stored (commit 41d8fb7).",
+        "state": "done"
+      },
+      {
+        "name": "capture 4800 placements",
+        "note": "Suite seed 14, stride 30, 76,800 stored frames = 15 GB. 14.3 h CPU including a 4 h pause, per the notebook.",
+        "state": "done"
+      },
+      {
+        "name": "train shift 12 on 4800",
+        "note": "120k steps, seed 202, frame stride 30. Train time 1533 s.",
+        "state": "done"
+      },
+      {
+        "name": "score and rollouts",
+        "note": "Held-out fit and 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "first reading",
+        "note": "Written as 'the loss no longer predicts the outcome'. Corrected in place on 2026-09-18.",
+        "state": "trouble"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 41d8fb7 (strided frames), de9090f (result)",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry carries the 2026-09-18 corrections in place; research-log entry 35 written",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/35-placements-4800.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry '4800 placements (2026-09-13)' with its corrections"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_4800_20260912/analysis_4800.txt",
+        "note": "per-placement table, taxonomy, held-out curves"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/placements4800_20260912/",
+        "note": "the capture"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation with the corrected reading"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/augmentation-run-20260912.md",
+        "note": "memory note, 4800 paragraph"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/strided-sidecars-disk-20260912.md",
+        "note": "memory note: stride and disk sizes"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/tranche-analysis-20260918.md",
+        "note": "memory note: the correction"
+      },
+      {
+        "path": "commits 41d8fb7 · de9090f",
+        "note": "strided frames · result"
+      }
+    ]
+  }
+}

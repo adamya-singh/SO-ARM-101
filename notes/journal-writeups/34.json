@@ -1,0 +1,328 @@
+{
+  "question": "The best recipe so far scored 15/30 in closed loop. If the same recipe is retrained with a different random seed, does it score 15 again?",
+  "measure": "Held-out loss on the step-90 chunk and closed-loop successes out of 30, for three training seeds of one recipe. If the scores agree, a single run can rank recipes. If they spread, it cannot.",
+  "outcome": "The loss reproduced (5.7e-4, 5.8e-4, 3.4e-4, all under 6x the training loss). The closed-loop score did not: 15, 6 and 12 of 30.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. The recipe: 2400 placements, 120k steps, and a 12 px random shift of every training image so the network cannot memorize exact images (experiments 32 and 33). A seed is the number that fixes the random choices in training: the starting weights, the order of the batches and the shift offsets. The reason to doubt the count: the 480k-step model scored 0/30 with about the same per-placement loss as the shift-4 model that scored 9/30.",
+  "parts": [
+    {
+      "title": "Do three seeds of one recipe agree?",
+      "why": "We were about to rank recipes by a score out of 30. We needed to know how far that score moves by chance.",
+      "did": "Retrained 2400 placements / 120k steps / shift 12 with seeds 101 and 303. Same capture and same evaluation as the seed-202 run.",
+      "predictions": [
+        {
+          "text": "Decision rule written before the repeats: if all three seeds hold 12/30 or better, the data effect is real and 4800 placements is next",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Seed",
+          "Train loss",
+          "Held-out loss",
+          "Ratio",
+          "Per-placement median",
+          "Placements <= 2.5e-4",
+          "Closed loop",
+          "Safety frames"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "202 (experiment 33)",
+              "9.8e-5",
+              "5.7e-4",
+              "5.8x",
+              "3.0e-4",
+              "3/10",
+              "15/30",
+              "261"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "101",
+              "1.3e-4",
+              "5.8e-4",
+              "4.4x",
+              "4.0e-4",
+              "2/10",
+              "6/30",
+              "455"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "303",
+              "1.1e-4",
+              "3.4e-4",
+              "3.3x",
+              "2.6e-4",
+              "5/10",
+              "12/30",
+              "601"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "mean, sd",
+              "",
+              "5.0e-4, 1.3e-4",
+              "",
+              "",
+              "",
+              "11.0, 4.6",
+              ""
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "1200 placements, shift 12",
+              "4.1e-5",
+              "6.2e-4",
+              "15x",
+              "2.4e-4",
+              "5/10",
+              "9/30",
+              "193"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400 placements, no shift",
+              "1.8e-6",
+              "3.2e-3",
+              "1744x",
+              "1.0e-3",
+              "2/10",
+              "6/30",
+              "228"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "The loss side is stable: every seed is under 6e-4 held-out and under a 6x ratio, so 'placements pay once memorizing is blocked' holds. The count is not stable. The rule of 12/30 on all three seeds was not met (seed 101 scored 6). The mean, 11/30, is still above every earlier recipe."
+    },
+    {
+      "title": "Which placements succeed?",
+      "why": "If the same placements won every time, the spread would be about the recipe. If the wins move, it is noise.",
+      "did": "Compared the wins per held-out placement across the three seeds.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Placement",
+          "Seed 202: loss, wins of 3",
+          "Seed 101",
+          "Seed 303"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "pose_000",
+              "1.8e-4, 0",
+              "4.4e-4, 0",
+              "2.1e-4, 0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_001",
+              "1.0e-4, 0",
+              "5.6e-5, 3",
+              "6.6e-5, 3"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_002",
+              "3.1e-4, 3",
+              "1.9e-4, 0",
+              "1.4e-4, 3"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_003",
+              "6.6e-4, 3",
+              "1.4e-3, 0",
+              "2.4e-4, 0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_004",
+              "7.1e-5, 3",
+              "3.6e-4, 0",
+              "7.0e-5, 3"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_005",
+              "1.1e-3, 0",
+              "8.7e-4, 0",
+              "6.2e-4, 0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_006",
+              "2.6e-4, 3",
+              "2.8e-4, 3",
+              "5.4e-4, 0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_007",
+              "2.8e-4, 3",
+              "1.5e-3, 0",
+              "7.9e-4, 3"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_008",
+              "1.9e-3, 0",
+              "4.7e-4, 0",
+              "4.9e-4, 0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pose_009",
+              "7.9e-4, 0",
+              "3.4e-4, 0",
+              "2.8e-4, 0"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Every placement is 0 or 3 of 3: the simulator is deterministic, so a score out of 30 is really a score out of 10 placements. Five placements were won by at least two seeds (001, 002, 004, 006, 007) and four were lost by all three (000, 005, 008, 009). The loss at one placement also moves 2 to 5x between seeds."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same capture, same recipe, same evaluation. Only the training seed differs",
+      "ok": true
+    },
+    {
+      "text": "Three seeds is a small sample for a standard deviation",
+      "ok": false
+    },
+    {
+      "text": "Ten held-out placements, each tried three times with the same result, so n is 10 per run",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "One 30-rollout evaluation cannot rank recipes that are closer than about 10 successes apart. From here on a recipe is judged by its held-out loss across seeds (sd 1.3e-4 here) and by closed-loop scores pooled over seeds (33/90 for this recipe). The 4800-placement run was queued anyway, with a bar: its held-out loss must land under 3.4e-4, this recipe's best seed, to count as better.",
+  "lesson": "Measure your noise before you rank anything. Retraining with a different seed is the cheapest way to learn how big a difference has to be before it means something.",
+  "next": [
+    {
+      "title": "4800 placements, judged by loss under 3.4e-4 (experiment 35)",
+      "why": "Tests whether the data trend continues, with a bar set from the best seed here."
+    },
+    {
+      "title": "Why the edge-caught lifts persist in every seed (experiment 36)",
+      "why": "The precision failures at closing did not go away with any seed."
+    }
+  ],
+  "log": "**TL;DR:** The loss reproduced across seeds, but the closed-loop score didn't:\n15, 6 and 12 out of 30 for the exact same recipe.\n\n**Problem.** I was about to rank recipes by closed-loop score out of 30, and one\nresult made me suspicious.\n\n*How we know:* the 480k-step model scored 0/30 with the same per-placement error\nas the shift-4 model that scored 9/30. Same quality on paper, 9 successes apart.\n\n**Experiment.** Retrain the 2400-placement, shift-12 recipe twice more, changing\nonly the random seed (initialization, batch order, shift offsets), and evaluate\nall three the same way.\n\n*What we hope to learn:* if the scores agree, 15/30 is real and I can rank\nrecipes by it. If they spread, one run's score can't rank anything.\n\n**Outcome.** The loss agreed (held-out 5.7e-4, 5.8e-4, 3.4e-4, all under 6x\ntraining error). The scores didn't: 15, 6 and 12 out of 30.\n\n- It's really 10 samples, not 30. The sim is deterministic, so all 3 tries at a\n  placement end the same way. A score out of 30 is a score out of 10 placements,\n  times 3. Like grading a student on a 10-question quiz.\n- Which placements succeed moves between seeds. Five were won by at least two\n  seeds, and four were lost by all three.\n\nFrom here on, a recipe gets judged by its held-out loss across seeds and its\nclosed-loop score pooled over seeds (33/90 for this one).\n\n**Takeaway:** measure your noise before you rank anything. Retraining with a\ndifferent seed is the cheapest way to find out how big a difference has to be\nbefore it means something.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 12, 2026 (evening) · two training runs, queue jobs 9 and 10",
+    "watch": [
+      {
+        "title": "W&B qcxtwbdg",
+        "note": "seed 101",
+        "href": ""
+      },
+      {
+        "title": "W&B qiz5n9g3",
+        "note": "seed 303",
+        "href": ""
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "seed 101",
+        "note": "Train (1680 s), score, 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "seed 303",
+        "note": "Train (1617 s), score, 30 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "comparison",
+        "note": "Per-placement table across the three seeds (analysis_seeds.txt).",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 568f8d4",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry and research-log entry 34 written",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/34-seed-repeats.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry 'Seed repeats (2026-09-12 evening)'; the 12/30 rule is in the entry before it"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_2400_seed303_20260912/analysis_seeds.txt",
+        "note": "per-placement losses and wins for the three seeds"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_2400_seed101_20260912/",
+        "note": "the seed-101 run"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation, section 6"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/augmentation-run-20260912.md",
+        "note": "memory note"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/strided-sidecars-disk-20260912.md",
+        "note": "memory note: queue job numbers"
+      },
+      {
+        "path": "commit 568f8d4",
+        "note": "result"
+      }
+    ]
+  }
+}

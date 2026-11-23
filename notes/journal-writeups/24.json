@@ -1,0 +1,184 @@
+{
+  "question": "Every result so far was in simulation. Does the policy that scores 30/30 there work on the real arm? If not, which part breaks?",
+  "measure": "What the real arm does on each attempt: whether it reaches the start pose, how many steps it runs at 30 Hz, and what stops it. Then the joint commands of the policy's first chunk on the real camera frame against the same chunk on the simulated frame.",
+  "outcome": "No. Two attempts, no grasp. The runner, the timing and the safety system worked. The policy's first chunk on the real image was wrong: it pulled the shoulder below its safe floor and the run aborted after 72 steps.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. The policy was trained by imitation: a scripted teacher that knows where the cube is solves the task in the simulator, and the network learns to copy it from images. The policy tried here is the one from experiment 23 (W&B run iziftplw), trained on a simulated scene matched to the real camera lens. It scored 30/30 on held-out poses, which are cube positions it never trained on.\n\nThe physical runner (tools/run_physical_episode.py) is the program that runs a policy on the real arm. It first drives the arm to the recorded start pose (the reset pose). This phase is called the approach. Then it runs the policy at 30 Hz. Before every command a safety gate checks it. If the gate refuses a command the arm holds its position for that step (a hold). After 15 holds in a row the run aborts. The shoulder has a floor of -92 units: below that the arm would press into the table. Joint positions are in the project's ACT units, the same units the policy outputs.",
+  "parts": [
+    {
+      "title": "Attempt 1: does the arm reach the start pose?",
+      "why": "The policy only makes sense from the pose it was trained to start in, so the approach has to work first.",
+      "did": "Ran the approach on the real arm (physical/episode_01_20260909).",
+      "predictions": [],
+      "table": null,
+      "conclusion": "No. Pan, shoulder, wrist and gripper reached the reset in 4 s, but the elbow stalled 4 units short under gravity and the approach timed out. Fix: the approach ramp may now command up to 6 units past the reset to beat the sag. All servos read 5.3 to 5.4 V. That was first called a fault. On Sep 10 the owner confirmed it is normal for the stock 5 V adapter under load."
+    },
+    {
+      "title": "Attempt 2: what does the policy do on its first real frame?",
+      "why": "This is the first time the network sees a real image and drives real motors.",
+      "did": "Ran the approach with the overshoot fix, then the episode (physical/episode_02_20260909). Afterwards fed the recorded real frame and the simulated frame to the same network and compared the first chunk.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "First chunk on",
+          "Shoulder command",
+          "Elbow command",
+          "What the arm does"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "simulated reset frame",
+              "-91.0 to -90.2",
+              "",
+              "holds still"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "real reset frame",
+              "-94.5 to -65.8",
+              "69.7 to 96.0",
+              "retracts, shoulder passes the -92 floor"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "simulated frame, +25 brightness",
+              "-93 to -76",
+              "",
+              "also breaks"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The approach reached the reset in 0.6 s. The episode ran 72 actions at 33 ms per step with 0 timing overruns, then aborted on 15 holds in a row on the shoulder floor. In the simulator the first chunk holds still. On the real frame the same network retracts the arm. Simple edits to the real frame (gray, gain, contrast stretch) do not fix it."
+    },
+    {
+      "title": "Why is the first chunk wrong?",
+      "why": "The fix depends on whether the fault is control, timing, safety or vision.",
+      "did": "Compared the real and simulated start images side by side (real_vs_sim_reset_observation.png) and tried small brightness changes on the simulated frame.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The policy is brittle to how the scene looks. It trained on one exact rendered look: background level about 10, flat lighting, an exact towel size. The real frame has a background level of about 30, texture, a different towel size and shape, different cube shading and a mousepad edge. Adding +25 brightness to a simulated frame is enough to break it. Runner, timing, gate and safety all behaved as designed."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The runner's simulator backend reproduces the stored 30/30 evaluation rollout exactly, so the real run used the same control loop that was scored in simulation",
+      "ok": true
+    },
+    {
+      "text": "The same network and the same measured start pose were used for the real-frame and simulated-frame chunks, so the image is the only difference",
+      "ok": true
+    },
+    {
+      "text": "The safety system stopped the bad motion: it held, then aborted, and kept torque on",
+      "ok": true
+    },
+    {
+      "text": "Two attempts, one policy, one real frame. The cause was found by offline edits to frames, not by a controlled live test",
+      "ok": false
+    },
+    {
+      "text": "The first report called the 5.4 V supply a fault (servo spec 6 to 12 V). The later source (2026-09-10) says it is normal for this arm, and this write-up uses that",
+      "ok": false
+    }
+  ],
+  "meaning": "The blocker for the real arm was the visual gap between the rendered scene and the real one. It was not control, timing or safety. The decision was to stop trying this policy on the arm and to randomize how the scene looks during training (experiment 25), with a new rule: before any motion, the policy's first chunk on a recorded real frame must hold still.",
+  "lesson": "A simulation score is a hypothesis about the real world. The first real frame is the test. Check the policy on a recorded real frame before you move the arm.",
+  "next": [
+    {
+      "title": "Randomize the scene's look in training (experiment 25)",
+      "why": "The policy saw one look only, and a +25 brightness change broke it."
+    },
+    {
+      "title": "An offline check on recorded real frames",
+      "why": "The episode 2 frame can now catch this failure without moving the arm."
+    },
+    {
+      "title": "Read the servo voltage in the preflight",
+      "why": "The supply question came up during attempt 1. The floor was later set at 4.8 V for the stock adapter."
+    }
+  ],
+  "log": "**TL;DR:** The runner and safety system worked, but the policy's very first move\non the real camera image was wrong, because it had only ever seen one look of\nthe scene.\n\n**Problem.** Every result so far was in simulation.\n\n*How we know:* 30/30 in sim says nothing about the real arm until you try it.\n\n**Experiment.** Run the lens-matched policy on the real arm with the new\nphysical runner: drive to the start pose, check everything, then run the policy\nat 30 Hz with every safety check on.\n\n*What we hope to learn:* if it works, great. If not, which part breaks.\n\n**Outcome.** Attempt 1: the elbow stalled 4 units short of the start pose under\ngravity and the approach timed out. I let the approach overshoot slightly.\nAttempt 2 reached the start in 0.6 s and ran 72 steps at 30 Hz with no timing\nmisses, then aborted: the first chunk drove the shoulder below its safe floor.\nIn the sim, the first chunk just holds still.\n\n- It's brittle to how the scene looks. It trained on one rendered look (dark,\n  flat background, flat lighting, an exact towel), and the real frame was\n  brighter, textured and different. Even adding +25 brightness to a sim frame\n  broke it. Like recognizing a friend only from one photo.\n- The servos read 5.4 V. I first called that a fault, but it's normal for the\n  stock 5 V adapter under load.\n\nNext: randomize how the scene looks during training.\n\n**Takeaway:** a sim score is a hypothesis about the real world, and the first\nreal frame is the test. Check the policy on a recorded real frame before you\nmove the arm.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 9 (evening) · 2 live attempts · both stopped early, no grasp",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "Runner built and rehearsed in the simulator",
+        "note": "Reproduces the stored rollout of run iziftplw exactly (427 actions, success).",
+        "state": "done"
+      },
+      {
+        "name": "Attempt 1 (episode_01)",
+        "note": "Elbow stalled 4 units short of the reset; approach timed out.",
+        "state": "trouble"
+      },
+      {
+        "name": "Approach fix",
+        "note": "Commands may pass the reset by up to 6 units.",
+        "state": "done"
+      },
+      {
+        "name": "Attempt 2 (episode_02)",
+        "note": "Reset reached in 0.6 s. 72 actions, 0 overruns, abort on 15 shoulder-floor holds.",
+        "state": "trouble"
+      },
+      {
+        "name": "Diagnosis",
+        "note": "First chunk on the real frame is off-distribution; the policy is brittle to appearance.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: aceddb5 (attempt 1 notes), 0be5289 (approach overshoot), 77fb32c (attempt 2 evidence)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 24",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/24-first-real-attempts.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections 'Physical inference runner built', 'First physical attempt', 'Second physical attempt' (2026-09-09)"
+      },
+      {
+        "path": "memory/physical-attempts-20260909.md",
+        "note": "project memory note: both attempts, voltage update"
+      },
+      {
+        "path": "memory/physical-runner-20260909.md",
+        "note": "project memory note: how the runner works"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909/run.json",
+        "note": "status aborted, actions 72"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_02_20260909/real_vs_sim_reset_observation.png",
+        "note": "real against simulated start image"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_01_20260909",
+        "note": "attempt 1 evidence directory"
+      },
+      {
+        "path": "commits aceddb5 · 0be5289 · 77fb32c",
+        "note": "attempt 1 · approach fix · attempt 2"
+      }
+    ]
+  }
+}

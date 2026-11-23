@@ -1,0 +1,205 @@
+{
+  "question": "Does the policy trained on randomized servo physics (the physics v2 ACT) pick the cube up on the real arm?",
+  "measure": "Three live episodes, read from the joint log and the wrist-camera video. Per episode: did the jaws reach and close on the cube, how many commands the safety gate held back, and whether the run reached all 480 actions.",
+  "outcome": "All three episodes reach and close on the cube. Episode 26 ran all 480 actions and lifted the cube briefly. Episodes 27 and 28 were aborted after the grasp, because the wrist command crossed the simulator's joint limit by at most 1.1 units.",
+  "setup": "A policy is the network that drives the arm. Here it is ACT (Action Chunking Transformer). It reads one wrist-camera frame and the joint angles, and outputs a chunk: the next 90 joint commands. \"Execute 30\" means it runs 30 of them and then plans again from a new frame. This policy was trained in simulation on physics v2: every joint's servo strength is drawn at random between the soft servo we measured on the real arm and the stiff default one. In simulation it scored 24 of 30 with default servos and 19 of 30 with real-like servos (experiment 45), so it became the candidate for the real arm. The runner is the program that sends the policy's commands to the real servos at 30 Hz. Its gate checks every command. A command outside the simulator's joint range is held (not sent), and 15 held commands in a row abort the episode. An episode is a fixed 480 actions (16 s). FK (forward kinematics) is the jaw position computed from the joint readings.",
+  "parts": [
+    {
+      "title": "Does it reach and grasp the cube on the real arm?",
+      "why": "The policy had only ever run in simulation. The first question is whether it finds the cube from real camera frames at all.",
+      "did": "Ran three live episodes (26, 27, 28) of the physics v2 ACT at execute 30, with the runner's servo assist off and the servo gain P at 16. The same runner was first rehearsed against the simulator.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Wrist command at grasp",
+          "Wrist command max",
+          "Gripper when closed",
+          "Held commands"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "sim rehearsal (nominal)",
+              "51",
+              "67.2",
+              "11.2",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 26",
+              "60",
+              "73.6",
+              "2.2",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "episode 27",
+              "68",
+              "77.7",
+              "0.5",
+              "15, abort at 345"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "episode 28",
+              "70",
+              "78.0",
+              "6.4",
+              "21 + 7 rate limits, abort at 475"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "It reaches and closes on the cube every time. In episode 26 it lifted the cube briefly (seen by eye) and dragged the loose paper towel. The gripper reads 0.5 to 6.4 when closed against 11.2 on a cube in simulation, so none of the three is a full-width grasp."
+    },
+    {
+      "title": "Why do episodes 27 and 28 stop after the grasp?",
+      "why": "The fix is different if the cause is the gate, the arm's geometry or the policy.",
+      "did": "Compared the wrist command and the FK jaw position at the grasp with the simulator for a comparable placement.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "FK tip y at grasp (mm)",
+          "FK tip z at grasp (mm)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "sim rehearsal (nominal)",
+              "290",
+              "36"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 26",
+              "322",
+              "52"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "episode 27",
+              "338",
+              "56"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "episode 28",
+              "333",
+              "63"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The simulator's wrist limit is 76.9 physical units. The lift raises the wrist command by 8 to 10 units, so from 68 to 70 it crosses the limit by at most 1.1 and the gate holds it. The arm tracks its commands (under 1.1 units of error on every arm joint at step 295), so this is what the policy asks for, not servo lag. For a comparable placement the real arm ends 10 to 17 wrist units more flexed than the simulator, with the FK tip 15 to 27 mm higher. That is a real-versus-simulator geometry offset. Which joint or camera angle causes it is not measured."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The same runner was rehearsed against the simulator first and held 0 commands.",
+      "ok": true
+    },
+    {
+      "text": "Three episodes, each with a different placement and a different surface (loose towel, flat white card).",
+      "ok": false
+    },
+    {
+      "text": "Whether the cube was lifted is judged by eye and from the wrist video. In episode 28 it is not visible from the wrist camera. Lift height was not measured.",
+      "ok": false
+    },
+    {
+      "text": "The memory note also records episode 29 the same night (cube moved about 5 cm nearer): all 480 actions, 0 holds, wrist command max 67.2, cube carried and set back. The record's one-line answer does not mention it.",
+      "ok": false
+    }
+  ],
+  "meaning": "The policy transfers as far as the grasp. What stops it is not the policy's aim but a geometry offset between the real arm and the simulator, which pushes the wrist command past a limit during the lift. The decision was: redo the board-pose camera check from September on the reassembled arm and correct the joint zeros, test with the cube 40 to 60 mm nearer in the meantime, and do not widen the wrist gate.",
+  "lesson": "When a live run stops, check whether the arm followed its commands before blaming the servos. Here it did, so the command itself was the thing to explain.",
+  "next": [
+    {
+      "title": "Redo the board-pose hand-eye check on the reassembled arm",
+      "why": "The real arm reads 10 to 17 wrist units more flexed than the simulator at the grasp. The number to watch is the wrist command at the grasp for a placement near y = 280 mm (simulator: 51)."
+    },
+    {
+      "title": "Retrain with a much higher lift (experiment 48)",
+      "why": "On the real arm the 31 mm teacher lift shows up as a wrist curl: the jaws rise 12 to 16 mm and pull back 15 to 17 mm."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 12 · live episodes 26, 27 and 28 (and 29 later the same night)",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "sim rehearsal through the runner",
+        "note": "0 held commands.",
+        "state": "done"
+      },
+      {
+        "name": "episode 26",
+        "note": "480 actions, 0 holds. Closed on the cube and lifted it briefly.",
+        "state": "done"
+      },
+      {
+        "name": "episode 27",
+        "note": "Closed on the cube. Aborted at step 345 on 15 wrist-flex holds in a row.",
+        "state": "trouble"
+      },
+      {
+        "name": "episode 28",
+        "note": "Jaws around the cube from about 9 s to 18 s. Aborted at step 475: 21 wrist-flex holds plus 7 rate limits.",
+        "state": "trouble"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: e24a463 (first live physics v2 ACT runs, approach from below the floor, inward range masks on every joint)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in the notebook entry of 2026-11-12",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry \"Live physics v2 ACT, episodes 26-28\": the table and the analysis"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/live-physv2-act-20261112.md",
+        "note": "per-episode account, runner changes, episode 29"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_2{6,7,8,9}_20261112_physv2_act",
+        "note": "live evidence (existence checked, not re-read)"
+      },
+      {
+        "path": "commit e24a463",
+        "note": "runner changes and the first live runs"
+      }
+    ]
+  }
+}

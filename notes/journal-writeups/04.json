@@ -1,0 +1,181 @@
+{
+  "question": "The 8 recovery rows made the clone unsafe. If they count for less in training, does the clone stay safe and still learn something?",
+  "measure": "Successes out of 3 from the normal start, and per-try safety counts: clipped frames (command cut at a joint limit), limited frames (cut by the speed limiter), unsafe-contact frames.",
+  "outcome": "No weight worked. Weights 0.10 and 0.50 memorized the recording and failed 0/3 with clipping. Weight 0.25 missed the memorization bar and was not run. A new static safety check also failed the clone that has no recovery rows, so it was demoted to a log line.",
+  "setup": "A policy is the network that drives the arm. The clone is a small network trained to copy a 450-step recording of the teacher, a script that cheats by reading the cube's true position. Experiment 03 added 8 recovery rows (the teacher's command after a small nudge) and the clone became unsafe. The loss is the number training pushes down: the average error over the rows. A loss weight scales how much one row counts; weight 0.10 means a recovery row counts a tenth as much as a normal row. The memorization bar is the offline gate: mean squared error (MSE) at most 1e-6 on the 450 normal rows. The static check scans the commands the model would give between recorded states and flags any that go out of bounds, without running the simulator.",
+  "parts": [
+    {
+      "title": "Is there a weight that keeps the normal start safe?",
+      "why": "If one weight works, use it. If none does, sparse recovery rows are a dead end.",
+      "did": "Retrained with the same 8 rows at weights 0.10, 0.25 and 0.50. Architecture, inputs, normalization, seed, optimizer, schedule, data, simulator and safety path were held fixed. Each model that passed the bar got 3 tries from the normal start.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Recovery weight",
+          "Memorization bar",
+          "Normal start",
+          "Clipped",
+          "Limited",
+          "Unsafe"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "0 (no recovery rows, exp. 02)",
+              "passed at step 28,718",
+              "0 of 3",
+              "0",
+              "0",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1.0 (exp. 03)",
+              "passed at step 24,691",
+              "0/3",
+              "291",
+              "0",
+              "13"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "0.10",
+              "passed at step 26,846",
+              "0/3",
+              "119",
+              "36",
+              "3"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "0.25",
+              "missed: MSE 1.025243023e-6 at 30,000",
+              "not run",
+              "",
+              "",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "0.50",
+              "passed at step 26,052",
+              "0/3",
+              "178",
+              "175",
+              "0"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "All three weights are rejected. No candidate reached the wider five-start or handoff tests. Sparse recovery rows stop here."
+    },
+    {
+      "title": "Can a static scan stand in for a simulator run as a safety check?",
+      "why": "A check that needs no rollout would be cheaper and could gate training.",
+      "did": "Ran the strict interpolated command-bound scan on the candidates and on the weight-0 control.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The weight-0 control also fails the scan, although in the simulator it had zero clipped, limited or unsafe frames. A check that fails the known-clean case cannot gate anything. It became telemetry, and a 3/3 run from the normal start in MuJoCo stayed the first safety check that means something."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Only the weight changed between candidates; the 8 rows were reused unchanged.",
+      "ok": true
+    },
+    {
+      "text": "The failures repeat exactly across the three tries.",
+      "ok": true
+    },
+    {
+      "text": "These runs used MuJoCo 3.11.0 by accident (a stray pip install; the project pins 3.9.0). The reports were moved to a quarantine folder and the training was not re-run. The log says the conclusion did not depend on the exact counts.",
+      "ok": false
+    },
+    {
+      "text": "One seed, three weights, normal start only. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "The record's number \"0/3 at every weight\" is slightly off: weight 0.25 never ran in the simulator because it missed the offline bar.",
+      "ok": false
+    }
+  ],
+  "meaning": "This closed the sparse-recovery idea. The next branch asked whether the network was missing information rather than data (experiment 05).",
+  "lesson": "If a dial does not fix the problem at any setting, the idea is wrong, not the setting. And test a checker on a known-good case before trusting it.",
+  "next": [
+    {
+      "title": "Add velocity, contact and history inputs (experiment 05)",
+      "why": "Maybe the network cannot tell a recovery state from a normal one."
+    }
+  ],
+  "log": "**TL;DR:** Turning down the weight of the 8 recovery rows didn't help: every\nversion that trained still failed 0/3 on safety.\n\n**Problem.** The 8 recovery rows broke the clone's safety (entry 03).\n\n*How we know:* on the normal start, 291 clipped commands and 13 unsafe contacts\nper try. I didn't know if a lighter touch would keep it safe while still\nteaching something.\n\n**Experiment.** Retrain with the same 8 rows counting 0.10, 0.25 and 0.50 as\nmuch as a normal row in the loss, everything else frozen. I also wrote a static\ncheck that scans the model's commands for anything out of bounds.\n\n*What we hope to learn:* if one weight keeps the normal start safe, use it. If\nnone do, sparse recovery rows are a dead end.\n\n**Outcome.** None worked:\n\n| weight | memorization bar | normal start | per try |\n|---|---|---|---|\n| 0.10 | passed | 0/3 | 119 clipped, 36 limited, 3 unsafe |\n| 0.25 | missed | not run | |\n| 0.50 | passed | 0/3 | 178 clipped, 175 limited |\n\n- My static check was useless: even the model with no recovery rows at all\n  failed it. Like a smoke alarm that goes off when you make toast. It became a\n  log line, and a real 3/3 run in the sim became the first safety check I\n  trusted.\n\n*Note:* also run on the wrong MuJoCo version (entry 09), not re-run.\n\n**Takeaway:** if a dial doesn't fix the problem at any setting, the idea is\nwrong, not the setting. And test your checker on a known-good case before you\ntrust it.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 2, 2026 · three retrains, two closed-loop evaluations, one static scan",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "weight 0.10",
+        "note": "Passed offline at step 26,846, then 0/3.",
+        "state": "trouble"
+      },
+      {
+        "name": "weight 0.25",
+        "note": "Stopped at 30,000 steps just above the bar; not evaluated.",
+        "state": "trouble"
+      },
+      {
+        "name": "weight 0.50",
+        "note": "Passed offline at step 26,052, then 0/3.",
+        "state": "trouble"
+      },
+      {
+        "name": "static command-bound scan",
+        "note": "Fails the weight-0 control too; kept as telemetry only.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Recovery and observability gates committed Aug 2: c51eb7e",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry committed: 87667eb (entries 02 to 36)",
+        "ok": true
+      },
+      {
+        "text": "Report sits under artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/ (wrong MuJoCo version); not re-run",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/04-recovery-weights.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "\"Current takeaway\" section: the weight ablation numbers"
+      },
+      {
+        "path": "notes/bounded-observability-gate.md",
+        "note": "weight-1.0 control row and the MuJoCo addendum"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/recovery_weight_ablations/187b171bdf0fd39e/report.json",
+        "note": "the ablation summary (exists; cited by the plan, not opened)"
+      }
+    ]
+  }
+}

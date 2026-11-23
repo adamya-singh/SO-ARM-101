@@ -51,3 +51,26 @@ that cannot load them as skills should read the file and follow it.
 - Commit each tranche of work as it lands (code + tests + note).
 - Never weaken the strict-grasp criterion, recalibrate the servos, or widen mechanical limits;
   shoulder lift never below -92 calibrated units.
+
+## The experiment record (user request 2026-11-23)
+
+The user reads every experiment in the Agentic Journal (`/experiments` on the laptop). The journal
+is told about experiments from this repository; nothing reaches it by itself, so these steps are
+part of the work, for every agent:
+
+- **When an experiment is queued.** Create its record, so it shows as running:
+  `python tools/journal_writeup.py add new.json` with `{"question", "direction", "when", "status":
+  "running", "details", "buildsOn"}` (`record` lists the existing ones and their directions;
+  `buildsOn[0]` is the experiment it grew out of). Then write a first
+  `notes/journal-writeups/<NN>.json` with the question, the setup, the registered predictions
+  (`result: "open"`) and `run.stages` as `waiting`, and `put` it. Update the stages when you check
+  on the queue.
+- **When it finishes and is analysed.** Complete the write-up and set the outcome, as Part 3 of the
+  `experiment-analyze-explain` skill describes: `put <NN>`, then `update <NN>` with the status, the
+  one-line answer and the numbers. An experiment is not done until its write-up is uploaded.
+- **Rules for the write-up** are in `notes/journal-writeups/README.md`: every number from a file in
+  this repository, baselines in the tables, only predictions that were written down before the run,
+  plain words for a new intern.
+- The journal's address is `JOURNAL_URL` (default: the laptop's tailnet address). If it does not
+  answer, keep the JSON file, say so, and upload when it is back; do not skip the file.
+

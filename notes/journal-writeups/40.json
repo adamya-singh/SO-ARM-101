@@ -1,0 +1,473 @@
+{
+  "question": "Earlier in the year we tried three model families (pi0.5, SmolVLA, ACT) and RL on top of them, on a simulator where a proper grasp was impossible. Now that the simulator is fixed, which of them is worth going on with?",
+  "measure": "Successes out of 30 held-out rollouts in the simulator: 10 cube placements never used in training, 3 repeats each. Run at \"execute 90\" (the policy runs 90 commands before it looks at the camera again) and at \"execute 30\". Also the held-out loss at step 90 (lower is better) and the sideways jaw error when the jaws close (mm, tolerance about 8).",
+  "outcome": "ACT fine-tuned and then tuned with PPO scored best: 24/30 at execute 90. pi0.5 with ReinFlow reached 21/30, plain ACT 20/30, SmolVLA 2/30. The RL gains hold only at execute 90: at execute 30 ACT with PPO fell to 7/30 and pi0.5 stayed at 15/30. SmolVLA ReinFlow never ran to the end.",
+  "setup": "A policy is the network that drives the arm from the wrist camera and the joint angles. It outputs a chunk: the next 90 commands. A teacher is a scripted controller that solves the task in simulation; a fine-tune trains a pretrained network to copy the teacher's recorded episodes. RL (reinforcement learning) then lets the policy try the task itself in the simulator and nudges it toward what earned reward.\n\nThe three families. pi0.5: a 3.38 billion parameter vision-language-action model (VLA), already fine-tuned in experiment 37. SmolVLA: a smaller VLA, 450M parameters. ACT: a small transformer on an image network, 51.6M parameters, no pretraining on robot data.\n\nThe two RL methods. PPO is a standard RL algorithm that changes the policy in small steps; KL is its measure of how far one update moved the policy, and a run aborts if KL blows up. ReinFlow is PPO for models like pi0.5 that produce actions by a multi-step denoising process: it adds a small learned noise to each step so the method can score its own actions.\n\nWhy retry: from January to July the simulator's jaws could not grasp the cube properly (the collision shapes filled the jaw mouth, the jaw-tip markers were 15 to 27 mm off, the jaws closed like scissors). The best old RL result was a 2.6% grasp rate after 21,650 episodes. Every result from then measured a task no policy could solve.\n\nEqual conditions: all fine-tunes use the pi0.5 recipe and the same two teacher captures (141,600 frames). Every RL run gets the same 40,000 episodes, the same 1600 training placements in the same order, the same reward (+1 success, -1 safety stop, small bonuses for grasp, pickup and carry), and the same final test.",
+  "parts": [
+    {
+      "title": "Fine-tunes: does ACT or SmolVLA learn the task as well as pi0.5?",
+      "why": "If a small model matches pi0.5, we do not need a 3 billion parameter model. And the ACT result tells us whether the June-July ACT failures were the model or the simulator.",
+      "did": "Fine-tuned ACT (40,000 steps, batch 128) and SmolVLA (30,000 steps, batch 32, language-vision part frozen, 99.9M parameters trained) on the same captures as pi0.5, then ran the 30 held-out rollouts at both schedules.",
+      "predictions": [
+        {
+          "text": "ACT matches or beats the CNN (6/30)",
+          "result": "held"
+        },
+        {
+          "text": "SmolVLA reaches pi0.5's held-out error and 12/30",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Held-out loss at start 90",
+          "Execute 90",
+          "Execute 30",
+          "Sideways error at closure (exec 90)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "CNN, 4800 placements",
+              "3.6e-4",
+              "6/30",
+              "",
+              "5.1 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5 fine-tune (experiment 37)",
+              "2.5e-4",
+              "12/30",
+              "15/30",
+              "4.0 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "ACT fine-tune",
+              "7.5e-5",
+              "20/30",
+              "20/30",
+              "2.7 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA fine-tune",
+              "1.7e-3",
+              "2/30",
+              "0/30",
+              "13.4 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "ACT, the smallest model, is the best imitator: lowest held-out loss, 20/30, and 27 of 30 closures inside the tolerance. So the old ACT failures were the simulator. SmolVLA did not learn the task with this recipe: its held-out loss is 1.7e-3 against pi0.5's 2.5e-4, and it lands 13.4 mm off."
+    },
+    {
+      "title": "RL on top: does trying the task itself fix what copying left?",
+      "why": "The fine-tuned policies fail on grasp quality and safety stops. RL is rewarded for the finished task, so it could fix those.",
+      "did": "Started each RL run from its fine-tune and trained for 40,000 episodes at execute 90. ReinFlow on pi0.5 trains only the last action layer and a noise head. PPO on ACT trains the decoder and action head. Then the same 30 held-out rollouts with noise off.",
+      "predictions": [
+        {
+          "text": "pi0.5 ReinFlow beats 12/30 at execute 90 (and 15/30 at execute 30), with smaller closure error",
+          "result": "half"
+        },
+        {
+          "text": "ACT PPO beats the ACT fine-tune held-out",
+          "result": "half"
+        },
+        {
+          "text": "SmolVLA ReinFlow beats the SmolVLA fine-tune held-out",
+          "result": "open"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Execute 90",
+          "Execute 30",
+          "Sideways error (exec 90)",
+          "Never descended (exec 90)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "pi0.5 fine-tune",
+              "12/30",
+              "15/30",
+              "4.0 mm",
+              "3"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5 + ReinFlow",
+              "21/30",
+              "15/30",
+              "4.4 mm",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "ACT fine-tune",
+              "20/30",
+              "20/30",
+              "2.7 mm",
+              "3"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "ACT + PPO, lr 1e-5 (aborted at 780 episodes)",
+              "18/30",
+              "8/30",
+              "3.7 mm",
+              "6"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "ACT + PPO, lr 2e-7",
+              "24/30",
+              "7/30",
+              "3.5 mm",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA + ReinFlow",
+              "not run",
+              "not run",
+              "",
+              ""
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "At execute 90, the schedule RL trained on, both gains are real in count: pi0.5 12 to 21, ACT 20 to 24, and both now descend on every rollout. The gain is not in aim: the sideways error did not shrink. And it does not carry to execute 30: pi0.5 stays at 15/30 and ACT drops from 20 to 7. The first ACT PPO run aborted because its first policy update moved the policy far too much (KL 17); the rerun used a learning rate of 2e-7 instead of 1e-5. SmolVLA ReinFlow started on Oct 5 but its record shows 0 episodes done."
+    },
+    {
+      "title": "Do the old lessons (research-log entries 03 to 07) stand under the right MuJoCo version?",
+      "why": "Those entries ran under MuJoCo 3.11 by accident. The project is pinned to 3.9. If the verdicts change, the entries are wrong.",
+      "did": "Re-ran all 24 steps of entries 03 to 07 under MuJoCo 3.9 and compared each reported number with the old one.",
+      "predictions": [
+        {
+          "text": "Same verdict under MuJoCo 3.9 for entries 03 to 07",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Entry",
+          "Reported numbers that differ",
+          "Successes, 3.11",
+          "Successes, 3.9"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "03: recovery anchors",
+              "10 of 17",
+              "0/15",
+              "0/15"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "04: recovery weights",
+              "30 of 41",
+              "0/3 (weight 0.50)",
+              "0/3 (weight 0.50)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "05: more inputs",
+              "13 of 33",
+              "0/3 in all three",
+              "0/3 in all three"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "06: DAgger",
+              "8 of 18",
+              "0/3",
+              "0/3"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "07: action chunks",
+              "4 of 28",
+              "0/3 at H10, H30, H90",
+              "0/3 at H10, H30, H90"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Many individual numbers moved, but every success count is the same zero under both versions. The \"held\" mark is my reading of those counts; the comparison file lists numbers and does not state a verdict per entry."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same held-out placements, same simulator scene (92f07142) and same evaluation for every row, including the baselines.",
+      "ok": true
+    },
+    {
+      "text": "Every RL run had the same 40,000 episode budget, the same 1600 training placements in the same order, and the same reward. The training placements are separate from the held-out ones.",
+      "ok": true
+    },
+    {
+      "text": "The pass bars in the predictions were written in the tranche note before anything was queued.",
+      "ok": true
+    },
+    {
+      "text": "One seed per run (202). Earlier work showed one configuration can swing by about 9 of 30 across seeds, so 24 against 21 against 20 is not a ranking you can lean on.",
+      "ok": false
+    },
+    {
+      "text": "Effectively 10 test placements. SmolVLA 2/30 and the ACT PPO execute-30 counts (7, 8) are not multiples of 3, so the repeats were not identical there. Cause not verified.",
+      "ok": false
+    },
+    {
+      "text": "The RL monitoring curve (20 separate placements, checked every 480 episodes) does not show the gain. For ACT PPO lr 2e-7 it starts at 0.65 and ends at 0.6. For pi0.5 it swings between 0.2 and 0.75. The held-out gain could partly be luck on 10 placements.",
+      "ok": false
+    },
+    {
+      "text": "Sources disagree on SmolVLA. The Oct 5 memory note says the fine-tune was killed for lack of memory. The later result file (and the Nov 5 correction) shows it completed at 2/30. I used the later one.",
+      "ok": false
+    },
+    {
+      "text": "The tranche note says ReinFlow trained the in and out projections and time layers. The run's identity file records scope out_head only. I used the identity file.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. None of these policies was run on the real arm in this experiment.",
+      "ok": false
+    }
+  ],
+  "meaning": "ACT is the family to go on with. It is the smallest model, the best imitator (7.5e-5 held-out loss, 20/30 at both schedules) and it reached the best score with PPO. The later work in November (the teacher that corrects its own mistakes, randomized motor physics, the SO-101 scenes) was built on ACT. pi0.5 gains a lot from RL at execute 90 but nothing at execute 30. SmolVLA is not usable with this recipe; that is a statement about the recipe, since a tuned recipe on Nov 22 took it to 14/30. RL helped the count but not the aim, and its gain disappears when the policy replans every 30 steps, which is the schedule a real arm needs to correct itself. So RL as run here is not a fix for the real-arm problem from experiments 38 and 39.",
+  "lesson": "A policy improved by RL at one replanning schedule can get worse at another. Test at the schedule you intend to deploy, not only the one you trained on.",
+  "next": [
+    {
+      "title": "Why does ACT + PPO fall from 20/30 to 7/30 at execute 30?",
+      "why": "The RL runs trained only at execute 90. No source explains the drop."
+    },
+    {
+      "title": "Seed repeats of the top three",
+      "why": "24, 21 and 20 of 30 are within the seed spread seen earlier. Not found in the sources as run."
+    },
+    {
+      "title": "SmolVLA with a tuned recipe",
+      "why": "Done Nov 22 (commit ddb1d73): SmolVLA 14/30, was 2/30."
+    },
+    {
+      "title": "SmolVLA ReinFlow",
+      "why": "Never completed in this tranche. RL on the SmolVLA fine-tune was queued again on Nov 22."
+    },
+    {
+      "title": "Train on the policy's own mistakes and on randomized physics, with ACT",
+      "why": "The outside review on Nov 5 chose these as the next steps (experiments 41 and 42)."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished, except SmolVLA ReinFlow (started, 0 episodes recorded)",
+    "line": "Oct 4 to 5, 2026 · queued in two halves after two machine restarts wiped the queue · all runs done but SmolVLA ReinFlow",
+    "watch": [
+      {
+        "title": "pi0.5 ReinFlow (meq8b42k)",
+        "note": "40,000 episodes, monitoring every 480",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/meq8b42k"
+      },
+      {
+        "title": "ACT fine-tune (j6kb6b9j)",
+        "note": "40,000 steps, held-out curve",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/j6kb6b9j"
+      },
+      {
+        "title": "ACT PPO lr 2e-7 (5p0l4myo)",
+        "note": "the best run, 24/30 at execute 90",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/5p0l4myo"
+      },
+      {
+        "title": "ACT PPO lr 1e-5, aborted (g70vi94p)",
+        "note": "KL abort at 780 episodes",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/g70vi94p"
+      },
+      {
+        "title": "SmolVLA fine-tune (6yamgpja)",
+        "note": "30,000 steps, 2/30",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/6yamgpja"
+      },
+      {
+        "title": "Entries 03-07 re-run (57m6uu0r)",
+        "note": "24 steps under MuJoCo 3.9",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/57m6uu0r"
+      },
+      {
+        "title": "Tranche status page",
+        "note": "live rows per run",
+        "href": "https://claude.ai/artifact/Dt7rfwHp88iE4d1e8VPZQi"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "readiness probes",
+        "note": "Speed and noise probes set the budget: 40,000 episodes per RL run. First queue lost to a restart at 11:18 on Oct 4 and re-queued.",
+        "state": "trouble"
+      },
+      {
+        "name": "entries 03-07 under MuJoCo 3.9",
+        "note": "24 of 24 steps, finished Oct 4 15:48.",
+        "state": "done"
+      },
+      {
+        "name": "pi0.5 ReinFlow",
+        "note": "40,000 episodes. Held-out 21/30 at execute 90, 15/30 at execute 30.",
+        "state": "done"
+      },
+      {
+        "name": "ACT fine-tune",
+        "note": "40,000 steps. Held-out loss 7.5e-5, 20/30 at both schedules.",
+        "state": "done"
+      },
+      {
+        "name": "ACT PPO, lr 1e-5",
+        "note": "Aborted at 780 episodes (kl_diverged, KL 17 on the first policy update). Still evaluated: 18/30.",
+        "state": "trouble"
+      },
+      {
+        "name": "SmolVLA fine-tune",
+        "note": "First attempt killed (out of memory beside ACT PPO's 20 workers, per the queue script). Re-run alone on Oct 5: 2/30.",
+        "state": "trouble"
+      },
+      {
+        "name": "ACT PPO, lr 2e-7",
+        "note": "40,000 episodes. Held-out 24/30 at execute 90, 7/30 at execute 30.",
+        "state": "done"
+      },
+      {
+        "name": "SmolVLA ReinFlow",
+        "note": "Started Oct 5 20:14. progress.json still says warm-up, 0 episodes. No result file.",
+        "state": "trouble"
+      },
+      {
+        "name": "videos",
+        "note": "Recordings of pi0.5 ReinFlow, the ACT fine-tune and the aborted ACT PPO on the held-out placements.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Code committed: 059105e (models, fine-tune tool, RL), 622b139 (note, manifest, status page), 71ddfbb (queue scripts), 3888d81 (probe-based settings), 7981599 (queue for the second half)",
+        "ok": true
+      },
+      {
+        "text": "Governing note exists (notes/retry-tranche-20261004.md), but its \"Probes and the episode budget\" and \"Queue\" sections were never filled in, and it has no results section",
+        "ok": false
+      },
+      {
+        "text": "Result files are on disk only: artifacts/ is in .gitignore and git log shows no commit for them",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      },
+      {
+        "text": "Results table is in notes/system-paper.html (Table 5), which is not committed",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/retry-tranche-20261004.md",
+        "note": "why, the user's decisions, the pass bars, the design"
+      },
+      {
+        "path": "notes/system-paper.html",
+        "note": "Table 5 (all held-out results) and notes on source disagreements"
+      },
+      {
+        "path": "notes/retry-tranche-status.html",
+        "note": "the status page source"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/act_ft/result.json",
+        "note": "ACT fine-tune numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/smolvla_ft/result.json",
+        "note": "SmolVLA fine-tune numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/rl_pi05/result.json",
+        "note": "pi0.5 ReinFlow numbers and monitoring history"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/rl_act/result.json",
+        "note": "aborted ACT PPO (lr 1e-5) numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/rl_act_lr2e-7/result.json",
+        "note": "ACT PPO lr 2e-7 numbers and monitoring history"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/rl_smolvla/progress.json",
+        "note": "SmolVLA ReinFlow: warm-up, 0 episodes"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/budget.json",
+        "note": "episode budget and per-run arguments"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/rerun_03_07/comparison.md",
+        "note": "entries 03-07, MuJoCo 3.11 against 3.9"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/retry_tranche_20261004/status_docs/",
+        "note": "per-run status rows, counts of changed numbers per entry"
+      },
+      {
+        "path": "simulation_code/queue_retry_tranche_20261004.sh, queue_retry_probes_20261004.sh, queue_retry_remaining_20261005.sh",
+        "note": "the queues; the last one records why runs were repeated"
+      },
+      {
+        "path": "memory: retry-tranche-20261004.md",
+        "note": "decisions, restarts, and the Nov 5 correction of the results"
+      },
+      {
+        "path": "notes/reinflow-inference-sampler-fix.md, notes/smolvla-coordinate-fix.md, notes/smolvla-processor-contract-fix.md",
+        "note": "January-April fixes from the old stack; background only, no numbers used"
+      },
+      {
+        "path": "commits 059105e · 622b139 · 71ddfbb · 3888d81 · 7981599",
+        "note": "code · note and status page · queues · settings · second half"
+      }
+    ]
+  }
+}

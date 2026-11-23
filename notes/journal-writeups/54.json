@@ -1,0 +1,298 @@
+{
+  "question": "Can a policy learn pick-and-place from scratch by trial and error if the task is taught in stages? What do the stages need? And does a skill built on lower skills work wherever the lower skills work?",
+  "measure": "Success rate on the full task (0 to 1) over 1000 test episodes per cell, averaged over training seeds (a seed is one repeat of training with different random numbers). Also how many seeds learned the task at all.",
+  "outcome": "A staged ladder only chains under four conditions. It is still not better than one good hand-shaped reward on the whole workspace. But it inherits: with the low stages trained everywhere, the full task picks in a half it never trained in at 0.96, against 0.35.",
+  "setup": "A policy is the network that chooses the actions. Reinforcement learning (RL) trains it by trial and error from a reward, with no teacher to copy. PPO is the RL method used. \"From scratch\" means the network starts random.\n\nThe toy world (tools/rg_toy.py) has no arm and no camera. A point gripper in a unit box moves a cube onto a target. The policy is a 2-layer network that sees absolute positions, so going somewhere it never visited is something it must have learned. Each run is 6 to 7 million steps.\n\nA reward can be success-only (1 when the task is done, nothing before) or shaped (hand-written hints along the way). A curriculum, or ladder, trains easier stages first: over (hover low over the cube), lift, carry (hold the cube over the target), place (start holding the cube, put it on the target, let go), then full (everything, success-only). Replay means the old stages keep being practised while a new one is learned. The policy is not told which stage it is in.\n\nL is the left half of the box, R the right half. Experiment 53 found that skills stack and combine but that order did not matter for two skills that do not need each other. Here each stage needs the one below it.",
+  "parts": [
+    {
+      "title": "What does a staged curriculum need before it chains into the full task?",
+      "why": "If stages do not add up to the full task, there is no ladder to test anything on.",
+      "did": "Eight rounds on the toy, 5 seeds per recipe (10 in round 8). Each round changed one thing after reading why the last one failed. One failing seed was traced over 2000 episodes.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Round",
+          "Recipe",
+          "Full task, whole box",
+          "Seeds that learned it"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1",
+              "flat, success-only reward",
+              "0.00",
+              "0 of 5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1",
+              "flat, hand-shaped reward",
+              "0.84",
+              "3 of 5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1",
+              "stages reach / lift / place, any order or mix",
+              "0.00 to 0.17",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2",
+              "prefix stages (over, lift, carry), then success-only",
+              "0.00",
+              "0 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "3",
+              "prefix stages, then the shaped full task",
+              "0.00",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "4",
+              "flat shaped, bounded action mean (tanh)",
+              "1.00",
+              "5 of 5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "4",
+              "staged, bounded action mean",
+              "",
+              "1 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "5",
+              "+ place as its own stage",
+              "",
+              "replay 0 of 5, no replay 2 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "6",
+              "+ advantages normalised per task",
+              "",
+              "1 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "7",
+              "+ L2 0.01 on the value before the tanh",
+              "",
+              "no replay 4 of 5, replay 0 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "8",
+              "+ old stages replayed success-only",
+              "0.59",
+              "5 of 10"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Four conditions, each needed in this toy. (1) Stages must be prefixes of the final task, or they contradict each other. (2) Every new step needs its own stage, started where the last one ends. (3) A finished skill must stay adjustable: the traced seed carried the cube to the target in 100% of episodes and never let go, gripper output stuck at 1.00. A bounded output plus a small penalty fixed that. (4) Replay old stages success-only, not shaped. Even then, flat shaped RL (5 of 5 seeds in about 3 M steps) beats the best ladder (5 of 10 in 5 to 7 M)."
+    },
+    {
+      "title": "Does the full task inherit how far the low stages generalize?",
+      "why": "This is the \"recursive\" idea: train the cheap low stages widely and the expensive high stages narrowly, and see if the high ones work everywhere anyway.",
+      "did": "Round 8 recipe, 10 seeds. The low stages (over, lift) were trained on the whole box or on L only. The high stages (carry, place, full) were trained on L only in both. A flat shaped policy trained on L only is the comparison (5 seeds).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Full task tested on",
+          "Low stages everywhere",
+          "Only 'over' everywhere",
+          "Low stages on L only",
+          "Flat shaped RL on L only"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "L (trained)",
+              "1.00",
+              "",
+              "0.97",
+              "1.00"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pick in R, place in L",
+              "0.96",
+              "0.84",
+              "0.35",
+              "0.41"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pick in L, place in R",
+              "0.82",
+              "0.71",
+              "0.25",
+              "0.44"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "both in R",
+              "0.78",
+              "0.75",
+              "0.48",
+              "0.52"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Yes. The full task never saw a cube in R and picks there at 0.96, against 0.35 when the low stages were also left-only. Placing into R was never trained at all and still rises from 0.25 to 0.82. It carries two levels up: with only the lowest stage trained everywhere, picking in R is 0.84, and lift alone works in R at 0.93 without being trained there. Each level in between costs a little."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Every cell is 1000 test episodes with the mean action. Round 8 has 10 seeds per column.",
+      "ok": true
+    },
+    {
+      "text": "The flat shaped policy on L is as good on L (1.00) as the ladders, so the gap in R is not a weaker policy.",
+      "ok": true
+    },
+    {
+      "text": "The inheritance table averages only the seeds that learned the full task on L (9 of 10 in each staged column). One seed per column never learned it (0.01 to 0.17 on L) and is left out. The all-seed means in report_all.txt are lower (for example 0.86 for pick in R, place in L).",
+      "ok": false
+    },
+    {
+      "text": "Staged recipes are bimodal: a seed learns the task fully or not at all. Most rows have 5 seeds.",
+      "ok": false
+    },
+    {
+      "text": "The four conditions were found one after another on the same toy. Each fix was tested, not each combination.",
+      "ok": false
+    },
+    {
+      "text": "The toy is a point mass with exact positions. No arm, no camera. Inheritance has not been shown in the arm simulator.",
+      "ok": false
+    },
+    {
+      "text": "No prediction or pass bar was written down before these runs.",
+      "ok": false
+    }
+  ],
+  "meaning": "The note's reading: in this toy a ladder is not the way to make from-scratch RL work, because one good shaped reward is cheaper and more reliable. A ladder is worth it for one thing only: the expensive top stage can be trained narrowly if the cheap stages below it were trained widely. For the arm that suggests training reach, descend and grasp over the whole workspace and the costly high stages narrowly, then testing whether they inherit. Experiment 55 is the first attempt at that in the arm simulator.",
+  "lesson": "The trace of one failing seed explained five rounds of failures. The policy did everything except let go, because \"gripper closed\" had been right in every earlier stage and that output had saturated.",
+  "next": [
+    {
+      "title": "Run the inheritance test in the arm simulator",
+      "why": "The toy result has not been reproduced there. The first arm attempt (experiment 55) was not readable."
+    },
+    {
+      "title": "Build arm ladders as prefixes, unsaturated outputs, success-only replay",
+      "why": "These are the four conditions carried over as a recipe."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 22, overnight · 8 rounds, 5 to 10 seeds per recipe · toy complete",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "round 1",
+        "note": "Flat and staged baselines. Stages contradicted each other.",
+        "state": "done"
+      },
+      {
+        "name": "rounds 2 to 3",
+        "note": "Prefix stages. Stages learned (1.00 / 1.00 / 1.00 when mixed) but never chained.",
+        "state": "done"
+      },
+      {
+        "name": "round 4",
+        "note": "Bounded action mean. Flat shaped RL became reliable (5 of 5).",
+        "state": "done"
+      },
+      {
+        "name": "rounds 5 to 7",
+        "note": "Place as its own stage, per-task advantages, L2 on the pre-tanh value.",
+        "state": "done"
+      },
+      {
+        "name": "round 8",
+        "note": "Success-only replay, 10 seeds. Inheritance tables, including the two-levels-up run.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: d9e5a0e (testbed), 8e03fd3 (rounds 2 to 4), fe57aa4 (results), 5f0bbe8 (two levels up)",
+        "ok": true
+      },
+      {
+        "text": "Write-up: notes/rg-toy-20261122.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/rg-toy-20261122.md",
+        "note": "the write-up; every number here comes from it"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_toy_20261122/report_all.txt",
+        "note": "all-seed means per recipe (checked against the note)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_toy_20261122/results.json",
+        "note": "per-seed results"
+      },
+      {
+        "path": "tools/rg_toy.py",
+        "note": "the toy world and the experiments e1 to e10"
+      },
+      {
+        "path": "memory/overnight-rg-vla-20261122.md",
+        "note": "project memory note for the night"
+      },
+      {
+        "path": "commits d9e5a0e · 8e03fd3 · fe57aa4 · 5f0bbe8",
+        "note": "testbed · rounds 2 to 4 · results · two levels up"
+      }
+    ]
+  }
+}

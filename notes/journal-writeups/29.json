@@ -1,0 +1,255 @@
+{
+  "question": "The policy only knew one cube position. If we train it with the square and cube anywhere in a 14 by 10 inch rectangle at any angle, can it find the cube on placements it has not seen?",
+  "measure": "Successes out of 30 on held-out placements in the simulator. Then, to explain the score, the loss on training placements against the loss on held-out placements, for each chunk. A ratio near 1 means it learned the rule. A large ratio means it memorized its training scenes.",
+  "outcome": "No. 3/30 on held-out placements, all from one placement, and 0/3 at the normal start. On the chunk that plans the descent from the survey image, held-out loss is 1.9e-3 against 1.4e-5 in training: 136 times. It memorized its 400 placements.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. It is trained by imitation: a scripted teacher that knows the cube's exact position solves the task in the simulator, and the network learns to copy it from images. The loss is the mean squared difference between the network's chunk and the teacher's, in normalized joint units.\n\nOn the real arm the policy went to one learned spot (experiment 28). So the training data changed: the square and cube can now be anywhere in a 14 by 10 inch rectangle, at a yaw (rotation on the table) of up to plus or minus 45 degrees. One position and angle is a placement. Held-out means 10 placements the network never trained on; each is tried 3 times, giving a score out of 30.\n\nThe arm first rises to a survey pose so the camera sees the table. The chunk that starts at step 90 is made from that survey image and plans the descent to the cube. It is the one chunk that must read where the cube is. The cube is 12 to 25 pixels wide in that 256-pixel image.",
+  "parts": [
+    {
+      "title": "Can the teacher and the camera cope with the whole rectangle?",
+      "why": "The network copies the teacher, so the teacher must solve the task wherever the cube is, and the camera must see it.",
+      "did": "Measured where the teacher can reach and what the camera sees, added a raised survey pose, made the teacher rotate its grasp with the cube's yaw, and certified it.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The teacher reaches about half of the rectangle (not the far strip, not a pocket near the base). The survey pose sees 108 of 165 rectangle points, against 80 of 165 from the start pose. The teacher was certified 30/30 over ten placements. Screening accepted 400 of about 580 training placements."
+    },
+    {
+      "title": "Run 4: does the policy find the cube on new placements?",
+      "why": "If it works across the table, it goes back to the arm.",
+      "did": "Trained on 400 placements with random looks, 120k steps, same recipe (W&B 8qj8795i). Evaluated on 10 held-out placements, 3 tries each.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Nominal",
+          "Held-out",
+          "Held-out, random looks",
+          "Survey move (prefix)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "fixed square, random looks (exp. 25)",
+              "3/3",
+              "30/30",
+              "29/30",
+              "63/63"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "placement run 4, 400 placements",
+              "0/3",
+              "3/30",
+              "0/30",
+              "30/30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "3/30, and all three successes are one placement (mid/right, 3 of 3). Of the 27 failures, 18 are safety invalidations (the cube nudged and tilted at 3 to 5 mm height) and 9 are incomplete pickups. The survey move is learned (prefix 30/30). The first reading was underfit: training loss 7.7e-6 against 1.3e-6 for the fixed-square run."
+    },
+    {
+      "title": "Underfit or memorized?",
+      "why": "The two need opposite fixes. Underfit means train more or use a bigger model. Memorized means the model fits its training scenes but not the rule.",
+      "did": "Ran the teacher on the 10 held-out placements and scored the run-4 checkpoint on training frames and held-out frames, by where the chunk starts.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Chunk start",
+          "Training loss",
+          "Held-out loss",
+          "Ratio"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "step 0 (survey move)",
+              "3.0e-6",
+              "1.2e-5",
+              "4.1x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "step 90 (descent from the survey image)",
+              "1.4e-5",
+              "1.9e-3",
+              "136x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "steps 180, 270, 360",
+              "5.6e-6",
+              "1.8e-5",
+              "3.2x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "all rows",
+              "1.1e-5",
+              "1.8e-4",
+              "16.6x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "fixed-square policy (30/30), training loss",
+              "2.5e-6 (start 90)",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "Memorized. The network fits its 400 survey images well and fails on new ones at exactly the chunk that has to read the cube's position. So longer training alone will not help. The network is also small for this: 352k parameters, of which the image encoder holds 8k, reading a cube 12 to 25 pixels wide."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe, seed (202) and 120k steps as the 30/30 fixed-square run; only the placement distribution changed",
+      "ok": true
+    },
+    {
+      "text": "Training and held-out loss are scored by the same tool on the same checkpoint; the numbers match heldout_fit.json",
+      "ok": true
+    },
+    {
+      "text": "The teacher was certified 30/30 on this scene, so the failures are the network's",
+      "ok": true
+    },
+    {
+      "text": "One training seed, and only 10 held-out placements",
+      "ok": false
+    },
+    {
+      "text": "The all-rows ratio was first written as 24x and corrected to 16.6x on 2026-09-30 from heldout_fit.json. The 136x figure did not change",
+      "ok": false
+    },
+    {
+      "text": "The first written conclusion was 'underfit'. The same-day analysis overturned it",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. This policy was not run on the arm",
+      "ok": false
+    }
+  ],
+  "meaning": "Randomizing placement did not by itself teach the policy to look. It scored 3/30 because it stored an image-to-answer table for 400 scenes. The decision that followed: try more placements (experiment 30, 1200 placements), since more data is the usual cure for memorizing, and keep a finer, wider image encoder as the next lever. The train-against-held-out comparison became a standard phase of every run. The live policy stayed the fixed-square one (ytn3eygr).",
+  "lesson": "Compare training and held-out error on the exact step that matters. 'Underfit' and 'memorized' need opposite fixes, and the wrong one was nearly picked.",
+  "next": [
+    {
+      "title": "3 times the placements (experiment 30)",
+      "why": "The usual fix for memorizing is more data."
+    },
+    {
+      "title": "A finer, wider image encoder",
+      "why": "8k parameters with a stride-8 first layer see the cube as two or three patches."
+    },
+    {
+      "title": "Score held-out loss in every run",
+      "why": "This analysis was built by hand; the pipeline gained a heldout_fit phase so it is there before any rollout."
+    }
+  ],
+  "log": "**TL;DR:** No: trained on 400 random placements it got 3/30 on new ones, because\nit memorized the placements instead of learning to read where the cube is.\n\n**Problem.** The policy needed to handle the cube anywhere, not one spot\n(entry 28).\n\n*How we know:* real grasps landed in the trained spot no matter where the cube\nwas.\n\n**Experiment.** Put the square and cube anywhere in the rectangle at any angle,\nadd a raised \"survey\" pose so the camera can see the whole area, and certify the\nscript 30/30 on it. Train on 400 placements with the same recipe and test on 10\nnew ones. Then compare training and test error on each chunk.\n\n*What we hope to learn:* if it works across the table, go back to the arm.\n\n**Outcome.** Normal start 0/3, new placements 3/30 (all from one placement). I\nfirst called it underfit. The error breakdown said otherwise:\n\n| chunk | training error | test error | ratio |\n|---|---|---|---|\n| first descent (from the survey frame) | 1.4e-5 | 1.9e-3 | **136x** |\n| the others | | | 3-4x |\n\n- It fits 400 survey images without learning \"cube here, so go there.\" The image\n  encoder had 8k parameters, looking at a cube 12-25 pixels wide.\n\n**Takeaway:** compare training and test error on the exact step that matters.\n\"Underfit\" and \"memorized\" need opposite fixes, and I almost picked the wrong\none.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · 98 min end to end · W&B 8qj8795i · nothing left",
+    "watch": [
+      {
+        "title": "W&B run 8qj8795i",
+        "note": "Fourth bench run, placement recipe, 400 placements",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/8qj8795i"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "Placement tranche built",
+        "note": "Regime, survey pose, yaw-aware teacher, scene 92f07142, certification 30/30.",
+        "state": "done"
+      },
+      {
+        "name": "Review re-signed and run queued",
+        "note": "tsp job 2, with --appearance --placement --frame-store gpu --frame-stride 3.",
+        "state": "done"
+      },
+      {
+        "name": "Screening and capture",
+        "note": "400 of about 580 training placements accepted, 10 held-out; capture 400/400.",
+        "state": "done"
+      },
+      {
+        "name": "Training",
+        "note": "120k steps in 14 min at 144 steps per second with frames on the GPU.",
+        "state": "done"
+      },
+      {
+        "name": "Evaluation and real-frame check",
+        "note": "Nominal 0/3, held-out 3/30, held-out appearance 0/30, prefix 30/30.",
+        "state": "done"
+      },
+      {
+        "name": "Analysis",
+        "note": "Held-out capture with the teacher; start-90 loss 136x the training loss.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 2c3b5b3 and 2574a4d (placement tranche), c2918aa (GPU frame store, review signed), 0ca4aa8 (queued), 8acf2a8 (result), 76f2063 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 29",
+        "ok": true
+      },
+      {
+        "text": "evaluation_summary.json and heldout_fit.json match the write-up",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/29-placement-run-4.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections 'Placement randomization tranche implemented', 'Fourth run', 'Analysis of run 4' (2026-09-10)"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "the later intern explanation of the whole placement story"
+      },
+      {
+        "path": "memory/placement-randomization-20260910.md",
+        "note": "project memory note: tranche, run 4 and run 5"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/evaluation_summary.json",
+        "note": "success counts, by region"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/seed202_120k_placement_20260910/heldout_fit.json",
+        "note": "training and held-out loss by chunk start, ratios"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/rehearsal/analysis_run4_heldout_capture",
+        "note": "teacher capture of the 10 held-out placements"
+      },
+      {
+        "path": "commits 2c3b5b3 · 2574a4d · c2918aa · 8acf2a8 · 76f2063",
+        "note": "tranche · tooling · frame store · result · analysis"
+      }
+    ]
+  }
+}

@@ -1,0 +1,317 @@
+{
+  "question": "Can a curriculum build one skill on top of another? Three tests: stacking, combination, order.",
+  "measure": "How far the jaws follow a cube moved 20 mm mid-episode (follow gain, 0 to 1), and how many pickups survive a soft elbow.",
+  "outcome": "Stack: yes. Combine: yes. Order: no effect. Read it as \"skills add up, but these two do not depend on each other\".",
+  "setup": "A policy is the network that drives the arm. Earlier we showed that one change to the training data gives the policy one skill. A teacher that corrects its own mistakes teaches it to follow the cube when it moves (\"look\"). Randomized servo physics teaches it to cope when the elbow goes soft (\"motor\"). A curriculum needs such skills to build on each other.",
+  "parts": [
+    {
+      "title": "Do the two skills stack in one policy?",
+      "why": "If training on both changes gave neither skill, the changes interfere and no curriculum can work.",
+      "did": "Trained one policy on half of each kind of data, then moved the cube 20 mm mid-episode, and separately made the elbow soft.",
+      "predictions": [
+        {
+          "text": "It follows the shift",
+          "result": "held"
+        },
+        {
+          "text": "It keeps at least 80% of pickups with a soft elbow",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "ACT policy",
+          "Successes, no probe",
+          "Follow gain (execute 90 / 30)",
+          "Pickups kept, soft elbow"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "neither (baseline)",
+              "87",
+              "+0.04 / +0.06",
+              "35 of 87 / 2 of 87"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "look only",
+              "76",
+              "+0.73",
+              "26 of 77"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "motor only",
+              "66",
+              "+0.38 / +0.87",
+              "62 of 73 / 59 of 67"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "both, half of each",
+              "83",
+              "+0.74 / +0.91",
+              "63 of 87 / 65 of 82"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "both, all of each",
+              "76 / 80",
+              "+0.81 / +0.89",
+              "63 of 86 / 55 of 88"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No interference. Both skills are there; the motor one is slightly diluted (72% and 79% against the 80% bar), and twice the data did not fix that."
+    },
+    {
+      "title": "Do they combine in one episode?",
+      "why": "No training episode contains both changes at once, so this tests whether skills compose or were only learned separately.",
+      "did": "A new probe moves the cube and softens the elbow in the same episode.",
+      "predictions": [
+        {
+          "text": "The mixed policy handles both",
+          "result": "half"
+        },
+        {
+          "text": "The baseline, look-only and every CNN do not",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "ACT policy",
+          "Follow gain",
+          "Pickups kept",
+          "If the skills were independent"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "neither, execute 90",
+              "+0.01",
+              "0.08",
+              "0.06"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "look only, execute 90",
+              "+0.48",
+              "0.12",
+              "0.25"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "motor only, execute 90 / 30",
+              "+0.23 / +0.71",
+              "0.37 / 0.81",
+              "0.30 / 0.75"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "both, execute 90 / 30",
+              "+0.44 / +0.80",
+              "0.30 / 0.77",
+              "0.28 / 0.73"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Replanning every 30 steps, the skills combine like independent parts (0.77 kept against 0.73). Replanning every 90 steps, nothing handles both."
+    },
+    {
+      "title": "Does having one skill make the next cheaper?",
+      "why": "This is the curriculum question. If yes, the order you teach skills in saves data.",
+      "did": "Started from a policy with and without the other skill and trained 5,000 more steps on 300, 1,200 and 4,800 placements.",
+      "predictions": [
+        {
+          "text": "Adding motor: the start that already has look leads by 0.10",
+          "result": "failed"
+        },
+        {
+          "text": "Adding look: the start that already has motor leads by 0.10",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Skill added, start",
+          "N = 0",
+          "300",
+          "1,200",
+          "4,800"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "motor, from baseline",
+              "0.40",
+              "0.74 / 0.73",
+              "0.75 / 0.74",
+              "0.79 / 0.75"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "motor, from look only",
+              "0.34",
+              "0.74 / 0.70",
+              "0.76 / 0.76",
+              "0.75 / 0.78"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "look, from baseline",
+              "+0.04",
+              "+0.62",
+              "+0.68",
+              "+0.68"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "look, from motor only",
+              "+0.38",
+              "+0.64",
+              "+0.68",
+              "+0.71"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "No order effect: the lead was −0.00 and +0.02 against the 0.10 bar. Each skill is learned from 300 placements from any start."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same 100 placements and the same shift plans for every policy",
+      "ok": true
+    },
+    {
+      "text": "The half-and-half policy has the same 7,200-placement budget as the three single policies",
+      "ok": true
+    },
+    {
+      "text": "Both starts in the order test had the same training: 40,000 steps on 7,200 placements",
+      "ok": true
+    },
+    {
+      "text": "The motor data and the look data were captured on different scenes",
+      "ok": false
+    },
+    {
+      "text": "One training seed for parts 1 and 2. Two skills only. Simulation only.",
+      "ok": false
+    }
+  ],
+  "meaning": "Stacking and combining are supported. Order is not, but this pair was a weak test: neither skill needs the other.",
+  "lesson": "The two \"failed\" marks only mean something because the bar was written down before the run.",
+  "next": [
+    {
+      "title": "A skill built on an earlier one: retry after a failed grasp",
+      "why": "Needs \"look\" first. This is a real test of order."
+    },
+    {
+      "title": "Why is the motor skill diluted in mixed policies?",
+      "why": "Twice the data did not fix it (73% / 63%)."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 21 · 6 of 6 stages · nothing left in the queue",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "rehearsal gate",
+        "note": "40 steps, the new probe on 3 placements, the report. Gates everything.",
+        "state": "done"
+      },
+      {
+        "name": "combination",
+        "note": "The new probe on the existing policies and the teacher controls.",
+        "state": "done"
+      },
+      {
+        "name": "both, half of each",
+        "note": "Trainer, then its probe cells.",
+        "state": "done"
+      },
+      {
+        "name": "order",
+        "note": "18 trainers, each followed by its probe cell.",
+        "state": "done"
+      },
+      {
+        "name": "both, all of each",
+        "note": "Stopped on a CUDA error at step 17,500. Resumed and finished Nov 21.",
+        "state": "trouble"
+      },
+      {
+        "name": "report",
+        "note": "Three tables, and which predictions held.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 473c47d (results), f20bec5 (addendum)",
+        "ok": true
+      },
+      {
+        "text": "Write-up and predictions file updated",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/recursive-generalization-20261119.md",
+        "note": "the write-up"
+      },
+      {
+        "path": "notes/recursive-generalization-20261119-predictions.json",
+        "note": "registered predictions"
+      },
+      {
+        "path": "experiments/recursive_generalization_20261119/report.json",
+        "note": "the numbers"
+      },
+      {
+        "path": "simulation_code/queue_recursive_generalization_20261119.sh",
+        "note": "the queue, about 22 GPU hours"
+      },
+      {
+        "path": "commits 1e9e69b · 473c47d · f20bec5",
+        "note": "built and queued · results · addendum"
+      }
+    ]
+  }
+}

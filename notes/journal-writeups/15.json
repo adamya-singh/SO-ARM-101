@@ -1,0 +1,231 @@
+{
+  "question": "Every policy so far read the cube's exact position from the simulator. If we replace that with the wrist camera image, how much worse is the policy, and does it use the image at all?",
+  "measure": "Clean successes out of 15 rollouts and safety frames for three seeds, plus one ablation: the same trained model fed all-black images. If black images change little, the model is not relying on the picture.",
+  "outcome": "The first vision policy scored 0/15, 0/15 and 3/15. With black images seed 101 also scored 0/15, with 303 safety frames against 259. The image mattered only a little; the policy leaned on the progress clock.",
+  "setup": "A policy is the network that drives the arm. The teacher is a hand-written script that does the task using the cube's exact position from the simulator; the policy is trained to copy the teacher's recorded commands. The policy outputs a chunk: the next 90 commands at once. A seed is the random number that starts training; the same recipe with a different seed gives a different policy. The test is called Stage A: 5 scenarios (the nominal cube position and four positions shifted by 1.5 mm), 3 repeats each, 15 rollouts. A rollout is one full attempt. A safety frame is one step where the policy asks a joint to leave its allowed range (a clip) or to move faster than the per-step cap (a limit). A rollout with any safety frame does not count. To pass, a policy needs 15 of 15 with zero safety frames. The policies before this one are state policies: one of their inputs is the cube's position, which only a simulator can give. That input is called privileged. A real arm has a camera, not a cube position. The vision policy (v0) swaps the cube position for the wrist camera frame, passed through a small convolutional network that turns it into 512 numbers. It keeps the two inputs a real arm does have: the current joint commands, and a progress clock that counts how far through the episode we are. It was trained for 20,000 steps on a recording of 5 episodes (2,400 rows) with camera frames stored. This rung runs in exploratory mode: single experiments are not registered in advance, and no claim to promote a policy is made. The stated purpose of v0 was to get the whole pixel pipeline running and to measure the gap, with the loose expectation that it would be worse than the state policy.",
+  "parts": [
+    {
+      "title": "How does the first policy from pixels compare with the state policy?",
+      "why": "The cube position is exactly what the camera must replace. We need to know how big the gap is before trying to close it, and that recording frames, training on them and running the policy on live frames all work together.",
+      "did": "Captured the 5 scenarios again with frames. The scalar data came out byte-identical to the capture without frames, so storing frames did not disturb the physics. Trained seeds 101, 202 and 303 and ran the 15-rollout test on each.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Seed",
+          "Successes",
+          "Safety frames",
+          "Failure mix"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "state (reads cube position)",
+              "101",
+              "9/15",
+              "24",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "state (reads cube position)",
+              "202",
+              "9/15",
+              "48",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "state (reads cube position)",
+              "303",
+              "12/15",
+              "33",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "vision v0",
+              "101",
+              "0/15",
+              "259",
+              "9 safety_invalidation, 6 pickup_incomplete"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "vision v0",
+              "202",
+              "0/15",
+              "441",
+              "15 safety_invalidation"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "vision v0",
+              "303",
+              "3/15",
+              "198",
+              "12 safety_invalidation"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Far below the state policy, as expected. The pipeline works end to end. Most failures are safety invalidations: rollouts thrown out because of safety frames."
+    },
+    {
+      "title": "Does the policy use the picture?",
+      "why": "In these 5 scenarios the cube is in nearly the same place every time, so the joint values and the clock almost determine the next chunk. A model could do the task from the clock alone and never look.",
+      "did": "Ran the seed 101 model again with every camera frame replaced by a black image.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Successes",
+          "Safety frames",
+          "Failure mix"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "seed 101, real frames",
+              "0/15",
+              "259",
+              "9 safety_invalidation, 6 pickup_incomplete"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "seed 101, black frames",
+              "0/15",
+              "303",
+              "15 safety_invalidation"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Partial use of pixels. With real frames the failure mix changes (pickup_incomplete appears) and there are fewer safety frames, but the gap is small. v0 leans heavily on the progress clock."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The frames capture has scalar data byte-identical to the capture without frames, so the vision and state policies learned from the same physics.",
+      "ok": true
+    },
+    {
+      "text": "Same 15-rollout test as the state policy baseline.",
+      "ok": true
+    },
+    {
+      "text": "The ablation uses the same trained weights; only the image changes.",
+      "ok": true
+    },
+    {
+      "text": "The state baseline rows are the policies without the gripper clamp, and v0 has no clamp either. With the clamp the state policy reached 15/15 on two seeds.",
+      "ok": false
+    },
+    {
+      "text": "The black-image ablation was run on one seed only (101), and both runs score 0/15, so the comparison rests on safety frames and failure types.",
+      "ok": false
+    },
+    {
+      "text": "Exploratory mode: nothing was registered before the run, and the note makes no claim.",
+      "ok": false
+    },
+    {
+      "text": "5 scenarios within 1.5 mm, 20,000 steps, simulation only.",
+      "ok": false
+    }
+  ],
+  "meaning": "This run was a pipeline check, and it passed as one. As a policy it is bad, and the ablation says why: when the cube never moves, the picture carries almost no information the clock does not already have. The note ranks three next levers: carry the gripper clamp into the vision policy, train longer or with a larger batch, and train on randomized cube positions so the image has to matter. The third became the next experiment. The black-image ablation became the standing check before believing any vision result.",
+  "lesson": "Always run the blank-input ablation. It is the cheapest way to see whether the model uses the input you think it does.",
+  "next": [
+    {
+      "title": "Random cube positions in the training data",
+      "why": "If the cube moves between episodes, the clock alone cannot solve the task. This was run next."
+    },
+    {
+      "title": "Carry the gripper clamp into the vision policy",
+      "why": "Much of the violation mass is presumably the same gripper overshoot the state policies had. Done in the data-scaling experiment."
+    },
+    {
+      "title": "More training steps or a larger batch",
+      "why": "v0 had 20,000 steps. Listed as the second lever."
+    }
+  ],
+  "log": "**TL;DR:** The first vision policy was bad as expected (0-3/15), and blanking the\ncamera barely changed it, so it was mostly ignoring the image.\n\n**Problem.** Every policy so far read the cube's exact position straight from\nthe simulator. A real arm doesn't get that.\n\n*How we know:* the cube position was one of the policy's inputs. I didn't know\nhow much worse it would be without it.\n\n**Experiment.** Replace the cube position with the wrist camera image (256×256)\nthrough a small conv net, keep the joint angles and progress clock, train 20k\nsteps on 3 seeds. Then the black-image ablation: same model, all-black frames.\n\n*What we hope to learn:* get the whole pixel pipeline running end to end. The\nablation tells me if the model uses the pixels or just rides the clock.\n\n**Outcome.** 0/15, 0/15 and 3/15. With black images it got 0/15 too, with 303\nbad frames instead of 259. Not much worse:\n\n- The joint angles and the clock almost predict the next chunk on their own,\n  because the cube is in the same place every time here. Pixels barely matter\n  when the answer never changes. Like a student acing a test by memorizing the\n  order of the answers.\n\nNext levers: the gripper clip, more training, and random cube positions so the\nimage actually has to matter.\n\n**Takeaway:** always run the blank-input ablation. It's the cheapest way to see\nwhether your model uses the input you think it does.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 6, 2026 · frames capture, 3 trainings, 4 evaluations · exploratory, no gate",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "frames capture",
+        "note": "oracle/fixed_pick_place_v3/691a1c59a5ffef65: 2,400 rows plus a 450 MB frames file.",
+        "state": "done"
+      },
+      {
+        "name": "train and evaluate seeds 101, 202, 303",
+        "note": "20,000 steps each, minibatch 64, then 15 rollouts.",
+        "state": "done"
+      },
+      {
+        "name": "black-image ablation",
+        "note": "Seed 101 model on all-black frames.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 889c383 (Open the vision rung with a deliberately bad v0)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md, section v0",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 15 exists",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/15-vision-v0.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections Methodology, Baseline context and v0: recipe and the result table"
+      },
+      {
+        "path": "notes/horizon-alignment-proposal.md",
+        "note": "state baseline safety frames (24, 48, 33)"
+      },
+      {
+        "path": "memory/vision-rung-exploratory.md",
+        "note": "project memory note: exploratory mode, v0 results"
+      },
+      {
+        "path": "tools/run_vision_v0.py",
+        "note": "the runner added in the commit (not run here)"
+      },
+      {
+        "path": "commit 889c383",
+        "note": "vision lane code, tests and the notebook"
+      }
+    ]
+  }
+}

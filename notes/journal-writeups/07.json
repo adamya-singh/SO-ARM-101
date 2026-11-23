@@ -1,0 +1,209 @@
+{
+  "question": "The step-by-step copy of the script makes 450 decisions per episode and fails. Does it work if the network decides less often, by predicting the next 10, 30 or 90 commands at once?",
+  "measure": "Three tries of the pick and place from the normal start, in simulation. To pass, all 3 must succeed with zero safety frames. Also recorded: how high the cube was lifted, the deepest milestone reached, and how many frames tripped the safety checks.",
+  "outcome": "None of the three passed. But the 90-command version got the first learned strict grasp in the project and lifted the cube 60.7 mm. Then it failed on safety: 150 clipped, 82 limited and 20 unsafe frames per try.",
+  "setup": "A policy is the network that drives the arm: it reads the state and outputs joint commands. The teacher here is a hand-written script that reads exact simulator state (the notes call it the oracle). It solves the task in 450 steps. The clone is a small network trained to copy the teacher's commands from 450 recorded rows.\n\nThe clone that looks at the state every step (H = 1) failed 0 of 3. Each decision adds a small error, the arm drifts to states the recording never showed, and the errors compound. Replaying the teacher's 450 commands blind (H = 450) works, because nothing feeds back.\n\nAction chunking sits between the two. The network reads the state once and outputs the next H commands. The arm runs all H without looking again. H is the chunk horizon. With H = 90 there are about 5 decisions per episode.\n\nSafety frames are steps where a command tripped a guard. Clipped: the command was outside the safe joint range and was cut back. Limited: the command asked for too large a move in one step. Unsafe: an unsafe contact. A strict grasp is a grasp with both jaw pads on opposite faces of the cube, as checked by the grasp detector. Offline MSE is the training error against the recording; here it is recorded but does not decide anything.\n\nThe same proposal also ran one side check: the earlier clone trained on correction data (extra rows that show how to get back on track), which had been blocked by an offline test, was run once in closed loop to see if corrections change behavior at all.",
+  "parts": [
+    {
+      "title": "Does a chunk of 10, 30 or 90 commands pass?",
+      "why": "Four data fixes to the step-by-step clone had failed. The diagnosis was compounding feedback error, and chunking is the known treatment for that.",
+      "did": "Trained the same small network (two hidden layers, width 256, 30,000 steps, seed 101) on the same 450 rows, once per horizon. Each was run 3 times from the normal start. The plan was to stop at the first horizon that passed.",
+      "predictions": [
+        {
+          "text": "Some horizon passes 3 of 3 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Offline MSE",
+          "Max cube lift",
+          "Deepest milestone",
+          "Safety frames per try"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "H = 1 (step-by-step clone)",
+              "",
+              "0.000159 m",
+              "first contact, no lift",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "H = 10",
+              "4.02e-7",
+              "5.4 mm",
+              "lift_5mm",
+              "165 clipped / 39 limited / 6 unsafe"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "H = 30",
+              "2.13e-6",
+              "1.6 mm",
+              "bilateral_interior_contact",
+              "128 clipped / 71 limited / 0 unsafe"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "H = 90",
+              "2.33e-6",
+              "60.7 mm",
+              "strict_grasp_acquired + lift_20mm",
+              "150 clipped / 82 limited / 20 unsafe"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Status closed_loop_not_resolved: all three trained, none passed. Every failure was a safety invalidation, not a missed task. H = 90 grasped and lifted through every lift milestone, then saturated during the carry: it asked for commands past the arm's limits."
+    },
+    {
+      "title": "Side check: does correction data move closed-loop behavior at all?",
+      "why": "The correction-trained step-by-step clone had never been run in closed loop. The answer decides whether correction data may be used in a later chunked run.",
+      "did": "Ran that checkpoint 3 times from the normal start. The rule written beforehand: behavior moved if it reaches a milestone the plain clone never reached, or lifts at least 0.005 m more.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Max cube lift",
+          "New milestones",
+          "Safety frames per try"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "plain clone",
+              "0.000159 m",
+              "none",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "correction-trained clone",
+              "0.01847 m",
+              "cube_supported, lift_5mm, lift_10mm",
+              "326 clipped / 43 limited / 27 unsafe"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Behavior moved (116x the lift), with a safety regression flagged. Both levers, corrections and chunks, move the task forward and both fail the same way: saturated commands."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same 450 rows, same network size, same optimizer and seed for all three horizons. Only H changed.",
+      "ok": true
+    },
+    {
+      "text": "Every rollout was deterministic across its three repeats.",
+      "ok": true
+    },
+    {
+      "text": "The pass bar and the horizon list were written down before the run.",
+      "ok": true
+    },
+    {
+      "text": "Run on the wrong MuJoCo version (3.11 instead of the pinned 3.9, see experiment 09) and not re-run. The report sits in the quarantine folder.",
+      "ok": false
+    },
+    {
+      "text": "One seed, one start position, simulation only, and the policy reads exact simulator state.",
+      "ok": false
+    },
+    {
+      "text": "Three repeats of a deterministic rollout are one sample, not three.",
+      "ok": false
+    }
+  ],
+  "meaning": "Changing how often the policy decides did what four data fixes could not: a learned policy grasped the cube. The new binding problem is command saturation. Near the end of a blind chunk the network asks for things it never saw in training: the gripper below its floor from action 281, the wrist to −5.2 rad against a −3.14 bound. Every training command was well inside the limits, so the plain copy loss never punishes an impossible command. The stopping rule said not to tune inside this run, so the fix became its own proposal (experiment 08).",
+  "lesson": "A loss on good examples tells you nothing about what the model does outside them. And when data fixes keep failing, try changing the architecture.",
+  "next": [
+    {
+      "title": "Stop the 90-command policy asking for impossible moves (experiment 08)",
+      "why": "Saturation is the only thing between H = 90 and a pass."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Aug 3, 2026 · 2 experiments in one proposal · status closed_loop_not_resolved · nothing left",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "correction probe",
+        "note": "3 rollouts of the blocked correction checkpoint. Result: behavior_moved, safety_regressed.",
+        "state": "done"
+      },
+      {
+        "name": "H = 10",
+        "note": "Trained and evaluated. Failed on safety.",
+        "state": "done"
+      },
+      {
+        "name": "H = 30",
+        "note": "Trained and evaluated. Failed on safety.",
+        "state": "done"
+      },
+      {
+        "name": "H = 90",
+        "note": "Trained and evaluated. First strict grasp, then failed on safety.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 60b69c0 (the chunked clone lane and its gate)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 07 written (commit 87667eb)",
+        "ok": true
+      },
+      {
+        "text": "Produced under MuJoCo 3.11 and quarantined, not re-run under 3.9.0",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/07-action-chunks.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/chunked-promotion-proposal.md",
+        "note": "the proposal, both results and the table"
+      },
+      {
+        "path": "notes/saturation-attribution-proposal.md",
+        "note": "where the saturation starts (action 281, wrist −5.2 rad)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/chunked_gates/591f0686e94d27fd/report.json",
+        "note": "the gate report (quarantined)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/README.md",
+        "note": "why the report is in quarantine"
+      },
+      {
+        "path": "commit 60b69c0",
+        "note": "chunked-action clone lane and promotion gate"
+      }
+    ]
+  },
+  "log": "**TL;DR:** Predicting 90 actions at a time got the first learned strict grasp\nin the project, and then the arm drove itself into its joint limits.\n\n**Problem.** Four fixes to the step-by-step clone failed (entries 03-06). It\nmakes 450 decisions per episode, and every one adds a little error.\n\n*How we know:* every version failed 0/3, with joint error building from step 1.\nI didn't know if fewer decisions would help.\n\n**Experiment.** Action chunking (the idea behind ACT): read the state once,\noutput the next H commands, and run them all without looking again. I tried\nH = 10, 30 and 90 on the original 450 rows. To pass: 3/3 with zero safety\nviolations.\n\n*What we hope to learn:* H = 1 is the failing clone and H = 450 is just\nreplaying the script, which works. Somewhere in between might pass.\n\n**Outcome.** None passed, but H = 90 got the first learned strict grasp and\nlifted the cube 60.7 mm through every lift milestone. Then it failed on safety:\n150 clipped, 82 limited and 20 unsafe frames per try.\n\n- Chunks help because 5 decisions drift far less than 450. Like navigating by a\n  few landmarks instead of second-guessing every step.\n- Near the end of a blind chunk, the network asks for things it never saw in\n  training: the gripper below its floor from step 281, the wrist to −5.2 rad\n  against a ±3.14 limit. Every training command was safe, and the loss never\n  punishes an impossible one.\n\n*Note:* on the wrong MuJoCo version (entry 09), not re-run; entry 08 was.\n\n**Takeaway:** changing the architecture fixed what four data fixes couldn't.\nAnd a loss on good examples tells you nothing about what the model does outside\nthem."
+}

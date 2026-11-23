@@ -1,0 +1,218 @@
+{
+  "question": "The clone needs to see the states it actually wanders into. If the teacher takes over from those states and we record the whole correction, can the same small network learn from that?",
+  "measure": "First the capture: how many correction episodes succeed with zero safety events. Then the offline fit on the 450 normal rows: mean squared error (MSE, bar 1e-6) and largest error (bar 0.01 ACT). Only a model that passes gets a closed-loop try.",
+  "outcome": "The capture worked: all 11 corrections succeeded with zero safety events, twice, bit for bit, giving 4,818 rows. The training did not: it stalled at MSE 1.1059e-4 and largest error 0.1921, so by the rule written beforehand it never got a closed-loop try.",
+  "setup": "A policy is the network that drives the arm. The teacher is a script that cheats by reading the cube's true position. The clone is a small network (width 256, about 68k parameters, 10 inputs) trained to copy a 450-step recording of the teacher. It fails in closed loop because it drifts to states the recording never visited. DAgger (dataset aggregation) is the standard fix: let the clone drive, stop it at a state it reached, hand control to the teacher from that exact state, and record what the teacher does. Those rows are corrections. \"ACT units\" are the motor-range units of the commands. Offline means comparing the network to recorded rows without running the simulator. The offline gate is the memorization bar from experiment 02. The gate note fixed a rule before training: if the model cannot pass offline, stop and record the loss floor (\"blocked_offline\"), with no relaxing of the gate and no bigger model inside this experiment.",
+  "parts": [
+    {
+      "title": "Can the teacher correct the clone from wherever it ends up?",
+      "why": "DAgger only works if the expert can produce a good correction from every state the learner reaches, including after contact.",
+      "did": "Chose 11 sites: the 8 phase points from experiment 03 plus the steps where drift starts (31, 74, 194). The first plan squeezed each correction into the time left in the episode. That failed at all 11 sites, because the grasp takes about 160 actions to settle and cannot be sped up. With the user's approval the plan changed before anything was saved: run each correction at normal speed as a fresh sub-episode.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Capture design",
+          "Sites accepted",
+          "Rows",
+          "Safety events"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "time-compressed corrections (first plan)",
+              "failed at all 11 sites",
+              "none saved",
+              "limiter trips or missed deadline"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "normal-speed corrections as fresh sub-episodes",
+              "11 of 11",
+              "4,818 (438 actions each)",
+              "zero"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The capture method is proven. Each correction completed the full pick and place in 438 actions, was captured twice with bitwise-identical rows, and had zero clipped, limited, non-finite or unsafe frames."
+    },
+    {
+      "title": "Can the same small network fit the corrections and the recording together?",
+      "why": "The model must still reproduce the normal path before it is allowed to drive. If it cannot hold both, the data is right and the model is too small.",
+      "did": "Retrained once with everything unchanged. Only the rows changed: 450 to 5,268.",
+      "predictions": [
+        {
+          "text": "Offline gate, unchanged: MSE at most 1e-6 and largest error at most 0.01 ACT on the 450 normal rows",
+          "result": "failed"
+        },
+        {
+          "text": "Stop rule written beforehand: if blocked offline, stop, record the loss floor, run no closed-loop evaluation",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Measurement",
+          "450 rows only",
+          "With corrections",
+          "Gate"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Normal-row MSE",
+              "9.999720305e-7 (passed at step 28,718)",
+              "1.1058597738e-4",
+              "<=1e-6"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Largest error (ACT)",
+              "0.007196128",
+              "0.1921165586",
+              "<=0.01"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Unsafe training commands",
+              "0",
+              "0",
+              "0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Correction-row MSE / largest error",
+              "n/a",
+              "5.109e-5 / 0.1184",
+              "not a gate"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "It stopped about 110 times above the bar after the full 30,000 steps. Columns: \"450 rows only\" is the baseline clone, \"With corrections\" is this experiment. The worst error is at row 31, wrist flex, the first correction site. There the clone's state differs from the normal one by only ~0.005 ACT but the correct answer is different. The note records that as a hypothesis, not a proven cause. The model was also asked to absorb 10.7x more rows on the same budget."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Only the training rows changed: same inputs, width, seed, schedule, normalization, loss weight and gate.",
+      "ok": true
+    },
+    {
+      "text": "The stop rule and thresholds are stored in the gate report (blocked_offline_policy: terminal_stop_record_loss_floor; thresholds 1e-06 and 0.01).",
+      "ok": true
+    },
+    {
+      "text": "The capture was repeated on the correct MuJoCo version (3.9.0): 4,818 rows, all 11 sites accepted.",
+      "ok": true
+    },
+    {
+      "text": "The retrain ran on MuJoCo 3.11.0 by accident and was not repeated on 3.9.0.",
+      "ok": false
+    },
+    {
+      "text": "No correction-trained policy was evaluated in closed loop here, so this does not show that corrections cannot fix the drift. A later probe of this checkpoint, outside this experiment, lifted the cube 18.5 mm with 326 clipped and 27 unsafe frames per rollout.",
+      "ok": false
+    },
+    {
+      "text": "The log says \"10x more rows\"; the gate note says 10.7x. One seed. Simulation only.",
+      "ok": false
+    }
+  ],
+  "meaning": "Three data-side fixes had now failed on this small step-by-step network: sparse recovery rows, richer inputs, and full corrections at fixed size. The decision on Aug 3 was to close the small-network lane and move to a policy that predicts chunks (a run of future commands at once), which is experiment 07. The near-exact memorization bar was retired as not predictive.",
+  "lesson": "The idea was right; the model could not hold it. Writing the stop rule down first kept this a clean result instead of a round of quiet threshold changes.",
+  "next": [
+    {
+      "title": "Predict chunks of actions (experiment 07)",
+      "why": "Fewer decisions per episode means fewer chances for errors to compound."
+    },
+    {
+      "title": "Probe the blocked checkpoint once in closed loop",
+      "why": "Run on Aug 3 as a non-promoting diagnostic: behaviour moved (18.5 mm lift) but safety got worse."
+    }
+  ],
+  "log": "**TL;DR:** I recorded 4,818 rows of the script fixing the clone's actual\nmistakes, and the small network couldn't even fit them.\n\n**Problem.** The clone visits a whole range of off-path states, and so far it\nhad been shown 8 (entry 05).\n\n*How we know:* velocity inputs could tell the states apart and it still failed\n0/3. It needed coverage, not features.\n\n**Experiment.** DAgger (dataset aggregation): let the clone drive, and at 11\npoints where it drifts (steps 31, 74, 194 and the 8 phases from before), hand\ncontrol to the script from the clone's exact state and record the full\ncorrection. That's 11 × 438 = 4,818 new rows. Then retrain the same model once.\n\n*What we hope to learn:* if it fits, run it in the sim. The rule written down\nbeforehand: if it can't fit, stop and record why.\n\n**Outcome.** The capture worked perfectly: all 11 corrections succeeded with\nzero safety events, twice, bit for bit. The training didn't. It stalled at an\nerror of 1.1e-4, 110x above the bar, so it never got a real try:\n\n- The worst error was at step 31, the first correction. There the clone's state\n  is only a hair off the normal one, but the right answer is a whole different\n  correction. Two near-identical inputs, two answers, and the network can only\n  split the difference.\n- It was also a 68k-parameter network asked to absorb 10x more rows on the same\n  budget.\n\nMy first plan, rushing the corrections to fit the time limit, was physically\nimpossible: a firm grasp takes about 160 steps to settle and can't be sped up.\n\n*Note:* captured on the wrong MuJoCo version (entry 09). The capture was redone\non the right one, the retrain wasn't.\n\n**Takeaway:** the idea was right; the model couldn't hold it. I closed the\nstep-by-step clone and moved on to predicting chunks of actions.",
+  "run": {
+    "state": "Finished: blocked_offline",
+    "line": "Aug 2 to 3, 2026 · capture redesigned once, 11 corrections captured, one retrain, no closed-loop run",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "time-compressed capture",
+        "note": "Failed at all 11 sites; only k=31 ever worked, with a hand-tuned schedule.",
+        "state": "trouble"
+      },
+      {
+        "name": "redesign, approved by the user",
+        "note": "Normal-speed corrections as fresh sub-episodes, changed before any artifact was saved.",
+        "state": "done"
+      },
+      {
+        "name": "capture 11 corrections",
+        "note": "438 actions each, twice, bitwise identical, zero safety events.",
+        "state": "done"
+      },
+      {
+        "name": "retrain on 5,268 rows",
+        "note": "Floor 1.1059e-4 MSE after 30,000 steps; gate not passed.",
+        "state": "trouble"
+      },
+      {
+        "name": "closed-loop evaluation",
+        "note": "Not run, by the stop rule.",
+        "state": "done"
+      },
+      {
+        "name": "re-capture on MuJoCo 3.9.0",
+        "note": "corrections/53ad45590cfb60c0, 4,818 rows, all 11 sites accepted.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 453f628 (Capture DAgger corrections and gate the retrain on them)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/dagger-correction-gate.md",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry committed: 87667eb (entries 02 to 36)",
+        "ok": true
+      },
+      {
+        "text": "Gate report sits under artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/; the retrain was not repeated on 3.9.0",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/06-dagger.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/dagger-correction-gate.md",
+        "note": "the decision note: capture design, dataset, training table"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "rebuild plan; its Progress status block has the numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/correction_gates/faf13e95b8caa2e8/report.json",
+        "note": "gate report: status, 4818 rows, 11 sites, thresholds, stop rule"
+      }
+    ]
+  }
+}

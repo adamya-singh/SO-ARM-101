@@ -1,0 +1,305 @@
+{
+  "question": "With memorizing blocked by the 12 px random shift, which now helps: training four times longer, or twice the placements?",
+  "measure": "Held-out loss on the step-90 chunk, scored every 5000 steps during training, next to training loss. The ratio of the two should stay low. Then closed-loop successes out of 30.",
+  "outcome": "Opposite answers. 480k steps: the ratio climbed from 7x to 77x and closed loop was 0/30. 2400 placements: the ratio stayed between 1x and 5x for the whole run and closed loop reached 15/30.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. Random shift slides each training image by up to 12 pixels each time it is used, so the network cannot memorize exact images (experiment 32). That took the ratio of held-out to training loss from 5250x to 15x but closed loop stalled at 9/30. The scaling ladder (experiment 31) had said steps and data do not help, but every ladder model was memorizing (ratios from about 400x to 50000x), so it only described memorizers. New in this experiment: held-out loss is scored every 5000 steps during training, not only at the end.",
+  "parts": [
+    {
+      "title": "Steps or placements: where do the end numbers land?",
+      "why": "Whichever change lowers held-out loss while keeping it close to training loss is where to spend compute.",
+      "did": "Two runs, one change each from the shift-12 model (1200 placements, 120k steps): 480k steps, and 2400 placements. Each has the ladder's unshifted model at the same settings as its baseline.",
+      "predictions": [
+        {
+          "text": "Number to watch, written before the runs: per-placement median under 2.5e-4 with 8 of 10 placements under it, and closed loop above 15/30",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Placements / steps / shift",
+          "Train loss",
+          "Held-out loss",
+          "Ratio",
+          "Per-placement median",
+          "Placements <= 2.5e-4",
+          "Closed loop",
+          "Safety frames"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1200 / 120k / 0",
+              "8.0e-7",
+              "4.2e-3",
+              "5250x",
+              "1.1e-3",
+              "0/10",
+              "0/30",
+              "525"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1200 / 120k / 12",
+              "4.1e-5",
+              "6.2e-4",
+              "15x",
+              "2.4e-4",
+              "5/10",
+              "9/30",
+              "193"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1200 / 480k / 0",
+              "3.3e-7",
+              "5.6e-3",
+              "16800x",
+              "1.0e-3",
+              "4/10",
+              "9/30",
+              "279"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "1200 / 480k / 12",
+              "1.4e-5",
+              "1.1e-3",
+              "78x",
+              "1.1e-3",
+              "1/10",
+              "0/30",
+              "382"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400 / 120k / 0",
+              "1.8e-6",
+              "3.2e-3",
+              "1744x",
+              "1.0e-3",
+              "2/10",
+              "6/30",
+              "228"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "2400 / 120k / 12",
+              "9.8e-5",
+              "5.7e-4",
+              "6x",
+              "3.0e-4",
+              "3/10",
+              "15/30",
+              "261"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "More placements gave the lowest held-out mean of any point so far (5.7e-4) and 15/30 (5 placements of 10, all three tries each), against 6/30 for the same data unshifted. The worst ladder placement fell from 1.8e-2 to 1.8e-4. The written bar was not met: median 3.0e-4, 3 of 10 under it, and 15/30 is not above 15. The mean and median are within noise of the 1200-placement point, so the ratio and the rollouts carry the data effect, not the loss alone."
+    },
+    {
+      "title": "What does the held-out curve do during training?",
+      "why": "A single number at the end cannot tell 'never learned' from 'learned, then memorized'.",
+      "did": "Scored held-out and a fixed 200-row training sample every 5000 steps. For the 480k run the watcher was attached at step 95k.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Step",
+          "1200 placements, 480k: held-out / train / ratio",
+          "2400 placements, 120k: held-out / train / ratio"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "25k",
+              "",
+              "9.7e-4 / 1.1e-3 / 1x"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "65k",
+              "",
+              "7.3e-4 / 2.5e-4 / 3x"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "95k",
+              "1.4e-3 / 1.9e-4 / 7x",
+              "6.0e-4 / 1.2e-4 / 5x"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "120k",
+              "1.4e-3 / 1.8e-4 / 8x",
+              "5.7e-4 / 1.0e-4 / 5x (end)"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "215k",
+              "1.0e-3 / 7.2e-5 / 14x",
+              ""
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "275k",
+              "8.9e-4 / 4.2e-5 / 21x (best in this table)",
+              ""
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "335k",
+              "9.2e-4 / 3.1e-5 / 30x",
+              ""
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "480k",
+              "1.1e-3 / 1.4e-5 / 77x (end)",
+              ""
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "With 480k steps, held-out loss flattens near 1e-3 from 150k on and never reaches the 120k run's 6.2e-4 (best 8.5e-4 at 260k), while the training sample falls 13x. A 12 px shift leaves 625 offsets per image, and with four times the steps the network memorizes those too. With 2400 placements, held-out tracks training from the first checkpoint and is still descending at 120k."
+    }
+  ],
+  "trust": [
+    {
+      "text": "One change per run from the same shift-12 starting recipe, same 10 held-out placements, same seed (202)",
+      "ok": true
+    },
+    {
+      "text": "Each run has an unshifted baseline at the same settings",
+      "ok": true
+    },
+    {
+      "text": "One seed. The 480k model scored 0/30 with about the same per-placement median as the shift-4 model that scored 9/30, so a single count out of 30 moves by about 9 at equal loss",
+      "ok": false
+    },
+    {
+      "text": "15/30 turned out to be the top of the seed spread: the same recipe later scored 6 and 12 (experiment 34)",
+      "ok": false
+    },
+    {
+      "text": "The end ratio for the 480k run is 78x in the summary table and 77x in the curve table of the same notebook entry (different training samples)",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "With memorizing blocked, unique placements are the axis that pays and steps are not: 120k steps with the cosine schedule is the budget. The rule kept from here on: never extend steps unless the held-out curve shows the ratio staying low. Before spending on a 4800-placement capture, the plan was to measure the noise with two more seeds (experiment 34).",
+  "lesson": "A scaling result only holds in the regime you measured it in. Fix memorizing, ask the scaling question again, and watch held-out loss during training so you see when it turns.",
+  "next": [
+    {
+      "title": "Repeat 2400 / 120k / shift 12 with seeds 101 and 303 (experiment 34)",
+      "why": "To learn how much of 15/30 is chance before ranking recipes by it."
+    },
+    {
+      "title": "4800 placements (experiment 35)",
+      "why": "The next data point if the seeds hold."
+    }
+  ],
+  "log": "**TL;DR:** Longer training brought memorization right back, while more\nplacements kept it away and pushed closed loop to 15/30.\n\n**Problem.** Shift 12 stopped the memorizing but stalled at 9/30. The ladder\n(entry 31) had said steps and data don't help, but that was measured while the\nnetwork was memorizing.\n\n*How we know:* every ladder model had held-out error 400x to 50,000x its\ntraining error, so the ladder only told us about memorizers. I didn't know what\nscales once that's fixed.\n\n**Experiment.** Two runs, one change each from the shift-12 model: 480k steps\ninstead of 120k, and 2400 placements instead of 1200. New this time: I scored\nheld-out error every 5000 steps during training, not just at the end.\n\n*What we hope to learn:* whichever change lowers held-out error while keeping it\nclose to training error is where to spend compute.\n\n**Outcome.** Opposite answers:\n\n- More steps: held-out error flattened at 1e-3 from step 150k while training\n  error kept falling, and the gap grew from 7x to 77x. Closed loop: 0/30. A 12\n  pixel shift only gives 625 different offsets per image, so with enough passes\n  it memorizes those too. Like re-reading the same shuffled deck until you know\n  every shuffle.\n- More placements: the gap stayed between 1x and 5x the whole run, the worst\n  placement from the ladder dropped from 1.8e-2 to 1.8e-4, and closed loop hit\n  15/30 (the same data without the shift got 6/30).\n\n**Takeaway:** a scaling result only holds in the regime you measured it in.\nFix memorization, then ask the scaling question again, and watch held-out error\nduring training so you see when it turns.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 12, 2026 · two training runs plus their baselines",
+    "watch": [
+      {
+        "title": "W&B l5c6y603",
+        "note": "480k-step run; its held-out curve is in run kspx4lgi",
+        "href": ""
+      },
+      {
+        "title": "W&B u883j0tu",
+        "note": "2400-placement run, curve in the run",
+        "href": ""
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "held-out curve tooling",
+        "note": "Trainer observer that scores held-out every 5000 steps, and a watcher for runs already in flight (commit 01977c6).",
+        "state": "done"
+      },
+      {
+        "name": "1200 placements, 480k steps, shift 12",
+        "note": "Train, score, 30 rollouts. The watcher was attached at step 95k.",
+        "state": "done"
+      },
+      {
+        "name": "2400 placements, 120k steps, shift 12",
+        "note": "Train, score, 30 rollouts.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 01977c6 (held-out curve), 54a5522 (results)",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry and research-log entry 33 written",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/33-steps-vs-placements.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry 'Shift-12 follow-ups (2026-09-12)': both tables"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation, section 5"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_480k_20260912/",
+        "note": "the 480k run (augmentation.json, heldout_watch.log)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/augmentation_shift12_2400_20260912/",
+        "note": "the 2400 run (augmentation.json, analysis_followups.txt)"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/augmentation-run-20260912.md",
+        "note": "memory note"
+      },
+      {
+        "path": "commits 01977c6 · 54a5522",
+        "note": "curve tooling · results"
+      }
+    ]
+  }
+}

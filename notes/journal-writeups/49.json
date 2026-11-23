@@ -1,0 +1,154 @@
+{
+  "question": "Do our latest policies really use the camera, or could they do the task from the joint readings and the clock alone?",
+  "measure": "Successes out of 30 (10 held-out placements run 3 times) with real images, and again with every frame replaced by zeros (a black image). Also the lateral median: the sideways distance in mm between the jaws and the cube just before the jaws close.",
+  "outcome": "Both policies need the image. ACT and the CNN each go from 21 of 30 to 0 of 30 with a black image, and both end about 11 cm from the cube.",
+  "setup": "A policy is the network that drives the arm. It reads a wrist-camera frame, the six joint angles and a clock, and outputs a chunk of the next 90 joint commands. We have two kinds. ACT is a transformer with 51.6 M parameters (34.2 M at run time). The CNN is a small convolutional network with 2.71 M parameters. Held-out placements are cube positions the policy never trained on. The cube can be anywhere in a 14 x 10 inch area, so a policy can only find it by looking. But a policy could also learn an average reach and get lucky, and a success count alone cannot tell the difference. The check is an ablation: take one input away and see what breaks. We did the same check in August (experiment 22). This repeats it on the current policies. The question came up after reading another SO-101 project whose README says its end-to-end CNN \"barely saw the real ball\", without giving a method.",
+  "parts": [
+    {
+      "title": "What happens when the policy sees only black?",
+      "why": "If the score stays the same without images, the policy is not reading the cube's position from the camera and everything we concluded about perception is wrong.",
+      "did": "Added a --black-image switch to the evaluation tool for ACT (the CNN path already had one). Ran the same 30 held-out placements with the same tool, once with real images and once with black ones.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy, scene, images",
+          "Successes",
+          "Lateral median",
+          "How it fails"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "High-lift ACT, execute 30, servo scene, real",
+              "21/30",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "High-lift ACT, execute 30, servo scene, black",
+              "0/30",
+              "113 mm",
+              "all safety invalidation, never descended"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Perturbed-teacher CNN seed 202, nominal scene, real",
+              "21/30",
+              "5.9 mm",
+              "24/30 within tolerance"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed-teacher CNN seed 202, nominal scene, black",
+              "0/30",
+              "112 mm",
+              "all pickup incomplete"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Both policies get the cube's position from the pixels. Without them, each falls back to an average reach about 11 cm off. They fail differently: ACT never descends and trips the safety gate, the CNN descends and closes on nothing."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same 30 held-out placements and the same evaluation tool for the real and black runs of each policy.",
+      "ok": true
+    },
+    {
+      "text": "The ACT real-image number (21/30) is an existing evaluation from experiment 48, not a fresh run.",
+      "ok": false
+    },
+    {
+      "text": "The two policies were tested on different scenes (high-lift servo scene for ACT, nominal SO-101 scene for the CNN), so this compares each policy with itself, not ACT with the CNN.",
+      "ok": false
+    },
+    {
+      "text": "One checkpoint of each kind. 30 rollouts are 10 placements run 3 times. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "This says nothing about reading real camera frames correctly. That is what the real-frame gate and the live runs test.",
+      "ok": false
+    }
+  ],
+  "meaning": "The worry that the policies ignore the camera is ruled out in simulation. So when a grasp misses, the image is being used and the question is what the policy reads from it. That is what the probes in experiment 52 go on to ask: does the policy keep looking after the first frame, or does it remember?",
+  "lesson": "A success count cannot tell you which input a policy relies on. Remove the input and count again.",
+  "next": [
+    {
+      "title": "Compare CNN and ACT on equal terms (experiment 50)",
+      "why": "Both use the image and both score 21 of 30 here, but on different scenes and different data."
+    },
+    {
+      "title": "Probe what the policies do after the first frame (experiment 52)",
+      "why": "A black image shows the camera is needed. It does not show whether later frames are used."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 18 · two black-image evaluations and one real-image CNN evaluation",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "ACT, black images",
+        "note": "High-lift ACT at execute 30 on the servo scene: 0/30.",
+        "state": "done"
+      },
+      {
+        "name": "CNN, real and black images",
+        "note": "Perturbed-teacher CNN seed 202 on the nominal scene: 21/30 and 0/30.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 8ef33e8 (--black-image for ACT evaluations, and the result)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/pixel-reliance-ablation-20261118.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/pixel-reliance-ablation-20261118.md",
+        "note": "the write-up, the table and the parameter counts"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/evals/lift_act_ft_exec30__servo__black_image/result.json",
+        "note": "ACT black: 0/30, lateral median 113.09 mm"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/evals/lift_act_ft_exec30__servo/result.json",
+        "note": "ACT real: 21/30"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/evals/cnn_s202__so101__{normal,black}/result.json",
+        "note": "CNN real 21/30 and black 0/30"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/fair-cnn-20261118.md",
+        "note": "same-day summary of the ablation"
+      },
+      {
+        "path": "commit 8ef33e8",
+        "note": "tool switch and result"
+      }
+    ]
+  }
+}

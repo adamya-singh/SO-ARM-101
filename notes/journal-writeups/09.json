@@ -1,0 +1,204 @@
+{
+  "question": "Old results stopped reproducing byte for byte. Which results are affected, why, and does any decision rest on bad numbers?",
+  "measure": "Re-run a stored result into a copy and compare it byte for byte, once with Python's user folder turned off (PYTHONNOUSERSITE=1) and once with it on. A result belongs to the setting under which it reproduces.",
+  "outcome": "A pip --user install on Aug 2 at 19:03 put MuJoCo 3.11.0 in the user folder, where it silently replaced the project's pinned 3.9.0. 34 result folders came from the wrong simulator. The one decision that mattered was re-made under 3.9.0 with the same outcome.",
+  "setup": "MuJoCo is the physics engine that simulates the arm. The project treats every result as evidence only if it can be reproduced bit for bit, and it stores results as immutable files with a hash.\n\nPython looks for packages in the user folder (~/.local) before the project's own conda environment. So a package installed with pip --user wins over the version the environment pins. Setting PYTHONNOUSERSITE=1 turns the user folder off.\n\nThe find came by accident. The evaluation code was being made parallel (several rollouts at once, a rollout being one simulated try). To prove that changed nothing, old results were re-run into a copy. The file writer refuses to overwrite a file with different bytes, so any difference fails loudly. Some old results did not match.\n\nA gate is a pre-written pass or fail test that decides whether a policy (the network that drives the arm) is promoted. The saturation gate from experiment 08 promoted the first policy.",
+  "parts": [
+    {
+      "title": "Which results belong to which simulator?",
+      "why": "If runs from two physics versions are mixed, comparisons between them are not fair and no check had caught it.",
+      "did": "Copied each stored result, deleted the derived reports, re-ran under each setting, and let the immutability guard compare the bytes.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Result",
+          "Created",
+          "Reproduces on 3.9.0 (user folder off)",
+          "Reproduces on 3.11.0 (user folder on)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "preflight fixed_pick_place_v3",
+              "Aug 1 20:34",
+              "yes, bit for bit",
+              "no"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "clone evaluation e67ba4433d3aa98c",
+              "Aug 2 19:16",
+              "no",
+              "yes, bit for bit"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "saturation gate 1a78ec8affead704 + its 5 evaluations",
+              "Aug 3 02:23 to 11:59",
+              "no",
+              "yes, bit for bit"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Everything simulated between Aug 2 19:03 and Aug 3 13:41 used MuJoCo 3.11.0: 34 artifact folders. The two versions differ in the last decimal place at action 1, and after contact that grows to about 2e-2 relative in the joint positions. Training was not affected, because torch was the same version (2.7.1) either way."
+    },
+    {
+      "title": "Does the promotion from experiment 08 survive?",
+      "why": "The gate that promoted the first policy ran under 3.11 while consuming a 3.9-era preflight that was checked by hash only. The evidence chain mixed two simulators.",
+      "did": "Pinned 3.9.0, re-captured the correction data (4,818 rows, all 11 sites accepted) and the recovery set (8 rows) under it, and re-ran the whole saturation gate.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Saturation gate",
+          "Simulator",
+          "Status",
+          "Promoted checkpoint"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "1a78ec8affead704",
+              "MuJoCo 3.11.0",
+              "promoted_noise_penalty_only",
+              "models/chunked_h90/2b6195d619ab531b"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "46de62c4f6d1b78f",
+              "MuJoCo 3.9.0",
+              "promoted_noise_penalty_only",
+              "byte-identical"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Same attribution, same winner, byte-identical checkpoint. The promotion stands. The 3.11 gate is kept as history only."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The comparison is bitwise, not a tolerance: the guard raises on any differing byte.",
+      "ok": true
+    },
+    {
+      "text": "The parallel code itself was shown to be neutral: old and new code give identical telemetry under the same MuJoCo.",
+      "ok": true
+    },
+    {
+      "text": "Nothing was deleted. The 34 folders were moved unmodified to a quarantine folder, and each still verifies against its own hash.",
+      "ok": true
+    },
+    {
+      "text": "Only what later work depended on was re-run. The research log says the numbers of entries 03 to 07 are still 3.11 numbers.",
+      "ok": false
+    },
+    {
+      "text": "The three correction-using policies from experiment 08 had been trained on 3.11-era correction data, so they were retrained.",
+      "ok": false
+    }
+  ],
+  "meaning": "The project standardized on MuJoCo 3.9.0. The pin is enforced twice: a conda activation hook exports PYTHONNOUSERSITE=1, and the simulator command line refuses to run on any other MuJoCo version. The broader test of the promoted policy (experiment 10) had started under 3.11; its partial outputs were quarantined and it was relaunched from scratch. None of the earlier checks could see the swap, because they hashed inputs and outputs, not the simulator.",
+  "lesson": "Pin the simulator version in code, not only in a requirements file, and re-run old results bit for bit now and then. That is the only check that catches a silent swap.",
+  "next": [
+    {
+      "title": "Relaunch the broader evaluation under the pin (experiment 10)",
+      "why": "It was running under 3.11 when the swap was found."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Found and decided Aug 3, 2026 · gate re-run and notes amended Aug 4 · nothing left",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "parity check of the parallel code",
+        "note": "Re-running old results into a copy exposed the mismatch.",
+        "state": "done"
+      },
+      {
+        "name": "sort results by simulator",
+        "note": "Each result re-run with and without PYTHONNOUSERSITE=1.",
+        "state": "done"
+      },
+      {
+        "name": "pin 3.9.0",
+        "note": "Conda activation hook plus a version guard in the simulator command line.",
+        "state": "done"
+      },
+      {
+        "name": "quarantine",
+        "note": "34 folders moved to artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/.",
+        "state": "done"
+      },
+      {
+        "name": "re-capture",
+        "note": "Corrections 53ad45590cfb60c0 (4,818 rows) and recovery d52b460b4ab3a683 (8 rows).",
+        "state": "done"
+      },
+      {
+        "name": "re-run the saturation gate",
+        "note": "46de62c4f6d1b78f: same status, byte-identical checkpoint.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 5b32fd9 (standardize on the pinned MuJoCo 3.9.0), 57431e3 (parallel rollouts)",
+        "ok": true
+      },
+      {
+        "text": "Quarantine README written; the affected notes carry a 2026-08-04 addendum",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 09 written (commit 87667eb)",
+        "ok": true
+      },
+      {
+        "text": "Full test suite (180 tests) passes under the pin, per the infrastructure note",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/09-mujoco-version.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/parallel-execution-infrastructure.md",
+        "note": "the finding, the reproduction table, the actions taken"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/README.md",
+        "note": "what is quarantined and why (34 folders)"
+      },
+      {
+        "path": "notes/chunked-promotion-proposal.md",
+        "note": "the 2026-08-04 addendum on re-captures and the gate re-run"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/saturation_gates/46de62c4f6d1b78f/report.json",
+        "note": "the gate re-run under 3.9.0"
+      },
+      {
+        "path": "memory: mujoco-user-site-shadow-fork.md",
+        "note": "project memory note with the verified facts"
+      },
+      {
+        "path": "commits 5b32fd9 · 57431e3 · a8b3549",
+        "note": "pin · parallel rollouts · atomic writes"
+      }
+    ]
+  },
+  "log": "**TL;DR:** A stray pip install silently swapped the physics engine mid-project,\nso 34 results came from a different simulator than the rest.\n\n**Problem.** I was speeding up the evaluation code, and to check nothing\nchanged, I re-ran old results expecting identical bytes. Some didn't match.\n\n*How we know:* the Aug 1 preflight only reproduced with one environment setting,\nand everything from Aug 2-3 only reproduced without it. I didn't know which\nruns were which, or why.\n\n**Experiment.** Re-run every result into a copy and compare it byte for byte,\nunder each setting, to sort the runs into two groups and find the cause.\n\n*What we hope to learn:* exactly which experiments are affected, and whether\nany decision rests on bad numbers.\n\n**Outcome.** On Aug 2 at 19:03, a `pip install --user` put MuJoCo 3.11 in my\nuser folder, and Python checks that folder before the project's environment, so\nit quietly replaced the pinned 3.9:\n\n- The two versions differ in the last decimal place on step 1, and once the\n  jaw touches the cube that grows into a visibly different run. Like two\n  calculators that round slightly differently.\n- 34 results were affected, covering entries 03-08. None of my checks could\n  see it, because they hashed the inputs, not the simulator.\n\nFix: pinned 3.9.0, turned off the user folder in the environment, and added a\ncheck that refuses to run on any other version. The 34 results went into\nquarantine. I re-ran what later work depended on (entry 08's gate: same\nresult). Entries 03-07 were not re-run, so their numbers are 3.11 numbers.\n\n**Takeaway:** pin your simulator version in code, not just in a requirements\nfile, and re-run old results bit for bit now and then. That's the only check\nthat catches this."
+}

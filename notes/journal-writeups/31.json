@@ -1,0 +1,289 @@
+{
+  "question": "Once the cube can be anywhere on the table, the vision policy memorizes its training placements. Does more data, a bigger network or longer training fix that?",
+  "measure": "Held-out loss on the chunk that starts at step 90, for 15 models. Lower is better. The ratio of held-out loss to training loss shows memorizing: a ratio in the thousands means the network stored its training images. Closed-loop successes out of 30 on the best models.",
+  "outcome": "None of the three helped. Held-out loss stayed between 2.3e-3 and 7.5e-3 everywhere while training loss fell to 1e-7. A nearest-neighbour lookup table beat the network 5x on average and 300x at the worst placement.",
+  "setup": "A policy is the network that drives the arm. Ours watches the wrist camera and outputs the next 90 joint commands at once. Those 90 commands are a chunk. It makes a new chunk at steps 0, 90, 180, 270 and so on. The task is to pick a 20 mm cube off a square target, lift it and put it back, in simulation. We train by imitation: a scripted teacher that knows the cube's exact position solves the task, and the network learns to copy it from images alone. The loss is the mean squared difference between the network's chunk and the teacher's. A placement is one position and angle of the square and cube on the table. Held-out means ten placements the network never trained on. Closed loop means the network drives the simulated arm and we count successes out of 30 (ten held-out placements, three tries each). The chunk that matters starts at step 90. There the arm is in a survey pose, looking down at the whole table, and the network must read where the cube is and plan the descent. Two earlier runs with random placements scored 3/30 held-out, with step-90 held-out loss 136x the training loss (400 placements) and 417x (1200 placements). A scaling ladder trains many small models along each axis you could spend compute on, and looks for the curve that bends down. The encoder is the part of the network that reads the image; v1, v2 and v3 are three sizes (0.83M, 2.7M and 5.0M parameters).",
+  "parts": [
+    {
+      "title": "Do more placements or a bigger encoder lower held-out loss?",
+      "why": "More data is the textbook cure for memorizing, and a bigger network is the other usual suspect. Each costs GPU time, so test both cheaply first.",
+      "did": "Captured 2400 placements once and used the first 300, 600, 1200 and 2400 as data sizes. Trained each with three encoder sizes for 120k steps. Scored all on the same 10 held-out placements.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Placements",
+          "v1 (0.83M)",
+          "v2 (2.7M)",
+          "v3 (5.0M)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "300",
+              "7.5e-3 (3.6e-7) 21000x",
+              "5.1e-3 (1.5e-7) 34000x",
+              "6.2e-3 (1.3e-7) 50000x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "600",
+              "5.1e-3 (8.4e-7) 6000x",
+              "5.6e-3 (3.9e-7) 14000x",
+              "3.9e-3 (3.0e-7) 13000x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "1200",
+              "2.9e-3 (1.9e-6) 1550x",
+              "4.2e-3 (8.0e-7) 5250x",
+              "4.6e-3 (6.8e-7) 6800x"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "2400",
+              "2.3e-3 (5.4e-6) 418x, 0/30",
+              "3.2e-3 (1.9e-6) 1745x, 6/30",
+              "2.3e-3 (1.4e-6) 1580x, 3/30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "working fixed-square policy",
+              "2.5e-6",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "Each cell is held-out loss, training loss in brackets, then the ratio. Every cell is a memorizer. A fitted power law gives a data exponent of 0.40 with a floor of 5.3e-5, and no dependence on parameters (exponent 0.05, the lower bound of the fit). Halving the loss by data alone needs 5.7x the placements; reaching the level where rollouts succeed (about 2.5e-4 per placement) needs about 250x. Bigger encoders memorize harder."
+    },
+    {
+      "title": "Does longer training help?",
+      "why": "If the network simply has not finished learning, more steps would show it.",
+      "did": "At 1200 placements with the v2 encoder, trained for 60k, 120k, 240k and 480k steps.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Steps",
+          "Held-out loss, step 90",
+          "Closed loop"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "60k",
+              "3.6e-3",
+              "0/30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "120k",
+              "4.2e-3",
+              "0/30 (rolled out later, in experiment 32)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "240k",
+              "3.6e-3",
+              "0/30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "480k",
+              "5.6e-3",
+              "9/30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Flat. Training loss fell from 1.9e-6 to 3.3e-7 over the same range, so more steps only fit the training images deeper. The 480k model has the best closed-loop score (9/30) and the worst mean loss, so the mean is a poor judge: watch the per-placement median and how many placements are under 2.5e-4. Every closed-loop success happened at a placement with error at or below 2.5e-4."
+    },
+    {
+      "title": "Is the training data dense enough at all?",
+      "why": "If the training set did not cover the table, no learner could do well. A lookup table shows what the data alone is worth.",
+      "did": "For each held-out placement, took the closest training placement (2 to 9 mm away with 2400 placements) and used its recorded teacher chunk as the prediction.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Predictor",
+          "Mean held-out loss",
+          "Worst ladder placement (pose_000)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "nearest-neighbour lookup, 2400 placements",
+              "4.0e-4",
+              "2.6e-5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "nearest-neighbour lookup, 1200 placements",
+              "5.95e-4",
+              "2.6e-5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "the networks",
+              "2.3e-3 to 7.5e-3",
+              "7e-3 to 3.8e-2"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The lookup beats the network 5x on average and 300x at its worst placement, although a training placement sits 2 mm away from it. Between 36 and 54 training placements lie within 20 mm of every held-out placement. The data is dense enough. The network cannot read the square's position out of the survey image."
+    }
+  ],
+  "trust": [
+    {
+      "text": "All 15 models come from one capture, one run and one frame stride (18), scored on the same 10 held-out placements",
+      "ok": true
+    },
+    {
+      "text": "Stride 18 keeps every chunk start the policy uses at run time (multiples of 90)",
+      "ok": true
+    },
+    {
+      "text": "One training seed per point. Closed loop was run only on the frontier models, and each score out of 30 is 10 placements times 3 identical tries",
+      "ok": false
+    },
+    {
+      "text": "The held-out scenes also carry their own appearance draws, so a memorized image-to-chunk map breaks under both placement and appearance",
+      "ok": false
+    },
+    {
+      "text": "This ladder only describes networks that memorize. Entry 33 re-asks the question after memorizing is blocked and gets a different answer for placements",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "Do not spend more GPU on placements, encoder width or steps for this network as it stands. The ordered next steps written down were: (1) random-shift augmentation of the training images, so memorizing is impossible; (2) if that is not enough, a separate network that locates the square; (3) more data only where that needs it. The number to move is the per-placement held-out loss at step 90, median under 2.5e-4.",
+  "lesson": "Before scaling anything, check a dumb baseline. If a lookup table beats your model, the model is not extracting what is already in the input, and more data will not save it.",
+  "next": [
+    {
+      "title": "Random-shift augmentation (experiment 32)",
+      "why": "Removes the fixed pixel identity the network memorizes. About 20 minutes of GPU at 1200 placements."
+    },
+    {
+      "title": "A separate square localiser",
+      "why": "Recorded as the second lever. It was later moved behind the perturbed-teacher capture (experiment 36)."
+    }
+  ],
+  "log": "**TL;DR:** None of them did, and a dumb nearest-neighbour lookup beat every\nnetwork, so the problem was reading the image, not scale.\n\n**Problem.** Once the cube could be anywhere on the table, the vision policy\nfell apart. It memorized its training placements instead of learning where the\ncube is.\n\n*How we know:* on 10 placements it never trained on, its error on the first\ndescent chunk was 136x its training error with 400 placements, and 417x with\n1200, and closed loop was 3/30 both times (entries 29-30). I didn't know which\nknob to turn.\n\n**Experiment.** A scaling ladder, Chinchilla-style: 15 models from one\n2400-placement dataset, sweeping placements (300 to 2400), encoder size (0.8M\nto 5M parameters) and training steps (60k to 480k), all scored on the same 10\nheld-out placements.\n\n*What we hope to learn:* if one curve bends down, that's where to spend GPU. If\nthey're all flat, scale isn't the problem.\n\n**Outcome.** All flat. Held-out error stayed between 2e-3 and 7.5e-3 while\ntraining error hit 1e-7, and the best model got 9/30:\n\n- More data helped barely. On the fitted curve, reaching a usable error would\n  take about 250x the placements.\n- Bigger networks memorized harder. Like handing a student who memorizes\n  answers a bigger notebook.\n\nThen the real test: for each held-out placement, I just reused the recorded\nanswer from its nearest training placement (2 to 9 mm away). That lookup table\nbeat every network, 5x on average and 300x on the worst placement. The data was\ndense enough. The network just couldn't read the cube's position from the image.\n\n**Takeaway:** before scaling anything, check a dumb baseline. If a lookup table\nbeats your model, more data won't save it; the model isn't extracting what's\nalready in the input.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 11, 2026 · 15 models from one run · first attempt died on a full disk and was re-queued",
+    "watch": [
+      {
+        "title": "W&B scaling-ladder-92f07142",
+        "note": "run id xygyhacp",
+        "href": ""
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "first attempt (stride 9)",
+        "note": "Failed after its 2400-placement capture (3.5 h) with a full disk: the frames file is 226 GB and was copied into place. Fixed in commit 796e352.",
+        "state": "trouble"
+      },
+      {
+        "name": "capture",
+        "note": "2400 screened placements (seed 12) and a 10-placement held-out capture (seed 8).",
+        "state": "done"
+      },
+      {
+        "name": "grid",
+        "note": "4 data sizes x 3 encoders at 120k steps.",
+        "state": "done"
+      },
+      {
+        "name": "steps sweep",
+        "note": "60k, 240k, 480k at 1200 placements, v2.",
+        "state": "done"
+      },
+      {
+        "name": "closed-loop rollouts",
+        "note": "30 each on the frontier models.",
+        "state": "done"
+      },
+      {
+        "name": "analysis",
+        "note": "Power-law fit, per-placement breakdown, lookup baseline.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: f0214fa (result), 796e352 (disk fix), ba26ec4 (ladder tool)",
+        "ok": true
+      },
+      {
+        "text": "Notebook entry and research-log entry 31 written",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/31-scaling-ladder.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entry 'Scaling ladder (2026-09-11)': the grid, the fit, the decision"
+      },
+      {
+        "path": "notes/placement-generalisation-explained.md",
+        "note": "intern explanation of the whole tranche"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/analysis_lookup_baseline.txt",
+        "note": "lookup baseline numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/scaling_ladder_20260910/ladder.json",
+        "note": "the ladder's results (not re-read cell by cell)"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/scaling-ladder-result-20260911.md",
+        "note": "memory note: result and levers"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/scaling-ladder-20260910.md",
+        "note": "memory note: design, the failed first attempt"
+      },
+      {
+        "path": "tools/scaling_ladder.py",
+        "note": "the tool that ran it"
+      },
+      {
+        "path": "commits ba26ec4 · 796e352 · f0214fa",
+        "note": "tool · disk fix · result"
+      }
+    ]
+  }
+}

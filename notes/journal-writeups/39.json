@@ -1,0 +1,371 @@
+{
+  "question": "How do the real servos respond to a command, and can we correct for it so the real arm ends up where the simulator says it will?",
+  "measure": "Three things. How far each joint rests from its command (in servo units). How far the real jaws are from the simulator's prediction when they close, for the same commands (mm; the grasp tolerates about 8 mm). And how many of 10 held-out placements pi0.5 succeeds on in a simulator fitted to the real servos.",
+  "outcome": "The elbow is a soft servo: it rests 1.5 to 6.4 units short of its command. A correction in the runner (the servo assist) brings the real jaws from 10.4 mm to 4.1 mm of the simulator's prediction. But the pi0.5 policy still scores 0 of 10 in the stand-in, with or without it.",
+  "setup": "A servo is the motor in each joint. You send it a target angle and it moves there. These servos use proportional control only (a \"P servo\"): the push is proportional to how far the joint is from its target. With nothing else, a joint carrying weight stops a little short, at the point where the push equals gravity plus friction. A stiffer servo stops closer.\n\nIn experiment 38 the pi0.5 policy (the network that drives the arm) failed on the real arm because the elbow was not where the plan assumed. The first reading was that the elbow was slow. The user's direction was to measure the servos once and make the code account for them by default.\n\nTerms: the teacher is the scripted controller that solves the task in simulation and whose episodes the policies copy. The certified scene is the normal simulator, where every joint has the same stiff motor (50 N.m/rad). The survey pose is the raised pose the arm moves to first so the camera sees the bench. The runner is the program that sends commands to the real arm. Held-out placements are 10 cube positions never used in training.",
+  "parts": [
+    {
+      "title": "How does each servo respond?",
+      "why": "A fix needs to know whether the elbow is slow, weak, or something else.",
+      "did": "A servo probe on the real arm: the survey move, then each joint wiggled in the air around the survey pose, through the normal runner. Four runs.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Joint",
+          "Rest error (units from command)",
+          "Fitted stiffness (N.m/rad)",
+          "Fitted friction (N.m)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Simulator, every joint",
+              "",
+              "50",
+              "0.1"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Shoulder pan",
+              "0 to 1.5",
+              "30.2",
+              "0.42"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Shoulder lift",
+              "0 to 1.5",
+              "56",
+              "0.72"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Elbow",
+              "1.5 after a + move, 6.4 after a - move",
+              "6.5",
+              "0.30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Wrist flex",
+              "0 to 1.5",
+              "43.2",
+              "0.78"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Wrist roll",
+              "0 to 1.5",
+              "43.2",
+              "0.24"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The four runs agree within 0.2 units. While moving, every joint trails its command by about what the simulator's does (3.5 to 3.9 units at 1 unit per step). The difference is at rest: the elbow stops short, 5.8 units at the survey pose. So the elbow is soft, not slow. This corrects experiment 38's claim that it had become three times slower since September; the survey move loads it, and one servo model fits both days. With the fitted model, elbow error on two probe runs not used in the fit drops from 3.8 to 0.9 units."
+    },
+    {
+      "title": "Can the real arm be made to match the simulator?",
+      "why": "Two routes. Change the simulator to behave like the real servos and retrain (bake it in). Or correct the commands on the way to the real arm so it behaves like the simulator (assist).",
+      "did": "Built a measured-servo scene from the fit and gave the teacher a compensation (gravity and friction feed-forward plus a slow integral at rest). Separately built a servo assist in the runner: the same correction between the policy's target and the arm. Replayed the teacher's commands on the real arm at the nominal placement and compared the real jaw position with the simulator's prediction.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Commands from",
+          "Real arm run with",
+          "Survey pose error",
+          "Closure: sideways",
+          "Closure: height"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Certified scene teacher",
+              "nothing",
+              "4.6 mm, 18 mm low",
+              "10.4 mm",
+              "1.3 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Measured-servo scene teacher (fit v3)",
+              "nothing",
+              "1.5 mm",
+              "9.5 mm",
+              "1.9 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Measured-servo scene teacher (final fit)",
+              "nothing",
+              "1.5 mm",
+              "9.5 mm",
+              "0.6 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Certified scene teacher",
+              "servo assist",
+              "1.5 mm",
+              "4.1 mm",
+              "4.5 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "On the measured-servo scene the unchanged teacher succeeds on 1 of 10 placements, which is the real arm's miss reproduced; with compensation it passes 30/30. That scene fixes the elbow, the survey pose and the jaw height on the real arm, but the real base and wrist do not answer small 2-unit corrections, so the jaws still end 9.5 mm off sideways. A policy trained on it would inherit about 9.5 mm against a tolerance of about 8 mm, so the retrain was not started. The assist does better: 4.1 mm at closure, 3.2 mm at lift, 4.5 mm at place."
+    },
+    {
+      "title": "Does the assist rescue the pi0.5 policy?",
+      "why": "The assist fixes where the teacher's commands land. The policy replans from what it measures, so it might still fail.",
+      "did": "Used the measured-servo scene as a stand-in for the real arm and ran the experiment 37 pi0.5 checkpoint on the 10 held-out placements, with and without the assist. No pi0.5 episode was run on the real arm for this.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Success",
+          "Survey elbow error (rad)",
+          "Cube in survey frame",
+          "Sideways at closure",
+          "Never descended"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Execute 30, no assist",
+              "0",
+              "+0.210 (episode 20: 0.217)",
+              "6",
+              "103 mm",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Execute 90, no assist",
+              "1",
+              "+0.099",
+              "9",
+              "10.7 mm",
+              "6"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Execute 30, assist",
+              "0",
+              "-0.018",
+              "10",
+              "24 mm",
+              "4"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Execute 90, assist",
+              "0",
+              "-0.008",
+              "10",
+              "10.6 mm",
+              "8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Execute 90, assist without the integral",
+              "0",
+              "-0.004",
+              "10",
+              "9.0 mm",
+              "8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Execute 30, assist + adaptive lag compensation",
+              "0",
+              "",
+              "",
+              "22 mm",
+              "4"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Execute 90, assist + adaptive lag compensation",
+              "0",
+              "",
+              "",
+              "9.8 mm",
+              "8"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No. \"Execute N\" is how many steps the policy runs before re-reading the camera. Without the assist the stand-in reproduces the live failure to the number (survey elbow 0.210 rad short against 0.217 on the arm). The assist repairs the survey pose in every run and the cube is always in view, but the policy still misses the grasp: the arm is not down when the gripper closes. The scripted teacher through the same assist succeeds on 9 of 10, so the gap is in how the policy replans from a soft elbow. Twelve result sets in all scored 0 to 1 of 10; later hold-each-command variants reached 2 of 10 at best."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Four probe runs agree within 0.2 units, and the fitted model was checked on probe runs it was not fitted to.",
+      "ok": true
+    },
+    {
+      "text": "The stand-in scene reproduces the real episode 20 survey error (0.210 against 0.217 rad) before any correction is applied.",
+      "ok": true
+    },
+    {
+      "text": "The \"10 mm to 4 mm\" comparison is the teacher's commands at one placement (the nominal one), not a policy and not many placements.",
+      "ok": false
+    },
+    {
+      "text": "The pi0.5 results are in a simulator stand-in for the arm, 10 placements, one repeat, one checkpoint. A rerun moves a count by about one placement.",
+      "ok": false
+    },
+    {
+      "text": "The fitted model does not reproduce the base and wrist ignoring small corrections, which is what leaves the 9.5 mm.",
+      "ok": false
+    },
+    {
+      "text": "Two different models from the same day: the \"response 0.16\" lag fit in experiment 38 and the stiffness and friction fit here. The later one (here) replaces the first.",
+      "ok": false
+    }
+  ],
+  "meaning": "The real problem is named: a soft elbow that sags under load, not a slow one. For policies trained on the stiff simulator, the runner now applies the servo assist by default, and the real arm tracks the simulator to about 4 mm with it. Baking the measured servos into the simulator and retraining was dropped for now because it would still leave 9.5 mm. And no run-time setting makes the old pi0.5 checkpoint grasp, so the fix has to come from training: either a policy that corrects from the close-up view (the lever from experiment 36) or training on soft-servo physics. That second idea became the physics-randomization work in November. The measured-servo scene is a sibling of the lens-matched scene from experiment 23, which is left untouched.",
+  "lesson": "\"Slow\" and \"soft\" look the same in a single moving episode. A probe that lets the joint come to rest tells them apart, and the fix is different for each.",
+  "next": [
+    {
+      "title": "Find why pi0.5 misses the grasp even with the assist",
+      "why": "Left open. The survey pose is right and the cube is in view, yet the arm is not down at closure."
+    },
+    {
+      "title": "Train on randomized servo physics around this fit",
+      "why": "Run in November as experiment 42, on the measured-servo scene built here."
+    },
+    {
+      "title": "Read the servo gains from the hardware",
+      "why": "Done on Nov 12 per the memory index: every servo has P 16."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Oct 4, 2026, after the incident in experiment 38 · probe on the real arm, fit, two correction routes, pi0.5 checks in simulation · last result 12:25",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "servo probe",
+        "note": "Real arm. Survey move, then each joint wiggled in the air. Runs 1, 3, 4, 5 used.",
+        "state": "done"
+      },
+      {
+        "name": "servo model fit",
+        "note": "tools/fit_servo_model.py, one joint at a time, resting samples weighted. Fits v1 to v3, then the final one.",
+        "state": "done"
+      },
+      {
+        "name": "measured-servo scene",
+        "note": "Scene 41b6cbd1. Teacher 1 of 10 unchanged, 30/30 with compensation.",
+        "state": "done"
+      },
+      {
+        "name": "teacher replay on the real arm",
+        "note": "9.5 mm sideways at closure from the measured-servo scene; 4.1 mm with the servo assist.",
+        "state": "done"
+      },
+      {
+        "name": "pi0.5 in the stand-in",
+        "note": "0 to 1 of 10 in twelve result sets. The machine restarted once and cleared the queue; the last run was re-queued.",
+        "state": "trouble"
+      },
+      {
+        "name": "assist + adaptive lag compensation",
+        "note": "0/10 at execute 30 and at execute 90. No change.",
+        "state": "done"
+      },
+      {
+        "name": "retrain on the measured-servo scene",
+        "note": "Not started: it would inherit about 9.5 mm.",
+        "state": "waiting"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 22beed8 (probe, model, teacher, assist), 650fcb4 (notes), a76936a (assist + adaptive result)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md and notes/bench-pick-replace-v1.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      },
+      {
+        "text": "A torque-off ran once with the arm extended after a refused parking step. The arm held and nothing fell. tools/torque_off.py now refuses unless the arm is near rest.",
+        "ok": false
+      },
+      {
+        "text": "experiments/servo_assist_20261004/summary.json has uncommitted changes in the working tree (git status).",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section \"Servo probe, servo model and runner servo assist (2026-10-04)\": all three tables"
+      },
+      {
+        "path": "memory: servo-model-assist-20261004.md",
+        "note": "summary, fitted values, status at 11:30 and 12:25"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/servo_assist_20261004/summary.json",
+        "note": "pi0.5 on the measured-servo scene: 16 result sets"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_probe_20261004/",
+        "note": "probe runs, teacher replays, fit files and logs"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "\"Update 2026-10-04 (later): servos measured\""
+      },
+      {
+        "path": "notes/system-paper.html",
+        "note": "note that corrects the lag claim to resting sag"
+      },
+      {
+        "path": "commits 22beed8 · 650fcb4 · a76936a",
+        "note": "code · notes · last result"
+      }
+    ]
+  }
+}

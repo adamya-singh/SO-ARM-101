@@ -1,0 +1,304 @@
+{
+  "question": "The real elbow is soft: it sags and rests short of its target. Is that a setting inside the servos, and what are the gain settings on the real arm?",
+  "measure": "The P, I and D coefficient registers of all six servos, read from the real arm without writing anything. P is the proportional gain: how hard the servo pushes per unit of position error. A lower P gives a softer joint. The factory value is 32.",
+  "outcome": "Every servo reads P 16, D 32, I 0. That is half the factory P, and it is exactly what the LeRobot driver writes when it connects. Before the read, the SO-101 became the base simulator model with its own measured-servo scene (teacher 30 of 30).",
+  "setup": "The arm has six servos (the motors in the joints): shoulder pan, shoulder lift, elbow flex, wrist flex, wrist roll and gripper. Each is a P servo: it pushes toward its target with a force proportional to how far away it is, scaled by a gain called P. With a low P and gravity pulling on the arm, a joint settles a little short of its target. In October a probe measured this softness on the real arm, and a servo model was fitted so the simulator could copy it (experiment 39). The handoff note of 2026-11-05 pointed at a likely cause: LeRobot, the robot driver library, writes P 16 (factory 32) when it connects, and the value likely persists in the servo. Experiment 42 showed that a policy trained around the soft servo fails on a stiff one. So it matters which end the real arm sits on. The teacher is the scripted program that solves the task in the simulator; its certification is 30 rollouts. A scene is one version of the simulator. This experiment has two halves: make the SO-101 arm model (experiment 43) the base with a soft-servo scene of its own, then read the real registers.",
+  "parts": [
+    {
+      "title": "Refit the October servo measurements through the SO-101 model",
+      "why": "The measured-servo scene existed only for the SO-100. The physics randomization recipe needs one for the SO-101.",
+      "did": "Ran the servo-model fit again on the October probe recordings, this time through the SO-101 scene. The error is the rms gap between the simulated and the recorded joint, in joint units, on the fit recordings.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Joint",
+          "Stiffness kp, nominal",
+          "Stiffness kp, fitted",
+          "Error, nominal",
+          "Error, fitted"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "shoulder pan",
+              "50",
+              "16.667",
+              "0.999",
+              "0.83"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "shoulder lift",
+              "50",
+              "56.0",
+              "0.764",
+              "0.723"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "elbow flex",
+              "50",
+              "6.481",
+              "3.397",
+              "0.798"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "wrist flex",
+              "50",
+              "30.24",
+              "1.277",
+              "1.023"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "wrist roll",
+              "50",
+              "43.2",
+              "0.178",
+              "0.155"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The elbow is the joint the stiff model gets wrong (3.397 units), and a fitted stiffness of 6.481 instead of 50 brings it to 0.798. The other joints change little."
+    },
+    {
+      "title": "Does the teacher certify on the SO-101 servo scene?",
+      "why": "A scene is only usable for capture if the teacher solves it. On a soft servo the teacher has to compensate for the sag.",
+      "did": "Built the scene bench_pick_replace_v1_so101_servo and certified the compensated teacher with two settings of its direction-slew compensation.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Compensation setting",
+          "Teacher"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "direction_slew 0.1",
+              "27 of 30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "direction_slew 0.2",
+              "30 of 30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The scene uses 0.2. The runner also gained an ACT path that refuses to run a policy on a scene other than the one it was trained on."
+    },
+    {
+      "title": "What do the real servos say?",
+      "why": "If P is 16 the softness is a setting, the real arm sits toward the soft end, and writing 32 back is an option.",
+      "did": "Plugged the arm in and ran tools/read_servo_registers.py, a read-only tool whose test asserts it never writes. The record is stamped 2026-11-13 00:38 UTC; the project notes date the read Nov 12.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Servo",
+          "P",
+          "D",
+          "I"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Factory value",
+              "32",
+              "32",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "What LeRobot writes on connect",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "shoulder pan",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "shoulder lift",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "elbow flex",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "wrist flex",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "wrist roll",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "gripper",
+              "16",
+              "32",
+              "0"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "All six servos hold the LeRobot values, not the factory ones. The tool's verdict: \"lerobot_configure (P 16, written by robot.connect())\". The settings were locked, torque was off, and the supply read 5.4 V (5.3 V on the gripper). Nothing was written back; restoring P 32 is the owner's call."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The reader is read-only and its test asserts it never writes",
+      "ok": true
+    },
+    {
+      "text": "Two later reads on Nov 15 give the same P 16 on every servo",
+      "ok": true
+    },
+    {
+      "text": "The fit uses real recordings: four October probe runs and live episode 10",
+      "ok": true
+    },
+    {
+      "text": "The servo model comes from one probe session in October",
+      "ok": false
+    },
+    {
+      "text": "P 16 explains softness in general. Nobody has measured how much of the elbow's sag it accounts for (the handoff says \"part of\").",
+      "ok": false
+    },
+    {
+      "text": "The registers were read with torque off, at rest",
+      "ok": false
+    }
+  ],
+  "meaning": "The softness is a driver setting shared by all six joints, not a hardware fault, and the real arm sits at the soft setting. That supports using the soft-servo scenes as the real-arm stand-in, and it kept the plan of experiment 45: train across soft to stiff so the policy does not depend on which value is in the registers. It also leaves a cheap lever unused: writing P 32 back would make the real arm stiffer.",
+  "lesson": "Before modelling a hardware quirk, read the hardware's own settings. A two-minute read-only check explained a behaviour that had been measured and modelled for a month.",
+  "next": [
+    {
+      "title": "Train across soft to stiff on the SO-101 servo scene",
+      "why": "Done as experiment 45, built on this scene."
+    },
+    {
+      "title": "Decide whether to write P 32 back",
+      "why": "Not done. It would change the real arm's response, so every servo scene would need refitting."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Scene and reader built Nov 8; registers read Nov 12 (record stamped Nov 13 00:38 UTC). 3 stages, nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "SO-101 as base",
+        "note": "Servo model refitted through the SO-101 scene; SO-101 servo scene built; teacher 30 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "register reader",
+        "note": "tools/read_servo_registers.py written and tested. It waited for the arm to be plugged in.",
+        "state": "done"
+      },
+      {
+        "name": "read",
+        "note": "All six servos: P 16, D 32, I 0.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 7a882aa (SO-101 base, servo scene), a1d523d (register reader)",
+        "ok": true
+      },
+      {
+        "text": "The register record physical/servo_registers_20261113T003841.json is not tracked by git",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/handoff-20261105.md",
+        "note": "deferred checklist: read the servo gains, LeRobot writes P 16"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_registers_20261113T003841.json",
+        "note": "the register read"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/servo_registers_20261115T042140.json, ..._20261115T152818.json",
+        "note": "two later reads, same values"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/next_round_20261108/servo_model_fit_so101.json",
+        "note": "fitted stiffness and errors per joint"
+      },
+      {
+        "path": "src/so_arm101_v2/data/resources/servo_model_20261108_so101.json",
+        "note": "the refitted servo model"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Steps 1-3 ... (2026-11-07)\": why the read was ordered"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/next-round-20261108.md",
+        "note": "what was built, slew 0.1 against 0.2, the Nov 12 read"
+      },
+      {
+        "path": "commits 7a882aa, a1d523d",
+        "note": "SO-101 base and servo scene; register reader"
+      }
+    ]
+  }
+}

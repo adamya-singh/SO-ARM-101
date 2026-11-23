@@ -1,0 +1,485 @@
+{
+  "question": "Does each change to the training data give the policy its own skill? And can a probe that changes the world mid-episode tell whether the skill is there?",
+  "measure": "Follow gain: how far the jaws move when the cube is moved 20 mm mid-episode, as a fraction of the move (0 = ignored, 1 = followed). Pickups kept: pickups with the probe over pickups in the same episodes left alone. Each probed episode is paired with its untouched twin on 100 placements.",
+  "outcome": "On the headline stage, 12 of 13 predictions written down in advance held. Policies trained on a self-correcting teacher follow the cube (+0.73 against +0.04 for ACT). Policies trained on random servo physics keep their pickups when the elbow goes soft (62 of 73 against 35 of 87). The later stage adds a surprise that no note has analysed: all 10 \"will not follow a moved square\" predictions read as failed.",
+  "setup": "A policy is the network that drives the arm. We have two kinds: ACT (a transformer) and a small CNN. Both read a wrist-camera frame and output a chunk of the next 90 joint commands. Execute 90 runs the whole chunk; execute 30 replans every 30 commands. The teacher is the scripted controller in the simulator that knows the true cube position; policies learn by imitating it. The recipe we want to test says: a policy trained by imitation learns only the skills its data forces. That is three claims. (1) A data change produces the skill. (2) A probe detects it. (3) The skill is what buys success. A success count cannot test them, because a policy that keeps looking and one that only remembers the first frame both succeed when nothing changes. A probe changes the world mid-episode and compares with the same episode left alone. The simulator is deterministic, so the pair differs only by the change. We probed checkpoints we already had. Baseline: no data change. Perturbed teacher (\"look\"): the teacher starts off-target and recentres, so the data contains corrections. Physics v2 (\"motor\"): each servo's strength is random, soft to stiff. The probes: shift_placement moves cube and square 20 mm at action 100, after the survey frame at action 90. swap_elbow turns the elbow servo into the other kind (soft or stiff) at action 100. drop_cube puts the cube back once it is lifted. move_square moves the square once the cube is lifted.",
+  "parts": [
+    {
+      "title": "Is the probe itself sound?",
+      "why": "If the probe reads a skill where there is none, no policy result means anything.",
+      "did": "Ran two reference controls. The plain teacher is open-loop, so its follow gain must be 0. The same teacher told about the shift in advance must read 1 and still succeed.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Control, nominal scene, 100 placements",
+          "Follow gain",
+          "Successes under the shift"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "plain teacher",
+              "+0.02",
+              "0/100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told the shift in advance",
+              "+0.98",
+              "100/100"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "The probe reads 0 and 1 where it must. Both teachers score 100 of 100 with no probe."
+    },
+    {
+      "title": "\"Look\": does training on corrections make a policy follow a cube that moved?",
+      "why": "This tests claim 1 for the perturbed teacher. If a baseline policy followed the cube too, the skill would need no data change.",
+      "did": "Moved cube and square 20 mm at action 100 on the nominal SO-101 scene. CNN numbers are pooled over 3 seeds.",
+      "predictions": [
+        {
+          "text": "Baseline CNN: absent",
+          "result": "held"
+        },
+        {
+          "text": "Perturbed-teacher CNN: present",
+          "result": "held"
+        },
+        {
+          "text": "Physics v2 CNN: absent",
+          "result": "held"
+        },
+        {
+          "text": "Baseline ACT, execute 90: absent or partial",
+          "result": "held"
+        },
+        {
+          "text": "Perturbed-teacher ACT, execute 90: present",
+          "result": "held"
+        },
+        {
+          "text": "Perturbed-teacher ACT, execute 30: partial or present",
+          "result": "held"
+        },
+        {
+          "text": "Baseline ACT, execute 30: partial or present (it reads four frames before closing)",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Follow gain (execute 90 / 30)",
+          "Pickups kept under the shift"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "baseline CNN",
+              "+0.01",
+              "46 of 227"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "baseline ACT",
+              "+0.04 / +0.06",
+              "14 of 87 / 15 of 87"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "perturbed-teacher CNN",
+              "+0.55",
+              "139 of 246"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "perturbed-teacher ACT",
+              "+0.73 / +0.92",
+              "56 of 77 / 9 of 7"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 CNN",
+              "+0.11",
+              "53 of 202"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "physics v2 ACT",
+              "+0.38 / +0.87",
+              "26 of 73 / 57 of 67"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The data change produces the skill: +0.55 and +0.73 with corrections in the data, +0.01 and +0.04 without. Replanning alone does not: the baseline ACT at execute 30 looks at four frames and still ignores the shift (+0.06). That was the one failed prediction. One result was not predicted: the physics v2 ACT at execute 30 follows the shift (+0.87) although nothing in its data aims at that. The perturbed ACT at execute 30 picks up only 7 of 100 without the probe, so its \"9 of 7\" is not a usable ratio."
+    },
+    {
+      "title": "\"Motor\": does training on random servos make a policy keep its grip when the elbow goes soft?",
+      "why": "This tests claim 1 for physics v2, and checks that each skill comes from its own data change and not from the other one.",
+      "did": "Swapped the elbow servo to the measured soft one at action 100 on the nominal scene and counted pickups against the untouched episodes.",
+      "predictions": [
+        {
+          "text": "Baseline ACT, execute 90 and execute 30: absent",
+          "result": "held"
+        },
+        {
+          "text": "Baseline CNN: absent or partial",
+          "result": "held"
+        },
+        {
+          "text": "Physics v2 CNN and ACT (execute 90 and 30): present",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Pickups kept, soft elbow (execute 90 / 30)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "baseline CNN",
+              "68 of 227"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "baseline ACT",
+              "35 of 87 / 2 of 87"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "perturbed-teacher CNN",
+              "41 of 246"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "perturbed-teacher ACT",
+              "26 of 77"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "physics v2 CNN",
+              "190 of 202"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 ACT",
+              "62 of 73 / 59 of 67"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Physics v2 policies keep their pickups; baseline policies lose most of them. The perturbed-teacher policies, which have the \"look\" skill, do no better here than the baselines (41 of 246 and 26 of 77). So \"look\" does not bring \"motor\" with it. This probe measures coping with a changed servo, not identifying it."
+    },
+    {
+      "title": "Is the skill what buys success?",
+      "why": "Claim 3. A policy could follow the cube and still fail to pick it up, or keep picking up without following.",
+      "did": "Across the learned-policy cells under shift_placement, compared follow gain with pickups kept.",
+      "predictions": [
+        {
+          "text": "Rank correlation between follow gain and pickups kept above 0.5",
+          "result": "held"
+        },
+        {
+          "text": "Gain 0.5 or more keeps at least 70% of pickups; gain 0.2 or less keeps at most 30%",
+          "result": "half"
+        }
+      ],
+      "table": {
+        "head": [
+          "Reading",
+          "Cells",
+          "Rank correlation"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "headline stage (notebook, Nov 19)",
+              "15",
+              "+0.90"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "all stages (matrix.json as it stands)",
+              "32",
+              "+0.77"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Follow gain and pickups kept rise together. The threshold half of the prediction is only partly met: the low-gain cells on the nominal scene keep at most 30% (baseline CNN 46 of 227, baseline ACT 14 of 87), but the perturbed-teacher CNN has gain +0.55 and keeps 139 of 246, which is under 70%. The notes report the correlation and do not report this threshold check."
+    },
+    {
+      "title": "Do skills appear that no data change forced?",
+      "why": "The note says in advance what would count against the recipe: any policy that retries after a dropped cube, or follows a moved square.",
+      "did": "The last stage ran drop_cube and move_square on the measured-servo and high-lift scenes. Read here from the report file; no note discusses it.",
+      "predictions": [
+        {
+          "text": "drop_cube, every policy: absent (no training episode contains a failed grasp)",
+          "result": "held"
+        },
+        {
+          "text": "move_square, every policy: absent (no data change targets it)",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy and scene",
+          "drop_cube: regrasps",
+          "move_square: follow gain",
+          "Verdict on move_square"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "plain teacher, servo scene",
+              "0",
+              "-0.00",
+              "control"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "baseline ACT, execute 90, servo scene",
+              "0",
+              "+0.44",
+              "partial"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "baseline CNN, servo scene",
+              "0",
+              "+0.31",
+              "partial"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 CNN, servo scene",
+              "0",
+              "+0.51",
+              "present"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 ACT, execute 90 / 30, servo scene",
+              "0 / 0",
+              "+0.75 / +0.81",
+              "present"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "high-lift ACT, execute 90 / 30, high-lift scene",
+              "0 / 0",
+              "+0.81 / +0.87",
+              "present"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "fair CNN, execute 90 / 30, high-lift scene",
+              "0 / 0",
+              "+0.22 / +0.51",
+              "partial / present"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No policy ever retries a dropped cube: 0 regrasps in all 10 cells that were read. But every move_square cell that was read shows the set-down following the square at least partly, with gains from +0.22 to +0.87 (one further cell, baseline ACT at execute 30, had no pickups to compare and reads n/a). By the note's own rule that counts against \"data alone decides\". It has not been examined, so it could also be a property of the probe."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Predictions and verdict thresholds were written to a file and committed (4306f26) before any learned policy was probed.",
+      "ok": true
+    },
+    {
+      "text": "Each probed episode is paired with the same episode left alone in a deterministic simulator, on 100 teacher-screened placements not used elsewhere. Every policy on a scene gets the same shift.",
+      "ok": true
+    },
+    {
+      "text": "The reference controls read +0.02 and +0.98.",
+      "ok": true
+    },
+    {
+      "text": "\"12 of 13\" covers the headline stage only (nominal scene, shift_placement and swap_elbow). The report file as it stands lists 55 registered predictions: 26 held, 11 failed, 18 not read. Ten of the 11 failures are move_square. No note reports these later numbers.",
+      "ok": false
+    },
+    {
+      "text": "The controls job first exited with an error (the teacher has no solution for some placements on the high-lift scene). It was fixed on Nov 21 (commit 099f3c9): such placements are left out and the zero control is read on the median.",
+      "ok": false
+    },
+    {
+      "text": "On the servo scene the plain teacher's mean follow gain for shift_cube is -0.16 (bound 0.15). After the Nov 21 fix the control is read on the median (+0.03) and passes. shift_cube results are not used here.",
+      "ok": false
+    },
+    {
+      "text": "ACT has one seed per kind. Checkpoints came from different earlier experiments, so the kinds also differ in data size and scene. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "The 70% / 30% threshold check and the move_square reading in this write-up are the registered rules applied to the report file by the writer, not conclusions taken from a note.",
+      "ok": false
+    }
+  ],
+  "meaning": "The recipe held where it was aimed: one data change, one skill, detected by a probe, and the skill goes with kept pickups. That was enough to plan the next step, which asks whether two skills stack in one policy, combine in one episode and get cheaper in order (experiment 53). Two things stay open. The physics v2 ACT follows a moved cube when it replans every 30 steps without any data aimed at that. And the later stage shows policies following a moved square, which the recipe said they would not. Until that is looked at, \"data alone decides which skills exist\" is supported for the two skills we targeted and not shown in general.",
+  "lesson": "Write the predictions down first, and then read all of them. The headline said 12 of 13. The full file says 26 held and 11 failed, and the 11 are where the next question is.",
+  "next": [
+    {
+      "title": "Stacking, combination and order (experiment 53)",
+      "why": "The probes test one change giving one skill. A curriculum needs skills to build on each other."
+    },
+    {
+      "title": "Examine the move_square result",
+      "why": "Ten registered \"absent\" predictions read partial or present, and nothing in notes/ explains it."
+    },
+    {
+      "title": "A retry capture, so drop_cube becomes a real test",
+      "why": "With no data change aimed at retrying, drop_cube can only show absence."
+    },
+    {
+      "title": "Probe the previous-command policies with swap_elbow",
+      "why": "swap_elbow shows coping, not identifying the servo. Identification needs the policies from experiment 51."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 18 to 21 · 5 stages · headline read Nov 19 · last stage and the repaired controls finished by Nov 21",
+    "watch": [],
+    "command": "simulation_code/queue_feature_probes_20261118.sh [--dry-run]",
+    "stages": [
+      {
+        "name": "plan",
+        "note": "A teacher-admitted shift per placement for each of the three scenes. Queue job 166.",
+        "state": "done"
+      },
+      {
+        "name": "rehearsal gate",
+        "note": "3 placements through the teacher, one CNN, one ACT cell, and the report. Queue job 167.",
+        "state": "done"
+      },
+      {
+        "name": "controls",
+        "note": "Queue job 168 exited 1 on the high-lift scene. Fixed and re-read on Nov 21 (commit 099f3c9).",
+        "state": "trouble"
+      },
+      {
+        "name": "headline",
+        "note": "shift_placement and swap_elbow on the nominal scene. Queue job 169. 12 of 13 predictions held.",
+        "state": "done"
+      },
+      {
+        "name": "rest",
+        "note": "All other probes and the servo and high-lift scenes. Queue job 170, exit 0. Not written up.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 4306f26 (probes, predictions, queue), 1e9e69b (headline evidence), 099f3c9 (controls fix)",
+        "ok": true
+      },
+      {
+        "text": "Headline written up in the notebook entry of 2026-11-19 and in notes/recursive-generalization-20261119.md",
+        "ok": true
+      },
+      {
+        "text": "notes/feature-probes-20261118.md still says \"queued\" and has no results section; the last stage is not written up anywhere",
+        "ok": false
+      },
+      {
+        "text": "matrix.json has uncommitted changes in the working tree",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/feature-probes-20261118.md",
+        "note": "the claims, the probes, thresholds, predictions, limits, the queue"
+      },
+      {
+        "path": "notes/feature-probes-20261118-predictions.json",
+        "note": "registered predictions, machine-readable"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "entries of 2026-11-18 (queued) and 2026-11-19 (headline result, 12 of 13)"
+      },
+      {
+        "path": "notes/recursive-generalization-20261119.md",
+        "note": "headline table for ACT and what it led to"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/matrix.json",
+        "note": "all cells, pooled CNNs, controls, predictions held or failed, link 3"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/feature-probes-20261118.md",
+        "note": "why it was built and how to read it"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/QUEUE_LOG.txt",
+        "note": "queue line of 2026-11-18 18:19"
+      },
+      {
+        "path": "tsp -l (task spooler list)",
+        "note": "exit codes of jobs 166 to 170"
+      },
+      {
+        "path": "simulation_code/queue_feature_probes_20261118.sh",
+        "note": "the queue script and its stages"
+      },
+      {
+        "path": "commits 4306f26 · 1e9e69b · 099f3c9",
+        "note": "built and queued · headline evidence · controls fix"
+      }
+    ]
+  }
+}

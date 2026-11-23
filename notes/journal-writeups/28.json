@@ -1,0 +1,209 @@
+{
+  "question": "Episode 10 was one success. Does it repeat? If it fails, what is different?",
+  "measure": "For each real run, where the jaw tips were when the gripper closed, in mm on the table (x sideways, y forward), computed from the joint angles. Compare the real runs with each other and with the simulator's grasp point.",
+  "outcome": "No. Episode 13 ran all 480 steps with zero holds and closed beside the cube. Every real grasp landed within about 10 mm of the simulator's grasp point while the cube sat about 20 mm beyond it. The policy goes to a learned spot.",
+  "setup": "A policy is the network that drives the arm. Ours looks at the wrist camera image and the joint angles and outputs the next 90 joint commands at once. Those 90 commands are a chunk. A new chunk is made at steps 0, 90, 180 and so on. An episode is 480 steps at 30 Hz, about 16 seconds. The policy is the randomized-look checkpoint (run ytn3eygr) that made the first live success in experiment 27. In training the cube was only ever within plus or minus 10 mm of one spot.\n\nThe runner has a placement check: it reads the cube's position from the camera frame at the start pose (back-projection through the lens) and refuses to run if the cube is too far from the task pose. Forward kinematics means computing where the jaw tips are from the measured joint angles. A hold is a step where the safety gate refuses a command.",
+  "parts": [
+    {
+      "title": "Episodes 11 and 12: can the placement check be trusted?",
+      "why": "The check refused both runs, although episode 10 had just put the cube back within 3 mm of where it grasped it.",
+      "did": "Compared the camera's reading of the same cube from two arm poses.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Arm pose",
+          "Camera reading of the same cube (forward)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "end pose",
+              "300 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "start (reset) pose",
+              "325 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "From the start pose the cube read 44 mm beyond the task pose. The reading depends on the arm's pose by about 25 mm, so the camera or joint-map geometry carries a bias. The check was made optional (--no-cube-gate, recorded only)."
+    },
+    {
+      "title": "Episode 13: does it grasp again?",
+      "why": "The repeat itself.",
+      "did": "Ran the same policy from the start pose, in much brighter daylight, then computed where the jaws closed in every real run that got that far.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Outcome",
+          "Where the jaws closed (x, y mm)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "simulator",
+              "success",
+              "(-1, 288)"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 10",
+              "success",
+              "(8, 290)"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 4",
+              "miss",
+              "(-13, 283)"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "episode 13",
+              "miss",
+              "(1, 284)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Episode 13 ran all 480 actions with zero holds and zero overruns and closed on nothing (gripper 0.55). The three real descents land within about 10 mm of the simulator's grasp point. With the cube about 20 mm beyond the task pose (a biased camera reading), success hinges on that last 10 mm. The policy trained on plus or minus 10 mm, so it goes to roughly where it trained."
+    },
+    {
+      "title": "A second, constant offset",
+      "why": "Found while computing the jaw positions.",
+      "did": "Compared the height at which the jaws close on the real arm and in the simulator.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The real jaws close about 15 mm higher than the simulator's (z 50 to 51 mm against 35 mm) in every real episode. That is a systematic joint-map offset, left for the next tranche to measure."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same checkpoint, same runner and same start pose in episodes 4, 10 and 13",
+      "ok": true
+    },
+    {
+      "text": "Episode 13's failure is not a runner or safety problem: 480 actions, zero holds, zero overruns (run.json: completed)",
+      "ok": true
+    },
+    {
+      "text": "Three real runs. The claim about a learned spot rests on three points and the simulator",
+      "ok": false
+    },
+    {
+      "text": "Episode 13 differed in lighting (brighter daylight) as well as cube position, so the two are not separated",
+      "ok": false
+    },
+    {
+      "text": "The cube's true position is not known: the camera reading is pose-dependent by about 25 mm, and no ruler measurement was taken",
+      "ok": false
+    },
+    {
+      "text": "Jaw positions come from forward kinematics through a joint map that is itself off (jaws about 15 mm higher than the simulator)",
+      "ok": false
+    }
+  ],
+  "meaning": "The policy learned a location, not how to find the cube. Tuning the bench placement by hand would never make it reliable. The owner's conclusion, adopted: it has no tolerance for placement error because it trained on plus or minus 10 mm offsets. The decision was to randomize placement in training: the square and cube anywhere in a 14 by 10 inch rectangle, at any angle (experiment 29). The arm was parked at the start pose.",
+  "lesson": "The spread across repeats tells you what the model actually learned. Here it learned a location, not how to look for the cube.",
+  "next": [
+    {
+      "title": "Randomize placement in training (experiment 29)",
+      "why": "The policy must read where the cube is instead of going to one spot."
+    },
+    {
+      "title": "Measure the 15 mm height offset of the real jaws",
+      "why": "It is the same in every real episode, so it is a joint-map error that can be corrected."
+    },
+    {
+      "title": "Fix the pose-dependent camera reading",
+      "why": "The same cube reads 300 mm from one pose and 325 mm from another."
+    }
+  ],
+  "log": "**TL;DR:** No: the repeat closed beside the cube, and every real grasp landed in\nabout the same spot wherever the cube was, so the policy had no tolerance for\nplacement.\n\n**Problem.** Episode 10 was a single success.\n\n*How we know:* one run proves possible, not reliable (entry 27).\n\n**Experiment.** Run it again from the start pose a few more times (episodes\n11-13).\n\n*What we hope to learn:* how repeatable it is, and what changes when it fails.\n\n**Outcome.** The placement check refused 11 and 12, but the same cube read 300\nmm away from one arm pose and 325 mm from another, so I made the check advisory.\nEpisode 13 ran all 480 steps with zero holds, in brighter daylight, and closed\nbeside the cube.\n\n| run | outcome | where the jaws closed (x, y mm) |\n|---|---|---|\n| episode 10 | success | (8, 290) |\n| episode 13 | miss | (1, 284) |\n| episode 4 | miss | (−13, 283) |\n| sim | | (−1, 288) |\n\n- Every real grasp landed within about 10 mm of the sim's grasp point while the\n  cube sat about 20 mm beyond it. It trained on ±10 mm, so it goes to roughly\n  where it trained. Like a claw machine that always drops in the same spot.\n- The real jaws also close about 15 mm higher than the sim's, every time.\n\nNext: let the square and cube go anywhere in a 14 × 10 inch rectangle, at any\nangle, during training.\n\n**Takeaway:** the spread across repeats tells you what the model actually\nlearned. Here it learned a location, not how to look for the cube.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 10 · episodes 11 to 13 · one full run, a miss; arm parked at reset",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "Episodes 11 and 12",
+        "note": "Refused by the placement check (cube read 44 mm beyond).",
+        "state": "trouble"
+      },
+      {
+        "name": "Placement check made optional",
+        "note": "--no-cube-gate; the reading is pose-dependent by about 25 mm.",
+        "state": "done"
+      },
+      {
+        "name": "Episode 13",
+        "note": "480 actions, zero holds, closed beside the cube.",
+        "state": "trouble"
+      },
+      {
+        "name": "Jaw-position comparison",
+        "note": "Episodes 4, 10, 13 and the simulator by forward kinematics.",
+        "state": "done"
+      },
+      {
+        "name": "Arm parked",
+        "note": "At the reset pose (physical/reset_pose_20260910c).",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 35ed29b (--no-cube-gate, attempts 11 and 12), b4fd2a2 (episode 13), e5202fe (docs and conclusion)",
+        "ok": true
+      },
+      {
+        "text": "Written up in the notebook and in research-log entry 28",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/28-repeats-miss.md",
+        "note": "the research-log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section 'Episodes 11-13' (2026-09-10)"
+      },
+      {
+        "path": "memory/appearance-randomization-20260910.md",
+        "note": "project memory note: episode 13 and the owner's conclusion"
+      },
+      {
+        "path": "memory/placement-randomization-20260910.md",
+        "note": "project memory note: the owner's direction for the next tranche"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_13_20260910/run.json",
+        "note": "status completed, actions 480"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_11_20260910",
+        "note": "refused attempt (also episode_12_20260910)"
+      },
+      {
+        "path": "commits 35ed29b · b4fd2a2 · e5202fe",
+        "note": "gate optional · episode 13 · docs"
+      }
+    ]
+  }
+}

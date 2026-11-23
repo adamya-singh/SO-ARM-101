@@ -1,0 +1,308 @@
+{
+  "question": "Before the August rebuild: can 100 hand-guided demonstrations on the real arm, plus reinforcement learning in the simulator, teach the arm to pick up the cube?",
+  "measure": "Mostly what the arm was seen to do, on the real arm and in the simulator viewer. Later runs also count successes over a few episodes and how far the cube rose (height gain, in metres).",
+  "outcome": "No. The first ACT policy barely moved and drifted downward on the real arm. Later ACT policies never touched the cube in the simulator. Reinforcement learning on top produced rare lifts of about 1 cm in training and no policy that passed an evaluation.",
+  "setup": "A policy is the network that turns what the robot senses into motor commands. ACT (Action Chunking with Transformers) is a policy that predicts a chunk, a run of future commands, in one go; here 100 or 30 commands per chunk. Imitation learning trains a policy to copy recorded demonstrations. The demonstrations here are 100 episodes (41,631 frames at 30 frames per second, one wrist camera) recorded in January 2026 by moving the real arm by hand with its motors off, so the recorded \"action\" equals the measured joint position in the same frame. Reinforcement learning (RL) instead lets the policy try things in a simulator (MuJoCo) and rewards progress; PPO is the RL method used. A strict grasp means both jaw pads flat on opposite faces of the cube. This entry summarizes the months before the research log starts, from the notes kept at the time. The reason nothing worked only showed up in experiment 01.",
+  "parts": [
+    {
+      "title": "Does ACT trained on the 100 real episodes drive the arm?",
+      "why": "If copying the demonstrations works, no simulator is needed.",
+      "did": "Trained ACT offline on the 100 episodes with simulation_code/train_act_on_data.py. The first finished run predicted 100 commands per chunk. Later runs used 30 per chunk, and then an \"action lead\" (the first target is a pose a few frames in the future, because the same-frame target equals the current pose). The policies were watched on the real arm and in the MuJoCo viewer.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run (date)",
+          "Chunk",
+          "Steps",
+          "Final loss",
+          "What it did"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "act_so101_physical (Jun 20)",
+              "100",
+              "6505",
+              "not given",
+              "Real arm: barely moved and drifted downward"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "corrected, batch 32 (Jun 21)",
+              "30",
+              "26020",
+              "about 0.048",
+              "Better approach and gripper timing, by eye"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lead-1 (Jul 9)",
+              "30",
+              "26020",
+              "about 0.048",
+              "Sim: pushes into the ground near the cube, slowly"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lead-3 (Jul 9), the default",
+              "30",
+              "26020",
+              "about 0.048",
+              "Sim: same ground push, more stutter"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "lead-5 (Jul 9)",
+              "30",
+              "26020",
+              "about 0.050",
+              "Sim: same ground push, faster"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No run picked up the cube. The loss was the same for every setting, and the behaviour was the same failure: the gripper pushed into the ground a little before and to the right of the cube without touching it. The first table row is the earlier run the others are compared against; there is no outside baseline."
+    },
+    {
+      "title": "Was a coordinate bug hiding a working policy?",
+      "why": "On July 10 the notes found that ACT's motor-range numbers were being fed to the simulator as if they were joint angles in radians, so commands were clipped.",
+      "did": "Added an explicit adapter between the two coordinate systems and compared the lead-3 policy with and without it over three episodes with a fixed cube.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Lead-3 ACT in the sim",
+          "Steps with a clipped joint",
+          "Mean return",
+          "Mean final distance to cube",
+          "Pickups"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "before the adapter",
+              "435/450",
+              "-54.909",
+              "0.1823 m",
+              "not given"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "with the adapter",
+              "0/450",
+              "-24.906",
+              "0.1452 m",
+              "0/3"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The bug was real and the fix removed the clipping, but the policy still picked up nothing: 0/3."
+    },
+    {
+      "title": "Can reinforcement learning in the simulator finish the job?",
+      "why": "If the copied policy gets near the cube, reward for contact, grasp and lift might teach the rest.",
+      "did": "Ran PPO on top of the ACT policy in MuJoCo. The overnight note of June 26 alone logs 41 runs that varied learning rate, reward weights and lift thresholds. Checkpoints were compared over 5 or 20 evaluation episodes.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Checkpoint",
+          "Evaluation",
+          "Successes",
+          "Mean height gain",
+          "Note"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "R28 ep0279 (best by eye)",
+              "5 episodes",
+              "success_rate=0",
+              "0.0050m",
+              "mean_grasp_count=23.4"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "R28 ep0274",
+              "5 episodes",
+              "none reported",
+              "0.0049m",
+              "one episode reached 0.0095m"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "R39 ep0298",
+              "20 episodes",
+              "lifted in 1/20",
+              "not given",
+              "poor contact and grasp quality"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "R35 ep0369",
+              "5 episodes",
+              "lift not reproduced",
+              "0.0020m",
+              "had a training lift of 0.00967m"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "RL produced sparse lift events in training (for example 0.01227m at update 276 of run R28) but they did not hold up in evaluation, and continuing PPO erased the behaviour even at an actor learning rate of 1e-8. The August preflight later reported that 12,000-episode runs had zero strict grasps. There is no baseline row: these are the RL checkpoints compared with each other."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The dataset facts (100 episodes, 41,631 frames, 30 FPS, action equals state) are a recorded preflight check in the training history note.",
+      "ok": true
+    },
+    {
+      "text": "The coordinate comparison used the same policy and the same three fixed-cube episodes before and after the fix.",
+      "ok": true
+    },
+    {
+      "text": "Most of the evidence is what someone saw in a viewer or on the arm. The real-arm result is one sentence in a table, with no logged numbers.",
+      "ok": false
+    },
+    {
+      "text": "The RL \"grasp counts\" came from the old, looser grasp detector. Under the strict detector no grasp ever fired (experiment 01).",
+      "ok": false
+    },
+    {
+      "text": "The record says \"7 months of RL\". That figure comes from the rebuild plan and log entry 01. The RL notes I could find in the repo start on June 22, and the real data was recorded in January, so the seven months likely covers the whole pre-rebuild period, not RL alone.",
+      "ok": false
+    },
+    {
+      "text": "Dates of the recording disagree: the memory note says January 23 to 24, the system paper says 2026-01-23 to 01-25.",
+      "ok": false
+    },
+    {
+      "text": "Every simulator result here ran on a simulator that made the grasp physically impossible (experiment 01), and on a joint map later found to be wrong (September).",
+      "ok": false
+    }
+  ],
+  "meaning": "By the end of July there were many policies, reward versions and coordinate paths, and no way to tell whether learning or the simulator was at fault. That led to the decision to rebuild from a small trusted skeleton (the diagnostics-first rebuild plan) and to start by proving the task can be solved at all, which is experiment 01. The 100 real episodes have not been used since.",
+  "lesson": "The same loss (about 0.048) came with three different behaviours, and RL training rows showed lifts that evaluation could not repeat. Judge a policy by controlled rollouts, and prove the task is solvable before reading anything into a learning result.",
+  "next": [
+    {
+      "title": "Prove the task with a script that cheats (experiment 01)",
+      "why": "If a controller that reads the cube's true position cannot pick it up, no policy could have."
+    },
+    {
+      "title": "Real-data ACT with proper action labels",
+      "why": "The memory note suggests re-recording with a leader arm or relabelling actions, since the recorded action is the measured pose. This is an untested idea."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "January to July 2026 · summarized from notes of the time · superseded by the August rebuild",
+    "watch": [
+      {
+        "title": "ACT, first finished run (100/100 chunks)",
+        "note": "W&B run 76pa7tet",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/lerobot/runs/76pa7tet"
+      },
+      {
+        "title": "ACT lead-3, the default pretrain",
+        "note": "W&B run sl2zf3jl",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/lerobot/runs/sl2zf3jl"
+      },
+      {
+        "title": "Overnight PPO, run 1",
+        "note": "W&B run d2ej7q0a",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/act-so101-sim-ppo/runs/d2ej7q0a"
+      }
+    ],
+    "command": "python3 train_act_on_data.py --profile corrected-act --num-workers 0",
+    "stages": [
+      {
+        "name": "record 100 real episodes",
+        "note": "January 2026, arm moved by hand with torque off, gripper from the keyboard.",
+        "state": "done"
+      },
+      {
+        "name": "ACT on the real data",
+        "note": "June 19 to 21. One run failed at once with CUDA out of memory at batch 64; batch 32 completed.",
+        "state": "trouble"
+      },
+      {
+        "name": "PPO on ACT in the simulator",
+        "note": "From June 22; 41 runs in the June 26 overnight note. No evaluation success.",
+        "state": "done"
+      },
+      {
+        "name": "action-lead sweep",
+        "note": "July 9: lead 1, 3 and 5. Same ground-push failure.",
+        "state": "done"
+      },
+      {
+        "name": "coordinate fix",
+        "note": "July 10: clipping 435/450 to 0/450, pickups 0/3.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Notes committed at the time: 537b600 (Jun 22), c4df029 (Jun 26), 6ab43d8 and a0c9dc6 (Jul 9), 2be8c62 (Aug 1)",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry: the log starts at experiment 01",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/train-act-on-data-history.md",
+        "note": "ACT run table, dataset facts, lessons"
+      },
+      {
+        "path": "notes/act-training.md",
+        "note": "coordinate fix numbers, PPO sweep summary, physical inference script"
+      },
+      {
+        "path": "notes/6-26-overnight-autoresearch.md",
+        "note": "41 PPO runs, best-snapshot comparison, handoff status"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "why a rebuild; \"seven months of RL\""
+      },
+      {
+        "path": "notes/privileged-controller-preflight-findings.md",
+        "note": "12,000-episode runs with zero strict grasps"
+      },
+      {
+        "path": "notes/system-paper.html",
+        "note": "the 100 real episodes: dates, format, not used since August"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/real-teleop-dataset.md",
+        "note": "memory note on the real dataset"
+      },
+      {
+        "path": "notes/research-log/01-privileged-preflight.md",
+        "note": "the Problem paragraph describes this period"
+      }
+    ]
+  }
+}

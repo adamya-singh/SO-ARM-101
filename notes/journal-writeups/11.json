@@ -1,0 +1,244 @@
+{
+  "question": "The policy trained on 5 cube starts almost works everywhere but scores 0 of 15. Does more training (3x the steps), a wider network (2x), or both close the gap?",
+  "measure": "Clean successes out of 15 tries (5 cube starts x 3 tries), where clean means success with zero safety frames. Pass is 15 of 15. Then, for the best run, every frame that tripped a safety check: which joint, which step, which phase of the task.",
+  "outcome": "Steps alone 3 of 15, width alone 3 of 15, both 9 of 15. No run passed. Every failure was a safety violation on a run that otherwise did the whole task. All 33 violations were the gripper, and 27 of them came after step 450, where the teacher's recording has already ended.",
+  "setup": "A policy is the network that drives the arm. This one is a chunked clone: it copies a hand-written teacher script that reads exact simulator state, looks at the state once, and outputs the next 90 commands (a chunk), which the arm runs without looking again. Experiment 10 trained it on the teacher recorded from 5 cube starts (2,250 rows). It then grasped, lifted, carried and released everywhere, and still scored 0 of 15.\n\nSafety frames are steps where a guard tripped. Clipped: the command was outside the safe joint range. Limited: the command asked for too large a move in one step. Unsafe: an unsafe contact. A try with any safety frame does not count, even if the cube ends up in place.\n\nThe reason to scale: offline MSE, the training error against the teacher's commands, was 1.94e-5 on the 5-start data against 2.37e-6 for the one-start policy at the same 30,000 steps. That looks like underfitting. Width is the number of units in each hidden layer.\n\nTwo lengths matter in part 2. The teacher's recording is 450 steps long. An evaluation try runs 480 steps. The policy also gets a progress input, a clock from 0 to 1, and that clock stops at step 449. With 90-step chunks, the sixth chunk (steps 451 to 480) is predicted entirely past the end of the recording.\n\nTraining here ran on the GPU under a new fixed setup (numerics regime v2), which made a 90,000-step run take minutes, not hours.",
+  "parts": [
+    {
+      "title": "Steps, width, or both?",
+      "why": "Whichever change closes the gap is where the training budget should go.",
+      "did": "A 2x2: 90,000 steps, width 512, or both. Same data, recipe and seed. All three ran to completion. The 256-wide, 30,000-step corner is the policy from experiment 10 and was not re-run.",
+      "predictions": [
+        {
+          "text": "Some arm passes Stage A: 15 of 15 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Arm",
+          "Width",
+          "Steps",
+          "Clean successes",
+          "Offline MSE",
+          "Mid-task starts"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "experiment 10 retrain",
+              "256",
+              "30,000",
+              "0 of 15",
+              "1.94e-5",
+              "7 of 8"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "steps90k",
+              "256",
+              "90,000",
+              "3 of 15",
+              "7.51e-7",
+              "7 of 8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "width512",
+              "512",
+              "30,000",
+              "3 of 15",
+              "2.87e-6",
+              "5 of 8"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "width512_steps90k",
+              "512",
+              "90,000",
+              "9 of 15",
+              "4.04e-6",
+              "6 of 8"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Status scaling_not_resolved. More budget moved the score from 0 to 9, and every failure was a safety invalidation with the full task chain complete. Training error did not rank the runs: the best arm in closed loop had the worst training error of the three."
+    },
+    {
+      "title": "Exactly which frames fail in the best arm?",
+      "why": "A count of bad frames does not say what to fix. Where they land does.",
+      "did": "A tool recomputed the two safety checks per frame and joint from the stored telemetry of the six failing tries (two starts, three identical repeats each). Its counts had to equal the evaluation's own counts or it stops.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Failing start",
+          "Violations",
+          "Joint",
+          "At release (steps 417 to 422)",
+          "After step 450"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "cube y − 1.5 mm",
+              "18",
+              "gripper",
+              "0",
+              "18"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "cube y + 1.5 mm",
+              "15",
+              "gripper",
+              "6",
+              "9"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "total",
+              "33",
+              "gripper only",
+              "6",
+              "27"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No other joint violates anywhere. 27 of 33 violations are in the chunk predicted past the end of the recording, starting right at step 451. The other 6 are at release, where even the teacher needs at least 16 steps to open the gripper without tripping the step limiter."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Arms, pass bar and promotion order were written down before the run; all three arms ran regardless of earlier results.",
+      "ok": true
+    },
+    {
+      "text": "Same 2,250 rows, same recipe and seed in every arm. Only width and steps change.",
+      "ok": true
+    },
+    {
+      "text": "The frame analysis is pinned to the live safety code: its recomputed counts match the report exactly.",
+      "ok": true
+    },
+    {
+      "text": "The baseline corner was trained on the CPU in the old setup, the three arms on the GPU setup. The note treats the baseline as context only.",
+      "ok": false
+    },
+    {
+      "text": "Steps were scaled 3x, not the 5x that would match the data, because of a CPU time limit that no longer applied once training moved to the GPU.",
+      "ok": false
+    },
+    {
+      "text": "The three tries per start are identical repeats, so 15 tries are 5 distinct results. One seed. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "Offline MSE values are from the report, shortened to three digits.",
+      "ok": true
+    }
+  ],
+  "meaning": "The gap is not capacity. It is a mismatch between how long the demonstration is (450 steps) and how long the task runs (480). The last chunk is improvised, and the gripper wanders. The pre-registered rule said stop and write a new proposal. The next one (experiment 12) tests whether a learning-rate schedule polishes the small overshoots away, with a caveat written in advance: if violations stay in the frames after step 450 and at release, the fix is to make the teacher as long as the task.",
+  "lesson": "Before turning more knobs, find the exact frames that fail. And do not rank runs by training error: here it pointed the wrong way.",
+  "next": [
+    {
+      "title": "A decaying learning rate, bigger budgets, more seeds (experiment 12)",
+      "why": "Tests whether better optimization removes the small gripper overshoots."
+    },
+    {
+      "title": "Make the teacher's recording as long as the task (480 steps)",
+      "why": "27 of 33 violations sit in the part of the episode the teacher never demonstrated."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Aug 6, 2026 · 3 arms, about 35 minutes wall clock · status scaling_not_resolved · no retry budget",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "first launch (CPU)",
+        "note": "Started Aug 5 about 23:02, killed at 23:41 before any artifact existed, to re-run under GPU training.",
+        "state": "trouble"
+      },
+      {
+        "name": "steps90k",
+        "note": "Width 256, 90,000 steps. 3 of 15.",
+        "state": "done"
+      },
+      {
+        "name": "width512",
+        "note": "Width 512, 30,000 steps. 3 of 15.",
+        "state": "done"
+      },
+      {
+        "name": "width512_steps90k",
+        "note": "Width 512, 90,000 steps. 9 of 15.",
+        "state": "done"
+      },
+      {
+        "name": "frame analysis",
+        "note": "tools/analyze_safety_frames.py on the best arm's failing tries.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: d5ae5b6 (the scaling tranche), 1abfbea (the frame analysis)",
+        "ok": true
+      },
+      {
+        "text": "Result written into the proposal note; report scaling_gates/b672196e85a945aa",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 11 written (commit 87667eb)",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/11-steps-and-width.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/optimization-scaling-proposal.md",
+        "note": "the proposal, the abort addendum, the result"
+      },
+      {
+        "path": "notes/scaling-failure-frame-analysis.md",
+        "note": "every violating frame, with plots"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/scaling_gates/b672196e85a945aa/report.json",
+        "note": "per-arm successes, offline MSE, mid-task starts"
+      },
+      {
+        "path": "notes/broader-evaluation-proposal.md",
+        "note": "the baseline corner (0 of 15, 1.94e-5, 7 of 8)"
+      },
+      {
+        "path": "tools/analyze_safety_frames.py",
+        "note": "the frame-analysis tool"
+      },
+      {
+        "path": "commits d5ae5b6 · 1abfbea",
+        "note": "scaling tranche · frame analysis"
+      }
+    ]
+  },
+  "log": "**TL;DR:** The best combination got 9/15, and every clipped or limited frame\nturned out to be the gripper misbehaving after the script's recording ran out.\n\n**Problem.** The 5-start policy almost worked everywhere but scored 0/15\n(entry 10). It looked underfit.\n\n*How we know:* its training error was 8x higher than the one-start memorizer's\non the same 30k steps. I didn't know if steps or size was the bottleneck.\n\n**Experiment.** A 2×2: 3x the steps (90k), 2x the width (512), or both. Judged\non the 15-try suite.\n\n*What we hope to learn:* whichever change closes the gap is where the budget\ngoes.\n\n**Outcome.** Steps 3/15, width 3/15, both 9/15. Every failure was a safety\nviolation after the whole task had basically gone right. The best run in closed\nloop had the worst training error.\n\nSo I went frame by frame through every clipped or limited command:\n\n- All of them were the gripper, and 27 of 33 came after step 450. The script's\n  recording is 450 steps long but the task runs for 480, and the progress clock\n  stops at the end of the recording. So the last chunk is pure improvisation.\n  Like a recipe that ends three steps before the dish is done.\n- The other 6 were at release, where the gripper opens fast.\n\n**Takeaway:** before turning more knobs, find the exact frames that fail. It\ntold me the problem wasn't capacity, it was a mismatch between how long the\ndemo was and how long the task was. And training error didn't even rank the\nruns correctly."
+}

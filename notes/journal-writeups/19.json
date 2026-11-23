@@ -1,0 +1,193 @@
+{
+  "question": "Does the simulator's wrist camera show the same picture as the real wrist camera when both arms are in the same pose?",
+  "measure": "The width and centre, in pixels of a 1920x1080 frame, of the white square as the real camera sees it and as the simulated camera projects it at the same recorded pose. They should line up.",
+  "outcome": "No. The real square was 574 px wide near the top of the frame. The sim square was 139 px wide and about 300 px lower: 4.1 times smaller. Only the left-right centring agreed. Training was blocked until the camera was calibrated.",
+  "setup": "A policy is the network that drives the arm. The vision policy sees only the wrist camera image and the arm's joint readings. It is trained on images rendered by the simulator and then has to work from the real camera. If the simulator renders a view the real camera never produces, the policy learns the wrong view.\n\nThe simulator's wrist camera came with the arm model (the MuJoCo Menagerie model): a vertical field of view of 72 degrees, mounted 68 mm above the gripper body. Field of view is how wide an angle the lens sees; a narrower lens makes things look bigger. Nobody had ever compared a real image with a simulated one.\n\nThe reset pose is the recorded starting pose of the arm above the square. The white square on the bench is 50.8 mm wide (a folded paper napkin on the real bench). Gate 1 is the project's first check before any training data is captured: a matched real and simulated wrist view.",
+  "parts": [
+    {
+      "title": "Do the two cameras agree at the reset pose?",
+      "why": "If they match, a quick look at an image pair clears training. If they do not, the camera model needs calibrating first.",
+      "did": "Rendered the sim wrist view at the recorded reset pose at 1920x1080. Detected the white square in the real frame. Projected the sim square through the sim camera and drew it over the real photo.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "View at the reset pose",
+          "Square width",
+          "Square centre (x, y)",
+          "Size ratio to real"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "real camera",
+              "574 px, top edge cropped",
+              "(952, 184)",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "sim camera, Sep 6 (scene 512f897d)",
+              "139 px",
+              "(955, 482)",
+              "4.1x smaller"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "sim camera, Sep 7, after the joint-map fix",
+              "218 px",
+              "(1019, 1126), below the frame",
+              "2.6x smaller"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "They do not match. Scale is off 4.1 times and the square sits about 300 px too low. The horizontal centres agree (952 against 955), so the line from the base to the square is right. After the joint map was fixed the next day (experiment 20) the gap fell to 2.6 times and the height error flipped, so part of the gap was the arm pose and the rest was the camera model."
+    },
+    {
+      "title": "What explained the gap, and were the first explanations right?",
+      "why": "The explanation decides what to measure next.",
+      "did": "That night two guesses were written down: the real lens has about a 36 degree vertical field of view, and the real camera is on a different 3D-printed mount that sits closer and is pitched further down. Neither was measured. The calibration on Sep 8 (experiment 21) then measured both.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Quantity",
+          "Sim on Sep 6",
+          "Guess on Sep 6",
+          "Measured on Sep 8"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "vertical field of view",
+              "72 deg",
+              "about 36 deg",
+              "44.0 deg"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "camera mount",
+              "Menagerie mount",
+              "a different 3D-printed mount",
+              "the official mount, same as the Menagerie one"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Both guesses were wrong. The lens is 44 degrees, not 36. The mount is the official part the model already had. Part of the gap was the joint map. The measurement of the mismatch stood; the explanation did not."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Both views use the same recorded reset pose and the same 1920x1080 resolution.",
+      "ok": true
+    },
+    {
+      "text": "The overlay image and a manifest with file hashes are saved, so the comparison can be re-read.",
+      "ok": true
+    },
+    {
+      "text": "One pose and one real frame.",
+      "ok": false
+    },
+    {
+      "text": "The real square is a folded paper napkin with its top edge cropped by the frame, so its measured width is approximate.",
+      "ok": false
+    },
+    {
+      "text": "The sim arm pose on Sep 6 used the June joint map, which was itself wrong (experiment 20). The comparison mixes a camera error with an arm-pose error.",
+      "ok": false
+    },
+    {
+      "text": "The record's one-line answer says 4x; the sources say 4.1x.",
+      "ok": false
+    }
+  ],
+  "meaning": "Training was blocked. Gate 1 changed from 'look at a pair of images' to 'calibrate the sim camera to real frames': get the real field of view, record real frames at known poses, fit the camera, regenerate the scene, and only then write the review record. The bench pipeline had been rehearsed end to end at toy scale the same evening and was otherwise ready.",
+  "lesson": "Compare sim and real images side by side, at the same pose, before training on anything. And do not write a guess down as if it were the explanation.",
+  "next": [
+    {
+      "title": "Measure the joint map (experiment 20)",
+      "why": "The sim gripper also looked rotated against the real one in the live viewer."
+    },
+    {
+      "title": "Calibrate the lens and the camera pose (experiment 21)",
+      "why": "The field of view and the mount pose were unmeasured guesses."
+    }
+  ],
+  "log": "**TL;DR:** No: the sim showed the square 4x smaller and 300 pixels lower than\nthe real camera did.\n\n**Problem.** I had never compared the sim's wrist camera with the real one.\nTraining on wrong renders teaches the policy a view the real arm never sees.\n\n*How we know:* I didn't, and that was the problem. No image from the real camera\nhad ever been checked against the sim.\n\n**Experiment.** Put the real arm and the sim arm in the same recorded pose,\nrender the sim view at the real camera's resolution, and overlay the sim square\non the real photo.\n\n*What we hope to learn:* if they match, a quick image review clears training.\nIf not, the camera needs calibrating first.\n\n**Outcome.** Way off. The real square was 574 px wide near the top of the\nframe; the sim square was 139 px wide, about 300 px lower. Only the horizontal\ncentring agreed.\n\n- My explanations that night were guesses, and both were wrong: I guessed the\n  real lens was about 36 degrees (it's 44) and that the mount was a different\n  part (it's the official one). Part of the gap was actually the joint map\n  (entry 20).\n\nI blocked training and changed the first gate from \"review the images\" to\n\"calibrate the camera.\"\n\n**Takeaway:** compare sim and real images side by side, at the same pose, before\nyou train on anything. And don't write a guess down as if it were the\nexplanation.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 6, 2026 (evening) · 2 stages · led to the calibration work of Sep 7 and 8",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "pipeline rehearsal",
+        "note": "The bench pipeline ran end to end in a labelled rehearsal mode, with the camera gate skipped and recorded as skipped.",
+        "state": "done"
+      },
+      {
+        "name": "render and overlay at the reset pose",
+        "note": "Sim square 139 px at (955, 482) against the real 574 px at (952, 184).",
+        "state": "done"
+      },
+      {
+        "name": "redo after the joint-map fix (Sep 7)",
+        "note": "Sim square 218 px, below the bottom of the frame; ratio 2.6x.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: ab6fc86 (rehearse the bench pipeline and measure the wrist-camera mismatch)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 19 exists",
+        "ok": true
+      },
+      {
+        "text": "Overlay image exists: inspection/compare_reset_sim_projection_over_physical_512f897d.png",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/19-camera-mismatch.md",
+        "note": "research-log entry"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "runbook: 'Corrected-distance renders and the measured camera mismatch'"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "September 6 (evening) entry"
+      },
+      {
+        "path": "memory/bench-camera-model-mismatch.md",
+        "note": "project memory note with the pixel numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/compare_reset_sim_projection_over_physical_512f897d.png",
+        "note": "overlay: red real square, green sim projection (listed, not opened)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/inspection/camera_comparison_f198fce2.json",
+        "note": "the Sep 7 redo (listed; numbers taken from the runbook)"
+      },
+      {
+        "path": "commit ab6fc86",
+        "note": "rehearsal and mismatch measurement"
+      }
+    ]
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "question": "The project moved to the real bench task: a 20 mm cube on a 2 inch white square. Can the scripted teacher do that task in the simulator and pass the strict grasp check?",
+  "measure": "How many of 15 scripted episodes finish the whole lift-and-replace with a strict grasp and zero safety frames. Also the jaw alignment score (a cosine) the grasp checker gives, against its threshold of 0.906, which is the cosine of 25 degrees.",
+  "outcome": "Yes, 15/15, after two geometry fixes. The grasp checker had been measuring the closing direction along the wrong line (25.4 degrees off). The grasp moved to the outermost jaw pad, and then the checker itself was corrected with the owner's sign-off.",
+  "setup": "The teacher is a hand-written script that drives the simulated arm using facts a real robot would not have, such as the exact cube position. Its episodes are the examples a policy (the network that will later drive the arm) learns from. So the teacher must do the task perfectly first.\n\nThe bench task is new on Sep 6: lift a black 20 mm cube off a 50.8 mm white square, 8.5 inches in front of the arm base, and put it back. The August work used a 25 mm cube.\n\nA strict grasp means the two jaws press on opposite faces of the cube, checked by the grasp checker (the code calls it the detector). For each contact it compares the push direction with the jaw closing direction and wants them within 25 degrees (cosine 0.906 or more). A safety frame is a simulation step where a command broke a safety limit; any such frame spoils the episode.\n\nThe jaws have four pad positions along their length, pad 4 deepest and pad 1 at the tips. The gripper angle is in radians; smaller means more closed.\n\nCertification is the fixed test for the teacher: the normal cube position plus four positions 10 mm off along each axis, three repeats each, so 15 episodes.",
+  "parts": [
+    {
+      "title": "Is the failed strict grasp a tuning problem or a geometry problem?",
+      "why": "The teacher lifted the cube about 29 mm but the checker never registered a strict grasp. The alignment score was 0.888 against 0.906. If it is tuning, sweep parameters. If it is geometry, move the grasp or fix the checker.",
+      "did": "Measured, for each of the four pad positions, the gripper angle at which it pinches a 20 mm cube. Then worked out how far the checker's reference line is from the true pad normal at that angle. The reference was the line between two tip markers, which sit 18.6 mm apart vertically.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Pad",
+          "Gripper angle at pinch (rad)",
+          "Reference line off the pad normal",
+          "Can pass the 25 degree check"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "pad 4 (the old 25 mm grasp)",
+              "-0.152",
+              "30.7 deg (at -0.15)",
+              "no"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pad 3",
+              "-0.063",
+              "27.3 deg (at -0.06)",
+              "no"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pad 2",
+              "-0.003",
+              "25.4 deg (at 0)",
+              "no"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pad 1 (jaw tips)",
+              "+0.055",
+              "24.0 deg",
+              "yes, cosine 0.913"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Geometry. The reference line is 25.4 degrees off the real closing direction at angle 0 and gets worse as the jaw closes. A clean face pinch at pads 2 to 4 was rejected no matter how good the contact was. Only pad 1 could pass the unchanged checker."
+    },
+    {
+      "title": "Does the teacher pass certification with the grasp at pad 1?",
+      "why": "Moving the grasp is the fix that leaves the checker alone, so it was tried first.",
+      "did": "Scanned pad 1 settings (approach angle, height offset, depth lead) on the five certification positions, chose one, and ran the 15-episode certification. The bar of 15/15 with zero safety frames is gate 2 in the bench plan.",
+      "predictions": [
+        {
+          "text": "Certification gate: 15/15 complete episodes with zero safety invalidation",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Teacher setting",
+          "Passes on the 5 positions",
+          "Fewest strict-grasp frames",
+          "Safety frames",
+          "Corner rejections"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "pad 4 (before)",
+              "no strict grasp, lifts about 29 mm",
+              "",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pad 1, 78 deg, offset 0, lead 0 (chosen)",
+              "5/5",
+              "151",
+              "0",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pad 1, offset -4 to +2 mm, lead 0",
+              "5/5 each",
+              "151",
+              "0",
+              "0"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pad 1, offset +4 mm, lead 0",
+              "5/5",
+              "99",
+              "0",
+              "151 to 331"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pad 1, lead -3 mm",
+              "5/5",
+              "81 to 99",
+              "0",
+              "63 to 154"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "pad 1, lead +3 mm",
+              "0 to 4/5",
+              "0",
+              "0",
+              "IK failure or edge contacts"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The chosen setting certified 15/15, deterministic, with zero safety frames. It first passed under the old checker and was re-certified 15/15 after the checker fix below."
+    },
+    {
+      "title": "Is correcting the checker a fix or a loosening?",
+      "why": "Changing a pass criterion can quietly make a task easier. The test is whether every old result stays the same under the new checker.",
+      "did": "With the owner's approval the closing direction became the bisector of the two pad normals (version pad_normals_v2), at most 4.9 degrees off either pad. The old tip-line mode is kept only to reproduce old numbers. The old 25 mm task was re-run on its five scenarios under both.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Checker reference",
+          "Strict-grasp frames, five old scenarios",
+          "Lowest alignment cosine there",
+          "Threshold"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "tip-marker line (old)",
+              "48 / 63 / 48 / 50 / 47",
+              "0.908",
+              "0.906"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pad-normal bisector (pad_normals_v2)",
+              "48 / 63 / 48 / 50 / 47",
+              "1.0",
+              "0.906"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Nothing in the old results moved: same strict-frame counts, same rollout fields, and the old gate is still proven and deterministic. The old 25 mm grasps had passed the old reference by only 0.002. The teacher stays at pad 1 because it has 0.23 rad of closing travel to spare; pad 4 would pinch 0.02 rad from the mechanical limit."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The old 25 mm task gives identical strict-frame counts and rollout fields under the old and new checker, so the change did not loosen the criterion for past results.",
+      "ok": true
+    },
+    {
+      "text": "Certification is deterministic and uses the same preflight machinery as before.",
+      "ok": true
+    },
+    {
+      "text": "The checker version is folded into every capture identity and the certification folder name, so evidence from the old checker cannot be mistaken for current evidence.",
+      "ok": true
+    },
+    {
+      "text": "Simulation only. On this date the camera and the joint mapping to the real arm were not yet checked (experiments 19 to 21).",
+      "ok": false
+    },
+    {
+      "text": "The pad 1 scans ran from scratch scripts and are only summarised in the runbook.",
+      "ok": false
+    },
+    {
+      "text": "The 78 degree approach chosen here was replaced the next day by a 5 degree near-vertical approach (experiment 20), and the scene changed again later. The 15/15 here is for scene 512f897d.",
+      "ok": false
+    }
+  ],
+  "meaning": "The teacher gate for the bench task closed on Sep 6, so data capture was no longer blocked by the script. The camera gate was still open. The rule that came out of it: any future change to the grasp checker must bump its version and re-run the old-task comparison to show what moved.",
+  "lesson": "Check the checker. A metric that is almost right can quietly decide which solutions are allowed to exist.",
+  "next": [
+    {
+      "title": "Compare the sim wrist camera with the real one (experiment 19)",
+      "why": "The camera comparison was still pending when the teacher was certified."
+    },
+    {
+      "title": "Measure the joint map (experiment 20)",
+      "why": "It later showed the 78 degree approach was not usable and the teacher was retuned."
+    }
+  ],
+  "log": "**TL;DR:** The script couldn't make a strict grasp on the new 20 mm cube, and it\nturned out the grasp checker had been measuring the wrong axis all along.\n\n**Problem.** After a month off, I moved to the real bench task: a 20 mm cube on\na 2 inch white square, 8.5 inches in front of the arm. Pick it up, put it back.\nThe script lifted the cube about 29 mm but never registered a strict grasp.\n\n*How we know:* the checker scored the jaw alignment at 0.888 against a threshold\nof 0.906 (25 degrees). I didn't know if this was tuning or geometry.\n\n**Experiment.** Work out, for each of the four pad positions along the jaws,\nwhere it pinches a 20 mm cube, and how the checker decides which way the jaws\nclose.\n\n*What we hope to learn:* if it's tuning, sweep parameters. If it's geometry,\nmove the grasp or fix the checker.\n\n**Outcome.** Geometry, twice:\n\n- The checker measured the closing direction as the line between two tip\n  markers, which sit 18.6 mm apart vertically. That line is 25 degrees off the\n  real closing direction, right at the limit, so pads 2-4 could never pass. Like\n  checking a door is shut with a line from the handle to the hinge.\n- Moving the grasp to the outermost pad passed 15/15. Then, with my sign-off,\n  the checker switched to the true closing direction (between the two pad\n  normals). The old 25 mm task's results didn't change, but it turns out its\n  grasps had passed the old checker by only 0.002.\n\n**Takeaway:** check the checker. A metric that's almost right can quietly decide\nwhich solutions are allowed to exist.",
+  "run": {
+    "state": "Finished",
+    "line": "Sep 6, 2026 · 3 stages · nothing left",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "pad geometry",
+        "note": "Pinch angle for each of the four pads and the reference-line error at each.",
+        "state": "done"
+      },
+      {
+        "name": "grasp moved to pad 1, certified",
+        "note": "15/15, deterministic, zero safety frames, under the old checker.",
+        "state": "done"
+      },
+      {
+        "name": "checker corrected, old task re-run, re-certified",
+        "note": "pad_normals_v2; old 25 mm gate unchanged; bench teacher 15/15 again.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 09b72aa (grasp moved to pad 1, certified 15/15), 41d628e (checker measures the pad closing axis)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 18 exists",
+        "ok": true
+      },
+      {
+        "text": "Recorded in the bench runbook and the notebook",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/18-bench-teacher-and-detector.md",
+        "note": "research-log entry"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "runbook: 'Why the grasp moved from pad 4 to pad 1', scan table, run gates"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "September 6 entries (24.0 deg at pad 1, 15/15)"
+      },
+      {
+        "path": "memory/bench-grasp-detector-geometry.md",
+        "note": "project memory note: cosine 0.913 at pad 1, margin 0.908 vs 0.906"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/simulation/detector_pad_axis_check/",
+        "note": "old-task comparison report (folder seen, numbers taken from the runbook)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/teacher_certification/512f897da336467a-pad_normals_v2/",
+        "note": "certification folder for this scene (seen, not opened)"
+      },
+      {
+        "path": "commits 09b72aa · 41d628e",
+        "note": "pad 1 and certification · checker fix"
+      }
+    ]
+  }
+}

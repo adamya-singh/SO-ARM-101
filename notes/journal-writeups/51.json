@@ -1,0 +1,353 @@
+{
+  "question": "Two changes, each against a tuned baseline. Does training with random joint-zero errors make the policy robust to them? Does giving the policy its last three commands help it cope with servos of unknown strength?",
+  "measure": "Successes and pickups out of 30 per seed (10 held-out placements run 3 times), two seeds per arm, in four servo settings, plus the lateral median (sideways jaw-to-cube distance in mm before closing). The note fixed in advance which cell answers which question.",
+  "outcome": "Finished on Nov 22. The sweep kept the current settings. In the 2 x 2, neither change beat the baseline in the cell chosen to test it: offsets 30 against 34 of 60, previous commands 27 against 30 of 60. Both changes together are level with the baseline (34 and 32 against 34 and 30).",
+  "setup": "A policy is the network that drives the arm. Here it is ACT, which reads a wrist-camera frame and the joint angles (the state) and outputs the next 90 joint commands. It replans every 30 (execute 30). Two worries came from the real arm. First, the arm's joint zeros were set by eye, so the joint readings are off by a few degrees and the modelled jaw height is 10 to 35 mm wrong at some poses. If training data has a random zero error per episode (plus or minus 3 degrees on each of the five arm joints), the policy should learn to take the cube's position from the image and not from the joint readings. Second, a policy trained on servos of random strength (physics v2) cannot tell a soft servo from a stiff one from a single frame. Its recent commands, compared with where the joints are now, could tell it. So the state gains the last 3 commands as an extra input. Both are tested against a tuned baseline: the high-lift recipe of experiment 48 with its known defect fixed (the gripper now opens over 30 actions instead of 18) and with hyperparameters chosen by a sweep. Held-out loss is the prediction error on placements the policy never trained on. \"Real-like\" imitates the real arm's soft servos. \"Real-like + offsets\" adds the joint-zero errors.",
+  "parts": [
+    {
+      "title": "Reference: how much do joint offsets hurt a policy that never saw them?",
+      "why": "If plus or minus 3 degrees costs nothing, there is little for the offset training to win back.",
+      "did": "Evaluated the existing high-lift ACT (experiment 48) at execute 30 with real-like servos, with and without the offsets.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "High-lift ACT, execute 30",
+          "Successes",
+          "Pickups",
+          "Lateral median"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "real-like",
+              "8/30",
+              "20",
+              "7.8 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "real-like + offsets",
+              "7/30",
+              "19",
+              "9.4 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "A joint-zero error of plus or minus 3 degrees costs a policy that never trained on it about one pickup in 30 and 1.6 mm. The room for improvement is small. The scripted teacher scores 27/30 with and without the offsets."
+    },
+    {
+      "title": "Tuned baseline: does a hyperparameter sweep find better settings?",
+      "why": "The owner asked that the baseline be tuned before the two changes are compared with it, so that a gain is not just a badly set baseline.",
+      "did": "Stage 1: eight settings (learning rate, backbone learning rate, KL weight) at 15,000 steps, seed 202, ranked by held-out loss at chunk start 90. Stage 2: the stage-1 winner and the current settings at 40,000 steps. The lower held-out loss becomes the baseline.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run (lr, backbone lr, KL)",
+          "Steps",
+          "Held-out loss, start 90",
+          "Successes",
+          "Pickups",
+          "Lateral median"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "stage 1 winner (3e-4, 1e-4, 10)",
+              "15,000",
+              "3.8e-4",
+              "24/30",
+              "27",
+              "4.6 mm"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "stage 1, current (1e-4, 1e-5, 10)",
+              "15,000",
+              "5.1e-4",
+              "21/30",
+              "21",
+              "7.2 mm"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "stage 2, current (1e-4, 1e-5, 10)",
+              "40,000",
+              "3.4e-4",
+              "21/30",
+              "24",
+              "5.6 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "stage 2, winner (3e-4, 1e-4, 10)",
+              "40,000",
+              "0.17",
+              "0/30",
+              "0",
+              "136 mm"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The current settings stay. The stage-1 winner looked best at 15,000 steps but fell apart at 40,000 (held-out loss 0.17, 0 of 30). The current settings at 40,000 steps reach 3.4e-4 and 21 of 30 with 24 pickups, and that run is the baseline for seed 202. Two stage-1 settings scored 27 of 30 at 15,000 steps; the selection rule was held-out loss, not successes."
+    },
+    {
+      "title": "The 2 x 2: offsets and previous commands, alone and together",
+      "why": "Running both changes alone and together shows whether either one helps and whether they interfere.",
+      "did": "Four arms, seeds 202 and 101 each, 40,000 steps: base (physics v2 data, plain state), prev (same data, plus 3 previous commands), off (same placements with joint offsets added), offprev (both). Each cell below shows successes for seed 202 / seed 101, then pickups in brackets.",
+      "predictions": [
+        {
+          "text": "Offsets help if off beats base under real-like + offsets, without losing under real-like",
+          "result": "failed"
+        },
+        {
+          "text": "Previous commands help if prev beats base under physics v2 (the cell where knowing the servo matters)",
+          "result": "failed"
+        },
+        {
+          "text": "The baseline is sound if base under real-like is near its pickup count (the release defect is gone)",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Arm",
+          "Held-out loss",
+          "servo",
+          "real-like",
+          "real-like + offsets",
+          "physics v2"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "base",
+              "3.39e-4 / 3.24e-4",
+              "21 / 24 (24 / 27)",
+              "17 / 18 (18 / 18)",
+              "15 / 19 (17 / 20)",
+              "14 / 16 (18 / 18)"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "prev",
+              "2.61e-4 / 2.45e-4",
+              "24 / 21 (24 / 24)",
+              "13 / 17 (19 / 22)",
+              "14 / 19 (19 / 23)",
+              "14 / 13 (16 / 16)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "off",
+              "3.59e-4 / 2.84e-4",
+              "16 / 21 (22 / 27)",
+              "15 / 19 (17 / 21)",
+              "14 / 16 (17 / 18)",
+              "13 / 10 (14 / 15)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "offprev",
+              "2.60e-4 / 2.35e-4",
+              "21 / 18 (21 / 21)",
+              "15 / 13 (20 / 18)",
+              "18 / 16 (21 / 20)",
+              "15 / 17 (17 / 19)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Offsets alone: 14 + 16 = 30 against the baseline's 15 + 19 = 34 under real-like + offsets, so no gain in successes. Its lateral median there is lower (5.4 and 4.2 mm against 7.6 and 6.6 mm). Previous commands alone: 14 + 13 = 27 against 14 + 16 = 30 under physics v2, so no gain, although they lower the held-out loss on both seeds. Both together: 34 against 34 under offsets and 32 against 30 under physics v2, with the lowest physics v2 lateral median (6.2 and 6.4 mm against 9.9 and 8.7 mm). The baseline's own two seeds differ by 1 to 4 of 30 depending on the cell, and the gaps in the two test cells are 4 and 3 of 60, so two seeds cannot separate the arms. The baseline is sound: 17 and 18 successes from 18 and 18 pickups under real-like, where the old policy had 8 from 20."
+    }
+  ],
+  "trust": [
+    {
+      "text": "All four arms use the same placements and the same physics draws; the offset capture only adds the offsets. Same 10 held-out placements, same scene, execute 30 everywhere.",
+      "ok": true
+    },
+    {
+      "text": "The three reading rules were written in the note before any ablation ran.",
+      "ok": true
+    },
+    {
+      "text": "Two seeds per arm. The baseline's seeds differ by 1 to 4 successes of 30 depending on the cell; the gaps in the two test cells are 4 and 3 of 60. Every 30 is 10 placements run 3 times. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "No note analyses the 2 x 2. The project note and the memory note still say \"queued\". The verdicts here are the note's pre-written rules applied to matrix.json and the per-cell result.json files; the sums over two seeds are added by hand because the report's pooled section is empty.",
+      "ok": false
+    },
+    {
+      "text": "Two sources give the baseline's lateral median for seed 202 differently: 5.6 mm in sweep/tuned.json (the rollouts run during training) and 5.2 mm in the later evaluation and in the Nov 22 VLA note. The record's 5.6 mm is the first.",
+      "ok": false
+    },
+    {
+      "text": "A first queue (jobs 105 to 149) was withdrawn: its rehearsal failed on a loader buffer fixed at 7 state columns, and the sweep was added. Only its reference evaluation is used.",
+      "ok": false
+    },
+    {
+      "text": "The physical runner does not pass the command history yet, so a previous-command policy cannot run on the real arm.",
+      "ok": false
+    }
+  ],
+  "meaning": "Neither change earned its place on success counts. The reference run already said the offset training had little to win: the old policy lost one pickup in 30 to a 3 degree zero error. Previous commands lower the held-out loss but that did not turn into more successes under random servos. What the experiment did deliver is the tuned baseline itself: with the slow release, successes under real-like servos went from 8 of 30 to 17 and 18 of 30. That baseline's data and scene were reused for the VLA fine-tunes of Nov 22. The offset arms close with a lower sideways error in three of four cells, which may matter on the real arm where the zeros are wrong, but that is not tested here.",
+  "lesson": "Run a second seed of the baseline before reading any arm. Here the baseline's seeds differ by up to 4 of 30, and the gaps in the two test cells are 4 and 3 of 60.",
+  "next": [
+    {
+      "title": "Write the analysis note and close the record",
+      "why": "The run finished on Nov 22 02:00 and nothing in notes/ reports the 2 x 2. The record still says running."
+    },
+    {
+      "title": "Probe the previous-command policies with the elbow swap",
+      "why": "The feature-probe note says identifying a changed servo needs these policies probed the same way. That has not been run."
+    },
+    {
+      "title": "Pass the command history in the physical runner",
+      "why": "Without it no previous-command checkpoint can be tried on the real arm."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 18 to 22 · rehearsal, 2 captures, 10 sweep runs, 7 more trainings, 32 evaluations, report written Nov 22 02:00 · nothing left in the queue",
+    "watch": [],
+    "command": "simulation_code/queue_offset_prevcmd_20261118.sh (then the same script with --ablations, which it queues itself)",
+    "stages": [
+      {
+        "name": "reference evaluation",
+        "note": "High-lift ACT under real-like + offsets: 7/30. Queue job 105.",
+        "state": "done"
+      },
+      {
+        "name": "first queue (jobs 105 to 149)",
+        "note": "Withdrawn. Rehearsal 106 failed on a fixed 7-column state buffer; fixed, and a sweep was added.",
+        "state": "trouble"
+      },
+      {
+        "name": "rehearsal gate",
+        "note": "Queue job 150, exit 0.",
+        "state": "done"
+      },
+      {
+        "name": "captures A and B",
+        "note": "Physics v2, and physics v2 plus offsets. Jobs 151, 152. Job 151 was paused twice for live arm runs and resumed.",
+        "state": "done"
+      },
+      {
+        "name": "sweep stage 1",
+        "note": "Eight settings at 15,000 steps. Jobs 153 to 161.",
+        "state": "done"
+      },
+      {
+        "name": "sweep stage 2",
+        "note": "Current and winner at 40,000 steps. Current kept. Jobs 162 to 164.",
+        "state": "done"
+      },
+      {
+        "name": "ablation trainings",
+        "note": "Seven more ACT runs, queued Nov 19 21:03 with the tuned settings. The last (offprev, seed 101) finished Nov 22.",
+        "state": "done"
+      },
+      {
+        "name": "32 evaluations and report",
+        "note": "Jobs 214 to 253, all exit 0. matrix.json written Nov 22 02:00.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: fc6503b (offsets, previous commands, slow-release baseline), 881d017 (two-stage sweep), bb50ea3 (notes)",
+        "ok": true
+      },
+      {
+        "text": "Every queue job from 150 to 165 and 214 to 253 shows \"finished\" with exit 0 in the task spooler",
+        "ok": true
+      },
+      {
+        "text": "Results not written up: notes/offset-prevcmd-20261118.md still says \"Queued, no results yet except the reference\"",
+        "ok": false
+      },
+      {
+        "text": "matrix.json and sweep/tuned.json are not tracked in git; no commit carries the results",
+        "ok": false
+      },
+      {
+        "text": "The journal record still says running",
+        "ok": false
+      },
+      {
+        "text": "No research-log entry",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/offset-prevcmd-20261118.md",
+        "note": "why, what was built, the design, the three reading rules, the reference result"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/matrix.json",
+        "note": "successes for all 8 runs in 4 cells, and the reference"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/evals/*/result.json",
+        "note": "pickups and lateral medians per cell"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/winner_stage1.json",
+        "note": "stage 1 ranking of the eight settings"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/tuned.json",
+        "note": "stage 2: current kept, winner diverged"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/{base,prev,off,offprev}_s*/result.json",
+        "note": "held-out loss at chunk start 90 per run"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/QUEUE_LOG.txt",
+        "note": "queue lines of Nov 18 15:47, 16:44 and Nov 19 21:03; the pauses"
+      },
+      {
+        "path": "tsp -l (task spooler list)",
+        "note": "exit codes of jobs 150 to 165 and 214 to 253"
+      },
+      {
+        "path": "notes/vla-best-sim-20261122.md",
+        "note": "reuses the tuned baseline; gives 21 / 24 of 30, 24 / 27 pickups, 5.2 mm"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/offset-prevcmd-20261118.md",
+        "note": "queue history and the withdrawn first queue"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/evals/lift_act_ft_exec30__servo_real_like_v1/result.json",
+        "note": "reference without offsets: 8/30, 20 pickups, 7.8 mm"
+      },
+      {
+        "path": "commits fc6503b · 881d017 · bb50ea3",
+        "note": "built · sweep · notes"
+      }
+    ]
+  }
+}

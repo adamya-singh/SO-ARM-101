@@ -1,0 +1,187 @@
+{
+  "question": "The clone sees only joint positions, the cube's position and a progress clock. Does it fail because it is missing information: velocities, contact, or recent history?",
+  "measure": "Successes out of 3 from the normal start, per-try safety counts (clipped, limited, unsafe-contact frames) and how far the cube rose.",
+  "outcome": "No. All three richer input sets memorized the recording faster (1,507 to 2,553 steps against 24,691) and all failed 0/3. None grasped the cube.",
+  "setup": "A policy is the network that drives the arm. The clone is a small network (width 256) trained to copy a 450-step recording of the teacher, a script that cheats by reading the cube's true position, plus 8 recovery rows (the teacher's command after a small nudge, from experiment 03). Its 10 inputs are joint positions, cube position and a progress clock. An input schema is the list of things the network is shown. Dynamics means velocities of the robot and cube. Contact flags say whether the jaws are touching the cube, computed only from the past (causal). History means the previous two frames. The memorization bar is the offline gate: mean squared error (MSE) at most 1e-6 on the 450 normal rows. \"ACT units\" are the motor-range units of the commands. Clipped means a command was cut at a joint limit; limited means cut by the speed limiter.",
+  "parts": [
+    {
+      "title": "Does any richer input set fix closed-loop control?",
+      "why": "If the right input lets the network tell a recovery state from a normal one, closed loop should improve. If all three fail, missing inputs are not the problem on their own.",
+      "did": "Kept the 450 + 8 rows, width 256, seed 101, recovery weight 1.0 and the 30k schedule. Changed only the inputs, in an order fixed beforehand: dynamics (26 inputs), plus contact (29), plus two-frame history (57). Three deterministic tries each.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Inputs",
+          "Steps to bar",
+          "Normal MSE",
+          "Normal start",
+          "Clipped / limited / unsafe",
+          "Max height gain"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "10 inputs (exp. 03 clone)",
+              "24,691",
+              "9.9998e-7",
+              "0/3",
+              "291 / 0 / 13",
+              "5.173 mm"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "+ dynamics (26)",
+              "2,553",
+              "9.9602e-7",
+              "0/3",
+              "385 / 5 / 1",
+              "3.200 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "+ contact (29)",
+              "2,266",
+              "9.8383e-7",
+              "0/3",
+              "85 / 0 / 0",
+              "0.061 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "+ history (57)",
+              "1,507",
+              "9.9969e-7",
+              "0/3",
+              "74 / 25 / 0",
+              "0.808 mm"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "All three passed the offline bar and failed in the simulator. Contact and history clipped less than the control, but that was not progress: the contact model never reached meaningful contact and the history model lifted less than 1 mm."
+    },
+    {
+      "title": "Did the new inputs carry any new information?",
+      "why": "An input only helps if it differs between the cases the network must separate.",
+      "did": "Compared each feature between every normal state and its recovery partner at the 8 anchors.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The contact flags were identical at all eight pairs. So was the history, because each nudge was applied from the same previous state. Those inputs added nothing. Velocities did separate the pairs, most strongly near first contact, seating, transport and placement, and the clone still failed. What is missing is coverage of the states the policy actually visits: it had 8 isolated corrections."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Only the input schema changed; data, width, seed, schedule, thresholds and safety path were fixed.",
+      "ok": true
+    },
+    {
+      "text": "Every failure repeated exactly across three deterministic runs.",
+      "ok": true
+    },
+    {
+      "text": "The order of the three schemas and the stop rule (no fourth schema, no tuning) were fixed before the runs.",
+      "ok": true
+    },
+    {
+      "text": "These runs used MuJoCo 3.11.0 by accident (a stray pip install; the project pins 3.9.0). The reports were moved to a quarantine folder and the training was not re-run. The log says the conclusion did not depend on the exact counts.",
+      "ok": false
+    },
+    {
+      "text": "This rejects only the narrow idea that these inputs alone explain the failure. With 8 isolated corrections it cannot say inputs never matter.",
+      "ok": false
+    },
+    {
+      "text": "One seed, normal start only. Simulation only.",
+      "ok": false
+    },
+    {
+      "text": "The record builds this on experiment 02. The data it used (450 + 8 rows) and its control row come from experiment 03.",
+      "ok": false
+    }
+  ],
+  "meaning": "The observability branch closed with status closed_loop_not_resolved. The step written down next was to collect full teacher corrections from the states the clone itself reaches (DAgger, experiment 06), not a fourth input list.",
+  "lesson": "Before adding an input, check that it differs between the cases you want the model to separate.",
+  "next": [
+    {
+      "title": "DAgger: record the teacher correcting the clone's own mistakes (experiment 06)",
+      "why": "The gap is coverage of visited states, not features."
+    }
+  ],
+  "log": "**TL;DR:** Giving it velocity, contact flags and recent history didn't help:\nall three versions memorized fast and failed 0/3.\n\n**Problem.** The clone only sees joint positions, the cube's position and a\nprogress clock. No velocities, no idea if it's touching the cube. Maybe it can't\ntell a recovery state from a normal one.\n\n*How we know:* every clone so far failed 0/3, and its input list is missing all\nof that. I didn't know if any of it mattered.\n\n**Experiment.** Add inputs in three steps, same data and model each time:\nvelocities (26 inputs), plus contact flags (29), plus the previous two frames\n(57). Three tries each from the normal start.\n\n*What we hope to learn:* if the right input lets it tell states apart, closed\nloop should improve. If all three fail, missing inputs aren't the problem on\ntheir own.\n\n**Outcome.** All three hit the memorization bar in under 2,600 steps, then\nfailed 0/3. None even grasped the cube:\n\n- The contact flags and history were identical between each normal state and\n  its recovery state, because each nudge started from the same previous moment.\n  So they added zero new information. Like asking a witness who was looking the\n  other way.\n- Velocities did tell the states apart, and it still failed. The real gap was\n  coverage: the policy wanders through a continuous range of states, and it had\n  seen 8.\n\n*Note:* also on the wrong MuJoCo version (entry 09), not re-run.\n\n**Takeaway:** before adding an input, check that it actually differs between\nthe cases you want the model to separate.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 2, 2026 · three input schemas, each trained once and tried 3 times · status closed_loop_not_resolved",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "annotate rows",
+        "note": "Contact and history added without future information; all 450 + 8 states replayed within tolerance.",
+        "state": "done"
+      },
+      {
+        "name": "dynamics (26 inputs)",
+        "note": "Bar at step 2,553, then 0/3 with unsafe contact.",
+        "state": "trouble"
+      },
+      {
+        "name": "dynamics + contact (29)",
+        "note": "Bar at step 2,266, then 0/3.",
+        "state": "trouble"
+      },
+      {
+        "name": "dynamics + contact + history (57)",
+        "note": "Bar at step 1,507, then 0/3.",
+        "state": "trouble"
+      },
+      {
+        "name": "feature analysis",
+        "note": "Contact and history identical at all 8 anchor pairs.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: c51eb7e (Add bounded observability and recovery gates, Aug 2)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/bounded-observability-gate.md",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry committed: 87667eb (entries 02 to 36)",
+        "ok": true
+      },
+      {
+        "text": "Gate report sits under artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/ (wrong MuJoCo version); not re-run",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/05-more-inputs.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/bounded-observability-gate.md",
+        "note": "the decision note with the results table"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "rebuild plan; its Progress status block has the numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/observability_gates/3cdb2c3d2c467a5b/report.json",
+        "note": "the gate report (exists; cited by the note, not opened)"
+      }
+    ]
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "question": "What can RL from scratch learn in the arm simulator, with no teacher to copy? Does a staged ladder help there, and does the toy's inheritance result show up?",
+  "measure": "Success rate (0 to 1) of each stage on held-out placements: cube positions never used in training. 96 of the 100 held-out probe placements are used. One training seed per run.",
+  "outcome": "Reaching works (0.96 at 2.0 M steps). A ladder gets to descend 0.72 where flat RL on the same reward gets 0.07. Grasping stalls at 0.23 and lifting stays at 0.00. The inheritance test could not be read.",
+  "setup": "A policy is the network that drives the arm. Reinforcement learning (RL) trains it by trial and error from a reward. PPO is the RL method. \"From scratch\" means it starts random and never sees the teacher (the hand-written script that solves the task with privileged information).\n\nThe harness (tools/rg_arm.py) runs the nominal SO-101 scene with state inputs: joint angles, the jaw point, the cube and the target square. There is no camera. It uses the certified command gate (the safety check every command passes through) and the certified physics. It trains on 7200 placements.\n\nStages here: reach or hover (jaw point above the cube with the gripper open), descend, grasp (a strict two-sided grasp), lift. \"Flat\" means one policy trained on the whole chain with the same reward and no stages. Experiment 54 found, in a toy world, what a ladder needs and that a top stage inherits the reach of the stages below it. This is the same idea in the arm simulator. It runs at about 350 to 600 steps per second per run.",
+  "parts": [
+    {
+      "title": "How far does from-scratch RL get, staged and flat?",
+      "why": "Before spending a day on from-scratch RL for the arm, find out what it costs and where it stops.",
+      "did": "A reach run, then lift attempts in three versions. v1 put lift after reach. v2 used four stages with shaped replay, against a flat run on the same reward. v3 dropped replay and kept the outputs unsaturated.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Result on held-out placements",
+          "Steps"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "reach (jaw point to 45 mm above the cube)",
+              "0.80, then 0.96",
+              "1.0 M, 2.0 M"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v1: lift after reach, and lift flat",
+              "0.00",
+              "through 5 M"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v2 flat, same reward",
+              "hover up to 0.28, descend 0.07, grasp 0.06 to 0.11, lift 0.00",
+              "6.0 M"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "v2 staged, shaped replay",
+              "hover 0.96, descend 0.72, grasp 0.23 (best), lift 0.00",
+              "6.0 M"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v3 staged, no replay, unsaturated outputs",
+              "hover 0.89 at 1.5 M, descend 0.29 at 2.0 M",
+              "stopped at 2.0 M"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Reaching and descending can be learned from scratch in 2 to 3 M steps. Lifting is not solved, and grasping is the stage that stalls. v1 failed because the gripper starts nearly closed (0.23) and must open to 0.86 before it descends, and the reward did not say so. The ladder beat flat RL on the same reward (descend 0.72 against 0.07). That is the opposite of the toy, where flat shaped RL was best."
+    },
+    {
+      "title": "Does descend inherit the reach of a widely trained reach stage?",
+      "why": "This is the toy's inheritance test, moved to the arm: train reach on all placements and descend on the left half only, then test descend on the right half.",
+      "did": "One run with reach on all placements then descend on the left half. One control with both stages on the left half only. 3.0 M steps each, 28 held-out placements per half.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Run",
+          "Reach, left / right",
+          "Descend, left (trained)",
+          "Descend, right (never trained)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "reach everywhere, descend on the left",
+              "0.39 / 0.64 at best",
+              "0.21",
+              "0.00"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "control: both on the left only",
+              "0.75 / 0.32",
+              "0.82",
+              "0.18"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "Not readable. The run with reach trained everywhere learned neither stage well in its budget (reach 0.4 to 0.6 where earlier runs reached 0.96, descend 0.21 on its own trained half). There was nothing for the other half to inherit. The control did learn, and shows what no inheritance looks like: 0.82 on the trained half, 0.18 on the other."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Every run uses the certified command gate and physics, and is scored on held-out placements.",
+      "ok": true
+    },
+    {
+      "text": "The v2 staged and flat runs use the same reward and were read at the same step count (6.0 M).",
+      "ok": true
+    },
+    {
+      "text": "One seed per run.",
+      "ok": false
+    },
+    {
+      "text": "Both v2 runs were killed by mistake at 6 of 7 M steps (a cleanup command for the toy matched their workers). Their curves to 6 M are saved.",
+      "ok": false
+    },
+    {
+      "text": "v3 was stopped at 2.0 M steps to free the CPU for the inheritance runs, so it cannot be compared with v2 at 6 M.",
+      "ok": false
+    },
+    {
+      "text": "The inheritance test has 28 held-out placements per half and one seed, and its main run under-learned.",
+      "ok": false
+    },
+    {
+      "text": "State inputs only, no camera. Simulation only, nominal SO-101 scene.",
+      "ok": false
+    },
+    {
+      "text": "No prediction or pass bar was written down before these runs.",
+      "ok": false
+    }
+  ],
+  "meaning": "The note's reading for training from scratch in the arm simulator: reaching and descending are learnable in 2 to 3 M steps (about 1.5 hours on this machine). Lift from scratch is unsolved. Vision is not in any of this: from-scratch RL from pixels at about 500 steps per second is out of reach here, so the route would be state-input RL policies distilled into the vision policy. The experiment the note calls worth a day is the inheritance test done properly: low stages over the whole workspace, high stages narrowly.",
+  "lesson": "The gate holds the whole command when one joint is out of bounds, so random exploration froze the arm (40 to 50% of actions held) until the harness clipped commands into the bounds first. Check what exploration does to the safety layer before reading any RL curve.",
+  "next": [
+    {
+      "title": "Re-run the arm inheritance test with a reach stage that actually learns",
+      "why": "The toy result (experiment 54) has not been tested in the arm simulator yet."
+    },
+    {
+      "title": "Get past the grasp stage",
+      "why": "Grasp stalls at 0.23 under the strict two-sided grasp, so lift never starts."
+    },
+    {
+      "title": "Apply the toy's four conditions to the arm ladder",
+      "why": "Prefix stages, each step its own stage, unsaturated outputs, success-only replay."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 22, overnight and afternoon · 7 runs, one seed each · two v2 runs killed at 6 of 7 M steps, v3 stopped early",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "harness",
+        "note": "PPO from scratch on the SO-101 scene, state inputs, commands clipped inside the gate's bounds.",
+        "state": "done"
+      },
+      {
+        "name": "reach",
+        "note": "0.80 at 1.0 M steps, 0.96 at 2.0 M.",
+        "state": "done"
+      },
+      {
+        "name": "v1 lift",
+        "note": "0.00 through 5 M. The gripper has to open first and the reward did not say so.",
+        "state": "done"
+      },
+      {
+        "name": "v2 staged and flat",
+        "note": "Killed by mistake at 6 of 7 M steps. Curves to 6 M saved under v2_runs.",
+        "state": "trouble"
+      },
+      {
+        "name": "v3 staged, no replay",
+        "note": "Stopped at 2.0 M steps to free the CPU.",
+        "state": "trouble"
+      },
+      {
+        "name": "inheritance and control",
+        "note": "3.0 M steps each. The main run under-learned, so the test is not readable.",
+        "state": "trouble"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 2f9786a (harness), 8e03fd3 (ladder v2), fe57aa4 (results), d3df4c8 (inheritance runs)",
+        "ok": true
+      },
+      {
+        "text": "Write-up: Result 3 of notes/rg-toy-20261122.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/rg-toy-20261122.md",
+        "note": "the write-up (Result 3 and what it means); every number here comes from it"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_arm_20261122/v1_logs/reach_then_lift_s0.log",
+        "note": "reach 0.80 / 0.96 (checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_arm_20261122/inherit_reach_all_s0.log",
+        "note": "inheritance run, per-half curves (checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_arm_20261122/inherit_reach_L_s0.log",
+        "note": "control run (checked)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/rg_arm_20261122/v2_runs",
+        "note": "staged and flat curves to 6 M steps"
+      },
+      {
+        "path": "tools/rg_arm.py",
+        "note": "the harness"
+      },
+      {
+        "path": "memory/overnight-rg-vla-20261122.md",
+        "note": "project memory note for the night"
+      },
+      {
+        "path": "commits 2f9786a · 8e03fd3 · fe57aa4 · d3df4c8",
+        "note": "harness · ladder v2 · results · inheritance runs"
+      }
+    ]
+  }
+}

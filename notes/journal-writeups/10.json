@@ -1,0 +1,263 @@
+{
+  "question": "The first passing policy trained on one recording of one cube position and looks at the world about five times per episode. Is it a policy or a recording? Does it still work when the cube starts 1.5 mm away?",
+  "measure": "Stage A: 5 start positions (normal, and the cube moved 1.5 mm each way in x and y) x 3 tries = 15 tries. Pass is 15 of 15 with zero safety frames. Stage B: 8 mid-task starts, where the teacher runs the first part and the policy takes over. Pass is 8 of 8. Stage B is recorded but never triggers a retrain.",
+  "outcome": "A recording. Normal start 3 of 3, all four shifted starts failed with 43 to 734 safety frames per try. Retrained once on all 5 starts, it scored 0 of 15 but in a different way: it grasped, lifted, carried and released in every start and missed by a few frames.",
+  "setup": "A policy is the network that drives the arm. This one is a chunked clone: it copies a hand-written teacher script that reads exact simulator state, looks at the state once, and outputs the next 90 commands (a chunk), which the arm runs without looking again. Experiment 08 promoted it after 3 of 3 from the normal start.\n\nSafety frames are steps where a guard tripped. Clipped: the command was outside the safe joint range. Limited: the command asked for too large a move in one step. Unsafe: an unsafe contact. A try with any safety frame does not count, even if the cube ends up in place.\n\nA strict grasp is a grasp with both jaw pads on opposite faces of the cube. The task needs it held for 30 frames in a row.\n\nMargins are how close a passing run came to failing: how far the commands stayed from the safe-range limit, and what share of the allowed per-step move was used. They are recorded, never used to pass or fail.\n\nOne branch was written down before the run and could be taken at most once. If the normal start passes cleanly and at least one shifted start fails (the memorization signature), record the teacher on all 5 starts (it must give exactly 2,250 rows), retrain with the exact same recipe (30,000 steps, width 256, seed 101, same noise penalty), and run both stages again. No second retry.\n\nOffline MSE is the training error against the teacher's commands. It is recorded only.",
+  "parts": [
+    {
+      "title": "Does the promoted policy work from shifted starts?",
+      "why": "If it passes, the next step is vision. If only the normal start works, it memorized one trajectory.",
+      "did": "Ran the promoted checkpoint on the 15-try suite and the 8 mid-task starts, and measured its margins.",
+      "predictions": [
+        {
+          "text": "Stage A: 15 of 15 with zero safety frames",
+          "result": "failed"
+        },
+        {
+          "text": "Stage B: 8 of 8 mid-task starts",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Cube start",
+          "First policy",
+          "Clipped / limited / unsafe",
+          "Retrained policy",
+          "Clipped / limited / unsafe"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "normal",
+              "success",
+              "0 / 0 / 0",
+              "safety failure",
+              "1 / 0 / 0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "x − 1.5 mm",
+              "safety failure",
+              "180 / 187 / 16",
+              "safety failure",
+              "2 / 0 / 0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "x + 1.5 mm",
+              "safety failure",
+              "87 / 94 / 14",
+              "pickup incomplete",
+              "0 / 0 / 0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "y − 1.5 mm",
+              "safety failure",
+              "10 / 33 / 0",
+              "pickup incomplete",
+              "0 / 0 / 0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "y + 1.5 mm",
+              "safety failure",
+              "356 / 374 / 4",
+              "safety failure",
+              "1 / 15 / 2"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "mid-task starts finished",
+              "1 of 8",
+              "",
+              "7 of 8",
+              ""
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The memorization signature fired exactly as written down. The margins show the normal-start pass was always fragile: the commands came within 0.0007 of the limit and used 74% of the allowed per-step move."
+    },
+    {
+      "title": "Does training on all 5 starts fix it?",
+      "why": "The branch tests the simplest explanation: it never saw any other start. Keeping the recipe frozen means the only change is the data.",
+      "did": "Recorded the teacher on all 5 starts (2,250 rows, it solved all five), retrained the frozen recipe, and re-ran both stages. Results are the right-hand columns of the table above.",
+      "predictions": [
+        {
+          "text": "The retrained policy passes Stage A 15 of 15 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Training rows",
+          "Steps",
+          "Offline MSE",
+          "Stage A",
+          "Worst start, safety frames"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "first policy (1 start)",
+              "450",
+              "30,000",
+              "2.37e-6",
+              "3 of 15",
+              "734"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "retrained (5 starts)",
+              "2,250",
+              "30,000",
+              "1.94e-5",
+              "0 of 15",
+              "18"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "0 of 15 again, but it now does the task everywhere: strict grasp, a 42 to 45 mm lift, carry and release in all 5 starts, and 7 of 8 mid-task starts (the one miss, lift, by one clipped frame). It fails on 1 or 2 clipped frames, or by holding the grasp 24 to 26 frames when 30 are required. Five times the data on the same 30k steps left eight times the training error: underfit, not broken."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The stages, the pass bars, the trigger for the retrain and the frozen recipe were all written down before the run.",
+      "ok": true
+    },
+    {
+      "text": "The retrain changed only the data. Recipe, seed and step count are the same as the promoted policy.",
+      "ok": true
+    },
+    {
+      "text": "Run under the pinned MuJoCo 3.9.0. The first launch under 3.11 was quarantined and this is a fresh launch.",
+      "ok": true
+    },
+    {
+      "text": "The three tries per start are byte-identical repeats, so 15 tries are 5 distinct results.",
+      "ok": false
+    },
+    {
+      "text": "The shifts are only 1.5 mm. This says nothing about larger moves of the cube.",
+      "ok": false
+    },
+    {
+      "text": "Mid-task starts replay the normal-start prefix only.",
+      "ok": false
+    },
+    {
+      "text": "One seed, simulation only, exact simulator state as input.",
+      "ok": false
+    },
+    {
+      "text": "Per-start counts are from the report; the 24 to 26 frame hold and the 42 to 45 mm lift are as the note and the log state them.",
+      "ok": true
+    }
+  ],
+  "meaning": "Passing from one start is not evidence of a policy: it did not transfer even 1.5 mm. Data from several starts turns the same recipe into something that nearly completes everywhere and recovers from 7 of 8 mid-task starts, at the cost of polish under the same training budget. The status is starts_not_resolved and the single retry is spent. The remaining gap looks like too little optimization for five times the data, so the next proposal scales steps and network width on the 2,250 rows and changes nothing else (experiment 11). Vision stays unauthorized.",
+  "lesson": "Test a policy away from its training start before celebrating. \"Works in one place\" and \"almost works everywhere\" are different failures with different fixes.",
+  "next": [
+    {
+      "title": "Scale steps and width on the 2,250-row data (experiment 11)",
+      "why": "Training error is 8x higher at the same 30k steps, which points at optimization, not data."
+    }
+  ],
+  "run": {
+    "state": "Finished",
+    "line": "Aug 4, 2026 · both stages, the one allowed retrain, both stages again · status starts_not_resolved · retry budget spent",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "first launch",
+        "note": "Started under MuJoCo 3.11 by accident. Partial outputs quarantined.",
+        "state": "trouble"
+      },
+      {
+        "name": "Stage A, promoted policy",
+        "note": "15 tries: normal 3 of 3, every shifted start fails. Signature fired.",
+        "state": "done"
+      },
+      {
+        "name": "margins",
+        "note": "Headroom 0.0007, 74% of the per-step cap.",
+        "state": "done"
+      },
+      {
+        "name": "Stage B, promoted policy",
+        "note": "1 of 8 mid-task starts. Recorded only.",
+        "state": "done"
+      },
+      {
+        "name": "five-start capture",
+        "note": "2,250 rows, teacher solves all 5 starts.",
+        "state": "done"
+      },
+      {
+        "name": "retrain",
+        "note": "Frozen recipe, 30,000 steps.",
+        "state": "done"
+      },
+      {
+        "name": "Stage A + B, retrained policy",
+        "note": "0 of 15, but full task chains everywhere. 7 of 8 mid-task starts.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 2fff8a0 (evaluate the promoted policy beyond its nominal start)",
+        "ok": true
+      },
+      {
+        "text": "Result written into the proposal note; report broader_evaluations/68c56c66d2dd3bb9",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 10 written (commit 87667eb)",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/10-broader-evaluation.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/broader-evaluation-proposal.md",
+        "note": "the proposal and the result"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/broader_evaluations/68c56c66d2dd3bb9/report.json",
+        "note": "per-start results and safety counts"
+      },
+      {
+        "path": "notes/optimization-scaling-proposal.md",
+        "note": "restates the result and the two training errors"
+      },
+      {
+        "path": "commit 2fff8a0",
+        "note": "the broader-evaluation tranche"
+      }
+    ]
+  },
+  "log": "**TL;DR:** Moving the cube 1.5 mm broke the first policy. Retraining on 5 cube\npositions made it almost work everywhere, but not quite anywhere.\n\n**Problem.** The policy from entry 08 learned from one recording of one cube\nposition. It might just be replaying it.\n\n*How we know:* its margins were razor thin: its gripper command came within\n0.0007 of the limit, and it used 74% of the fastest allowed step. I didn't know\nhow it handled anything new.\n\n**Experiment.** Run it with the cube shifted ±1.5 mm in x and y (5 starts × 3\ntries), plus starts from 8 states mid-task. Written down beforehand: if it only\nworks at the normal start, record the script on all 5 starts (2,250 rows) and\nretrain once with the exact same recipe.\n\n*What we hope to learn:* if it passes, move on to vision. If only the normal\nstart works, it's a recording.\n\n**Outcome.** It's a recording. Normal start 3/3, every shifted start failed\nwith 43 to 734 safety frames per try. The retrain flipped the picture:\n\n- It got 0/15 again, but in all 5 starts it grasped the cube, lifted it 42-45\n  mm, carried it and let go, and it finished 7 of 8 mid-task starts. It missed\n  on 1-2 clipped frames, or by holding the grasp 24-26 frames when 30 are\n  required.\n- It's underfit, not broken: 5x the data, same 30k steps, and its error came out\n  8x higher. Like studying five chapters in the time you used to spend on one.\n\n**Takeaway:** test a policy away from its training start before celebrating.\n\"Works in one place\" and \"almost works everywhere\" are different failures with\ndifferent fixes, and this one pointed at more training."
+}

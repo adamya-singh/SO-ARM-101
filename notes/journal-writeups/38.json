@@ -1,0 +1,295 @@
+{
+  "question": "Does the pi0.5 policy from experiment 37 work on the real arm?",
+  "measure": "One live episode: does the arm pick the cube up and put it back. After it went wrong, the measures became the recorded joint commands against the measured joint angles (in servo units), and the same policy re-run in the simulator with a slowed elbow.",
+  "outcome": "No. In episode 20 the arm ended its first move in the wrong pose, could not see the cube, then did a full pick motion beside its own base and pressed on the table until it was unplugged. Part of the arm came off. Nothing in the runner stopped it.",
+  "setup": "A policy is the network that drives the arm. This one is pi0.5, a large pretrained model fine-tuned in simulation (experiment 37), where it succeeded on 5 of 10 held-out placements. It outputs a chunk: the next commands, written as offsets from the joint angles it measures at the moment it reads the camera. \"Execute 30\" means it re-reads the camera and replans every 30 steps.\n\nAn episode is 480 steps. In the first 90 the arm moves to a survey pose, a raised pose where the wrist camera can see the whole bench. The frame taken there is how the policy finds the cube.\n\nThe runner is the program that sends commands to the real servos. Before this run it had a gate that checked three things per command: joint range, a floor for the shoulder, and speed. It kept motor torque on at the end of an episode by design. The user had authorized live runs without a confirmation prompt, on the assumption that the gate made motion safe.\n\nThis was the first real-arm run of any policy that uses a survey pose. The earlier live policy (a small CNN, cube in a fixed place) scored 30/30 held-out in simulation and re-read the camera every 90 steps. The usual rehearsal and preflight steps were skipped for this run.",
+  "parts": [
+    {
+      "title": "What happened on the arm",
+      "why": "This is the record of the incident, from the episode's own logs.",
+      "did": "Ran tools/run_physical_episode.py with the pi0.5 checkpoint, motion enabled, execute 30. Episodes 14 to 20 are from that night. Episode 20 is the one that ran in full, with the cube at about (8, 297) mm, the same place as a simulated placement that succeeds.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Episode 20",
+          "Simulator, same placement",
+          "Real arm"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Elbow command at step 30",
+              "72.1",
+              "78.1"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Elbow command at step 60",
+              "55.1",
+              "66.8"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Elbow at the end of the survey move",
+              "55.4",
+              "68.7"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Camera height at the survey pose",
+              "0.235 m",
+              "0.178 m"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Cube visible in the survey frame",
+              "yes",
+              "no (bench seen only to about 250-290 mm)"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The survey move stopped with the elbow 13 units short (0.217 rad from the survey pose). The camera sat 6 cm low and the towel and cube were out of frame. From step 90 the policy turned the base about 48 degrees, and ran a whole open, descend, close, lift, release sequence beside the base, with the jaw tips commanded down to 4 mm. At steps 315-325 and 438-444 the commands led the joints by 6 to 11 units, which means the arm was pushing on the table. All 480 actions ran with only 5 holds. Torque stayed on, so it kept pressing until the user unplugged it."
+    },
+    {
+      "title": "Why the survey move stopped short",
+      "why": "The same checkpoint succeeds on this placement in the simulator. Something differs between the simulated and the real arm.",
+      "did": "Compared the real commands and joint readings (steps.csv) with the simulator's telemetry for the matching placement. Then fitted how fast each joint follows its command and replayed the policy in the simulator with that slower elbow (10 held-out placements, one repeat).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Simulated elbow",
+          "Execute 30 as trained",
+          "Execute 90",
+          "First chunk 90, then 30",
+          "Adaptive compensation"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Normal simulator",
+              "4 (recorded run: 5)",
+              "recorded run: 4",
+              "",
+              "5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Slowed to match Oct 4 (0.16)",
+              "0",
+              "0",
+              "0",
+              "5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Slowed to match Sep 10 (0.45)",
+              "1",
+              "",
+              "",
+              "3"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Each replan starts from the measured pose. The real elbow trails its command more than the simulated one during the survey move, and two of the replans (steps 30 and 60) fall inside that move, so each one restarts the plan from a lagging elbow. The earlier CNN policy had as much lag mid-move but only re-read every 90 steps, when the arm was nearly at rest. With a slowed elbow the simulator reproduces the failure: 0 of 10. Reading less often repairs the survey pose but still scores 0. Numbers are successes out of 10; a rerun moves a count by about one."
+    },
+    {
+      "title": "What was missing, and what was added",
+      "why": "Every command in episode 20 was inside the joint ranges and the speed limit. The gate had nothing that could notice the arm was in the wrong place or pushing.",
+      "did": "Added guards to the runner (on by default) and replayed old episodes through them. Nothing was run on the arm; it was unpowered.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Episode replayed through the guards",
+          "Result"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Episode 20",
+              "stops at step 90: survey pose not reached"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Episode 20, survey checks off",
+              "stops at step 173: jaw tip at 20.6 mm, under the 22 mm floor"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Episode 16 (room lights off)",
+              "stops at step 0: dark frame"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Episodes 2, 4, 9, 10, 13 and 9 good sim rollouts",
+              "no trip"
+            ],
+            "mark": "baseline"
+          }
+        ]
+      },
+      "conclusion": "The new guards: refuse a dark frame; require the arm to be at the survey pose and something towel-and-cube-like in the survey frame; keep the jaw tip at least 22 mm up and over the work area; stop if a joint sits more than 7 units from its command for 10 steps. A trip ends the episode, and after any episode the servos are told to hold where they are so they stop pushing. The pressing started near step 300, so both replays stop before it. The stall check alone would not have caught episode 20."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The account comes from the episode's own recordings (commands, joint readings, camera frames), compared with simulator telemetry for a placement within 5 mm of the real cube.",
+      "ok": true
+    },
+    {
+      "text": "The simulator reproduces the failure once the elbow is slowed (0 of 10), so the cause is tested, not only argued.",
+      "ok": true
+    },
+    {
+      "text": "The record's \"about 105 degrees\" is wrong. The notebook corrects it the same day: the base turned about 48 degrees, a value successful rollouts also reach. The abnormal part was the jaw height (4 mm against 30+ in every success).",
+      "ok": false
+    },
+    {
+      "text": "The record's \"lag 7-8 vs 2-3\" and the first reading \"the elbow got three times slower since September\" were both corrected later that day (experiment 39): the elbow follows about as fast as in simulation but rests short of its command under load.",
+      "ok": false
+    },
+    {
+      "text": "One episode. The guards were tested by replay only, not on the arm.",
+      "ok": false
+    },
+    {
+      "text": "The run was under dim coloured light, outside what the training images cover. That was not measured as a cause.",
+      "ok": false
+    },
+    {
+      "text": "The assistant first told the user episode 20 had not started, because the tool call came back as rejected. It had run. The run directory was the evidence.",
+      "ok": false
+    }
+  ],
+  "meaning": "The policy was not ready for the arm, and the safety gate was not ready for this kind of policy. Three things changed. First, the runner got workspace, survey, brightness and stall guards, and a new kind of policy now gets a staged first run (survey move only, then stop). Second, the simulator's motors were shown to be unlike the real ones in a way that matters, which led straight to measuring the real servos (experiment 39) and later to training with randomized motor physics. Third, the replan schedule that helped in simulation (every 30 steps) is exactly what broke on the arm, so a schedule has to be tested against real motor behaviour before it goes live. The user renewed the permission to run on the arm the same night. Two more pi0.5 episodes ran on Oct 6: episode 21 was stopped by the survey guard, and episode 22 lost the servo connection near step 166 and cracked the shoulder motor holder.",
+  "lesson": "A gate that only checks each command (range, speed) cannot tell that the arm is in the wrong place. Check the outcome too: is the arm where the plan assumed, can it see the target, is it pushing on something.",
+  "next": [
+    {
+      "title": "Measure the real servo response once and build it in",
+      "why": "The user's direction that night. Done as experiment 39."
+    },
+    {
+      "title": "Staged first run for any new policy class",
+      "why": "Rehearse in simulation, preflight, survey move only, then a full episode. These were skipped here."
+    },
+    {
+      "title": "Train with motor physics that vary",
+      "why": "The lag compensation is a stopgap for this checkpoint. The durable fix is a policy that has seen slow and soft motors in training."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished: incident, arm unplugged by the user",
+    "line": "Oct 4, 2026 · live episodes 14 to 20, episode 20 is the incident · follow-up analysis and guards the same day, in simulation only",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "episode 16",
+        "note": "Room lights off (frame mean 1.4 of 255). Aborted on 15 holds. The real-frame check had passed on the black frame.",
+        "state": "trouble"
+      },
+      {
+        "name": "episode 20",
+        "note": "Ran all 480 actions. Survey move stopped short, cube out of view, arm pressed on the table until unplugged. Part of the arm came off.",
+        "state": "trouble"
+      },
+      {
+        "name": "cause analysis",
+        "note": "Real commands against simulator telemetry; per-joint response fit; lag stress on 10 held-out placements.",
+        "state": "done"
+      },
+      {
+        "name": "guards",
+        "note": "Workspace, survey, stall and brightness guards in the runner, tested by replaying old episodes.",
+        "state": "done"
+      },
+      {
+        "name": "lag compensation",
+        "note": "Adaptive compensation for pi0.5: 5/10 normal, 5/10 with the Oct 4 lag, 3/10 with the Sep 10 lag. Simulation only.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: fe6628b (pi0.5 in the runner), a5141b1 (lag tooling), c382310 (guards), 6984f1a (compensation, results, notes)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md and flagged in notes/bench-pick-replace-v1.md (\"read before any live run\")",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      },
+      {
+        "text": "Hardware: part of the arm came off on Oct 4; the shoulder motor holder cracked on Oct 6. Reported fixed by Nov 5 (memory note).",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section \"First live pi0.5 run (2026-10-04)\": what happened, cause, lag table, guards"
+      },
+      {
+        "path": "memory: pi05-live-incident-20261004.md",
+        "note": "the incident note, with its same-day corrections and the Oct 6 update"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/physical/episode_20_20261004_pi05/",
+        "note": "run.json, steps.csv, camera.mp4 of the incident episode"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/lag_stress_20261004/summary.json",
+        "note": "lag stress counts per condition"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/lag_stress_20261004/servo_lag_fit.json",
+        "note": "per-joint response fit (elbow 0.16 on Oct 4, 0.45 on Sep 10)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/lag_stress_20261004/guard_replay_survey_policies.json",
+        "note": "guard replay: episode 20 stops at step 90"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/lag_stress_20261004/guard_replay_no_survey_checks.json",
+        "note": "guard replay with survey checks off: stops at step 173"
+      },
+      {
+        "path": "notes/system-paper.html",
+        "note": "section 7 and the notes: guards, the Oct 6 episodes"
+      },
+      {
+        "path": "notes/bench-pick-replace-v1.md",
+        "note": "\"Update 2026-10-04\" status block"
+      },
+      {
+        "path": "commits fe6628b · a5141b1 · c382310 · 6984f1a",
+        "note": "runner support · lag tooling · guards · compensation and notes"
+      }
+    ]
+  }
+}

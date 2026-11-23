@@ -1,0 +1,177 @@
+{
+  "question": "The clone drifts off the teacher's path and cannot get back. Can 8 examples of the teacher recovering from a small nudge teach it to recover?",
+  "measure": "Successes out of 15 closed-loop tries (5 cube start positions, 3 repeats each), and safety counts per try: clipped frames (a command cut at a joint limit), limited frames (a command cut by the speed limiter) and unsafe-contact frames.",
+  "outcome": "No. It still memorized the data, then failed all 15 tries, and it became unsafe: 291 clipped frames and 13 unsafe-contact frames per try from the normal start. The old clone had zero.",
+  "setup": "A policy is the network that drives the arm. The teacher is a script that cheats by reading the cube's true position. The clone is a small network trained to copy one 450-step recording of the teacher (experiment 02). It matched the recording almost exactly and still failed 3/3, because its small errors pile up (covariate shift). A recovery example is one extra training row: push the arm slightly off course, let the simulator settle, and record what the teacher commands from there. \"ACT units\" are the motor-range units the commands are stored in. The memorization bar is the offline gate from experiment 02: mean squared error at most 1e-6 and largest error at most 0.01 ACT on the 450 normal rows. A handoff test starts the clone exactly at one of the recovery states and asks whether it can finish from there.",
+  "parts": [
+    {
+      "title": "Do 8 recovery rows fix closed-loop control?",
+      "why": "If a few labelled recoveries teach correction, the clone should pass. If not, sparse examples are not enough.",
+      "did": "Injected one 0.01-ACT perturbation just before each of 8 phases: approach (70), first contact (195), seating (205), closure (255), lift (315), transport (365), placement (386) and release (419). Added those 8 rows to the 450. Same network, inputs, seed and schedule. Then ran the standard 15 rollouts.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Clone",
+          "Offline fit",
+          "Normal start",
+          "Height gain",
+          "Clipped / unsafe per try"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "450 rows only",
+              "MSE 9.999720305e-07, step 28,718",
+              "0 of 3",
+              "0.0001588361 m",
+              "0 / 0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "450 + 8 recovery rows",
+              "MSE 9.999772601e-07, step 24,691",
+              "0 of 3 (0 of 15 over five starts)",
+              "0.005173 m",
+              "291 / 13"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The 458-row clone passed the offline bar and then failed all 15 standard rollouts. The four starts with the cube moved 1.5 mm were worse: 359-450 clipped frames per repeat and up to 32 limited frames."
+    },
+    {
+      "title": "Does it at least recover from the exact states it was trained on?",
+      "why": "Maybe it knows the recoveries but never reaches those states. Starting it exactly there removes that excuse.",
+      "did": "Handed control to each clone at each of the 8 recovery states and let it finish the episode.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Clone",
+          "Handoffs completed",
+          "Which"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "450 rows only",
+              "3/8",
+              "transport, placement, release"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "450 + 8 recovery rows",
+              "1/8",
+              "release only; clipped after every failed handoff"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The recovery rows made the clone worse at the very states they covered. Eight isolated points next to a continuous path force the network to bend sharply between them, and those bends come out as huge commands."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Only the 8 rows changed: same architecture, inputs, optimizer, seed, 30k schedule, normalization and safety path.",
+      "ok": true
+    },
+    {
+      "text": "Each recovery state was captured twice with identical results, and the teacher finished the task from each with zero safety events.",
+      "ok": true
+    },
+    {
+      "text": "All failures were deterministic.",
+      "ok": true
+    },
+    {
+      "text": "These runs used MuJoCo 3.11.0 by accident (a stray pip install; the project pins 3.9.0). The reports were moved to a quarantine folder and the training was not re-run. The log says the conclusion did not depend on the exact counts.",
+      "ok": false
+    },
+    {
+      "text": "The log says the nudge was \"half a degree\". The source gives 0.01 ACT units, not degrees.",
+      "ok": false
+    },
+    {
+      "text": "The log gives the lift as 5 mm; the source is 0.005173 m. One seed. Simulation only.",
+      "ok": false
+    }
+  ],
+  "meaning": "Near-exact fit on the recording is not a safe promotion test, even with some recovery coverage added. The next question was whether the 8 rows were simply weighted too heavily (experiment 04).",
+  "lesson": "A handful of recovery examples does not teach recovery, and it can break what already worked. The offline memorization bar could not see any of it.",
+  "next": [
+    {
+      "title": "Turn down the weight of the recovery rows (experiment 04)",
+      "why": "Maybe a lighter touch keeps the normal start safe."
+    },
+    {
+      "title": "Corrections from the clone's own states, as full trajectories (experiment 06)",
+      "why": "Eight points is not coverage."
+    }
+  ],
+  "log": "**TL;DR:** I added 8 examples of the script recovering from small mistakes, and\nthe clone got worse: it failed all 15 tries and started slamming into its joint\nlimits.\n\n**Problem.** The clone from entry 02 drifts off the script's path and has no\nidea how to get back.\n\n*How we know:* it failed 3/3, its joints were half a degree off by step 74, and\nthe same commands replayed on the script's states worked fine. I didn't know if\nshowing it a few recoveries would be enough.\n\n**Experiment.** At 8 points across the task (approach, contact, closure, lift,\ncarry, place, release and so on), nudge the arm half a degree off course, record\nwhat the script does from there, and add those 8 rows to the 450 training rows.\nSame model, same training.\n\n*What we hope to learn:* if a few labeled recoveries teach correction, the clone\nshould pass. If not, sparse examples aren't enough.\n\n**Outcome.** It still hit the memorization bar, then failed 0/15 (5 cube\npositions, 3 tries each), every try killed by safety violations:\n\n- On the normal start, 291 commands per try got clipped at the joint limits,\n  and it lifted the cube 5 mm.\n- Even when I started it exactly at the recovery states it was trained on, it\n  only finished 1 of 8 (the old clone finished 3).\n\nEight points is nothing next to a continuous path. To fit them, the network\nbends hard between them, and those bends become huge commands. Like teaching\nsomeone to drive with 8 photos of near-crashes.\n\n*Note:* these numbers came from the wrong MuJoCo version (entry 09) and were\nnever re-run; the conclusion didn't depend on the exact counts.\n\n**Takeaway:** a handful of recovery examples doesn't teach recovery, and it can\nbreak what already worked. The memorization bar couldn't see any of it.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 2, 2026 · capture, one retrain, 15 rollouts, 8 handoffs each for two clones",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "capture 8 recovery rows",
+        "note": "One candidate (action 403, negative gripper) clipped at the closed bound and was rejected.",
+        "state": "done"
+      },
+      {
+        "name": "retrain on 458 rows",
+        "note": "Passed the offline bar at step 24,691.",
+        "state": "done"
+      },
+      {
+        "name": "standard 15 rollouts",
+        "note": "Failed all 15; clipping and unsafe contact.",
+        "state": "trouble"
+      },
+      {
+        "name": "anchor handoffs",
+        "note": "Old clone 3/8, new clone 1/8.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: cba80a6, 168454c, 4b50dd9 (Aug 2)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry committed: 87667eb (entries 02 to 36)",
+        "ok": true
+      },
+      {
+        "text": "Reports sit under artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/ (wrong MuJoCo version); the recovery rows were re-captured under 3.9.0 as recovery/d52b460b4ab3a683, the training was not re-run",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/03-recovery-anchors.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "rebuild plan; its Progress status block has the numbers"
+      },
+      {
+        "path": "notes/bounded-observability-gate.md",
+        "note": "control row (291 clipped, 13 unsafe, 5.173 mm) and the MuJoCo addendum"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/quarantine_mujoco_3_11_0/oracle_distillation/clone_evaluations/e67ba4433d3aa98c/policies/fixed_pick_place_v3/evaluation.json",
+        "note": "15-rollout report (exists; cited by the plan, not opened)"
+      }
+    ]
+  }
+}

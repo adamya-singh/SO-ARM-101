@@ -1,0 +1,348 @@
+{
+  "question": "Experiment 42 randomized the physics around one soft servo and the policy learned only that servo. If the randomization spans the whole range from soft to stiff, do we get one policy that works on any servo?",
+  "measure": "Held-out successes out of 30 in six versions of the simulator (cells): nominal (stiff), servo (soft), servo + real_like (soft with delay and noise: the real-arm stand-in), servo + random (a new draw on every try), stiff elbow only, and low friction only. The bar is at execute 30, on nominal and on servo + real_like together.",
+  "outcome": "It passes. The ACT trained on the wide regime, replanning every 30 steps, scores 24 of 30 on nominal and 19 of 30 on the real-arm stand-in. The stiff-trained baseline scores 25 and 0. It became the candidate for the real arm.",
+  "setup": "A policy is the network that drives the arm from the wrist camera image and the joint angles. It is trained by imitation: a scripted teacher, which knows where the cube is, solves the task in the simulator, and the policy learns to copy it. Each policy outputs a chunk: the next 90 joint commands at once. \"Execute 90\" runs the whole chunk before looking again. \"Execute 30\" looks again after 30 commands and replaces the rest (replanning). There are two kinds of policy here: a CNN (a small image network trained from scratch, always execute 90) and ACT (a transformer policy, fine-tuned). PPO is a reinforcement-learning method run on top of the ACT fine-tune. Held-out means 10 cube placements the policy never trained on, each tried 3 times, so scores are out of 30. A servo is the motor in a joint. In the nominal simulator the servos are stiff. The real elbow is soft: it sags and lags. The servo scene copies the measured soft servo, and on it the teacher is compensated (it commands a little past the target). Physics randomization gives every training episode its own draw of servo stiffness (kp), damping (kv), friction, arm mass, command delay (latency, 0 to 100 ms), an inference pause (0 to 1000 ms), sensor noise and cube properties. Regime v1 (experiment 42) was centred on the soft servo and never contained a stiff one; its policy scored 3 of 30 on the nominal scene. Regime v2 (bench_physics_v2) has ranges per joint that reach from the soft servo up to the stiff nominal values: for the elbow, stiffness from 0.7 to 9.6 times the soft value. It runs on the SO-101 servo scene from experiment 44. In a feasibility scan the teacher completes 263 of 300 draws. A relative-limit hold is a safety rule: a command more than 20 units (on a scale of plus or minus 100) from where the joint is gets held. Too many holds end the rollout.",
+  "parts": [
+    {
+      "title": "Does the wide-regime policy work on every servo?",
+      "why": "If this one also specialises, randomizing more widely is not the answer. The bar written before the run: at least 15 of 30 at execute 30 on both SO-101 nominal and servo + real_like.",
+      "did": "Captured 7200 placements under v2 draws. Trained three CNN seeds, fine-tuned ACT, ran PPO on top. Evaluated every policy in six cells with tools/eval_policy.py, and ran the teacher on exactly the same 30 rollouts per cell as the best available score.",
+      "predictions": [
+        {
+          "text": "ACT at execute 30 scores at least 15/30 on BOTH SO-101 nominal and servo + real_like",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy",
+          "Nominal",
+          "Servo",
+          "Servo + real_like",
+          "Servo + random",
+          "Stiff elbow",
+          "Low friction"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Teacher, same 30 rollouts",
+              "30",
+              "30",
+              "27",
+              "25",
+              "30",
+              "30"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Baseline SO-101 ACT (stiff-trained)",
+              "27",
+              "12",
+              "1",
+              "7",
+              "27",
+              "15"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Baseline SO-101 ACT, execute 30",
+              "25",
+              "0",
+              "0",
+              "2",
+              "0",
+              "0"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Baseline SO-101 CNN, seed 202",
+              "15",
+              "9",
+              "3",
+              "7",
+              "15",
+              "6"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "v2 ACT fine-tune",
+              "21",
+              "21",
+              "19",
+              "8",
+              "21",
+              "21"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v2 ACT fine-tune, execute 30",
+              "24",
+              "18",
+              "19",
+              "11",
+              "24",
+              "26"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v2 ACT + PPO",
+              "21",
+              "21",
+              "20",
+              "8",
+              "24",
+              "24"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v2 ACT + PPO, execute 30",
+              "24",
+              "18",
+              "18",
+              "10",
+              "24",
+              "24"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "v2 CNN, 3 seeds pooled, of 90",
+              "42",
+              "57",
+              "39",
+              "27",
+              "52",
+              "63"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "It no longer specialises. The stiff-trained ACT falls to 0 at execute 30 as soon as the servo changes. The v2 ACT holds 18 to 26 on all five fixed cells. The cost on the nominal scene is 1 at execute 30 (24 against 25) and about 6 at execute 90 (21 against 27), which with one ACT seed is near the seed spread. Each fixed cell is within 3 to 9 of the teacher."
+    },
+    {
+      "title": "Why is the fully random cell still only 8 to 11 of 30?",
+      "why": "A low score could mean the draws are impossible, or that the policy cannot work out which servo it has. Those need different fixes.",
+      "did": "Compared the policies with the teacher on the same 30 draws, listed which safety rule ended each failure, and correlated each draw's servo settings with holds and success (Spearman, n = 30, pooled over the 7 v2 policies).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Draw parameter",
+          "vs. limit-hold frames",
+          "vs. success"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Elbow damping / stiffness (how slow the elbow is)",
+              "+0.64",
+              "-0.43"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Elbow damping",
+              "+0.57",
+              "-0.47"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Latency",
+              "+0.41",
+              "-0.38"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Shoulder-lift stiffness",
+              "-0.34",
+              "+0.36"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The teacher solves 25 of the 30 draws, so the task is mostly possible. The policies win 63 of 175 (36%) on the draws the teacher solves. 138 of 146 failures are safety invalidations, mostly relative-limit holds on the elbow during the descent. When the elbow is slow the chunk's commands run ahead of the arm until the rule trips. Nothing the policy sees tells it how the elbow has been responding. This is a correlation, not yet shown by an intervention."
+    },
+    {
+      "title": "Did PPO help?",
+      "why": "PPO ran for 40,000 simulated episodes and cost 5.8 GPU hours. It stays in the recipe only if it buys something.",
+      "did": "Compared the fine-tune before and after PPO in every cell and read PPO's training log.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Training success went from 0.29 to 0.35. Relative-limit holds per episode stayed at 0.43. Held-out, PPO is within 3 of the fine-tune in every cell. It was dropped from the default recipe."
+    }
+  ],
+  "trust": [
+    {
+      "text": "The bar was written in the queue script before the run",
+      "ok": true
+    },
+    {
+      "text": "Every policy and the teacher ran on the same scenarios and the same physics draws in each cell",
+      "ok": true
+    },
+    {
+      "text": "Three CNN seeds; the baseline ACT is the same SO-101 recipe trained without randomization",
+      "ok": true
+    },
+    {
+      "text": "One ACT seed. The 6-point cost at execute 90 cannot be told from seed spread.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. servo + real_like is a stand-in fitted from one October probe.",
+      "ok": false
+    },
+    {
+      "text": "The baseline CNN is one seed against three for the v2 CNN",
+      "ok": false
+    },
+    {
+      "text": "The explanation of the random cell rests on correlations over 30 draws",
+      "ok": false
+    },
+    {
+      "text": "The report tool first printed only 4 of the 6 columns (a bug, fixed in commit 55566c2). The first table was built directly from the evaluation files; matrix.json now holds all six cells and agrees.",
+      "ok": false
+    }
+  ],
+  "meaning": "This decided which policy goes to the real arm: the v2 ACT at execute 30, with the runner's servo assist off, because it is the only policy at 18 or more on every fixed cell and the real arm's stiffness was not yet known. Two things had to happen first: read the servo gains (experiment 44) and extend the real-camera-frame check to ACT. For the cell that still fails, the next lever is to give the policy its own previous commands as an input so the lag becomes visible. PPO left the default recipe.",
+  "lesson": "Randomization works when its ranges contain every condition you test on. The same method failed in experiment 42 only because \"wide\" was centred on one end.",
+  "next": [
+    {
+      "title": "Run the v2 ACT at execute 30 on the real arm",
+      "why": "Done as experiment 47: it reaches and closes on the cube every time."
+    },
+    {
+      "title": "Give the policy its previous commands as an input",
+      "why": "Aimed at the random cell (8 to 11 against the teacher's 25). Queued later as the offsets and previous-commands experiment."
+    },
+    {
+      "title": "More ACT seeds on the nominal cell",
+      "why": "To tell whether the 21 against 27 at execute 90 is a real cost."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Built Nov 8, finished Nov 9 (10:00), analysed Nov 9. Re-queued more than once; nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "regime and scan",
+        "note": "bench_physics_v2 built; the teacher completes 263 of 300 draws.",
+        "state": "done"
+      },
+      {
+        "name": "rehearsal gate",
+        "note": "The PPO rehearsal was killed out of memory twice; fixed by running 12 environment workers.",
+        "state": "trouble"
+      },
+      {
+        "name": "capture",
+        "note": "7200 placements. Killed out of memory overnight, then the machine lost power. Re-queued at 10 workers.",
+        "state": "trouble"
+      },
+      {
+        "name": "CNN seeds 202, 101, 303",
+        "note": "Held-out on the servo scene: 15, 18 and 24 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "ACT fine-tune",
+        "note": "The real-arm candidate.",
+        "state": "done"
+      },
+      {
+        "name": "ACT PPO",
+        "note": "40,000 episodes, 5.8 GPU hours.",
+        "state": "done"
+      },
+      {
+        "name": "evaluation matrix",
+        "note": "60 cells: six scenes, execute 90 and 30. 18 baseline cells were kept from before the power loss.",
+        "state": "done"
+      },
+      {
+        "name": "report",
+        "note": "Printed 4 of 6 columns at first; fixed.",
+        "state": "trouble"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 73a3ffe (regime), 5ad0529 (queue), 3a45f4c and 3830b63 (re-queues), 55566c2 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in notes/vision-rung-notebook.md (2026-11-09) and explained in notes/next-round-20261108-explained.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "simulation_code/queue_physics_v2_20261108.sh",
+        "note": "the queue and the bar written before the run"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/physics_v2_20261108/matrix.json",
+        "note": "every cell's successes"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/analysis_20261109/teacher_ceiling.json",
+        "note": "the teacher on the same rollouts"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/next_round_20261108/physics_v2_scan.json",
+        "note": "the regime's ranges, 263 of 300 admitted"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Items 3 and 4 of the next round, analysed (2026-11-09)\""
+      },
+      {
+        "path": "notes/next-round-20261108-explained.md",
+        "note": "the intern explainer, measurements 1 to 3"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/next-round-20261108.md",
+        "note": "build, re-queues, troubles"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/items-3-4-analysis-20261109.md",
+        "note": "the analysis in short"
+      },
+      {
+        "path": "commits 73a3ffe, 5ad0529, 3a45f4c, 3830b63, 55566c2",
+        "note": "regime, queue, re-queues, analysis"
+      }
+    ]
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "question": "Experiment 41 taught the policy to correct its aim, but the old arm model's gripper hid the gain. On the SO-101, whose gripper rewards better aim, does training on the teacher's corrected mistakes raise the score?",
+  "measure": "Held-out successes, the sideways (lateral) jaw-to-cube error as an rms at step 179 (before the second look) and step 250 (before the jaws close), and how many rollouts never go down for the cube. For ACT also the held-out loss split by chunk start: the step at which a chunk begins.",
+  "outcome": "Yes for the CNN: 74 of 90 against 59 of 90, and 6.4 mm against 8.5 mm. No for ACT: 15 of 30 at execute 90 and 0 of 30 at execute 30, against 27 and 25. The ACT failure is a hole in the data: its training set has no chunks starting at steps 120 and 150.",
+  "setup": "A policy is the network that drives the arm from the wrist camera image and the joint angles. It is trained by imitation: a scripted teacher, which knows where the cube is, solves the task in the simulator, and the policy learns to copy it. Each policy outputs a chunk: the next 90 joint commands at once. \"Execute 90\" runs the whole chunk before looking again. \"Execute 30\" looks again after 30 commands and replaces the rest (replanning). There are two kinds of policy here: a CNN (a small image network trained from scratch, always execute 90) and ACT (a transformer policy, fine-tuned). PPO is a reinforcement-learning method run on top of the ACT fine-tune. Held-out means 10 cube placements the policy never trained on, each tried 3 times, so scores are out of 30. The perturbed teacher aims up to 15 mm wrong on its first descent, on purpose, then recentres 20 mm above the cube after the second look at step 180. The hope is that the policy learns to correct its own aim. The rows where the teacher is deliberately wrong (steps 90 to 179) are a problem for training: what the teacher does there is half-finished and has no correct answer to copy. So the training code drops every chunk that starts on steps 91 to 179 of a perturbed episode. Frames are stored every 30 steps, so chunks can start at 0, 30, 60, 90, 120, 150, 180 and so on. In experiment 41 this recipe ran on the SO-100 arm model: aim improved, successes did not. Experiment 43 showed the SO-101's gripper is more tolerant, and experiment 44 made the SO-101 the base. Here the recipe is re-run on the SO-101 with 7200 perturbed placements and a three-seed baseline.",
+  "parts": [
+    {
+      "title": "Does the CNN gain on the SO-101?",
+      "why": "The bars written before the run: pooled over three seeds, the lateral rms at step 250 is below the SO-101 baseline's, and pooled successes are above it.",
+      "did": "Trained three CNN seeds on the perturbed data and three on clean data (seed 202 existed; seeds 101 and 303 were added). Measured the miss with tools/correction_report.py.",
+      "predictions": [
+        {
+          "text": "CNN pooled step-250 lateral rms below the SO-101 baseline pool's",
+          "result": "held"
+        },
+        {
+          "text": "CNN pooled success above the SO-101 baseline pool's",
+          "result": "held"
+        }
+      ],
+      "table": {
+        "head": [
+          "CNN, 3 seeds",
+          "Perturbed teacher",
+          "SO-101 baseline"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Successes per seed",
+              "21, 24, 29",
+              "15, 21, 23"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Successes pooled, of 90",
+              "74",
+              "59"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Lateral rms, step 179 to 250 (mm)",
+              "9.6 to 6.4",
+              "9.6 to 8.5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Not descended, of 90",
+              "4",
+              "22"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Both bars hold. The right-hand column is the baseline. The second look now removes 3.1 mm of aim error against 1.1 mm before, and far fewer rollouts fail to descend."
+    },
+    {
+      "title": "Does ACT gain?",
+      "why": "The bar written before the run: at least 25 of 30 at both execute 90 and execute 30. The SO-101 baseline ACT scores 27 and 25.",
+      "did": "Fine-tuned ACT on the perturbed data only (no clean episodes mixed in).",
+      "predictions": [
+        {
+          "text": "ACT scores at least 25/30 at both execute 90 and execute 30",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "ACT",
+          "Execute 90",
+          "Execute 30",
+          "Not descended at execute 30"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "SO-101 baseline",
+              "27 of 30",
+              "25 of 30",
+              "2 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed data only",
+              "15 of 30",
+              "0 of 30",
+              "30 of 30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "It fails the bar. At execute 30 every rollout hovers and never goes down. That is the same failure as experiment 41 on the SO-100, so the gripper is not the cause."
+    },
+    {
+      "title": "Why does the perturbed ACT hover at execute 30?",
+      "why": "A bad algorithm and a bad dataset need different fixes.",
+      "did": "Scored the held-out loss separately at each chunk start on the clean teacher's held-out placements (act_per_start.py), and plotted the jaw height over time (height_profile.py).",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Chunk start",
+          "90",
+          "120",
+          "150",
+          "180",
+          "210"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Baseline ACT, held-out loss",
+              "1.3e-4",
+              "2.2e-5",
+              "5.6e-6",
+              "6.1e-6",
+              "1.4e-5"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed ACT, held-out loss",
+              "1.5e-4",
+              "3.4e-2",
+              "2.9e-2",
+              "1.7e-4",
+              "9.2e-5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Perturbed ACT execute 30, jaw height (mm)",
+              "",
+              "",
+              "98",
+              "84",
+              ""
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "Perturbed ACT execute 90, jaw height (mm)",
+              "",
+              "",
+              "70",
+              "40",
+              ""
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "The loss is normal everywhere except starts 120 and 150, where it is about 1,500 times larger: 33 degrees rms per joint against 0.8. Those are exactly the starts the training set never contains. All 7200 episodes are perturbed, so the drop rule removes 120 and 150 completely. Execute 30 asks the model for a chunk exactly there. It descends too slowly and stalls about 35 mm above the grasp height (jaw at 62 mm at step 250 against 26 mm at execute 90). The CNN never starts a chunk at 120 or 150, so it never hit the hole."
+    },
+    {
+      "title": "Why is execute 90 also lower (15 against 27)?",
+      "why": "Execute 90 does not query starts 120 or 150, so this is a different failure.",
+      "did": "Looked at the failures and at the states the step-180 chunk was trained on (teacher_profile.py).",
+      "predictions": [],
+      "table": null,
+      "conclusion": "The failures are 3 placements with unsafe contact and 1 incomplete pickup (12 safety and 3 incomplete rollouts). The step-180 chunk corrects 0.7 mm against the baseline's 2.6, and ends 2 mm lower. Its training states at step 179 are about 10 mm farther from the cube than the states it reaches in closed loop (55 against 45 mm). The mismatch is measured; that it causes the failures is not proven."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Three seeds on each side for the CNN, same recipe, same held-out placements",
+      "ok": true
+    },
+    {
+      "text": "The bars were written in the queue script before the run",
+      "ok": true
+    },
+    {
+      "text": "The per-start loss uses the clean SO-101 teacher's held-out placements for both ACT policies",
+      "ok": true
+    },
+    {
+      "text": "One ACT seed",
+      "ok": false
+    },
+    {
+      "text": "The ACT run stopped on a CUDA error at step 7500 and resumed from its checkpoint. The notebook treats that as continuity, not a recipe change.",
+      "ok": false
+    },
+    {
+      "text": "Experiment 41's ACT used a different clean mix (starts 108, 126, 144, 162, never 120 or 150). The same hole likely explains its collapse, but that model was not re-scored per start.",
+      "ok": false
+    },
+    {
+      "text": "The explanation of the execute 90 loss is a measured mismatch, not a tested cause",
+      "ok": false
+    },
+    {
+      "text": "Simulation only",
+      "ok": false
+    }
+  ],
+  "meaning": "Training on corrected mistakes carries forward for the CNN. For ACT the recipe is not refuted: the dataset was missing two moments of the task. The decision was to retrain the perturbed ACT with clean SO-101 episodes (the 4800-placement capture from experiment 43) mixed in, so starts 120 and 150 exist. It is judged by held-out loss at those starts (within 3 times the baseline's) and at least 25 of 30 at both execute 90 and 30.",
+  "lesson": "When a model fails, check whether the situation it failed in exists in its training data. One average loss hid the hole; splitting the loss by where in the task the chunk starts found it in minutes.",
+  "next": [
+    {
+      "title": "Retrain the perturbed ACT with clean stride-30 episodes mixed in",
+      "why": "One fine-tune, about 2.2 hours. Fills starts 120 and 150."
+    },
+    {
+      "title": "Re-score experiment 41's ACT per chunk start",
+      "why": "To confirm the same hole caused its 0 of 30 on the SO-100."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Queued Nov 8, re-queued after a power loss, CNNs done Nov 8, analysed Nov 9. Nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "feasibility scan",
+        "note": "Recentring at 20 mm on the SO-101: the teacher completes 77 of 80.",
+        "state": "done"
+      },
+      {
+        "name": "capture",
+        "note": "7200 perturbed placements. Killed out of memory overnight, then the machine lost power. Re-queued at 10 workers.",
+        "state": "trouble"
+      },
+      {
+        "name": "baseline CNN seeds 101, 303",
+        "note": "On the clean 4800-placement capture. Finished before the power loss and kept.",
+        "state": "done"
+      },
+      {
+        "name": "CNN seeds 202, 101, 303",
+        "note": "On the perturbed data. 21, 24 and 29 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "ACT fine-tune",
+        "note": "Stopped at step 7500 on \"CUDA error: unknown error\". Resumed and finished.",
+        "state": "trouble"
+      },
+      {
+        "name": "correction report",
+        "note": "Re-run after the ACT finished. Wrote correction.json.",
+        "state": "done"
+      },
+      {
+        "name": "analysis",
+        "note": "Per-start loss, height profile, teacher profile.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 5ad0529 (queue), 3830b63 (re-queue), 55566c2 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in notes/vision-rung-notebook.md (2026-11-09) and explained in notes/next-round-20261108-explained.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "simulation_code/queue_perturbed_so101_20261108.sh",
+        "note": "the queue and the bars written before the run"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_so101_20261108/correction.json",
+        "note": "lateral rms and not-descended, every policy"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/analysis_20261109/act_per_start.json",
+        "note": "held-out loss per chunk start"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/next_round_20261108/perturbed_scan_so101.json",
+        "note": "77 of 80 admitted at 20 mm"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Items 3 and 4 of the next round, analysed (2026-11-09)\": successes, heights, mismatch"
+      },
+      {
+        "path": "notes/next-round-20261108-explained.md",
+        "note": "the intern explainer, measurements 4 and 5"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/next-round-20261108.md",
+        "note": "build, re-queues, CUDA error, per-seed results"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/items-3-4-analysis-20261109.md",
+        "note": "the analysis in short"
+      },
+      {
+        "path": "commits 5ad0529, 3830b63, 55566c2",
+        "note": "queue, re-queue, analysis"
+      }
+    ]
+  }
+}

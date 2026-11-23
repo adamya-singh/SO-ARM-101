@@ -1,0 +1,220 @@
+{
+  "question": "Can the pickup task be solved at all in our simulator? Take learning out and let a script that reads the cube's true position try 15 pickups.",
+  "measure": "Strict pickups out of 15. A strict grasp means both jaw pads flat on opposite faces of the cube, held through a 1 second hold. 15 = 5 start scenarios, 3 repeats each.",
+  "outcome": "Not at first: the script scored zero because the simulator made a strict grasp of the 25 mm cube physically impossible. After swapping to the MuJoCo Menagerie arm model and fixing one controller bug, it passed 15/15.",
+  "setup": "A policy is the network that drives the arm. For months, policies trained with reinforcement learning (RL: try, get reward, adjust) only pinched the cube by a corner and dropped it. A privileged controller is a hand-written script that cheats: it reads the cube's exact position from the simulator, which a real policy cannot do. The project calls this test the preflight. If the cheating script fails, the task itself is broken. MuJoCo is the physics simulator. It decides when two objects touch using each part's collision shape. For a mesh, MuJoCo uses the convex hull: the shape you get by shrink-wrapping the part, which fills in any hollow. The rebuild plan made this preflight a gate (Phase 4) before any learning.",
+  "parts": [
+    {
+      "title": "Can the cheating script pick up the cube in the old simulator?",
+      "why": "If it can, the task is fine and the months of failure were a learning problem. If it cannot, no policy ever could have succeeded.",
+      "did": "Ran the preflight for the first time: 15 rollouts of the privileged controller under the pickup contract, then investigated the failure by measuring the collision geometry.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "What was found",
+          "Measurement"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "First preflight",
+              "15/15 deterministic, zero clipping, zero success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Convex hull fills the jaw mouth",
+              "~15 mm phantom penetration at any grasp pose"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Jaw-tip markers are off the jaws",
+              "fixed tip ~15-20 mm off; moving tip 27 mm short"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Jaws are a scissor at cube size",
+              "parallel only at a 1.7-7.4 mm gap; ~26-34 degrees at 25 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "July bank of 64 \"validated\" grasp states",
+              "zero strict-grasp frames when replayed"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The failure was not a controller bug. The hull put about 15 mm of invisible solid where the cube must sit, and at a 25 mm gap the jaws form a wedge that squeezes a rigid cube out. That is the corner pinch every earlier experiment saw. There is no baseline row: this part is a list of measurements."
+    },
+    {
+      "title": "Does a properly built arm model fix it?",
+      "why": "The collision shapes were the problem, so the fix is a model with jaws split into convex pieces and pad shapes on the fingertips.",
+      "did": "Swapped the simulator to the MuJoCo Menagerie trs_so_arm100 model. One controller bug was left: the sign of a clearance shift was inverted, so the fixed jaw came down onto the cube. It was spotted in the live viewer. Then re-ran the preflight.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Simulator",
+          "Strict pickups",
+          "Notes"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "old model (first preflight)",
+              "0 of 15",
+              "zero success"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Menagerie model, after the sign fix",
+              "15/15",
+              "environment_proven: true; held at ~29.8 mm"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Menagerie, full pick and place (v3 contract)",
+              "15/15",
+              "deterministic, zero safety violations"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The task is solvable. The script passes 15/15 deterministically with zero safety violations, and also passes the longer contract that ends with the cube placed on a napkin."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Before and after are not like for like: the controller was rewritten during the day, and the strict detector's corner margin went from 4 mm to 2 mm in the migration (memory note).",
+      "ok": false
+    },
+    {
+      "text": "The run is deterministic: repeats give identical results.",
+      "ok": true
+    },
+    {
+      "text": "The stored report artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json has environment_proven true and 15 rollouts.",
+      "ok": true
+    },
+    {
+      "text": "The log says a \"~30 degree wedge\". The findings note gives ~26-34 degrees.",
+      "ok": false
+    },
+    {
+      "text": "Lift height: an earlier memory update says ~31.5 mm, the final tuning and the migration note say ~29.8 mm. The later value is used.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. The Menagerie model is the SO-ARM100, and its joint map and camera were later found to differ from the real arm (experiments 19 to 21).",
+      "ok": false
+    }
+  ],
+  "meaning": "Every grasp result from the months before measured a physics bug, not learning. The rebuild could now continue: the simulator is proven and there is a working expert to copy. The next step (experiment 02) is to train a small network to imitate this script.",
+  "lesson": "Before training anything, prove the task is solvable with a script that cheats. And check the collision model before trusting any grasp result.",
+  "next": [
+    {
+      "title": "Copy the script with a small network (experiment 02)",
+      "why": "The task is solvable only by a script that cheats; a learned policy is still needed."
+    },
+    {
+      "title": "Re-run the old policies on the fixed simulator",
+      "why": "Done next: 165 matched rollouts, zero reach, contact and success (see experiment 02)."
+    }
+  ],
+  "log": "**TL;DR:** The simulator made the grasp physically impossible, so seven months\nof RL had been training on a broken task.\n\n**Problem.** I spent seven months using RL to train policies (SmolVLA, ACT) to\npick up a 25 mm cube in sim, and none of them could do it. Every policy just\npinched the cube by a corner and dropped it.\n\n*How we know:* the grasp detector checks for a strict grasp (both jaw pads flat\non opposite faces of the cube), and across 12,000-episode runs it never fired\nonce. What we didn't know was whether the learning was broken or the sim was.\n\n**Experiment.** Take learning out of the picture. I wrote a privileged\ncontroller, basically a script that cheats by reading the cube's exact position\nfrom the sim, and had it try 15 pickups.\n\n*What we hope to learn:* if the cheating script can do it, the task is fine and\nthe problem is learning. If it can't, no policy ever could have.\n\n**Outcome.** The cheating script failed too. Turns out the sim itself made the\ngrasp impossible:\n\n- MuJoCo collides meshes using their convex hull (think shrink-wrap). The jaw is\n  C-shaped, so the hull filled in the gripper's mouth with ~15 mm of invisible\n  solid right where the cube goes.\n- The jaws only close parallel at a 2-7 mm gap. At 25 mm they make a ~30 degree\n  wedge that squeezes the cube out like a watermelon seed.\n\nI switched to the MuJoCo Menagerie arm model, which lots of people already use\nand has properly built collision shapes. One controller bug was left, and I\nfound it by watching the sim: the fixed jaw was coming down on top of the cube\ninstead of beside it. After fixing that, the script got 15/15 strict pickups.\n\n**Takeaway:** seven months of RL results were measuring a physics bug, not\nlearning. Before training anything, prove the task is solvable with a script\nthat cheats.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 1, 2026 · first preflight failed, model swapped, preflight passed 15/15 the same day",
+    "watch": [],
+    "command": "so-arm101-v2-sim preflight",
+    "stages": [
+      {
+        "name": "first preflight",
+        "note": "15/15 deterministic, zero clipping, zero success.",
+        "state": "trouble"
+      },
+      {
+        "name": "diagnose collision geometry",
+        "note": "Hull in the jaw mouth, tip markers off the jaws, scissor jaws.",
+        "state": "done"
+      },
+      {
+        "name": "hand-made box collision models",
+        "note": "Bevelled pad plates held the cube but the strict detector still never fired. Superseded.",
+        "state": "trouble"
+      },
+      {
+        "name": "migrate to Menagerie model",
+        "note": "trs_so_arm100, vendored; first strict grasp in a wedge test.",
+        "state": "done"
+      },
+      {
+        "name": "fix clearance-shift sign",
+        "note": "Fixed jaw was descending onto the cube; seen in the live viewer.",
+        "state": "done"
+      },
+      {
+        "name": "preflight passes",
+        "note": "15/15, environment_proven true.",
+        "state": "done"
+      },
+      {
+        "name": "napkin place phase",
+        "note": "Full pick and place contract (v3) also passes 15/15.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 546c4ed (findings), 8878ee1 (Menagerie migration, preflight passes), a0f737b (napkin place phase)",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry committed: b6068f7",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/01-privileged-preflight.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/privileged-controller-preflight-findings.md",
+        "note": "the five root causes and their measurements"
+      },
+      {
+        "path": "notes/menagerie-model-migration.md",
+        "note": "migration record; 15/15, ~29.8 mm"
+      },
+      {
+        "path": "notes/karpathy-style-rebuild-plan.md",
+        "note": "rebuild plan; its Progress status block has the numbers"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/simulation/preflight/fixed_pick_place_v3/evaluation.json",
+        "note": "passing preflight report (15 rollouts, environment_proven)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/simulation/preflight/fixed_pickup_contract_v1/",
+        "note": "preflight folder for the pickup contract (listed, not opened)"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/sim-grasp-geometrically-impossible.md",
+        "note": "memory note with the same-day updates"
+      }
+    ]
+  }
+}

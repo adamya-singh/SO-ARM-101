@@ -1,0 +1,330 @@
+{
+  "question": "If the teacher makes a deliberate aiming mistake and then corrects it, does the policy learn to correct its own aim on the second look?",
+  "measure": "Sideways (lateral) distance between the jaws and the cube, as an rms over 30 held-out rollouts, at step 179 (just before the second look) and at step 250 (just before the jaws close). A good policy shrinks it between the two. Also: how many rollouts never go down for the cube (\"not descended\"), and held-out successes out of 30.",
+  "outcome": "Two of three CNN seeds now correct their aim (9.4 to 4.8 mm and 9.8 to 5.3 mm), but successes stayed at 7, 9 and 6 of 30 against a baseline of 6. ACT already corrected before and did not improve (18 against 20). Every bar written before the run was missed.",
+  "setup": "A policy is the network that drives the arm from the wrist camera image and the joint angles. It is trained by imitation: a scripted teacher, which knows where the cube is, solves the task in the simulator, and the policy learns to copy it. Each policy outputs a chunk: the next 90 joint commands at once. \"Execute 90\" runs the whole chunk before looking again. \"Execute 30\" looks again after 30 commands and replaces the rest (replanning). There are two kinds of policy here: a CNN (a small image network trained from scratch, always execute 90) and ACT (a transformer policy, fine-tuned). PPO is a reinforcement-learning method run on top of the ACT fine-tune. Held-out means 10 cube placements the policy never trained on, each tried 3 times, so scores are out of 30. Before this experiment every training episode came from a teacher that is perfectly centred over the cube. The policy looks at the cube again at step 180, but no training frame ever showed an off-centre cube at that point. The 2026-09-18 analysis measured the result: lateral error 11.4 mm before the second look and 11.2 mm at closure, against a grasp tolerance of about 8 mm. An outside review on 2026-11-05 chose \"train on the policy's own mistakes\" as step 1 of three. The fix is a perturbed teacher: it shifts its first descent sideways by a random offset inside a 15 mm disk, then recentres over the cube after the second look. The rows where the teacher is deliberately wrong (90 to 179) keep the clean label, so the policy never learns to copy the mistake. The arm model in the simulator at this point is the SO-100, an older model with a narrow gripper.",
+  "parts": [
+    {
+      "title": "Can the teacher correct sideways without hitting the cube?",
+      "why": "The teacher is open-loop: it follows planned waypoints. The correction has to be planned in, and a sideways move next to the cube can knock it.",
+      "did": "A feasibility scan: 10 placements, 8 offset directions at 15 mm, with the recentring done at different heights above the cube. An attempt is admitted if the full episode succeeds with no safety violation.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Recentring height",
+          "Admitted"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "8 mm (the clean pre-grasp height)",
+              "48 of 80"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "20 mm",
+              "79 of 80"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "30 mm",
+              "79 of 80"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "40 mm",
+              "79 of 80"
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "Correcting at the clean 8 mm height hits the cube in some directions. Recentring at 20 mm works, so the capture uses 20 mm."
+    },
+    {
+      "title": "Does the CNN learn to use the second look?",
+      "why": "The CNN was the policy that ignored the second look. The bar written before the run: pooled over three seeds, lateral rms at step 250 under 4 mm and below step 179, and no rollout that fails to descend.",
+      "did": "Captured 4800 perturbed placements, trained the CNN from scratch on three seeds (202, 101, 303) with the baseline's recipe, and ran tools/correction_report.py on the held-out rollouts.",
+      "predictions": [
+        {
+          "text": "Pooled over three seeds: step-250 lateral rms under 4 mm and below step 179, not-descended 0",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "CNN",
+          "Lateral rms, step 179 to 250 (mm)",
+          "Not descended",
+          "Successes"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Baseline, 2400 placements, 3 seeds pooled",
+              "13.4 to 13.2",
+              "30 of 90",
+              "33 of 90"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Baseline, 4800 placements, seed 202",
+              "9.7 to 8.1",
+              "6 of 30",
+              "6 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Perturbed, seed 202",
+              "9.4 to 4.8",
+              "3 of 30",
+              "7 of 30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Perturbed, seed 101",
+              "17.4 to 17.7",
+              "6 of 30",
+              "9 of 30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Perturbed, seed 303",
+              "9.8 to 5.3",
+              "3 of 30",
+              "6 of 30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Perturbed, 3 seeds pooled",
+              "12.7 to 11.0",
+              "12 of 90",
+              ""
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The second look now corrects in two of three seeds, by about 4.5 mm each. Seed 101 did not correct (the notebook says its survey chunk failed). Pooled, the rms is 11.0 mm, far from the 4 mm bar, and 12 rollouts still do not descend. Successes did not move."
+    },
+    {
+      "title": "Does ACT improve?",
+      "why": "The ACT baselines already end under 4 mm (3.3 mm for the fine-tune), so the 4 mm bar means nothing for ACT. The bar written before the run was to beat its own baseline.",
+      "did": "Fine-tuned ACT on the 4800 perturbed placements plus 2400 clean ones, then ran PPO on top with actor learning rate 2e-7. Same recipe as the baselines.",
+      "predictions": [
+        {
+          "text": "ACT fine-tune beats its own baseline (20/30, rms 3.3 mm, not-descended 3): fewer not-descended, lower rms, more successes",
+          "result": "failed"
+        },
+        {
+          "text": "ACT + PPO: more than 24/30 at execute 90 with zero safety frames",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "ACT policy",
+          "Lateral rms, step 179 to 250 (mm)",
+          "Not descended",
+          "Execute 90",
+          "Execute 30"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Fine-tune, baseline",
+              "6.0 to 3.3",
+              "3 of 30",
+              "20 of 30",
+              "20 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Fine-tune, perturbed data",
+              "6.7 to 3.8",
+              "3 of 30",
+              "18 of 30",
+              "0 of 30"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "Fine-tune + PPO, baseline",
+              "6.6 to 3.8",
+              "0 of 30",
+              "24 of 30",
+              "7 of 30"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Fine-tune + PPO, perturbed data",
+              "6.8 to 3.9",
+              "0 of 30",
+              "24 of 30",
+              "0 of 30"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "No gain for ACT at execute 90, and a collapse to 0 of 30 when replanning every 30 steps. The collapse was not diagnosed here. Experiment 46 later traced it to missing training examples at chunk starts 120 and 150."
+    },
+    {
+      "title": "Why did better aim not give more successes?",
+      "why": "Seed 202 halved its aim error and gained one success. Either aim was not the problem, or something else punishes the rollouts that are now well aimed.",
+      "did": "The 2026-11-07 analysis sorted rollouts by lateral error and by failure reason, and compared with the SO-101 arm model from experiment 43.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Perturbed CNN seed 202 had 9 rollouts within 3 mm and won 1 of them. 18 of its failures were unsafe contact, a safety rule that ends the rollout. The SO-100's narrow gripper punishes even well-aimed grasps, so it hid the gain. The analysis says step 1 did not get a fair test on this arm model."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same 10 held-out placements, 3 tries each, for every policy and baseline",
+      "ok": true
+    },
+    {
+      "text": "The step-179 metric uses the step-250 reference and reproduces the 2026-09-18 numbers exactly (memory note)",
+      "ok": true
+    },
+    {
+      "text": "Three CNN seeds, and the baselines are in the same correction.json",
+      "ok": true
+    },
+    {
+      "text": "The three-seed CNN baseline is on 2400 placements; the 4800-placement baseline has one seed",
+      "ok": false
+    },
+    {
+      "text": "One seed for each ACT policy",
+      "ok": false
+    },
+    {
+      "text": "Simulation only, on the SO-100 arm model whose gripper masks the effect",
+      "ok": false
+    },
+    {
+      "text": "The execute 30 results come from the notebook and memory note, not from correction.json",
+      "ok": false
+    }
+  ],
+  "meaning": "The data change does what it was built for: a CNN trained on it uses the second look. It did not raise the score because the simulator's gripper, not the aim, decided most rollouts. The decision on 2026-11-07 was to switch the base arm model to the SO-101 and re-run this experiment there with a three-seed baseline (experiment 46).",
+  "lesson": "A fix can work and still not show in the headline score if a different failure sits downstream of it. Measure the thing the fix targets (here, aim in mm) as well as success.",
+  "next": [
+    {
+      "title": "Re-run on the SO-101 with a three-seed baseline",
+      "why": "Done as experiment 46. The CNN passes there: 74 of 90 against 59 of 90."
+    },
+    {
+      "title": "Find why the perturbed ACT scores 0 of 30 at execute 30",
+      "why": "Done in experiment 46: chunk starts 120 and 150 are missing from the training set."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Queued Nov 5 (22:25), results Nov 6, analysed Nov 7. 7 jobs, nothing left.",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "capture",
+        "note": "4800 perturbed placements, suite seed 15, every 30th frame kept.",
+        "state": "done"
+      },
+      {
+        "name": "CNN seeds 202, 101, 303",
+        "note": "From scratch, the 4800-placement recipe. 7, 9 and 6 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "ACT fine-tune",
+        "note": "Perturbed 4800 plus clean 2400 placements. 18 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "ACT PPO",
+        "note": "Actor learning rate 2e-7. 24 of 30.",
+        "state": "done"
+      },
+      {
+        "name": "correction report",
+        "note": "Wrote correction.json.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 10c91d7 (capture and tranche), 5a91bce (job ids), 38d9fa5 (analysis)",
+        "ok": true
+      },
+      {
+        "text": "Analysed in notes/vision-rung-notebook.md, section dated 2026-11-07",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/handoff-20261105.md",
+        "note": "why the experiment was chosen, the 4 mm target"
+      },
+      {
+        "path": "tools/tranche_20261105.json",
+        "note": "the bars written before the run"
+      },
+      {
+        "path": "simulation_code/queue_perturbed_teacher_20261105.sh",
+        "note": "the queue"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_teacher_20261105/correction.json",
+        "note": "lateral rms and not-descended, every policy"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/perturbed_teacher_20261105/feasibility_scan.json",
+        "note": "admitted counts per recentring height"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "\"Steps 1-3 ... analysed together (2026-11-07)\": successes, execute 30, masking"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/perturbed-teacher-20261105.md",
+        "note": "design facts, baselines, results"
+      },
+      {
+        "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/steps-1-3-analysis-20261107.md",
+        "note": "the analysis in short"
+      },
+      {
+        "path": "commits 10c91d7, 5a91bce, 38d9fa5",
+        "note": "built and queued, job ids, analysis"
+      }
+    ]
+  }
+}

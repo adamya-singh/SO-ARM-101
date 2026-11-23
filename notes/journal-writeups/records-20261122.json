@@ -1,0 +1,62 @@
+[
+  {
+    "question": "What does a staged curriculum need, and is generalization inherited?",
+    "direction": "probes",
+    "when": "2026-11-22",
+    "status": "finding",
+    "answer": "A ladder chains only under four conditions, and the full task then works where only its low stages were trained.",
+    "numbers": [
+      "pick in unseen half 0.96 vs 0.35",
+      "place there 0.82 vs 0.25",
+      "ladder 5/10 seeds, flat shaped 5/5",
+      "two levels up 0.84"
+    ],
+    "details": "RL from scratch in a toy world: a point gripper moves a cube onto a target, 8 rounds, 5 to 10 seeds per recipe. Stages must be prefixes of the task, each new step its own stage, outputs unsaturated, old stages replayed success-only. A flat hand-shaped reward is still more reliable on the whole workspace; the ladder's gain is inheritance.",
+    "buildsOn": [
+      "53"
+    ],
+    "picture": "stack",
+    "model": "mlp"
+  },
+  {
+    "question": "What can RL from scratch learn in the arm sim?",
+    "direction": "probes",
+    "when": "2026-11-22",
+    "status": "mixed",
+    "answer": "Reaching and descending, yes. Grasping stalls and lifting is unsolved. The inheritance test was not readable.",
+    "numbers": [
+      "reach 0.96 at 2.0 M steps",
+      "descend 0.72 staged vs 0.07 flat",
+      "grasp 0.23 best",
+      "lift 0.00"
+    ],
+    "details": "PPO from scratch on the SO-101 scene with state inputs (no camera), scored on held-out placements, one seed per run. The staged ladder got further than flat RL on the same reward. The run meant to test inherited generalization under-learned, so it shows nothing either way.",
+    "buildsOn": [
+      "54",
+      "53"
+    ],
+    "picture": "stack",
+    "model": "mlp"
+  },
+  {
+    "question": "Do the big models work on the tuned ACT recipe?",
+    "direction": "vla",
+    "when": "2026-11-22",
+    "status": "mixed",
+    "answer": "SmolVLA went from 2/30 to 14/30 on the new recipe, and 19/30 after RL (not analysed). Half-trained pi0.5 got 7/30.",
+    "numbers": [
+      "SmolVLA 14/30 (was 2/30)",
+      "+ RL 19/30, not analysed",
+      "pi0.5 7/30 at 5,000 steps",
+      "ACT 21 and 24 of 30"
+    ],
+    "details": "pi0.5 and SmolVLA fine-tuned on the tuned ACT baseline's data and scene (SO-101, physics v2, 100 mm lift, execute 30). SmolVLA's gain is the recipe, not better placement: it still closes 13 mm off. pi0.5 was cut to 5,000 steps and its loss was still falling.",
+    "buildsOn": [
+      "40",
+      "51",
+      "37"
+    ],
+    "picture": "stack",
+    "model": "pi05"
+  }
+]

@@ -1,0 +1,238 @@
+{
+  "question": "Does a big pretrained model (pi0.5) put the jaws on the cube better than our small CNN policies, when the cube can be anywhere on the bench?",
+  "measure": "Two things. Held-out loss: the error of the predicted actions on 10 placements the model never trained on, scored at step 90 of the episode (lower is better). And rollouts: how many of those 10 placements end in a full pick and replace in the simulator, plus how far sideways the jaws are from the cube when they close (closure error, in mm; the grasp tolerates about 8 mm).",
+  "outcome": "Best held-out loss of any placement policy so far (2.5e-4 against 3.4e-4 to 6e-4 for the CNNs). It succeeds on 4 of 10 placements, or 5 of 10 when it re-reads the camera every 30 steps. Closure error is about 4 mm. The failures are now mostly bad grips, not bad aim.",
+  "setup": "A policy is the network that drives the arm: it reads the wrist camera and the joint angles and outputs joint commands. Ours outputs a chunk, which is the next 90 commands in one go. A teacher is a scripted controller that knows where the cube is and solves the task in simulation; we record its episodes and train the policy to copy them. Held-out means placements kept out of training, used only for testing. \"Execute 90\" means the policy runs all 90 commands before it looks at the camera again; \"execute 30\" means it looks again every 30 steps (replanning).\n\nThe experiment before this one (36) measured that the CNN policy lands about 10 mm off against an 8 mm tolerance, and that its later looks at the cube correct nothing. pi0.5 is a vision-language-action model (VLA): a 3.38 billion parameter network pretrained on a lot of robot data. The question is whether that pretraining fixes the aim.\n\nRecipe: LoRA (small trainable adapters, rank 16) on the vision and language part, plus the full 300M action part, 458M parameters trained. 10,000 steps at batch 32 on the 4800-placement and 2400-placement teacher captures (141,600 frames), with images shifted randomly by up to 12 pixels. One seed (202). The run took 12.9 hours on one RTX 3090.\n\nOne reading rule came out of this run: the three repeats of each placement are identical, because the simulator and the policy are deterministic. So every \"N of 30\" in this project is really a count over 10 placements, times 3.",
+  "parts": [
+    {
+      "title": "Does it predict the teacher's actions better on unseen placements?",
+      "why": "Held-out loss is the cheap test of perception. If the model cannot tell where the cube is, this number stays high no matter how long it trains.",
+      "did": "Scored the held-out loss at chunk start 90 every 500 steps, on the same 10 held-out placements and in the same units as the CNN runs.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Held-out loss at start 90",
+          "Note"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "Working policy, cube in one fixed place",
+              "2.5e-6",
+              "reference: what a policy that works scores"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "CNN placement runs",
+              "3.4e-4 to 6e-4",
+              "CNN on 4800 placements: 3.6e-4"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5 before fine-tuning",
+              "1.4e-1",
+              "the pretrained base"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5 fine-tuned, step 10k",
+              "2.5e-4",
+              "per-placement median 1.5e-4; 6/10 under 2.5e-4"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Yes. It is the best held-out loss of any placement policy, with no memorisation (the training sample scores 1e-3, above held-out). It is still about 100 times the working fixed-place policy."
+    },
+    {
+      "title": "Does that turn into more successful picks?",
+      "why": "Loss is measured on the teacher's states. Only a rollout, where the policy drives the simulated arm itself, shows whether it finishes the task.",
+      "did": "Ran the final model on the 10 held-out placements, 3 repeats each, at execute 90 and at execute 30. Measured the sideways jaw error at closure with the closure tool from experiment 36.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Placements succeeded",
+          "Closure error (median)",
+          "Within 8 mm",
+          "Never descended"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "CNN, 2400 placements, seeds 202/101/303",
+              "5, 2, 4 of 10",
+              "10.0, 11.9, 9.4 mm",
+              "",
+              "4, 3, 3"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "CNN, 4800 placements",
+              "2 of 10",
+              "5.1 mm",
+              "",
+              "2"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "pi0.5, execute 90",
+              "4 of 10 (12/30)",
+              "4.0 mm",
+              "7/10",
+              "1"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pi0.5, execute 30",
+              "5 of 10 (15/30)",
+              "4.4 mm",
+              "7/10",
+              "0"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "On count it equals the best CNN seed and beats the CNN mean (3.7 of 10). That alone is not a decisive win on one seed. The clearer change is the aim: the sideways error is about half the CNN's, and 7 of 10 placements land inside the tolerance."
+    },
+    {
+      "title": "What do the remaining failures look like?",
+      "why": "If the failures are still misses, we need better perception. If they are something else, the next lever changes.",
+      "did": "Read the failed placements one by one from the rollout rows.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Most are not misses. Several placements lift the cube 30 mm without a proper grasp (the jaws catch an edge) while the sideways error is under 5 mm. Two placements are stopped by safety rules (a clipped command, an unsafe contact). Only one, pose_005, is a real aim miss at 10 to 11 mm. Replanning every 30 steps fixed the one placement where the arm stalled above the cube."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same 10 held-out placements, same loss units and the same closure tool as the CNN runs. The closure tool reproduces the experiment 36 numbers exactly.",
+      "ok": true
+    },
+    {
+      "text": "The training target and the 7-number joint state are bit-identical to the CNN lane (checked by a test).",
+      "ok": true
+    },
+    {
+      "text": "One seed. The CNN recipe swings between 2 and 5 placements of 10 across seeds, so a 1-placement lead is inside the noise.",
+      "ok": false
+    },
+    {
+      "text": "Effectively 10 test placements, not 30: the three repeats are identical.",
+      "ok": false
+    },
+    {
+      "text": "Simulation only. The first real-arm run of this checkpoint is experiment 38, and it went wrong.",
+      "ok": false
+    },
+    {
+      "text": "pi0.5 trained on both captures (4800 + 2400 placements). The CNN rows trained on one of them each.",
+      "ok": false
+    }
+  ],
+  "meaning": "The pretrained model does fix part of the perception problem: lower held-out loss, about half the sideways error, and it descends on every placement when it replans. It does not fix the task: half the placements still fail. The limit moved from where the jaws land to how well they grip, plus two safety cases. So the plan after this run was to look at yaw and height at closure on the edge-lift placements, run a second seed before claiming a count difference, and still build the capture where the teacher corrects from a bad start (the lever recorded in experiment 36).",
+  "lesson": "Check whether your repeats are really independent. Here three repeats of a placement were identical, so \"15 of 30\" was 5 of 10 all along.",
+  "next": [
+    {
+      "title": "Run it on the real arm",
+      "why": "Done the next day as experiment 38. The arm pressed on the table; the replanning schedule that helped here is what broke there."
+    },
+    {
+      "title": "Improve it with RL in the simulator",
+      "why": "Done in experiment 40 (ReinFlow on this checkpoint): 12/30 became 21/30 at execute 90."
+    },
+    {
+      "title": "A second seed of this recipe",
+      "why": "Needed before saying pi0.5 beats the CNN on count. Not found in the sources as run."
+    },
+    {
+      "title": "Read closure on pose_001 and pose_008",
+      "why": "Their sideways error is fine but the grasp fails, so yaw or height at closure is the suspect."
+    }
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Queued Oct 2, result Oct 3, 2026 · 12.9 h on one RTX 3090 · one training run plus two rollout evaluations",
+    "watch": [
+      {
+        "title": "W&B run c07me9rl",
+        "note": "Held-out curve every 500 steps, rollouts at execute 90 and 30",
+        "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/c07me9rl"
+      }
+    ],
+    "command": "",
+    "stages": [
+      {
+        "name": "fine-tune",
+        "note": "10,000 steps at batch 32, LoRA rank 16 plus the full action expert, held-out curve every 500 steps.",
+        "state": "done"
+      },
+      {
+        "name": "rollouts, execute 90",
+        "note": "30 held-out rollouts: 12 successes, 6 safety invalidations, 12 incomplete pickups.",
+        "state": "done"
+      },
+      {
+        "name": "rollouts, execute 30",
+        "note": "30 held-out rollouts: 15 successes, 6 safety invalidations, 9 incomplete pickups.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: 61d3b94 (the fine-tune lane), 1cc1b3d (the result)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md",
+        "ok": true
+      },
+      {
+        "text": "No research-log entry yet",
+        "ok": false
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "section \"pi0.5 fine-tune (2026-10-02/03)\": the write-up and the comparison table"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/pi05_lora16_10k_20261002/pi05_result.json",
+        "note": "the numbers: held-out loss, rollouts, closure"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/pi05_lora16_10k_20261002/heldout_curve.jsonl",
+        "note": "held-out curve during training"
+      },
+      {
+        "path": "tools/pi05_finetune.py",
+        "note": "the training tool"
+      },
+      {
+        "path": "memory: pi05-finetune-20261002.md",
+        "note": "setup facts and the result summary"
+      },
+      {
+        "path": "commits 61d3b94 · 1cc1b3d",
+        "note": "lane built and queued · result"
+      }
+    ]
+  }
+}

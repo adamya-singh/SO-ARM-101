@@ -1,0 +1,303 @@
+{
+  "question": "The teacher was recorded for 450 steps but the task runs 480. If the recording covers all 480 steps and we retrain, do all three seeds pass 15/15 with zero safety frames?",
+  "measure": "Clean successes out of 15 rollouts per seed, the number of safety frames, and where in the episode each bad frame falls (before or after step 450, and in which stage).",
+  "outcome": "No. The three seeds scored 9, 9 and 12 out of 15. No bad frame fell past the end of the recording, but every remaining bad frame was the gripper squeezing below its closed limit, inside the recorded part.",
+  "setup": "A policy is the network that drives the arm. The teacher is a hand-written script that does the task using the cube's exact position from the simulator; the policy is trained to copy the teacher's recorded commands. The policy outputs a chunk: the next 90 commands at once. A seed is the random number that starts training; the same recipe with a different seed gives a different policy. The test is called Stage A: 5 scenarios (the nominal cube position and four positions shifted by 1.5 mm), 3 repeats each, 15 rollouts. A rollout is one full attempt. A safety frame is one step where the policy asks a joint to leave its allowed range (a clip) or to move faster than the per-step cap (a limit). A rollout with any safety frame does not count. To pass, a policy needs 15 of 15 with zero safety frames. Before this run the best recipe (width 512, 90,000 steps, a cosine learning-rate schedule) scored 12, 12 and 3 out of 15 across seeds 101, 202 and 303. The plan blamed the leftover failures on the horizon mismatch: the policy's last chunk covered steps 451 to 480, which the teacher never showed it, so the policy had to guess there. An earlier frame analysis had found 27 of 33 bad frames after step 450. The fix tested here: make the teacher hold still at its final pose from step 451 to 480, record again (5 episodes of 480 steps, 2,400 rows), and retrain three seeds on that recording with nothing else changed.",
+  "parts": [
+    {
+      "title": "Does the full-length recording make all three seeds pass?",
+      "why": "If the last chunk is trained instead of guessed, the failures past step 450 should go away. The proposal said this would be enough.",
+      "did": "Recorded the teacher for 480 steps with a hold at the end. Checked the recording: zero safety counts on every episode, and the command is bit-constant over steps 451 to 480. Trained seeds 101, 202 and 303 with the same recipe as before and ran Stage A on each.",
+      "predictions": [
+        {
+          "text": "15/15 with zero safety frames on all three seeds",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Seed",
+          "Recording",
+          "Clean successes",
+          "Safety frames",
+          "Failing scenarios"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "101",
+              "450 steps",
+              "12/15",
+              "12",
+              "nominal"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "202",
+              "450 steps",
+              "12/15",
+              "6",
+              "cube_x_plus"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "303",
+              "450 steps",
+              "3/15",
+              "63",
+              "four of five scenarios"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "101",
+              "480 steps",
+              "9/15",
+              "24",
+              "nominal, cube_y_minus"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "202",
+              "480 steps",
+              "9/15",
+              "48",
+              "nominal, cube_x_minus"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "303",
+              "480 steps",
+              "12/15",
+              "33",
+              "cube_y_minus"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The prediction failed. No seed passed. The spread between seeds got narrower (12, 12, 3 became 9, 9, 12), but two seeds got worse. The gate ended with the status horizon_not_resolved."
+    },
+    {
+      "title": "Where are the bad frames now?",
+      "why": "The plan for a failed gate was a frame-by-frame analysis of every failing seed, to find what the failures have in common.",
+      "did": "Ran the frame analysis tool on all three seeds. It lists every bad frame with its joint, its kind, how far past the limit it was, and the teacher stage it falls in. The three repeats of a scenario are byte-identical, so each bad frame is listed once.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Seed",
+          "Scenario",
+          "Steps",
+          "Joint and kind",
+          "Stage",
+          "Largest excess"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "101",
+              "nominal",
+              "398 to 404",
+              "gripper, clip",
+              "set_down, released",
+              "+0.015336"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "101",
+              "cube_y_minus",
+              "395",
+              "gripper, clip",
+              "set_down",
+              "+0.001228"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "202",
+              "nominal",
+              "398 to 404",
+              "gripper, clip",
+              "set_down, released",
+              "+0.012238"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "202",
+              "cube_x_minus",
+              "397 to 405",
+              "gripper, clip",
+              "set_down, released",
+              "+0.020366"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "303",
+              "cube_y_minus",
+              "381 to 388",
+              "gripper, clip",
+              "traverse, set_down",
+              "+0.001264"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "303",
+              "cube_y_minus",
+              "413 to 415",
+              "gripper, limit",
+              "released",
+              "+0.034808"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Zero findings past the end of the recording in any seed. All 35 findings are the gripper: 22 in set_down, 6 in traverse, 7 in release. The policy asks for gripper values below the closed limit (0.000472), down to about -0.02. The teacher grips by commanding the gripper to within about 0.0035 of that limit, and the policy's copy overshoots it. The overshoot (up to 0.02) is bigger than any margin that could be built into the training targets (under 0.0035)."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Same recipe as the baseline rows (width 512, 90,000 steps, cosine schedule). The only change is the 480-step recording.",
+      "ok": true
+    },
+    {
+      "text": "Same Stage A test, same pass rule and the same three seeds as the baseline.",
+      "ok": true
+    },
+    {
+      "text": "The frame tool recomputes clip and limit counts per rollout and errors if they differ from the evaluation report, so the frame lists match the gate's own numbers.",
+      "ok": true
+    },
+    {
+      "text": "The prediction, the pass rule and the next step on failure were written down before the run.",
+      "ok": true
+    },
+    {
+      "text": "The research-log entry says the cosine runs of the previous experiment already had zero bad frames past step 450. So this run fixed a failure that the latest policies no longer had.",
+      "ok": false
+    },
+    {
+      "text": "The 27 of 33 figure that motivated the run came from an older analysis and was not re-checked after the cosine schedule was adopted.",
+      "ok": false
+    },
+    {
+      "text": "Five scenarios within 1.5 mm of each other, simulation only, cube position read from the simulator.",
+      "ok": false
+    }
+  ],
+  "meaning": "The horizon fix did what it was built for: the last 30 steps are now trained, safe, and produce no violations. It was not the cause of the remaining failures. Those are one narrow thing: the gripper command going below its closed limit while squeezing during set-down. Learning-rate schedule, step budget, width, seeds and teacher horizon were all measured by this point. The proposal's instruction for this outcome was to stop and write a new proposal aimed at the gripper channel, for example a clamp on the gripper output or a teacher that squeezes less. That became the next experiment (the gripper clamp).",
+  "lesson": "Re-read the newest failure analysis before running the step the plan says comes next. The plan was written before the cosine schedule changed where the failures were.",
+  "next": [
+    {
+      "title": "Clamp the gripper command to its limits at the policy output",
+      "why": "All 35 findings are on the gripper. A clamp on that one channel needs no retraining. This was run next."
+    },
+    {
+      "title": "A teacher that squeezes less hard",
+      "why": "The teacher commands the gripper right at its limit, so any copying error crosses it. Named in the result as the alternative fix."
+    }
+  ],
+  "log": "**TL;DR:** I extended the script's recording to all 480 steps and it fixed\nnothing, because that failure was already gone. The real problem was the\ngripper squeezing past its limit.\n\n**Problem.** My plan blamed the leftover failures on the recording being 450\nsteps while the task runs 480.\n\n*How we know:* in entry 11, 27 of 33 bad frames came after step 450. I didn't\nre-check that after entry 12.\n\n**Experiment.** Re-record the script for the full 480 steps by holding still at\nthe end, and retrain three seeds on it.\n\n*What we hope to learn:* my written prediction was 15/15 on all three seeds.\n\n**Outcome.** 9, 9 and 12 out of 15. There were zero bad frames past step 450,\nbut the cosine runs in entry 12 already had zero there. I ran the planned next\nstep without reading my own latest failure analysis.\n\nThe actual failures were all the gripper, and the frames showed why:\n\n- The script grips by commanding the gripper to within 0.0035 of its closed\n  limit, and the policy overshoots below the limit, as far as −0.02. Like aiming\n  for the very edge of a table: a tiny overshoot and you're off it.\n- That overshoot is bigger than any safety margin I could build into the\n  training targets, so retraining can't absorb it.\n\n**Takeaway:** re-read the newest failure analysis before running the step your\nplan says comes next. Plans go stale faster than you'd think.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 6, 2026 · capture, then one gate of three seeds (about 50 min) · terminal status horizon_not_resolved",
+    "watch": [],
+    "command": "bash simulation_code/queue_horizon_tranche_20260806.sh",
+    "stages": [
+      {
+        "name": "first 480-step capture",
+        "note": "Made with an explicit hold stage that wobbled the output by one floating-point unit. Superseded and not used by the gate.",
+        "state": "trouble"
+      },
+      {
+        "name": "480-step capture",
+        "note": "oracle/fixed_pick_place_v3/9f54b9e66c884855: 2,400 rows, zero safety counts, tail command bit-constant over steps 451 to 480.",
+        "state": "done"
+      },
+      {
+        "name": "gate: seeds 101, 202, 303",
+        "note": "Train, Stage A, margins and handoffs per seed. Report horizon_gates/704b7a9574e559db.",
+        "state": "done"
+      },
+      {
+        "name": "frame analysis",
+        "note": "One analysis note per failing seed, all three seeds.",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: ee16fc2 (Align the teacher horizon with the deployment horizon)",
+        "ok": true
+      },
+      {
+        "text": "Result section written into notes/horizon-alignment-proposal.md",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 13 exists",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/13-horizon-alignment.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/horizon-alignment-proposal.md",
+        "note": "proposal, prediction, pass rule and the result table"
+      },
+      {
+        "path": "notes/horizon-seed101-failure-analysis.md",
+        "note": "bad frames for seed 101"
+      },
+      {
+        "path": "notes/horizon-seed202-failure-analysis.md",
+        "note": "bad frames for seed 202"
+      },
+      {
+        "path": "notes/horizon-seed303-failure-analysis.md",
+        "note": "bad frames for seed 303"
+      },
+      {
+        "path": "notes/precision-tranche-proposal.md",
+        "note": "baseline rows: seeds 12/15, 12/15, 3/15 on the 450-step recording"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/oracle_distillation/horizon_gates/704b7a9574e559db/report.json",
+        "note": "gate report: status and safety frames per seed"
+      },
+      {
+        "path": "simulation_code/queue_horizon_tranche_20260806.sh",
+        "note": "the queue: capture, then the gate"
+      },
+      {
+        "path": "memory/horizon-alignment.md",
+        "note": "project memory note: 27/33 past-horizon before, 22/35 in set_down after"
+      },
+      {
+        "path": "commit ee16fc2",
+        "note": "code, tests and notes for this tranche"
+      }
+    ]
+  }
+}

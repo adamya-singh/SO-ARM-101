@@ -1,0 +1,268 @@
+{
+  "question": "Everything so far trained and tested on the same 5 cube starts. Trained on 25 random cube positions, does a policy work on 10 positions it has never seen?",
+  "measure": "Successes out of 30 held-out rollouts (10 unseen positions, 3 repeats each), safety frames, and the result per position. Held-out means the test positions were never in the training data.",
+  "outcome": "The state policy with the gripper clamp scored 18/30: 6 positions went 3 of 3 with zero safety frames and 4 went 0 of 3. The vision policy scored 0/30 with 848 safety frames.",
+  "setup": "A policy is the network that drives the arm. The teacher is a hand-written script that does the task using the cube's exact position from the simulator; the policy is trained to copy the teacher's recorded commands. The policy outputs a chunk: the next 90 commands at once. A seed is the random number that starts training; the same recipe with a different seed gives a different policy. A rollout is one full attempt. A safety frame is one step where the policy asks a joint to leave its allowed range (a clip) or to move faster than the per-step cap (a limit); a rollout with safety frames does not count. The state policy reads the cube's exact position from the simulator. The vision policy gets the wrist camera image instead. The gripper clamp clips the gripper command to its limits at run time. Until now, training and testing used the same 5 starts, all within 1.5 mm of each other, so a pass could not tell solving the task apart from memorizing 5 starts. This experiment builds a generator of random cube positions. A position is admitted only if the teacher can do it, because a position the teacher fails gives no usable recording. It makes two sets with different generator seeds: 25 positions to train on and 10 to test on. Both policy families are trained on the 25 (12,000 rows, with camera frames) and tested on the 10.",
+  "parts": [
+    {
+      "title": "Which random positions are fair to use?",
+      "why": "The test set has to be held to the same standard as the teacher's recording. Otherwise a failure could be the position's fault and not the policy's.",
+      "did": "Tried three admission rules in turn. Each failure showed up at the preflight, the check that the teacher completes every scenario cleanly before anything is recorded.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Rule",
+          "What happened"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "No screening",
+              "Preflight aborted: the teacher's planner failed on a sampled position"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Keep positions where the plan solves",
+              "4 of 25 train and 2 of 10 test positions failed when actually run"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "Keep positions where the teacher runs all 480 steps cleanly",
+              "Preflight passes; 25 positions captured with zero skips"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "A plan that solves is not an episode that works. The final rule admits a position only if the teacher completes the full 480-step episode with success and zero safety events. One consequence: the data covers positions the teacher can solve, not every position in the region."
+    },
+    {
+      "title": "Do the policies work on unseen positions?",
+      "why": "This is the first measurement of generalization in the project: whether the policy fills in between the positions it saw.",
+      "did": "Trained the state policy (width 512, 90,000 steps, with the clamp) and the vision policy (20,000 steps) on the 25-position recording. Ran each on the 10 held-out positions, 3 repeats each.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Policy",
+          "Test",
+          "Successes",
+          "Safety frames",
+          "Shape"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "state + clamp, seeds 101 and 202",
+              "the 5 starts it trained on",
+              "15/15",
+              "0",
+              "previous experiment"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "state + clamp",
+              "10 unseen positions",
+              "18/30",
+              "57",
+              "6 positions 3/3, 4 positions 0/3"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "vision, 20k steps",
+              "10 unseen positions",
+              "0/30",
+              "848",
+              "7 safety_invalidation, 3 pickup_incomplete"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "The state policy does interpolate: 6 of 10 unseen positions, and every win has zero safety frames. The vision policy solves none at this scale (25 episodes, 20,000 steps)."
+    },
+    {
+      "title": "Why do 4 positions fail for the state policy?",
+      "why": "The simulation is deterministic, so a position either passes all 3 repeats or fails all 3. The useful reading is per position.",
+      "did": "Read the failure type of each failing position.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Position",
+          "Where",
+          "Failure"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "random_003",
+              "x +0.013, y 0.256",
+              "pickup_incomplete, zero safety frames"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "random_007",
+              "y 0.289",
+              "4 limiting frames"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "random_008",
+              "y 0.249",
+              "3 clipping frames, on a joint other than the gripper"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "random_009",
+              "y 0.245 (nearest)",
+              "12 unsafe contact frames"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "Four different failure types, each repeating identically. The two positions nearest the arm (y 0.245 and 0.249) both fail: the near edge of the training region (y from 0.24 to 0.31) is thinly covered by 25 positions. None of these is the gripper going past its closed limit, so the clamp does not help with them."
+    }
+  ],
+  "trust": [
+    {
+      "text": "Train and test positions come from different generator seeds (7 and 8) and both passed the same full-episode teacher screen.",
+      "ok": true
+    },
+    {
+      "text": "Both policies trained on the same 25-position recording and were tested on the same 10 positions.",
+      "ok": true
+    },
+    {
+      "text": "The 15/15 baseline row is a different test (5 fixed starts, policies trained on those starts). It shows the starting point, not a like-for-like comparison.",
+      "ok": false
+    },
+    {
+      "text": "The vision policy here has no gripper clamp and only 20,000 steps; the state policy has the clamp and 90,000 steps. The two rows are not a matched comparison.",
+      "ok": false
+    },
+    {
+      "text": "One trained policy per family. 10 test positions, so each position is worth 3 of the 30.",
+      "ok": false
+    },
+    {
+      "text": "Positions the teacher cannot solve are excluded, so the score is conditional on teacher competence.",
+      "ok": false
+    },
+    {
+      "text": "Exploratory mode: nothing registered before the run. Simulation only.",
+      "ok": false
+    }
+  ],
+  "meaning": "The random-position data engine works end to end, and the state policy generalizes where it has neighbours in the training set. Its failures sit where 25 samples left gaps, which points at more data. Vision is still far from working, consistent with the previous experiment. The note lists the next levers: capture 100 or more episodes (the engine takes about 25 minutes per 25 episodes), put the clamp into the vision policy, and sample the near edge more densely. The first two became the data-scaling experiment.",
+  "lesson": "Screen the test set with the same standard as the teacher, and read results per position. In a deterministic simulation each position is a pass or a fail, not a percentage.",
+  "next": [
+    {
+      "title": "Scale the training set: 50, 100, 200, 400 positions",
+      "why": "The state failures sit in coverage gaps. This was run next on the same 10 test positions."
+    },
+    {
+      "title": "Carry the gripper clamp into the vision policy",
+      "why": "Vision was judged here without it. Done in the next experiment."
+    },
+    {
+      "title": "Denser sampling near the edge of the region",
+      "why": "Both nearest positions failed. Listed in the note; no dedicated run found in the sources."
+    }
+  ],
+  "log": "**TL;DR:** Trained on 25 random cube positions, the state policy solved 6 of 10\nnew positions perfectly (18/30). The vision policy solved none.\n\n**Problem.** Everything so far trained and tested on the same 5 starts, so I\ncouldn't tell solving the task from memorizing 5 starts.\n\n*How we know:* entry 10, where moving the cube 1.5 mm broke the policy.\n\n**Experiment.** Generate random cube positions, train on 25, and test on 10\ndifferent positions, 3 tries each. A position only counts if the script can do\nthe whole episode cleanly. Getting that rule right took two failed versions:\nwith no screening the script's planner failed outright, and screening only the\nplan still let 6 of 35 positions fail when actually run.\n\n*What we hope to learn:* whether the policy interpolates between positions or\nonly knows the ones it saw.\n\n**Outcome.** The state policy got 18/30, and it was all-or-nothing: 6 positions\nwent 3/3 with zero bad frames, 4 went 0/3, each failing a different way. Vision\ngot 0/30 with 848 safety frames.\n\n- Two of the failures sat at the near edge of the area, where 25 random samples\n  left gaps. It interpolates fine where it has neighbours.\n- \"The plan works\" isn't \"the episode works.\" Like checking a route on a map\n  versus actually driving it.\n\n**Takeaway:** screen your test set with the same standard as your expert, and\nread results per position. In a deterministic sim, each position is a pass or a\nfail, not a percentage.",
+  "run": {
+    "state": "Finished",
+    "line": "Aug 6, 2026 · three generator versions, one capture, two trainings, two evaluations · exploratory, no gate",
+    "watch": [],
+    "command": "",
+    "stages": [
+      {
+        "name": "generator, no screening",
+        "note": "Preflight aborted with 'privileged IK failed: position=0.002184m'.",
+        "state": "trouble"
+      },
+      {
+        "name": "generator, plan-only screening",
+        "note": "Preflight not proven: 4 of 25 train and 2 of 10 test scenarios failed in execution.",
+        "state": "trouble"
+      },
+      {
+        "name": "generator, full-episode screening",
+        "note": "Train suite seed 7 with 25 positions, held-out suite seed 8 with 10 positions.",
+        "state": "done"
+      },
+      {
+        "name": "capture",
+        "note": "25 positions with frames, 12,000 rows, zero skips.",
+        "state": "done"
+      },
+      {
+        "name": "train and evaluate both families",
+        "note": "State + clamp 18/30 (evaluation fd18a476910d7732), vision 0/30 (6ecb2a418dfe405e).",
+        "state": "done"
+      }
+    ],
+    "housekeeping": [
+      {
+        "text": "Committed: baecf08 (Generate randomized suites and measure held-out generalization)",
+        "ok": true
+      },
+      {
+        "text": "Written up in notes/vision-rung-notebook.md, sections Randomization engine and randomized v1",
+        "ok": true
+      },
+      {
+        "text": "Research-log entry 16 exists",
+        "ok": true
+      }
+    ],
+    "files": [
+      {
+        "path": "notes/research-log/16-random-positions.md",
+        "note": "the log entry"
+      },
+      {
+        "path": "notes/vision-rung-notebook.md",
+        "note": "sections Randomization engine and randomized v1: screening history and result tables"
+      },
+      {
+        "path": "notes/gripper-clamp-proposal.md",
+        "note": "baseline row: state + clamp 15/15 on seeds 101 and 202"
+      },
+      {
+        "path": "memory/randomization-engine.md",
+        "note": "project memory note: admission rule and first numbers"
+      },
+      {
+        "path": "simulation_code/queue_rnd4_20260806.sh",
+        "note": "queue for the full-episode-screened version"
+      },
+      {
+        "path": "tools/run_randomized_v1.py",
+        "note": "the runner added in the commit (not run here)"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/randomized_v1/",
+        "note": "models and evaluations (directory seen, reports not opened)"
+      },
+      {
+        "path": "commit baecf08",
+        "note": "generator, tests, runner"
+      }
+    ]
+  }
+}
