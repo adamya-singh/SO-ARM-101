@@ -68,11 +68,15 @@ part of the work, for every agent:
 - **Every queue script ends with the analysis job** (user request 2026-11-25). A queue often finishes after
   the session that started it has gone, and then nobody reads the results. So the last job a queue script adds
   is `tsp -L analysis bash tools/queue_analysis.sh --experiment <NN> --note <note> --dir <results folder>
-  [--predictions <file>] [--jobs <ids>]`, queued without `-d`/`-D` so it also runs after a failure. It starts
-  an unattended Claude Code run that analyses the results, writes the results section of the note, uploads
-  the write-up and commits; it cannot train, evaluate or move the arm. `--dry-run` shows what it would do.
-  If you are still in the session when the queue ends, read its log (`<results folder>/analysis_*.log`) and
-  check its work instead of repeating it.
+  [--predictions <file>] [--jobs <ids>]`, queued without `-d`/`-D` so it also runs after a failure. It copies
+  the results folder's text files and the note to the laptop, has OpenClaw analyse them there (OpenClaw never
+  touches this machine, so it cannot train, evaluate or move the arm), then appends OpenClaw's results section
+  to the note, uploads the write-up, sets the record's outcome and commits. `--dry-run` shows what it would
+  send. So the experiment needs its journal record and its note before the queue is built, and anything the
+  analysis must know (the baselines, the question, the pass bars) has to be in the note or the predictions file.
+  What OpenClaw writes is marked "not reviewed" in the note and the commit. If you are in a session when or
+  after a queue ends, read `<results folder>/analysis_*.log`, check the numbers against the files and correct
+  the note and the write-up; do not treat it as checked.
 - **When it finishes and is analysed.** Complete the write-up and set the outcome, as Part 3 of the
   `experiment-analyze-explain` skill describes: `put <NN>`, then `update <NN>` with the status, the
   one-line answer and the numbers. An experiment is not done until its write-up is uploaded.
