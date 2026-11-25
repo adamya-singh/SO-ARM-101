@@ -21,6 +21,10 @@
 # The job returns at once: the analysis runs detached, so it never holds the GPU queue. Its log is
 # <dir>/analysis_<time>.log. It may read anything, write under notes/, upload to the journal and commit; it cannot
 # run Python tools other than tools/journal_writeup.py, so it cannot train, evaluate, use the GPU or move the arm.
+# Login: the run uses a long-lived token kept in ~/.config/so-arm-101/analysis-token (or ANALYSIS_TOKEN_FILE), made
+# once with `claude setup-token`. The stored terminal login is not enough on this PC: the desktop app rewrites it
+# without a refresh token, so it expires. The run starts with a clean environment, so nothing of the session that
+# queued it (the desktop app's own login and address) leaks into it.
 # ANALYSIS_TIMEOUT (default 60m) and ANALYSIS_BUDGET_USD (default 20) bound one run; ANALYSIS_MODEL picks the model.
 set -euo pipefail
 
@@ -47,6 +51,9 @@ cd "$ROOT"
 CLAUDE="$(command -v claude || true)"; [[ -n "$CLAUDE" ]] || CLAUDE="$HOME/.local/bin/claude"
 [[ -x "$CLAUDE" ]] || { echo "The claude command was not found (looked on PATH and in ~/.local/bin)." >&2; exit 3; }
 
+token_file="${ANALYSIS_TOKEN_FILE:-$HOME/.config/so-arm-101/analysis-token}"
+clean=(env -i "HOME=$HOME" "PATH=$PATH" "TERM=${TERM:-xterm}" "LANG=${LANG:-C.UTF-8}")
+[[ -s "$token_file" ]] && clean+=("CLAUDE_CODE_OAUTH_TOKEN=$(tr -d '[:space:]' < "$token_file")")
 log="$dir/analysis_$(date +%Y%m%dT%H%M%S).log"
 if [[ $smoke -eq 1 ]]; then
   prompt="This is a test of the unattended analysis job, not an analysis. Do exactly this and nothing else: (1) run \`python3 tools/journal_writeup.py record\` and report its last line; (2) run \`tsp -l\` and report how many lines it printed; (3) try to run \`python3 -c 'print(1)'\` and report whether it was allowed (it should be refused); (4) say whether the file $note exists. Change no file. Answer in four short lines."
@@ -70,21 +77,21 @@ allowed=(Read Glob Grep Skill "Edit(notes/**)"
   "Bash(python3 tools/journal_writeup.py:*)" "Bash(python tools/journal_writeup.py:*)"
   "Bash(tsp -l)" "Bash(tsp -l:*)" "Bash(ls:*)" "Bash(wc:*)"
   "Bash(git status:*)" "Bash(git log:*)" "Bash(git diff:*)" "Bash(git add:*)" "Bash(git commit:*)")
-cmd=(timeout "${ANALYSIS_TIMEOUT:-60m}" "$CLAUDE" -p "$prompt" --permission-mode dontAsk
+cmd=("${clean[@]}" timeout "${ANALYSIS_TIMEOUT:-60m}" "$CLAUDE" -p "$prompt" --permission-mode dontAsk
   --max-budget-usd "${ANALYSIS_BUDGET_USD:-20}" --allowedTools "${allowed[@]}")
 [[ -n "${ANALYSIS_MODEL:-}" ]] && cmd+=(--model "$ANALYSIS_MODEL")
 
 if [[ $dry -eq 1 ]]; then
-  echo "Would run, detached, with its log in $log:"; printf '  %q' "${cmd[@]:0:3}"; echo ' -p <instructions> ...'
+  echo "Would run, detached, with its log in $log:"; echo "  timeout ${ANALYSIS_TIMEOUT:-60m} $CLAUDE -p <instructions> ...  (token file: $([[ -s "$token_file" ]] && echo found || echo missing))"
   echo "Allowed tools: ${allowed[*]}"; echo; echo "$prompt"
   exit 0
 fi
 # A logged-out CLI would fail inside the detached run, where nobody sees it. Check first, so the failure is this
 # job's exit code in `tsp -l`.
-if ! check="$(timeout 90 "$CLAUDE" -p "Reply with the single word ok." --permission-mode dontAsk 2>&1 < /dev/null)"; then
+if ! check="$("${clean[@]}" timeout 90 "$CLAUDE" -p "Reply with the single word ok." --permission-mode dontAsk 2>&1 < /dev/null)"; then
   echo "The claude command could not start a run, so experiment $experiment was NOT analysed:" >&2
   echo "  ${check##*$'\n'}" >&2
-  echo "Log it in once from a terminal (run: claude, then /login), then run this job again." >&2
+  echo "Make a long-lived token once: run \`claude setup-token\` in a terminal and save the token it prints as $token_file (chmod 600). Then run this job again." >&2
   exit 4
 fi
 { echo "queue_analysis: experiment $experiment, started $(date -Is)"; echo "note: $note"; echo "results: $dir"; echo; } > "$log"
