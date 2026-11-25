@@ -1,0 +1,320 @@
+{
+  "correction": {
+    "count": 30,
+    "steps": [
+      179,
+      250
+    ],
+    "lateral_rms_mm_179": 63.39491210517278,
+    "lateral_median_mm_179": 10.715611568475131,
+    "lateral_rms_mm_250": 54.80352021802881,
+    "lateral_median_mm_250": 9.870718280108205,
+    "correction_mm": 8.59139188714397,
+    "not_descended": 10
+  },
+  "execute": 30,
+  "successes": 14,
+  "rollouts": 30,
+  "safety_frames": 1729,
+  "pickups": 18,
+  "categories": {
+    "safety_invalidation": 16,
+    "success": 14
+  },
+  "closure": {
+    "count": 30,
+    "lateral_median_mm": 9.870718280108205,
+    "lateral_rms_mm": 54.80352021802881,
+    "lateral_max_mm": 166.5316935626474,
+    "within_tolerance": 7,
+    "not_descended": 10,
+    "yaw_err_median_deg": 2.389878176044526,
+    "dz_median_mm": 2.3427724789852267
+  },
+  "rollout_rows": [
+    {
+      "scenario_id": "pose_000_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.09047930503820581
+    },
+    {
+      "scenario_id": "pose_000_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.0
+    },
+    {
+      "scenario_id": "pose_000_r2",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 7.330572252904621e-06
+    },
+    {
+      "scenario_id": "pose_001_r0",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10846481830580368
+    },
+    {
+      "scenario_id": "pose_001_r1",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.11419759098749749
+    },
+    {
+      "scenario_id": "pose_001_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.11165555009917955
+    },
+    {
+      "scenario_id": "pose_002_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 5.1089308342640305e-06
+    },
+    {
+      "scenario_id": "pose_002_r1",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.11126081904860993
+    },
+    {
+      "scenario_id": "pose_002_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10795151856478946
+    },
+    {
+      "scenario_id": "pose_003_r0",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.09883095547888698
+    },
+    {
+      "scenario_id": "pose_003_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10648127069997332
+    },
+    {
+      "scenario_id": "pose_003_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10587172158749625
+    },
+    {
+      "scenario_id": "pose_004_r0",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10486315434046009
+    },
+    {
+      "scenario_id": "pose_004_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 5.140978256776632e-06
+    },
+    {
+      "scenario_id": "pose_004_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10499956822422332
+    },
+    {
+      "scenario_id": "pose_005_r0",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10724622267560249
+    },
+    {
+      "scenario_id": "pose_005_r1",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.08914228284621967
+    },
+    {
+      "scenario_id": "pose_005_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.09844494285843616
+    },
+    {
+      "scenario_id": "pose_006_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.006708518160065485
+    },
+    {
+      "scenario_id": "pose_006_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.0
+    },
+    {
+      "scenario_id": "pose_006_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10153891375624069
+    },
+    {
+      "scenario_id": "pose_007_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.002450965407535111
+    },
+    {
+      "scenario_id": "pose_007_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10590896095713556
+    },
+    {
+      "scenario_id": "pose_007_r2",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.003504341454269151
+    },
+    {
+      "scenario_id": "pose_008_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.0
+    },
+    {
+      "scenario_id": "pose_008_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 0.0
+    },
+    {
+      "scenario_id": "pose_008_r2",
+      "repeat": 0,
+      "success": true,
+      "invalidated": false,
+      "failure_category": "success",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10725244520999436
+    },
+    {
+      "scenario_id": "pose_009_r0",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.10998668052023769
+    },
+    {
+      "scenario_id": "pose_009_r1",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": true,
+      "maximum_height_gain_m": 0.09561571143038575
+    },
+    {
+      "scenario_id": "pose_009_r2",
+      "repeat": 0,
+      "success": false,
+      "invalidated": true,
+      "failure_category": "safety_invalidation",
+      "pickup_completed": false,
+      "maximum_height_gain_m": 1.4422602211936614e-05
+    }
+  ],
+  "seconds": 115.7,
+  "report": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/evals/base_s202_exec30__servo_bench_physics_v2/evaluation/policies/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101_bench_physics_v2/evaluation.json",
+  "identity": {
+    "tool": "eval_policy",
+    "kind": "vla",
+    "checkpoint": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/full_current_s202/model/act.pt",
+    "scene": "/home/win10ubuntu/projects/SO-ARM-101/simulation_code/model/bench_pick_replace_v1_so101_servo_lift100_rel30/scene_bench_pick_replace_v1.xml",
+    "scene_dependencies_sha256": "de39e89892d712ae3e4306d3d18b38b6a9851f01cba3190df98a14d1f9775530",
+    "suite": "bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101_bench_physics_v2",
+    "source_suite": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/so101_benchmark_20261106/so101/cap4800/suites/bench_pick_replace_v1_seed8_n10_appearance_placement_0a75289f941d_so101/suite.json",
+    "physics": "bench_physics_v2",
+    "execute": 30,
+    "black_image": false
+  }
+}

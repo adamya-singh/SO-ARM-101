@@ -1,0 +1,331 @@
+<title>Experiment Workspace Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: the journal's own task workspace (a daylight pane on the night sky): bar across the top, brief left,
+   tabbed surfaces in the middle, OpenClaw right. One look by choice: it mocks an existing screen of the journal. */
+:root {
+  --sky: #0b1730; --sky2: #05070d; --pane: #fff9f0; --pane2: #fbefdf; --ink: #22130a; --dim: #7a6656; --rule: rgba(60, 30, 10, .14);
+  --accent: #b0521c; --accent-soft: rgba(194, 85, 27, .1); --good: #1f7a4a; --bad: #b3361a; --warn: #9a6a08; --info: #2f5fa8; --stage: #0b0f1a;
+  --serif: "Instrument Serif", Georgia, serif; --sans: Geist, system-ui, -apple-system, "Segoe UI", sans-serif; --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box }
+body { background: linear-gradient(180deg, var(--sky2), var(--sky) 60%, #1b3f6e); color: #f3efe7; font: 14px/1.5 var(--sans); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 22px 60px }
+.wrap { max-width: 1500px; margin: 0 auto; display: grid; gap: 18px }
+.intro { display: grid; gap: 6px; max-width: 78ch }
+.intro .eb { font: 500 11.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #a9b4c4 }
+.intro h1 { margin: 0; font: 400 clamp(30px, 4vw, 44px)/1.05 var(--serif); text-wrap: balance }
+.intro h1 em { color: #ffd2a8 }
+.intro p { margin: 0; color: #c8d0dc; font-size: 15px }
+button { font: inherit; color: inherit; cursor: pointer }
+:focus-visible { outline: 2px solid #e07a3a; outline-offset: 2px }
+
+.ws { background: linear-gradient(180deg, var(--pane), var(--pane2)); color: var(--ink); border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); display: grid; grid-template-rows: auto minmax(0, 1fr) }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 1px solid var(--rule); background: linear-gradient(90deg, #fff9f0, #eef4ff) }
+.bar .tog { font: 500 13px var(--sans); background: var(--ink); color: #fff6ec; border: 0; border-radius: 9px; padding: 7px 12px }
+.bar .name { min-width: 0; flex: 1 1 320px }
+.bar .eyebrow { font: 600 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #7f4fb0 }
+.bar h2 { margin: 0; font: 400 26px/1.1 var(--serif); text-wrap: balance }
+.bar .when { font: 500 11.5px var(--mono); color: var(--dim) }
+.bar .pill { font: 500 12.5px var(--sans); background: #fff; border: 1px solid rgba(60, 30, 10, .2); border-radius: 9px; padding: 6px 12px }
+.cols { display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; min-height: 0 }
+.brief, .oc { padding: 16px; display: grid; gap: 14px; align-content: start; min-width: 0 }
+.brief { border-right: 1px solid var(--rule) }
+.oc { border-left: 1px solid var(--rule); background: rgba(255, 255, 255, .45) }
+.lab { margin: 0 0 5px; font: 600 10.5px var(--mono); letter-spacing: .09em; text-transform: uppercase; color: #9a5a24 }
+.pic { aspect-ratio: 16 / 9; border-radius: 12px; background: radial-gradient(120% 100% at 50% 35%, #161c2c, #06080d 75%); position: relative; overflow: hidden }
+.pic i { position: absolute; border-radius: 4px; border: 1px solid rgba(255, 255, 255, .5) }
+.pic .b1 { left: 22%; bottom: 20%; width: 26%; height: 22%; background: #5a9cf5 }
+.pic .b2 { left: 50%; bottom: 20%; width: 26%; height: 22%; background: #f0764a }
+.pic .b3 { left: 27%; bottom: 43%; width: 44%; height: 22%; background: rgba(213, 139, 232, .7) }
+.pic .b4 { left: 36%; bottom: 66%; width: 26%; height: 18%; background: rgba(223, 227, 238, .14); border-style: dashed }
+.pic span { position: absolute; left: 10px; bottom: 8px; font: 500 10px var(--mono); color: #f3ead2; opacity: .75 }
+.verdict { margin: 0; font: 400 21px/1.2 var(--serif) }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font: 500 11.5px var(--mono); color: var(--dim) }
+.st { font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 5px; padding: 1px 7px }
+.st.info { color: var(--info) } .st.good { color: var(--good) } .st.bad { color: var(--bad) } .st.warn { color: var(--warn) }
+.nums { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none }
+.nums li { font: 500 12px var(--mono); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums }
+.brief p { margin: 0 }
+.small { font-size: 13px; color: #4a382c }
+.stale { font-size: 12.5px; color: var(--warn); border: 1px dashed currentColor; border-radius: 9px; padding: 7px 10px }
+.lnk { font: 600 12.5px var(--mono); color: var(--accent); border-bottom: 1px solid rgba(176, 82, 28, .35) }
+.note { width: 100%; min-height: 78px; font: 13.5px/1.45 var(--sans); color: var(--ink); background: #fff; border: 1px solid rgba(60, 30, 10, .2); border-radius: 9px; padding: 8px 10px; resize: vertical }
+.tags { display: flex; flex-wrap: wrap; gap: 6px }
+.tags span { font-size: 12.5px; border: 1px solid rgba(60, 30, 10, .2); border-radius: 999px; padding: 1px 10px; background: #fff }
+
+.mid { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); padding: 12px 14px 16px; gap: 0 }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px }
+.tabs button { font: 500 13px var(--sans); color: var(--dim); background: none; border: 1px solid transparent; border-bottom: 0; border-radius: 10px 10px 0 0; padding: 8px 13px; display: inline-flex; gap: 7px; align-items: center }
+.tabs button small { font: 600 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 7px }
+.tabs button[aria-selected="true"] { background: #fff; color: var(--ink); border-color: var(--rule) }
+.surf { background: #fff; border: 1px solid var(--rule); border-radius: 0 14px 14px 14px; padding: 22px clamp(16px, 3vw, 34px) 28px; min-width: 0; overflow: auto }
+.surf[hidden] { display: none }
+.surf h3 { margin: 0 0 4px; font: 400 26px/1.15 var(--serif); text-wrap: balance }
+.surf h4 { margin: 22px 0 6px; font: 400 20px/1.2 var(--serif) }
+.surf p { margin: 0 0 10px; max-width: 70ch }
+.surf .src { font: 500 11.5px var(--mono); color: var(--dim); margin-bottom: 16px }
+.step { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--rule); max-width: 78ch }
+.step dt { font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: #9a5a24; padding-top: 3px }
+.step dd { margin: 0 }
+.tw { overflow-x: auto; margin: 6px 0 12px }
+table { border-collapse: collapse; font-size: 13px; min-width: 460px }
+th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-variant-numeric: tabular-nums }
+th { font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim) }
+td.n { font-family: var(--mono); font-size: 12.5px; white-space: nowrap }
+tr.base td { color: var(--dim) }
+tr.hl td { background: rgba(213, 139, 232, .12) }
+.short { background: rgba(194, 85, 27, .06); border-radius: 12px; padding: 12px 14px 4px; margin: 0 0 16px; max-width: 78ch }
+.step.first { border-top: 0; padding-top: 0 }
+.status { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; background: rgba(31, 122, 74, .08); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; max-width: 78ch; font-size: 13.5px }
+.status b { font: 600 12px var(--mono) }
+.cmd { font: 12.5px var(--mono); background: var(--stage); color: #f3ead2; border-radius: 9px; padding: 9px 12px; overflow-x: auto; white-space: nowrap; margin: 6px 0 12px; max-width: 78ch }
+.check { display: grid; gap: 4px; margin: 6px 0 12px; padding: 0; list-style: none; max-width: 78ch }
+.check li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px }
+.check li::before { content: "✓"; color: var(--good); font-weight: 600 }
+.check li.no::before { content: "!"; color: var(--warn) }
+.fold { border-top: 1px solid var(--rule); margin-top: 18px; padding-top: 12px; max-width: 78ch }
+.fold summary { cursor: pointer; font: 400 20px/1.2 var(--serif) }
+.fold summary small { font: 600 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 7px; vertical-align: middle }
+.fold .entry, .fold .files { margin-top: 12px }
+.step dd .st { margin: 0 4px 0 2px }
+.call { border-left: 3px solid var(--accent); padding: 6px 0 6px 12px; margin: 12px 0; max-width: 70ch }
+.stages { display: grid; gap: 0; margin: 6px 0 14px; max-width: 78ch }
+.stages div { display: grid; grid-template-columns: 22px 150px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--rule); align-items: baseline }
+.stages i { width: 10px; height: 10px; border-radius: 50%; background: var(--good); margin-top: 4px }
+.stages i.w { background: var(--warn) }
+.stages b { font: 600 12px var(--mono) }
+.files { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font: 12.5px var(--mono) }
+.files li { display: flex; gap: 10px; flex-wrap: wrap }
+.files span { color: var(--dim); font-family: var(--sans) }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 8px 0 14px }
+.tile { background: var(--stage); color: #f3ead2; border-radius: 10px; padding: 10px; aspect-ratio: 4 / 3; display: grid; align-content: end; gap: 2px; font-size: 12.5px }
+.tile small { font: 10.5px var(--mono); opacity: .7 }
+.entry { max-width: 64ch; font-size: 15px }
+.entry p { margin: 0 0 12px }
+.act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px }
+.btn { font: 500 12.5px var(--sans); background: #fff; border: 1px solid rgba(60, 30, 10, .22); border-radius: 999px; padding: 5px 13px }
+.btn.go { background: var(--ink); border-color: var(--ink); color: #fff6ec }
+.next { display: grid; gap: 10px; max-width: 78ch; margin: 8px 0 }
+.next div { border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px }
+.next b { font: 400 18px/1.2 var(--serif) }
+.oc h3 { margin: 0; font: 400 22px var(--serif) }
+.ask { display: grid; gap: 6px }
+.ask button { text-align: left; font: 500 13px var(--sans); background: #fff; border: 1px solid rgba(60, 30, 10, .2); border-radius: 999px; padding: 6px 13px }
+.ask small { color: var(--dim); font-size: 11.5px; padding-left: 4px }
+.composer { border: 1px solid rgba(60, 30, 10, .2); border-radius: 12px; background: #fff; padding: 10px 12px; color: var(--dim); font-size: 13px }
+.thread { border: 1px solid var(--rule); border-radius: 10px; padding: 8px 10px; background: #fff; font-size: 13px }
+.thread small { font: 11px var(--mono); color: var(--dim) }
+
+.why { background: rgba(10, 14, 24, .6); border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; padding: 18px clamp(14px, 2.5vw, 26px) }
+.why h2 { margin: 0 0 10px; font: 400 26px var(--serif) }
+.why table { min-width: 860px; font-size: 13.5px }
+.why th { color: #a9b4c4 } .why td, .why th { border-color: rgba(255, 255, 255, .12) }
+.why td b { color: #ffd2a8; font-weight: 600 }
+.why q { color: #e9dcc6 }
+.why p { color: #c8d0dc; max-width: 80ch }
+@media (max-width: 1100px) { .cols { grid-template-columns: 270px minmax(0, 1fr) } .oc { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--rule) } }
+@media (max-width: 720px) { .cols { grid-template-columns: minmax(0, 1fr) } .brief { border-right: 0; border-bottom: 1px solid var(--rule) } .step { grid-template-columns: minmax(0, 1fr) } .stages div { grid-template-columns: 22px minmax(0, 1fr) } .stages div span { grid-column: 2 } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <div class="eb">Mockup · Agentic Journal · Experiments</div>
+    <h1>The workspace an experiment opens to, <em>laid out for how you read experiments</em></h1>
+    <p>This mocks the journal's task workspace for experiment 53, using its real write-up. It has two tabs: one to understand the experiment and one to run and watch it. The table under the workspace says where each part comes from.</p>
+  </header>
+
+  <section class="ws" aria-label="Mock workspace for experiment 53">
+    <div class="bar">
+      <button type="button" class="tog">Brief</button>
+      <div class="name">
+        <div class="eyebrow">What did it learn? · Finished Nov 21</div>
+        <h2>Do skills stack, combine and get cheaper in order?</h2>
+      </div>
+      <span class="when">53 · Nov 19–21 · tsp 171–213</span>
+      <button type="button" class="pill">Work only</button>
+      <button type="button" class="pill">OpenClaw</button>
+    </div>
+    <div class="cols">
+      <aside class="brief" aria-label="Brief">
+        <div class="pic" role="img" aria-label="3D picture: two skill blocks with a third stacked across them"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i><span>3D picture</span></div>
+        <div class="meta"><span class="st info">Finding</span><span>3 parts · 26 probe cells</span></div>
+        <p class="verdict">Two skills stack in one policy and combine in an episode it never saw. Order does not matter for this pair.</p>
+        <div>
+          <p class="lab">The decision it informs</p>
+          <p class="small">Whether to plan a curriculum that builds one skill on another. If order mattered, a curriculum would save data.</p>
+        </div>
+        <div>
+          <p class="lab">Numbers that carry it</p>
+          <ul class="nums"><li>follow gain +0.74 / +0.91</li><li>pickups kept 72% / 79% (bar 80%)</li><li>order lead −0.00 and +0.02 (bar 0.10)</li></ul>
+        </div>
+        <p class="small">Builds on <span class="lnk">52</span> <span class="lnk">46</span> <span class="lnk">45</span></p>
+        <p class="stale">The record still says "Running". The note says it finished on Nov 21: the workspace would offer to update it.</p>
+        <div>
+          <p class="lab">Your notes</p>
+          <textarea class="note" id="mock-notes" aria-label="Your notes (mock)" placeholder="What you noticed, what to try next, links to runs…"></textarea>
+        </div>
+        <div>
+          <p class="lab">Groups</p>
+          <div class="tags"><span>curriculum</span><span>feature probes</span></div>
+        </div>
+      </aside>
+
+      <div class="mid">
+        <div class="tabs" role="tablist" aria-label="Sections of the experiment">
+          <button type="button" role="tab" aria-selected="true" data-tab="read">Understand it</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="run">Run and watch <small>finished</small></button>
+        </div>
+
+        <div class="surf" id="t-read" role="tabpanel">
+          <div class="short">
+            <p class="lab">The short version</p>
+            <dl class="step first"><dt>The question</dt><dd>Can a curriculum build one skill on top of another? You asked for three tests: stacking, combination, order.</dd>
+              <dt>What we measure</dt><dd>How far the jaws follow a cube moved 20 mm mid-episode (follow gain, 0 to 1), and how many pickups survive a soft elbow.</dd>
+              <dt>Outcome</dt><dd>Stack: yes. Combine: yes. Order: no effect. Read it as "skills add up, but these two do not depend on each other".</dd></dl>
+          </div>
+          <p><b>The setup.</b> A policy is the network that drives the arm. Earlier we showed that one change to the training data gives the policy one skill. A teacher that corrects its own mistakes teaches it to follow the cube when it moves ("look"). Randomized servo physics teaches it to cope when the elbow goes soft ("motor"). A curriculum needs such skills to build on each other.</p>
+
+          <h4>1. Do the two skills stack in one policy?</h4>
+          <dl class="step"><dt>Why</dt><dd>If training on both changes gave neither skill, the changes interfere and no curriculum can work.</dd>
+            <dt>What we did</dt><dd>Trained one policy on half of each kind of data, then moved the cube 20 mm mid-episode, and separately made the elbow soft.</dd>
+            <dt>We predicted</dt><dd>It follows the shift <span class="st good">Held</span> · it keeps at least 80% of pickups with a soft elbow <span class="st bad">Failed</span></dd></dl>
+          <div class="tw"><table>
+            <tr><th>ACT policy</th><th>Successes, no probe</th><th>Follow gain (execute 90 / 30)</th><th>Pickups kept, soft elbow</th></tr>
+            <tr class="base"><td>neither (baseline)</td><td class="n">87</td><td class="n">+0.04 / +0.06</td><td class="n">35 of 87 / 2 of 87</td></tr>
+            <tr class="base"><td>look only</td><td class="n">76</td><td class="n">+0.73</td><td class="n">26 of 77</td></tr>
+            <tr class="base"><td>motor only</td><td class="n">66</td><td class="n">+0.38 / +0.87</td><td class="n">62 of 73 / 59 of 67</td></tr>
+            <tr class="hl"><td>both, half of each</td><td class="n">83</td><td class="n">+0.74 / +0.91</td><td class="n">63 of 87 / 65 of 82</td></tr>
+            <tr class="hl"><td>both, all of each</td><td class="n">76 / 80</td><td class="n">+0.81 / +0.89</td><td class="n">63 of 86 / 55 of 88</td></tr>
+          </table></div>
+          <p class="call"><b>Conclusion.</b> No interference. Both skills are there; the motor one is slightly diluted (72% and 79% against the 80% bar), and twice the data did not fix that.</p>
+
+          <h4>2. Do they combine in one episode?</h4>
+          <dl class="step"><dt>Why</dt><dd>No training episode contains both changes at once, so this tests whether skills compose or were only learned separately.</dd>
+            <dt>What we did</dt><dd>A new probe moves the cube and softens the elbow in the same episode.</dd>
+            <dt>We predicted</dt><dd>The mixed policy handles both <span class="st warn">Half</span> · the baseline, look-only and every CNN do not <span class="st good">Held</span></dd></dl>
+          <div class="tw"><table>
+            <tr><th>ACT policy</th><th>Follow gain</th><th>Pickups kept</th><th>If the skills were independent</th></tr>
+            <tr class="base"><td>neither, execute 90</td><td class="n">+0.01</td><td class="n">0.08</td><td class="n">0.06</td></tr>
+            <tr class="base"><td>look only, execute 90</td><td class="n">+0.48</td><td class="n">0.12</td><td class="n">0.25</td></tr>
+            <tr class="base"><td>motor only, execute 90 / 30</td><td class="n">+0.23 / +0.71</td><td class="n">0.37 / 0.81</td><td class="n">0.30 / 0.75</td></tr>
+            <tr class="hl"><td>both, execute 90 / 30</td><td class="n">+0.44 / +0.80</td><td class="n">0.30 / 0.77</td><td class="n">0.28 / 0.73</td></tr>
+          </table></div>
+          <p class="call"><b>Conclusion.</b> Replanning every 30 steps, the skills combine like independent parts (0.77 kept against 0.73). Replanning every 90 steps, nothing handles both.</p>
+
+          <h4>3. Does having one skill make the next cheaper?</h4>
+          <dl class="step"><dt>Why</dt><dd>This is the curriculum question. If yes, the order you teach skills in saves data.</dd>
+            <dt>What we did</dt><dd>Started from a policy with and without the other skill and trained 5,000 more steps on 300, 1,200 and 4,800 placements.</dd>
+            <dt>We predicted</dt><dd>The start that has the other skill leads by 0.10, in both directions <span class="st bad">Failed</span> <span class="st bad">Failed</span></dd></dl>
+          <div class="tw"><table>
+            <tr><th>Skill added, start</th><th>N = 0</th><th>300</th><th>1,200</th><th>4,800</th></tr>
+            <tr><td>motor, from baseline</td><td class="n">0.40</td><td class="n">0.74 / 0.73</td><td class="n">0.75 / 0.74</td><td class="n">0.79 / 0.75</td></tr>
+            <tr><td>motor, from look only</td><td class="n">0.34</td><td class="n">0.74 / 0.70</td><td class="n">0.76 / 0.76</td><td class="n">0.75 / 0.78</td></tr>
+            <tr><td>look, from baseline</td><td class="n">+0.04</td><td class="n">+0.62</td><td class="n">+0.68</td><td class="n">+0.68</td></tr>
+            <tr><td>look, from motor only</td><td class="n">+0.38</td><td class="n">+0.64</td><td class="n">+0.68</td><td class="n">+0.71</td></tr>
+          </table></div>
+          <p class="call"><b>Conclusion.</b> No order effect: the lead was −0.00 and +0.02 against the 0.10 bar. Each skill is learned from 300 placements from any start.</p>
+
+          <h4>Can I trust it?</h4>
+          <ul class="check"><li>Same 100 placements and the same shift plans for every policy</li><li>The half-and-half policy has the same 7,200-placement budget as the three single policies</li><li>Both starts in the order test had the same training: 40,000 steps on 7,200 placements</li><li class="no">The motor data and the look data were captured on different scenes</li><li class="no">One training seed for parts 1 and 2. Two skills only. Simulation only.</li></ul>
+
+          <h4>What it means, and what next</h4>
+          <p>Stacking and combining are supported. Order is not, but this pair was a weak test: neither skill needs the other. <b>One lesson:</b> the two "failed" marks only mean something because the bar was written down before the run.</p>
+          <div class="next">
+            <div><b>A skill built on an earlier one: retry after a failed grasp</b><span class="small">Needs "look" first. This is a real test of order.</span><div class="act"><button type="button" class="btn go">Add as experiment</button><button type="button" class="btn">Plan it with OpenClaw</button></div></div>
+            <div><b>Why is the motor skill diluted in mixed policies?</b><span class="small">Twice the data did not fix it (73% / 63%).</span><div class="act"><button type="button" class="btn">Flag for follow-up</button></div></div>
+          </div>
+
+          <details class="fold"><summary>Research log entry <small>draft</small></summary>
+            <div class="entry">
+              <p><b>TL;DR:</b> Two skills stack in one policy and work together in an episode it never trained on, but teaching one first does not make the other cheaper.</p>
+              <p><b>Problem.</b> We knew one data change gives one skill. A curriculum needs skills that stack, combine, and build on each other.<br><i>How we know:</i> the feature probes held 12 of 13 predictions, but each tested one skill alone.</p>
+              <p><b>Experiment.</b> Train one policy on both data changes, hit it with both changes in one episode, and add each skill to a policy that does or does not already have the other.<br><i>What we hope to learn:</i> if the start with a skill leads by 0.10, order matters. If not, skills are learned independently.</p>
+              <p><b>Outcome.</b> Stack: yes. Combine: yes, at execute 30. Order: no.</p>
+              <p><b>Takeaway:</b> This pair could not show order. The next test needs a skill that is built on an earlier one.</p>
+            </div>
+            <p class="small">Placeholder text for the mockup, not written with your voice skill.</p>
+            <div class="act"><button type="button" class="btn go">Write it as me</button><button type="button" class="btn">Save to notes/research-log</button></div>
+          </details>
+        </div>
+
+        <div class="surf" id="t-run" role="tabpanel" hidden>
+          <div class="status"><b>FINISHED</b><span>Nov 21 · 6 of 6 stages · nothing left in the queue</span><span>While it runs, this line says the stage, the time left and which session owns it.</span></div>
+          <h4 style="margin-top:6px">Watch it</h4>
+          <div class="tiles">
+            <div class="tile"><b>Cube shifts 20 mm</b><small>both, half of each · execute 30</small></div>
+            <div class="tile"><b>Elbow goes soft</b><small>both, half of each · execute 30</small></div>
+            <div class="tile"><b>Both at once</b><small>the new combined probe</small></div>
+            <div class="tile"><b>Training curves</b><small>summary.png · W&amp;B, most important first</small></div>
+          </div>
+          <div class="act" style="margin:0 0 6px"><button type="button" class="btn go">Run it live in the viewer</button><button type="button" class="btn">Record a video</button></div>
+          <div class="cmd">python tools/view_policy_live.py --policy both_split --probe shift_and_swap --execute 30</div>
+          <h4>How it ran</h4>
+          <div class="stages">
+            <div><i></i><b>rehearsal gate</b><span>40 steps, the new probe on 3 placements, the report. Gates everything.</span></div>
+            <div><i></i><b>combination</b><span>The new probe on the existing policies and the teacher controls.</span></div>
+            <div><i></i><b>both, half of each</b><span>Trainer, then its probe cells.</span></div>
+            <div><i></i><b>order</b><span>18 trainers, each followed by its probe cell.</span></div>
+            <div><i class="w"></i><b>both, all of each</b><span>Stopped on a CUDA error at step 17,500. Resumed and finished Nov 21.</span></div>
+            <div><i></i><b>report</b><span>Three tables, and which predictions held.</span></div>
+          </div>
+          <h4>Housekeeping</h4>
+          <ul class="check"><li>Committed: 473c47d (results), f20bec5 (addendum)</li><li>Write-up and predictions file updated</li><li class="no">The experiment record still says "Running"</li><li class="no">No research-log entry yet</li></ul>
+          <details class="fold"><summary>Files and commits</summary>
+            <ul class="files">
+              <li>notes/recursive-generalization-20261119.md <span>the write-up</span></li>
+              <li>notes/recursive-generalization-20261119-predictions.json <span>registered predictions</span></li>
+              <li>experiments/recursive_generalization_20261119/report.json <span>the numbers</span></li>
+              <li>simulation_code/queue_recursive_generalization_20261119.sh <span>the queue, about 22 GPU hours</span></li>
+              <li>commits 1e9e69b · 473c47d · f20bec5 <span>built and queued · results · addendum</span></li>
+            </ul>
+          </details>
+          <p class="small">Tiles and the command's flags are placeholders in this mockup.</p>
+        </div>
+      </div>
+
+      <aside class="oc" aria-label="OpenClaw">
+        <h3>Chats</h3>
+        <div class="thread"><b>Plan the order test</b><br><small>OpenClaw · waiting on you · mock</small></div>
+        <div class="ask">
+          <p class="lab">Ask about this experiment</p>
+          <button type="button">Status update</button>
+          <button type="button">tldr</button>
+          <button type="button">Explain it to me like a new intern</button>
+          <button type="button">How do we know for sure?</button>
+          <button type="button">Was that a fair comparison?</button>
+          <button type="button">What did we learn, and what next?</button>
+          <button type="button">Write the log entry as me</button>
+          <small>Each starts a chat that is given the write-up, the predictions and the report.</small>
+        </div>
+        <div class="composer">Ask OpenClaw about this, or tell it what to do…</div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="why" aria-label="Where the sections come from">
+    <h2>Where each section comes from</h2>
+    <div class="tw"><table>
+      <tr><th>Where</th><th>What it holds</th><th>From your skills and notes</th><th>From your chats</th></tr>
+      <tr><td><b>Brief</b> (left)</td><td>Picture, one-line verdict, the decision it informs, the few numbers, what it builds on, notes, groups, flag</td><td>The analysis skill opens with "the result is X; the decision that hinges on it is Y".</td><td><q>remind me what we were last doing in this project</q></td></tr>
+      <tr><td><b>Understand it</b>: short version</td><td>The question, what we measure, the outcome</td><td>The research-log TL;DR.</td><td><q>give me one concise explanation in simple words of what we're testing and how</q> · <q>tldr</q></td></tr>
+      <tr><td><b>Understand it</b>: one block per part</td><td>Why, what we did, what we predicted and whether it held, the table with the baseline in it, the conclusion</td><td>Part 4 of experiment-analyze-explain; the predictions file; "a number without a baseline is not evidence".</td><td><q>did our recursive generalization experiments prove us right?</q></td></tr>
+      <tr><td><b>Understand it</b>: can I trust it</td><td>Fair-comparison checks and limits</td><td>Measure the noise before ranking; each note's "Limits".</td><td><q>is this a fair comparison</q></td></tr>
+      <tr><td><b>Understand it</b>: what next</td><td>What it means, follow-ups you can add as experiments, the log entry folded at the end</td><td>Part 2 of the skill; summarize-experiment-as-adamya.</td><td><q>so whats next tell me simply</q></td></tr>
+      <tr><td><b>Run and watch</b></td><td>Status and time left first, videos and a run-it-live button, the stages, housekeeping, files folded away</td><td>The gated task-spooler queues, the live viewer and recorder.</td><td><q>status update</q> (15+ times) · <q>where are the latest videos for me to watch</q> · <q>update all local docs</q></td></tr>
+    </table></div>
+    <p>Quotes are your own messages, from 77 sessions and about 500 messages between Aug 1 and Nov 23. Counts are keyword matches and approximate.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const tabs = [...document.querySelectorAll('.tabs [role=tab]')];
+  const show = (name) => {
+    document.querySelector('.mid').scrollIntoView({ block: 'nearest' });
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    document.querySelectorAll('.surf').forEach((s) => { s.hidden = s.id !== 't-' + name; });
+  };
+  tabs.forEach((t) => t.addEventListener('click', () => show(t.dataset.tab)));
+})();
+</script>

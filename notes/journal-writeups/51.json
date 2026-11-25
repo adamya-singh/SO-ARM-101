@@ -193,7 +193,7 @@
       "ok": false
     },
     {
-      "text": "No note analyses the 2 x 2. The project note and the memory note still say \"queued\". The verdicts here are the note's pre-written rules applied to matrix.json and the per-cell result.json files; the sums over two seeds are added by hand because the report's pooled section is empty.",
+      "text": "The verdicts are the note's pre-written rules applied to matrix.json and the per-cell result.json files. The sums over two seeds are added by hand because the report's pooled section is empty.",
       "ok": false
     },
     {
@@ -206,6 +206,14 @@
     },
     {
       "text": "The physical runner does not pass the command history yet, so a previous-command policy cannot run on the real arm.",
+      "ok": false
+    },
+    {
+      "text": "The same checkpoint scored differently in two evaluations of the same cell for three runs (base seed 101: 21/30 then 24/30; prev seed 101: 24/30 then 21/30; off seed 202: 15/30 then 16/30). The cause is not known, and it is as large as the gaps between arms.",
+      "ok": false
+    },
+    {
+      "text": "The offset arms' held-out loss is measured on a different held-out set (capture B) from the baseline's and the previous-command arm's (capture A).",
       "ok": false
     }
   ],
@@ -283,20 +291,20 @@
         "ok": true
       },
       {
-        "text": "Results not written up: notes/offset-prevcmd-20261118.md still says \"Queued, no results yet except the reference\"",
-        "ok": false
-      },
-      {
-        "text": "matrix.json and sweep/tuned.json are not tracked in git; no commit carries the results",
-        "ok": false
-      },
-      {
-        "text": "The journal record still says running",
-        "ok": false
-      },
-      {
         "text": "No research-log entry",
         "ok": false
+      },
+      {
+        "text": "Results section written into notes/offset-prevcmd-20261118.md (2026-11-25)",
+        "ok": true
+      },
+      {
+        "text": "matrix.json, the sweep files and the 33 evaluation result files are kept in git as evidence",
+        "ok": true
+      },
+      {
+        "text": "The journal record says finished",
+        "ok": true
       }
     ],
     "files": [

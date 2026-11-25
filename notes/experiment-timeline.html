@@ -1,0 +1,736 @@
+<title>SO-ARM-101 Experiment Tree</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a dark, flat stage on top (timeline left to right, a branch per thread, each experiment's
+   card standing over its node). Under it, the same experiments as cards in date order; each card
+   carries its own 3D frame plus the notes, groups and follow-up flag that are stored with it. */
+:root {
+  --bg: #eceef3; --surface: #fafbfd; --ink: #131722; --muted: #586074; --line: #d3d8e2; --chip: #e7eaf1;
+  --stage-a: #161c2c; --stage-b: #06080d; --stage-ink: #f3ead2;
+  --t0: #d98a12; --t1: #1a9db5; --t2: #d34b6c; --t3: #7460e6; --t4: #2f9e63; --t5: #3c7fe0; --t6: #dd5a2b; --t7: #b963d2; --t8: #7a8a1f; --t9: #5f6b85;
+  --s0: #f2b441; --s1: #4cc3d9; --s2: #ee6f8c; --s3: #9d8cf7; --s4: #57c78a; --s5: #6aa6f8; --s6: #f5804f; --s7: #d58be8; --s8: #b7c94a; --s9: #a3aec6;
+  --k-ok: #57c78a; --k-fail: #f0666b; --k-mixed: #f2b441; --k-finding: #6aa6f8; --k-running: #c3cbe0;
+  --ok: #23855a; --fail: #cf3d43; --mixed: #a9730f; --finding: #2f6fcf; --running: #6b7388; --flag: #c2410c;
+  --display: "Bricolage Grotesque", "Space Grotesk", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b0d13; --surface: #141822; --ink: #e9ecf3; --muted: #98a1b4; --line: #262c3a; --chip: #1d2230;
+  --t0: #f2b441; --t1: #4cc3d9; --t2: #ee6f8c; --t3: #9d8cf7; --t4: #57c78a; --t5: #6aa6f8; --t6: #f5804f; --t7: #d58be8; --t8: #b7c94a; --t9: #a3aec6;
+  --ok: #4cc38a; --fail: #f0666b; --mixed: #e2ac45; --finding: #6aa6f8; --running: #98a1b4; --flag: #ff8a4c;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b0d13; --surface: #141822; --ink: #e9ecf3; --muted: #98a1b4; --line: #262c3a; --chip: #1d2230;
+  --t0: #f2b441; --t1: #4cc3d9; --t2: #ee6f8c; --t3: #9d8cf7; --t4: #57c78a; --t5: #6aa6f8; --t6: #f5804f; --t7: #d58be8; --t8: #b7c94a; --t9: #a3aec6;
+  --ok: #4cc38a; --fail: #f0666b; --mixed: #e2ac45; --finding: #6aa6f8; --running: #98a1b4; --flag: #ff8a4c;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 80px }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 20px }
+header.top { display: grid; gap: 12px }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 6vw, 58px); line-height: 1; letter-spacing: -.02em; margin: 0; text-wrap: balance }
+h1 em { font-style: normal; color: var(--t0) }
+.lede { max-width: 66ch; color: var(--muted); margin: 0; font-size: 16px }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums }
+.tally b { color: var(--ink); font-weight: 600 }
+button, input, select, textarea { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--t5); outline-offset: 2px }
+
+/* timeline stage: always dark, like a frame of video */
+#tlstage { position: relative; height: clamp(480px, 80vh, 840px); border-radius: 16px; overflow: hidden; background: radial-gradient(120% 110% at 62% 28%, #141b30, #080b14 72%); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; color: #f3ead2 }
+#tlstage.fs, #tlstage:fullscreen { position: fixed; inset: 0; height: auto; width: auto; border-radius: 0; z-index: 60; touch-action: none }
+#tlstage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(130% 100% at 50% 45%, transparent 58%, rgba(3, 4, 8, .55)); z-index: 1 }
+#sgrid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(150, 170, 230, .2) 1px, transparent 1.6px) }
+#slines { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; --lw: 3px }
+#slines * { vector-effect: non-scaling-stroke; fill: none }
+#slines .trunk { stroke: #e9e0c4; stroke-width: calc(var(--lw) * .62); stroke-linecap: round }
+#slines .tick { stroke: #e9e0c4; stroke-width: 1.25px; opacity: .75 }
+#slines .tdot { fill: #e9e0c4 }
+#slines .today { stroke: #e9e0c4; stroke-width: 1px; stroke-dasharray: 2 6; opacity: .45 }
+#slines .bg { stroke-width: calc(var(--lw) * 3.6); stroke-linecap: round; stroke-linejoin: round; opacity: .09 }
+#slines .b { stroke-width: var(--lw); stroke-linecap: round; stroke-linejoin: round }
+#slines .cap { stroke-width: var(--lw); stroke-linecap: round }
+#slines .ext { stroke-width: calc(var(--lw) * .72); stroke-linecap: round; stroke-dasharray: .1 8; opacity: .8; animation: flow 1.6s linear infinite }
+#slines .tip { stroke-width: calc(var(--lw) * .72); fill: #0b0f1a }
+#slines .arc { stroke-width: 1.25px; opacity: .3; transition: opacity .15s }
+#slines .arc.same { opacity: 0 }
+#slines .arc.hl { stroke-width: 2.5px; opacity: 1 }
+#slines.focus .arc:not(.hl) { opacity: .1 }
+#slines.focus .arc.same:not(.hl) { opacity: 0 }
+#slines .cn { stroke: #e9e0c4; stroke-width: 1px; opacity: .4 }
+#slines .nr { fill: #0b0f1a; stroke-width: var(--lw) }
+#slines .nh { stroke-width: 1.5px; opacity: 0 }
+#slines .nd.sel .nh { opacity: .7 }
+#slines .nd.sel .nr { fill: #f3ead2 }
+#slines .nd.run .nh { opacity: .5; animation: pulse 1.4s ease-in-out infinite }
+#slines .off { opacity: .16 }
+@keyframes flow { to { stroke-dashoffset: -8.1 } }
+@media (prefers-reduced-motion: reduce) { #slines .ext, #slines .nd.run .nh { animation: none } }
+#cards { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2 }
+.tc { position: absolute; left: 0; top: 0; transform-origin: 50% 100%; width: 236px; display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 9px; align-items: start; text-align: left; padding: 7px 10px 8px 7px; border-radius: 11px; border: 1px solid rgba(243, 234, 210, .2); background: rgba(13, 17, 28, .95); color: #f3ead2; pointer-events: auto; cursor: pointer; will-change: transform; font-family: var(--body); box-shadow: 0 10px 28px rgba(0, 0, 0, .5) }
+.tc:hover, .tc:focus-visible { border-color: var(--c); outline: none }
+.tc.sel { border-color: var(--c); box-shadow: 0 0 0 2px var(--c), 0 14px 40px rgba(0, 0, 0, .65) }
+.tc.dim { opacity: .2 }
+.tth { position: relative; width: 62px; height: 62px; border-radius: 7px; overflow: hidden; background: radial-gradient(#1a2238, #070a12) }
+.tth canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+.tb { display: grid; gap: 3px; min-width: 0 }
+.tm { display: flex; align-items: center; gap: 6px; font: 500 10.5px var(--mono); color: #a5b0cb; white-space: nowrap; overflow: hidden }
+.tm b { font: 700 13px var(--mono); color: var(--c) }
+.tm i { width: 7px; height: 7px; border-radius: 50%; background: var(--sc); flex: none }
+.tm em { font-style: normal; color: var(--sc) }
+.tq { font: 700 13.5px/1.2 var(--display); letter-spacing: -.005em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
+.tc.flag::before { content: "follow-up"; position: absolute; top: -9px; right: 9px; font: 600 9.5px var(--mono); letter-spacing: .05em; text-transform: uppercase; background: #ff8a4c; color: #1a0d05; border-radius: 4px; padding: 1px 6px }
+.tc.mini { width: auto; display: block; padding: 3px 10px; border-radius: 999px }
+.tc.mini .tth, .tc.mini .tq, .tc.mini em, .tc.mini .td { display: none }
+.tc.mini.flag::before { content: ""; width: 9px; height: 9px; padding: 0; top: -3px; right: -3px; border-radius: 50% }
+.slab { position: absolute; left: 0; top: 0; transform-origin: 0 0; font: 700 16px var(--display); color: var(--c); white-space: nowrap; text-shadow: 0 1px 8px #05070c, 0 0 2px #05070c; pointer-events: none; z-index: 2500 }
+.slab small { font: 500 10.5px var(--mono); color: #93a0bd; margin-left: 7px }
+.mlab { position: absolute; left: 0; top: 0; transform-origin: 50% 0; margin-top: 4px; font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #d8cfb2; white-space: nowrap; pointer-events: none; z-index: 2400; text-shadow: 0 1px 6px #05070c }
+.mlab.now { color: #fff; background: rgba(243, 234, 210, .16); border-radius: 4px; padding: 1px 7px }
+.sctl { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; z-index: 7000; max-width: calc(100% - 20px) }
+.sctl button { font: 500 12px var(--mono); color: #f3ead2; background: rgba(16, 21, 36, .86); border: 1px solid rgba(243, 234, 210, .25); border-radius: 7px; padding: 5px 10px; cursor: pointer }
+.sctl button[aria-pressed="true"], .sctl button[aria-expanded="true"] { background: #f3ead2; color: #0b0d13 }
+.smode { display: inline-flex }
+.smode button { border-radius: 0; margin-left: -1px }
+.smode button:first-child { border-radius: 7px 0 0 7px; margin-left: 0 }
+.smode button:last-child { border-radius: 0 7px 7px 0 }
+#slines .sring { stroke: rgba(255, 255, 255, .16); stroke-width: 1px }
+#slines .sray { stroke-width: 1px; opacity: .35 }
+.mlab.sunl { color: #5a2a08; font-weight: 700; text-shadow: none }
+.mlab.ringl { color: rgba(255, 243, 220, .8) }
+.shint { position: absolute; left: 12px; bottom: 10px; max-width: calc(100% - 24px); font: 500 11px var(--mono); color: #93a0bd; pointer-events: none; z-index: 7000 }
+#bpanel { position: absolute; top: 46px; right: 10px; z-index: 7001; width: min(310px, calc(100% - 20px)); max-height: calc(100% - 58px); overflow: auto; background: rgba(13, 17, 28, .97); border: 1px solid rgba(243, 234, 210, .22); border-radius: 12px; padding: 10px; display: grid; gap: 4px; cursor: default }
+#bpanel[hidden] { display: none }
+#bpanel p { margin: 0 2px 6px; font-size: 12.5px; color: #a5b0cb }
+#bpanel button { display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; color: #f3ead2; cursor: pointer; font: 500 13px var(--body) }
+#bpanel button i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none }
+#bpanel button span { margin-left: auto; font: 500 10.5px var(--mono); color: #7f8aa6; white-space: nowrap }
+#bpanel button[aria-pressed="true"] { border-color: rgba(243, 234, 210, .22); background: rgba(243, 234, 210, .06) }
+#bpanel button[aria-pressed="true"] span { color: var(--c) }
+#bpanel button[aria-pressed="false"] i { opacity: .35 }
+#drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100%); z-index: 8000; background: var(--surface); color: var(--ink); border-left: 1px solid var(--line); overflow-y: auto; padding: 10px 16px 24px; cursor: default; user-select: text; -webkit-user-select: text; touch-action: auto; box-shadow: -18px 0 40px rgba(0, 0, 0, .35) }
+#drawer[hidden] { display: none }
+#drawer .dx { display: block; margin-left: auto }
+#drawer .card { grid-template-columns: minmax(0, 1fr); border: 0; padding: 0; gap: 12px; background: none; border-radius: 0 }
+#drawer .stage { aspect-ratio: 16 / 9 }
+#drawer .body { padding: 0 }
+#drawer .more { padding: 14px 0 0 }
+#drawer [data-act="open"], #drawer [data-act="locate"] { display: none }
+
+/* filters */
+.filters { display: grid; gap: 10px }
+.frow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.frow .h { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 62px }
+.lchip { font: 500 13px var(--body); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px 5px 9px; display: inline-flex; gap: 7px; align-items: center; cursor: pointer }
+.lchip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--muted)); flex: none }
+.lchip small { font-family: var(--mono); color: var(--muted); font-size: 11.5px }
+.lchip.off { opacity: .45; text-decoration: line-through }
+.lchip.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink) }
+.lchip.flagc i { background: var(--flag); border-radius: 2px; transform: rotate(45deg) }
+.ghost { font: 500 13px var(--body); color: var(--muted); background: none; border: 1px dashed var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer }
+.ghost:hover { color: var(--ink); border-color: var(--muted) }
+.pri { font: 600 14px var(--body); background: var(--ink); color: var(--bg); border: 0; border-radius: 9px; padding: 8px 14px; cursor: pointer }
+.inl { display: inline-flex; gap: 6px; align-items: center }
+.txt { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0 }
+#search { flex: 1 1 200px; max-width: 320px }
+#msg { font-size: 13.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 14px }
+#msg.err { color: var(--fail); border-color: var(--fail) }
+
+#tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px }
+li.month { padding-top: 14px }
+li.month h2 { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -.01em; margin: 0; line-height: 1.15 }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: grid; grid-template-columns: minmax(0, 208px) minmax(0, 1fr); gap: 0 18px; padding: 10px; min-width: 0; scroll-margin-top: 16px }
+.card.hit { border-color: var(--c); box-shadow: 0 0 0 2px var(--c) }
+.stage { position: relative; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 10px; overflow: hidden; background: radial-gradient(120% 100% at 50% 35%, var(--stage-a), var(--stage-b) 75%); touch-action: pan-y; cursor: grab }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+.body { display: grid; gap: 7px; align-content: start; padding: 6px 8px 6px 0; min-width: 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums }
+.meta .num { color: var(--ink); font-weight: 600 }
+.meta .ln { display: inline-flex; align-items: center; gap: 6px; color: var(--c) }
+.meta .ln i { width: 8px; height: 8px; border-radius: 50%; background: var(--c) }
+.card h3 { font-family: var(--display); font-weight: 700; font-size: 21px; line-height: 1.15; letter-spacing: -.01em; margin: 0; text-wrap: balance; overflow-wrap: anywhere }
+.ans { margin: 0; font-size: 15px; overflow-wrap: anywhere }
+.st, .fl { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--s); border: 1px solid var(--s); border-radius: 5px; padding: 1px 7px }
+.st::before { content: ""; width: 7px; height: 7px; background: var(--s); border-radius: 50% }
+.st.failed::before { border-radius: 0; transform: rotate(45deg) }
+.st.mixed::before { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%) }
+.st.finding::before { border-radius: 1px }
+.st.running::before { animation: pulse 1.4s ease-in-out infinite }
+.fl { --s: var(--flag); background: var(--flag); color: var(--surface) }
+@keyframes pulse { 50% { opacity: .25 } }
+.chips, .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none }
+.chips li { font: 500 12px var(--mono); background: var(--chip); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums }
+.tags li { font: 500 12.5px var(--body); border: 1px solid var(--line); border-radius: 999px; padding: 1px 4px 1px 10px; display: inline-flex; align-items: center; gap: 2px }
+.tags li.ro { padding-right: 10px }
+.tags button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 5px; font-size: 15px; line-height: 1 }
+.notepeek { margin: 0; font-size: 13.5px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 10px; overflow-wrap: anywhere; white-space: pre-wrap }
+.acts { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 2px }
+.lnk { font: 500 13px var(--body); color: var(--muted); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px }
+.lnk:hover { color: var(--ink) }
+.lnk[aria-pressed="true"] { color: var(--flag); font-weight: 600 }
+.lnk.danger { color: var(--fail) }
+.more { grid-column: 1 / -1; display: grid; gap: 14px; padding: 14px 8px 8px; border-top: 1px solid var(--line); margin-top: 10px; min-width: 0 }
+.more[hidden], form.edit[hidden] { display: none }
+.more p { margin: 0; max-width: 68ch; overflow-wrap: anywhere }
+.sub { margin: 0; font: 600 11.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.archbox, .org, .fld { display: grid; gap: 6px; min-width: 0 }
+.archscroll { overflow-x: auto; border-radius: 10px }
+.stage.arch { aspect-ratio: 2.5 / 1; min-width: 660px }
+.archbox small, .saved { color: var(--muted); font-size: 12.5px }
+.org textarea, form.edit textarea, form.edit input, form.edit select { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0 }
+.org textarea { min-height: 84px; resize: vertical }
+.grpadd { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.grpadd input { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; width: 190px; max-width: 100% }
+form.edit { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0 }
+form.edit label { display: grid; gap: 3px; font-size: 12.5px; color: var(--muted); min-width: 0 }
+.row3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px }
+footer { color: var(--muted); font-size: 13px; max-width: 72ch }
+@media (max-width: 640px) {
+  .card { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 8px }
+  .stage { aspect-ratio: 16 / 10 }
+  .body { padding: 0 4px 4px }
+  .card h3 { font-size: 19px }
+  .lane { padding: 0 8px 0 10px; max-width: 98px }
+  .lane b { font-size: 11.5px }
+  .lane small { display: none }
+  .key .hint { margin-left: 0 }
+}
+@media (prefers-reduced-motion: reduce) { .st.running::before { animation: none } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">SO-ARM-101 · pick up a 20 mm cube and put it back</div>
+    <h1>The experiment <em>tree</em></h1>
+    <p class="lede">Time runs left to right: the project starts far off to the left and today is at the right edge. Each direction of work is a branch off the timeline, and every experiment sits on its branch with its card over it. Switch the layout to Tree to see each experiment fork off the one it built on, or to Sunrise for today as a sun on the horizon with the history below it. Click a card for its details, notes, groups and follow-up flag.</p>
+    <div class="tally" id="tally"></div>
+  </header>
+
+  <div id="tlstage" hidden>
+    <div id="sgrid"></div>
+    <svg id="slines" aria-hidden="true"><g id="sg"></g></svg>
+    <div id="cards"></div>
+    <div class="sctl">
+      <button type="button" id="sx-br" aria-expanded="false">Branches</button>
+      <span class="smode" role="group" aria-label="Layout"><button type="button" data-mode="lanes">Lanes</button><button type="button" data-mode="tree">Tree</button><button type="button" data-mode="sun">Sunrise</button></span>
+      <button type="button" id="sx-home">Current work</button>
+      <button type="button" id="sx-all">Whole project</button>
+      <button type="button" id="sx-out" aria-label="Zoom out">−</button>
+      <button type="button" id="sx-in" aria-label="Zoom in">+</button>
+      <button type="button" id="sx-fs" aria-pressed="false">Full screen</button>
+    </div>
+    <div id="bpanel" hidden></div>
+    <div class="shint">drag or scroll to pan any way · pinch or ctrl-scroll to zoom</div>
+    <aside id="drawer" hidden aria-label="Experiment details"><button type="button" class="lnk dx" id="drawer-x">Close</button><div class="row" id="drawerRow"></div></aside>
+  </div>
+
+  <section class="filters" aria-label="Filters">
+    <div class="frow" id="f-threads"></div>
+    <div class="frow" id="f-groups"></div>
+    <div class="frow">
+      <span class="h">Find</span>
+      <input class="txt" id="search" type="search" placeholder="Search questions, answers and notes" aria-label="Search experiments">
+      <button type="button" class="pri" id="add-exp">Add experiment</button>
+    </div>
+  </section>
+  <div id="msg">Loading the experiment records…</div>
+  <ol id="tl"></ol>
+  <datalist id="grouplist"></datalist>
+  <footer>Scores written as N/30 are 10 held-out cube poses, each run 3 times. The 3D frames on the cards illustrate each experiment's idea; the numbers in the text are the measured ones. Everything you add here is saved with the page.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const ST = { worked: 'Worked', failed: "Didn't work", mixed: 'Partly', finding: 'Finding', running: 'Running' };
+const STV = { worked: 'ok', failed: 'fail', mixed: 'mixed', finding: 'finding', running: 'running' };
+const ARCH = {
+  mlp:   ['The step-by-step clone', 'One small network, one action per look.'],
+  chunk: ['The chunk policy', 'Same inputs, but one look now produces 3 seconds of motion.'],
+  cnn:   ['The vision policy (CNN, 2.71M weights)', 'The v2 trunk is shown. Runs before Sep 10 used the older v1 trunk, which shrank the image to a 4×4 grid.'],
+  act:   ['ACT (51.6M weights)', 'It runs the first 30 of its 90 planned steps, then looks again.'],
+  pi05:  ['pi0.5 with LoRA rank 16', 'A pretrained vision-language-action model; only small adapter weights were trained, for 10k steps.'],
+};
+const PICS = { stack: 'Stacked blocks', bench: 'Arm over the bench', lift: 'Gripper lifting the cube', miss: 'Jaws beside the cube', placements: 'Cube placements on the table', bullseye: 'Landing scatter on a target', seeds: 'Three bars', fork: 'Two diverging curves', cosine: 'Decaying curve', fan: 'Fan of camera frames', shift: 'Stack of shifted frames', pi05: 'Large pretrained model', versus: 'Two networks side by side', chunk: 'Action chunk ribbon', servo: 'Soft servo', springs: 'Row of springs', probe: 'Cube moved mid-episode', lattice: 'Grid of runs', registers: 'Table of values', sagfan: 'Fan of arm poses', recentre: 'Paths converging on the cube' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const D = { exps: [], byId: {}, threads: [], tById: {}, ui: {}, off: new Set(), group: null, onlyFlag: false, q: '', canWrite: true, got: 0 };
+const rows = {};
+const tl = $('tl'), msg = $('msg');
+let db = null, G3 = null, tree = null;
+
+/* ───────────── storage ───────────── */
+const chain = {};
+function write(id, patch, row) { if (!db) return Promise.resolve();
+  const p = (chain[id] || Promise.resolve()).then(() => db.doc('experiments/' + id).update(patch)).then(() => { const s = row && row.li.querySelector('.saved'); if (s) s.textContent = 'Saved'; }, e => fail(e));
+  chain[id] = p; return p; }
+function fail(e) { msg.hidden = false; msg.className = 'err'; msg.textContent = e && e.code === 'quota_exceeded' ? 'The page’s storage is full. Delete some experiments before adding more.' : e && e.code === 'invalid_argument' ? 'That change was not saved. You may not have permission to edit this page.' : 'That change was not saved. Check your connection and try again.'; }
+async function connect() {
+  const use = window.claude && window.claude.use; if (!use) { msg.textContent = 'The experiment records load when this page is opened as a Claude artifact.'; return; }
+  const [d, user] = await Promise.all([use('db'), use('user')]);
+  if (!d) { msg.textContent = 'The experiment records could not be loaded. Sign in to Claude and reopen this page.'; return; }
+  db = d; try { D.canWrite = (user && await user.can('data.write')) !== false; } catch (e) { D.canWrite = true; }
+  $('add-exp').hidden = !D.canWrite;
+  const slow = setTimeout(() => { if (D.got < 2) msg.textContent = 'The records can’t be reached yet. Still trying…'; }, 10000);
+  const onErr = e => { clearTimeout(slow); msg.hidden = false; msg.className = 'err'; msg.textContent = 'The experiment records stopped loading. Reopen the page to try again.'; };
+  let gotE = false, gotT = false;
+  db.collection('threads').onSnapshot(s => { D.threads = s.docs.map(x => Object.assign({ id: x.id }, x.data())).sort((a, b) => (a.order || 0) - (b.order || 0)); D.tById = {}; D.threads.forEach(t => D.tById[t.id] = t); if (!gotT) { gotT = true; D.got++; } if (D.got > 1) clearTimeout(slow); schedule(); }, onErr);
+  db.collection('experiments').onSnapshot(s => { D.exps = s.docs.map(x => Object.assign({ chips: [], groups: [], p: [], notes: '', when: '2026-01-01' }, x.data(), { id: x.id })).sort((a, b) => a.when < b.when ? -1 : a.when > b.when ? 1 : (a.order || 0) - (b.order || 0)); D.byId = {}; D.exps.forEach(e => D.byId[e.id] = e); if (!gotE) { gotE = true; D.got++; } if (D.got > 1) clearTimeout(slow); schedule(); }, onErr);
+}
+let pending = 0; function schedule() { if (!pending) pending = requestAnimationFrame(() => { pending = 0; render(); }); }
+
+/* ───────────── rendering ───────────── */
+const thr = e => D.tById[e.thread] || { name: 'No thread', c: 9 };
+function visible(e) { if (D.off.has(e.thread)) return false; if (D.group && !(e.groups || []).includes(D.group)) return false; if (D.onlyFlag && !e.flag) return false;
+  if (D.q) { const h = (e.id + ' ' + e.q + ' ' + e.a + ' ' + (e.notes || '') + ' ' + (e.more || '') + ' ' + (e.groups || []).join(' ')).toLowerCase(); if (!h.includes(D.q)) return false; } return true; }
+const monthName = m => new Date(m + '-15T12:00:00Z').toLocaleString('en', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dayLabel = w => new Date(w + 'T12:00:00Z').toLocaleString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+function renderHead() { const X = D.exps, n = {}; X.forEach(e => n[e.st] = (n[e.st] || 0) + 1);
+  const flagged = X.filter(e => e.flag).length, groups = [...new Set(X.flatMap(e => e.groups || []))].sort();
+  $('tally').innerHTML = `<span><b>${X.length}</b> experiments</span><span><b>${D.threads.length}</b> threads</span>` + Object.keys(ST).map(k => `<span><b>${n[k] || 0}</b> ${ST[k].toLowerCase()}</span>`).join('') + `<span><b>${flagged}</b> flagged for follow-up</span>`;
+  $('f-threads').innerHTML = '<span class="h">Threads</span>' + D.threads.map(t => `<button type="button" class="lchip${D.off.has(t.id) ? ' off' : ''}" data-th="${esc(t.id)}" aria-pressed="${!D.off.has(t.id)}" style="--c:var(--t${t.c % 10})"><i></i>${esc(t.name)}<small>${X.filter(e => e.thread === t.id).length}</small></button>`).join('') + (D.canWrite && db ? '<span class="inl" id="th-new"><button type="button" class="ghost" data-newth>+ New thread</button></span>' : '');
+  $('f-groups').innerHTML = '<span class="h">Show</span>' + `<button type="button" class="lchip flagc${D.onlyFlag ? ' on' : ''}" data-flagf aria-pressed="${D.onlyFlag}"><i></i>Needs follow-up<small>${flagged}</small></button>` + groups.map(g => `<button type="button" class="lchip${D.group === g ? ' on' : ''}" data-grp="${esc(g)}" aria-pressed="${D.group === g}">${esc(g)}<small>${X.filter(e => (e.groups || []).includes(g)).length}</small></button>`).join('') + (groups.length ? '' : '<span style="color:var(--muted);font-size:13px">Groups you create on a card appear here.</span>');
+  $('grouplist').innerHTML = groups.map(g => `<option value="${esc(g)}">`).join(''); }
+function cardHTML(e, pre) { if (pre) return cardHTML(e).replace(/ (id|for|aria-controls)="/g, ' $1="' + pre); const t = thr(e), u = D.cardOpen ? Object.assign({}, D.ui[e.id], { open: true }) : D.ui[e.id] || {}, w = D.canWrite && db, notes = (e.notes || '').trim();
+  const opt = (o, v) => Object.keys(o).map(k => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(typeof o[k] === 'string' ? o[k] : o[k][0] || o[k].name)}</option>`).join('');
+  const pics = Object.assign({}, PICS); if (e.s && !pics[e.s]) pics[e.s] = 'Current picture';
+  const tmap = {}; D.threads.forEach(x => tmap[x.id] = x.name);
+  return `<article class="card" id="card-${esc(e.id)}" style="--c:var(--t${t.c % 10})">
+    <div class="stage" data-face><canvas aria-label="3D illustration for experiment ${esc(e.id)}" role="img"></canvas></div>
+    <div class="body">
+      <div class="meta"><span class="num">${esc(e.id)}</span><span>${esc(e.d || dayLabel(e.when))}</span><span class="ln"><i></i>${esc(t.name)}</span><span class="st ${esc(e.st)}" style="--s:var(--${STV[e.st] || 'running'})">${ST[e.st] || 'Running'}</span>${e.flag ? '<span class="fl">Needs follow-up</span>' : ''}</div>
+      <h3>${esc(e.q)}</h3>
+      ${e.a ? `<p class="ans">${esc(e.a)}</p>` : ''}
+      ${(e.chips || []).length ? `<ul class="chips">${e.chips.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+      ${(e.groups || []).length ? `<ul class="tags">${e.groups.map(g => `<li class="ro">${esc(g)}</li>`).join('')}</ul>` : ''}
+      ${notes && !u.open ? `<p class="notepeek">${esc(notes.length > 180 ? notes.slice(0, 180) + '…' : notes)}</p>` : ''}
+      <div class="acts"><button type="button" class="lnk" id="open-${esc(e.id)}" data-act="open" aria-expanded="${!!u.open}">${u.open ? 'Close details' : 'Open details'}</button>${w ? `<button type="button" class="lnk" id="flag-${esc(e.id)}" data-act="flag" aria-pressed="${!!e.flag}">${e.flag ? 'Flagged · clear' : 'Flag for follow-up'}</button>` : ''}<button type="button" class="lnk" id="loc-${esc(e.id)}" data-act="locate">Show on timeline</button></div>
+    </div>
+    <div class="more"${u.open ? '' : ' hidden'}>
+      ${e.more ? `<p>${esc(e.more)}</p>` : ''}
+      ${(e.p || []).length ? `<p class="saved">Builds on ${e.p.map(p => `<button type="button" class="lnk" data-act="goto" data-to="${esc(p)}">${esc(p)}</button>`).join(' ')}</p>` : ''}
+      ${e.arch && ARCH[e.arch] ? `<div class="archbox"><h4 class="sub">Model under test · ${esc(ARCH[e.arch][0])}</h4><div class="archscroll"><div class="stage arch"><canvas aria-label="3D diagram of the network" role="img"></canvas></div></div><small>${esc(ARCH[e.arch][1])}</small></div>` : ''}
+      <div class="org">
+        <label class="sub" for="notes-${esc(e.id)}">Notes</label>
+        ${w ? `<textarea id="notes-${esc(e.id)}" data-f="notes" placeholder="What you noticed, what to try next, links to runs…">${esc(e.notes || '')}</textarea><span class="saved" aria-live="polite"></span>` : `<p class="notepeek">${esc(notes || 'No notes yet.')}</p>`}
+        <span class="sub">Groups</span>
+        <div class="grpadd"><ul class="tags">${(e.groups || []).map(g => `<li${w ? '' : ' class="ro"'}>${esc(g)}${w ? `<button type="button" data-act="rmgroup" data-g="${esc(g)}" aria-label="Remove from ${esc(g)}">×</button>` : ''}</li>`).join('')}</ul>${w ? `<input id="grp-${esc(e.id)}" data-f="group" list="grouplist" placeholder="Add to a group, press Enter" aria-label="Add to a group">` : ''}</div>
+        ${w && !u.editing ? `<div class="acts"><button type="button" class="lnk" data-act="edit">Edit this experiment</button></div>` : ''}
+      </div>
+      ${w ? `<form class="edit"${u.editing ? '' : ' hidden'}>
+        <label>Question<input id="f-${esc(e.id)}-q" name="q" required value="${esc(e.q)}"></label>
+        <label>Answer in one line<input id="f-${esc(e.id)}-a" name="a" value="${esc(e.a)}"></label>
+        <div class="row3"><label>Status<select id="f-${esc(e.id)}-st" name="st">${opt(ST, e.st)}</select></label><label>Thread<select id="f-${esc(e.id)}-th" name="thread">${opt(tmap, e.thread)}</select></label><label>Date<input id="f-${esc(e.id)}-when" type="date" name="when" required value="${esc(e.when)}"></label><label>Date as shown<input id="f-${esc(e.id)}-d" name="d" value="${esc(e.d || '')}" placeholder="${esc(dayLabel(e.when))}"></label></div>
+        <label>Key numbers, separated by commas<input id="f-${esc(e.id)}-chips" name="chips" value="${esc((e.chips || []).join(', '))}"></label>
+        <label>Details<textarea id="f-${esc(e.id)}-more" name="more" rows="3">${esc(e.more || '')}</textarea></label>
+        <div class="row3"><label>Builds on (experiment numbers)<input id="f-${esc(e.id)}-p" name="p" value="${esc((e.p || []).join(', '))}" placeholder="36, 39"></label><label>Picture<select id="f-${esc(e.id)}-s" name="s">${opt(pics, e.s)}</select></label><label>Model diagram<select id="f-${esc(e.id)}-arch" name="arch"><option value="">None</option>${opt(ARCH, e.arch)}</select></label></div>
+        <div class="acts"><button type="submit" class="pri">Save</button><button type="button" class="lnk" data-act="cancel">Cancel</button><button type="button" class="lnk danger" data-act="del">Delete experiment</button></div>
+      </form>` : ''}
+    </div>
+  </article>`; }
+function dropViews(r) { (r.views || []).forEach(v => G3 && G3.drop(v)); r.views = []; }
+function fillRow(r, e, pre) { dropViews(r); r.li.className = 'row'; r.li.dataset.id = e.id; D.cardOpen = !!pre; r.li.innerHTML = cardHTML(e, pre); D.cardOpen = false;
+  if (G3) { r.views.push(G3.view(r.li.querySelector('[data-face] canvas'), e.s, false)); const ac = (pre || (D.ui[e.id] || {}).open) && r.li.querySelector('.arch canvas'); if (ac) r.views.push(G3.view(ac, 'arch_' + e.arch, true)); } }
+function render() { const X = D.exps; renderHead();
+  if (D.got >= 2) { msg.className = ''; msg.hidden = X.length > 0; if (!X.length) msg.textContent = D.canWrite ? 'No experiments recorded yet. Use “Add experiment” to record the first one.' : 'No experiments recorded yet.'; }
+  const want = []; let pm = null; X.forEach(e => { const m = e.when.slice(0, 7); if (m !== pm) { pm = m; want.push({ k: 'm' + m, month: m }); } want.push({ k: e.id, e }); });
+  Object.keys(rows).forEach(k => { if (!want.some(w => w.k === k)) { dropViews(rows[k]); rows[k].li.remove(); delete rows[k]; } });
+  let prev = null; const ae = document.activeElement;
+  want.forEach(w => { let r = rows[w.k]; if (!r) r = rows[w.k] = { li: document.createElement('li'), sig: null, views: [] };
+    if (w.e) { r.li.hidden = !visible(w.e); const sig = JSON.stringify([w.e, D.tById[w.e.thread], D.canWrite, D.threads.length]);
+      if (sig !== r.sig) { if (r.li.contains(ae) && /TEXTAREA|INPUT|SELECT/.test(ae.tagName)) r.stale = true; else { fillRow(r, w.e); r.sig = sig; r.stale = false; } } }
+    else { r.li.hidden = !X.some(e => e.when.slice(0, 7) === w.month && visible(e)); if (r.sig !== w.month) { r.li.className = 'month'; r.li.innerHTML = `<h2>${esc(monthName(w.month))}</h2>`; r.sig = w.month; } }
+    const at = prev ? prev.nextSibling : tl.firstChild; if (at !== r.li) tl.insertBefore(r.li, at); prev = r.li; });
+  if (D.sel) { const e = D.byId[D.sel], r = drawerRow; if (!e) showDrawer(null); else { const sig = JSON.stringify([e, D.tById[e.thread], D.canWrite, D.threads.length, (D.ui[e.id] || {}).editing]); if (sig !== r.sig) { if (r.li.contains(ae) && /TEXTAREA|INPUT|SELECT/.test(ae.tagName)) r.stale = true; else { fillRow(r, e, 'd-'); r.sig = sig; r.stale = false; } } } }
+  if (tree) tree.update(X, D.threads, new Set(X.filter(visible).map(e => e.id)));
+  if (D.jump && rows[D.jump]) { const id = D.jump; D.jump = null; reveal(id); } }
+const drawerRow = { li: $('drawerRow'), sig: null, views: [] };
+function showDrawer(id) { D.sel = id || null; drawerRow.sig = null; $('drawer').hidden = !id; if (!id) { dropViews(drawerRow); drawerRow.li.innerHTML = ''; } schedule(); }
+function refresh(id) { const r = rows[id]; if (r) r.sig = null; drawerRow.sig = null; schedule(); }
+function reveal(id) { const r = rows[id]; if (!r) return; r.li.hidden = false; r.li.scrollIntoView({ behavior: 'smooth', block: 'start' }); const c = r.li.querySelector('.card'); if (c) { c.classList.add('hit'); setTimeout(() => c.classList.remove('hit'), 1600); } }
+
+/* ───────────── interactions ───────────── */
+const rowOf = el => { const li = el.closest('.row'); if (!li) return null; const id = li.dataset.id; return { id, r: li === drawerRow.li ? drawerRow : rows[id], e: D.byId[id] }; };
+[tl, drawerRow.li].forEach(host => {
+host.addEventListener('click', ev => { const b = ev.target.closest('[data-act]'); if (!b) return; const x = rowOf(b); if (!x || !x.e) return; const { id, e, r } = x, u = D.ui[id] || (D.ui[id] = {}), act = b.dataset.act;
+  if (act === 'open') { u.open = !u.open; if (!u.open) u.editing = false; refresh(id); }
+  else if (act === 'flag') write(id, { flag: !e.flag }, r);
+  else if (act === 'locate') { $('tlstage').scrollIntoView({ behavior: 'smooth', block: 'center' }); if (tree) tree.select(id, true, false); }
+  else if (act === 'goto') { if (D.byId[b.dataset.to]) reveal(b.dataset.to); }
+  else if (act === 'rmgroup') write(id, { groups: (e.groups || []).filter(g => g !== b.dataset.g) }, r);
+  else if (act === 'edit') { u.editing = true; refresh(id); }
+  else if (act === 'cancel') { u.editing = false; if (document.activeElement) document.activeElement.blur(); refresh(id); }
+  else if (act === 'del') { if (b.dataset.sure) { db.doc('experiments/' + id).delete().catch(fail); } else { b.dataset.sure = '1'; b.textContent = 'Click again to delete for good'; } } });
+host.addEventListener('submit', ev => { ev.preventDefault(); const x = rowOf(ev.target); if (!x) return; const f = new FormData(ev.target), list = k => String(f.get(k) || '').split(',').map(s => s.trim()).filter(Boolean);
+  const when = String(f.get('when') || x.e.when), patch = { q: String(f.get('q')).trim(), a: String(f.get('a')).trim(), st: f.get('st'), thread: f.get('thread'), when, d: String(f.get('d')).trim() || dayLabel(when), chips: list('chips'), more: String(f.get('more')).trim(), p: list('p').filter(p => p !== x.id), s: f.get('s'), arch: f.get('arch') };
+  if (when !== x.e.when && !String(f.get('d')).trim()) patch.d = dayLabel(when);
+  (D.ui[x.id] || (D.ui[x.id] = {})).editing = false; if (document.activeElement) document.activeElement.blur(); write(x.id, patch, x.r); refresh(x.id); });
+const timers = {};
+host.addEventListener('input', ev => { if (ev.target.dataset.f !== 'notes') return; const x = rowOf(ev.target); if (!x) return; const s = x.r.li.querySelector('.saved'); if (s) s.textContent = 'Saving…'; clearTimeout(timers[x.id]); const v = ev.target.value; timers[x.id] = setTimeout(() => write(x.id, { notes: v }, x.r), 1200); });
+function addGroup(inp) { const x = rowOf(inp), g = inp.value.trim().slice(0, 40); if (!x || !g) return; inp.value = ''; if ((x.e.groups || []).includes(g)) return; inp.blur(); write(x.id, { groups: [...(x.e.groups || []), g] }, x.r); }
+host.addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.dataset.f === 'group') { ev.preventDefault(); addGroup(ev.target); } });
+host.addEventListener('change', ev => { if (ev.target.dataset.f === 'group') addGroup(ev.target); else if (ev.target.dataset.f === 'notes') { const x = rowOf(ev.target); if (x) { clearTimeout(timers[x.id]); write(x.id, { notes: ev.target.value }, x.r); } } });
+host.addEventListener('focusout', () => setTimeout(() => { if (drawerRow.stale || Object.values(rows).some(r => r.stale)) schedule(); }, 60));
+});
+document.querySelector('.filters').addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.th) { D.off.has(b.dataset.th) ? D.off.delete(b.dataset.th) : D.off.add(b.dataset.th); schedule(); }
+  else if ('flagf' in b.dataset) { D.onlyFlag = !D.onlyFlag; schedule(); }
+  else if (b.dataset.grp) { D.group = D.group === b.dataset.grp ? null : b.dataset.grp; schedule(); }
+  else if ('newth' in b.dataset) { $('th-new').innerHTML = '<input class="txt" id="th-name" placeholder="Thread name" aria-label="New thread name" maxlength="40"><button type="button" class="ghost" data-saveth>Add</button>'; $('th-name').focus(); }
+  else if ('saveth' in b.dataset) saveThread(); });
+document.querySelector('.filters').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.id === 'th-name') saveThread(); });
+function saveThread() { const name = $('th-name').value.trim(); if (!name || !db) return; const id = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'thread') + '-' + Date.now().toString(36).slice(-4);
+  const used = new Set(D.threads.map(t => t.c % 10)); let c = 0; while (used.has(c) && c < 9) c++;
+  db.doc('threads/' + id).set({ name, c, order: D.threads.reduce((m, t) => Math.max(m, t.order || 0), 0) + 1 }).catch(fail); }
+let qt = 0; $('search').addEventListener('input', ev => { clearTimeout(qt); qt = setTimeout(() => { D.q = ev.target.value.trim().toLowerCase(); schedule(); }, 200); });
+$('add-exp').addEventListener('click', () => { if (!db) return; const n = D.exps.reduce((m, e) => Math.max(m, parseInt(e.id, 10) || 0), -1) + 1, id = String(n).padStart(2, '0'), now = new Date(), when = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const lastT = D.exps.length ? D.exps[D.exps.length - 1].thread : (D.threads[0] || {}).id || 'main';
+  D.ui[id] = { open: true, editing: true }; D.jump = id; D.off.clear(); D.group = null; D.onlyFlag = false;
+  db.doc('experiments/' + id).set({ num: id, when, d: dayLabel(when), order: D.exps.reduce((m, e) => Math.max(m, e.order || 0), 0) + 1, thread: lastT, st: 'running', q: 'New experiment', a: '', chips: [], more: '', s: 'stack', arch: '', p: [], notes: '', flag: false, groups: [] }).catch(fail); });
+
+/* ───────────── 3D card frames ───────────── */
+function init3D() {
+if (!window.THREE) return null;
+const T = THREE, BW = 1400, BH = 900;
+let R; try { R = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); } catch (err) { return null; }
+R.setPixelRatio(1); R.setSize(BW, BH, false); R.setClearColor(0x000000, 0); R.setScissorTest(true);
+const Y = 0xf2b441, C = 0x4cc3d9, RD = 0xe5566b, VI = 0x8d7bf0, G = 0x57c78a, O = 0xf0764a, B = 0x5a9cf5, P = 0xd58be8, WH = 0xdfe3ee, DK = 0x2a3144, TB = 0x1b2030;
+const V = a => a.isVector3 ? a : new T.Vector3(a[0], a[1], a[2]);
+function rng(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const INF = [[10, 8, 40], [87, 16, 110], [188, 55, 84], [249, 142, 9], [252, 240, 150]];
+function inf(v) { v = Math.max(0, Math.min(.999, v)) * 4; const i = v | 0, f = v - i, a = INF[i], b = INF[i + 1]; return (Math.round(a[0] + (b[0] - a[0]) * f) << 16) | (Math.round(a[1] + (b[1] - a[1]) * f) << 8) | Math.round(a[2] + (b[2] - a[2]) * f); }
+const hex = n => '#' + n.toString(16).padStart(6, '0');
+const mat = (c, o = {}) => new T.MeshStandardMaterial({ color: c, roughness: .55, metalness: .05, transparent: o.op != null && o.op < 1, opacity: o.op == null ? 1 : o.op, depthWrite: !(o.op < 1), emissive: c, emissiveIntensity: o.em == null ? .12 : o.em, side: o.op < 1 ? T.DoubleSide : T.FrontSide });
+function edges(m, c, op) { m.add(new T.LineSegments(new T.EdgesGeometry(m.geometry), new T.LineBasicMaterial({ color: new T.Color(c).lerp(new T.Color(0xffffff), .4), transparent: true, opacity: op == null ? .85 : op }))); }
+function box(g, w, h, d, c, x = 0, y = 0, z = 0, o = {}) { const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat(c, o)); m.position.set(x, y, z); if (o.edges !== false) edges(m, o.ec || c, o.eo); g.add(m); return m; }
+function sph(g, r, c, x, y, z, o = {}) { const m = new T.Mesh(new T.SphereGeometry(r, 18, 12), mat(c, o)); m.position.set(x, y, z); g.add(m); return m; }
+function cyl(g, r, h, c, x, y, z, o = {}) { const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 24), mat(c, o)); m.position.set(x, y, z); g.add(m); return m; }
+function line(g, pts, c, op = 1, closed) { const geo = new T.BufferGeometry().setFromPoints(pts.map(V)); const l = new (closed ? T.LineLoop : T.Line)(geo, new T.LineBasicMaterial({ color: c, transparent: op < 1, opacity: op })); g.add(l); return l; }
+function segs(g, arr, c, op = 1) { const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(arr, 3)); const l = new T.LineSegments(geo, new T.LineBasicMaterial({ color: c, transparent: op < 1, opacity: op })); g.add(l); return l; }
+function tube(g, pts, c, r = .03, o = {}) { const cv = new T.CatmullRomCurve3(pts.map(V)); const m = new T.Mesh(new T.TubeGeometry(cv, Math.max(12, pts.length * 4), r, 8), mat(c, Object.assign({ em: .35 }, o))); g.add(m); return m; }
+function head(g, p, dir, c, s = .12) { const m = new T.Mesh(new T.ConeGeometry(s * .55, s * 1.4, 14), mat(c, { em: .35 })); m.position.copy(V(p)); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), V(dir).clone().normalize()); g.add(m); return m; }
+function arrow(g, a, b, c, r = .025) { a = V(a); b = V(b); tube(g, [a, a.clone().lerp(b, .5), b], c, r); head(g, b, b.clone().sub(a), c, r * 5); }
+function arc(a, b, h, n = 20) { a = V(a); b = V(b); const out = []; for (let i = 0; i <= n; i++) { const t = i / n; const p = a.clone().lerp(b, t); p.y += Math.sin(t * Math.PI) * h; out.push(p); } return out; }
+function texFrom(draw, w = 48, h = 48) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new T.CanvasTexture(cv); t.magFilter = T.NearestFilter; t.minFilter = T.LinearFilter; return t; }
+function heatTex(seed, n = 20) { const r = rng(seed), a = r() * 6, b = r() * 6, fx = 1 + r() * 2, fy = 1 + r() * 2; return texFrom((c, w, h) => { for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) { const v = .5 + .28 * Math.sin(i / w * 6.3 * fx + a) + .28 * Math.cos(j / h * 6.3 * fy + b) + (r() - .5) * .25; c.fillStyle = hex(inf(v)); c.fillRect(i, j, 1, 1); } }, n, n); }
+function frameTex(o = {}) { return texFrom((c, w, h) => { c.fillStyle = o.bg || '#39424f'; c.fillRect(0, 0, w, h);
+    if (o.black) { c.fillStyle = '#020203'; c.fillRect(0, 0, w, h); return; }
+    if (o.noise) { const r = rng(o.noise); for (let i = 0; i < w; i += 2) for (let j = 0; j < h; j += 2) { c.fillStyle = `rgba(${r() * 255 | 0},${r() * 200 | 0},${r() * 160 | 0},.22)`; c.fillRect(i, j, 2, 2); } }
+    const gr = c.createLinearGradient(0, 0, w, h); gr.addColorStop(0, `rgba(255,255,255,${o.light == null ? .18 : o.light})`); gr.addColorStop(1, 'rgba(0,0,0,.35)'); c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    const s = (o.sq || .34) * w, x = (o.sx == null ? .5 : o.sx) * w, y = (o.sy == null ? .55 : o.sy) * h; c.strokeStyle = o.sqc || '#f3ead2'; c.lineWidth = Math.max(1.5, w / 30); c.strokeRect(x - s / 2, y - s / 2, s, s);
+    c.fillStyle = o.cube || '#f2b441'; c.fillRect(x - s * .22, y - s * .22, s * .44, s * .44); }, o.w || 64, o.h || 48); }
+function plane(g, w, h, tex, x, y, z, o = {}) { const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: tex && tex.isTexture ? tex : null, color: tex && tex.isTexture ? 0xffffff : tex, side: T.DoubleSide, transparent: o.op != null, opacity: o.op == null ? 1 : o.op, depthWrite: o.op == null })); m.position.set(x, y, z); if (o.ry) m.rotation.y = o.ry; if (o.rx) m.rotation.x = o.rx; edges(m, o.ec || WH, .7); g.add(m); return m; }
+function tiles(g, nx, ny, s, gap, colFn, o = {}) { const th = o.th || s * .4, geo = new T.BoxGeometry(s, s, th), m = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ roughness: .5, emissive: 0x222222 }), nx * ny), M = new T.Matrix4(), col = new T.Color(), p = s + gap; let k = 0;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) { M.makeTranslation((i - (nx - 1) / 2) * p, (j - (ny - 1) / 2) * p, 0); m.setMatrixAt(k, M); m.setColorAt(k, col.set(colFn(i, j))); k++; }
+  geo.boundingBox = new T.Box3(new T.Vector3(-nx * p / 2, -ny * p / 2, -th / 2), new T.Vector3(nx * p / 2, ny * p / 2, th / 2));
+  m.position.set(o.x || 0, o.y || 0, o.z || 0); if (o.rx) m.rotation.x = o.rx; if (o.ry) m.rotation.y = o.ry; if (o.rz) m.rotation.z = o.rz; g.add(m); return m; }
+function dots(g, pts, s, colFn, o = {}) { const geo = o.flat ? new T.BoxGeometry(s, s * .25, s) : new T.SphereGeometry(s / 2, 8, 6), m = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ roughness: .5, emissive: 0x333333 }), pts.length), col = new T.Color(), d = new T.Object3D(), bb = new T.Box3();
+  pts.forEach((p, i) => { d.position.set(p[0], p[1], p[2]); d.rotation.set(0, p[3] || 0, 0); d.updateMatrix(); m.setMatrixAt(i, d.matrix); m.setColorAt(i, col.set(colFn(i, p))); bb.expandByPoint(d.position); });
+  geo.boundingBox = bb.expandByScalar(s); g.add(m); return m; }
+function label(g, text, x, y, z, s = .6, color = '#f3ead2', sub) { const tex = texFrom((c, w, h) => { c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.font = "600 54px 'IBM Plex Mono', ui-monospace, monospace"; c.fillText(text, w / 2, sub ? h * .32 : h / 2); if (sub) { c.fillStyle = '#9fb0cc'; c.font = "500 36px 'IBM Plex Mono', ui-monospace, monospace"; c.fillText(sub, w / 2, h * .74); } }, 640, 160); tex.magFilter = T.LinearFilter;
+  const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false })); if (s < .4) s *= 1.55; sp.scale.set(s * 5.6, s * 1.4, 1); sp.position.set(x, y, z); sp.renderOrder = 5; g.add(sp); return sp; }
+function table(g, w = 4, d = 3) { box(g, w, .06, d, TB, 0, -.03, 0, { ec: 0x46557a, em: 0 }); const a = []; for (let i = 1; i < 8; i++) { const x = -w / 2 + w * i / 8; a.push(x, .003, -d / 2, x, .003, d / 2); } for (let i = 1; i < 6; i++) { const z = -d / 2 + d * i / 6; a.push(-w / 2, .003, z, w / 2, .003, z); } segs(g, a, 0x33405e, .9); }
+const cube = (g, x, z, s = .2, c = Y, y = 0, o) => box(g, s, s, s, c, x, y + s / 2, z, o || { em: .3 });
+function sq(g, x, z, s, c = WH, yaw = 0, y = .012) { const h = s / 2, cs = Math.cos(yaw), sn = Math.sin(yaw); return line(g, [[-h, -h], [h, -h], [h, h], [-h, h]].map(([a, b]) => [x + a * cs - b * sn, y, z + a * sn + b * cs]), c, 1, true); }
+function ring(g, r, c, x, y, z, op = 1) { const p = []; for (let i = 0; i < 48; i++) p.push([x + Math.cos(i / 48 * 6.283) * r, y, z + Math.sin(i / 48 * 6.283) * r]); return line(g, p, c, op, true); }
+function arm(g, p = {}) { const c = p.color || WH, o = { op: p.op, em: p.op ? .05 : .1 }, root = new T.Group(); root.position.set(p.x || 0, 0, p.z || 0); g.add(root);
+  cyl(root, .3, .18, 0x3b4458, 0, .09, 0, { op: p.op });
+  const j0 = new T.Group(); j0.position.y = .18; j0.rotation.y = p.pan || 0; root.add(j0);
+  const j1 = new T.Group(); j1.rotation.z = p.lift == null ? -.5 : p.lift; j0.add(j1); box(j1, .2, 1.2, .2, c, 0, .6, 0, o); sph(j1, .15, p.jc || Y, 0, 0, 0, o);
+  const j2 = new T.Group(); j2.position.y = 1.2; j2.rotation.z = p.elbow == null ? -1.5 : p.elbow; j1.add(j2); box(j2, .17, 1.05, .17, c, 0, .525, 0, o); sph(j2, .14, p.jc || Y, 0, 0, 0, o);
+  const j3 = new T.Group(); j3.position.y = 1.05; j3.rotation.z = p.wrist == null ? -1 : p.wrist; j2.add(j3); box(j3, .15, .4, .15, c, 0, .2, 0, o); sph(j3, .12, p.jc || Y, 0, 0, 0, o);
+  const j4 = new T.Group(); j4.position.y = .4; j4.rotation.y = p.roll || 0; j3.add(j4); const gp = p.grip == null ? .15 : p.grip;
+  box(j4, .06, .34, .16, p.gc || C, -gp, .17, 0, o); box(j4, .06, .34, .16, p.gc || C, gp, .17, 0, o);
+  return { root, j0, j1, j2, j3, j4 }; }
+function jaws(g, x, y, z, gap, c = C, o = {}) { const gr = new T.Group(); gr.position.set(x, y, z); g.add(gr); box(gr, .08, .5, .26, c, -gap, .25, 0, o); box(gr, .08, .5, .26, c, gap, .25, 0, o); box(gr, gap * 2 + .2, .12, .3, o.pc || WH, 0, .56, 0, o); return gr; }
+function helix(g, a, b, r, turns, c, rad = .02) { a = V(a); b = V(b); const ax = b.clone().sub(a), len = ax.length(), q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), ax.clone().normalize()), pts = []; const n = Math.ceil(turns * 14); for (let i = 0; i <= n; i++) { const t = i / n, ang = t * turns * 6.283; pts.push(new T.Vector3(Math.cos(ang) * r, t * len, Math.sin(ang) * r).applyQuaternion(q).add(a)); } const cv = new T.CatmullRomCurve3(pts); const m = new T.Mesh(new T.TubeGeometry(cv, n * 2, rad, 6), mat(c, { em: .35 })); g.add(m); return m; }
+function bar(g, h, c, x, z, w = .34, o) { return box(g, w, Math.max(h, .02), w, c, x, Math.max(h, .02) / 2, z, o || { em: .25 }); }
+function mlpNet(g, layers, x0, dx, c = B, sp = .26) { const pos = layers.map((n, i) => Array.from({ length: n }, (_, k) => [x0 + i * dx, (k - (n - 1) / 2) * sp, 0])); const a = []; for (let i = 0; i < pos.length - 1; i++) pos[i].forEach(p => pos[i + 1].forEach(q => a.push(...p, ...q))); segs(g, a, c, .28); pos.forEach((l, i) => l.forEach(p => sph(g, .075, i === pos.length - 1 ? Y : c, ...p, { em: .4 }))); return pos; }
+
+/* generic left-to-right architecture flow */
+function flow(g, blocks, o = {}) { let x = 0, k = 0; const lab = o.labels !== false; let prev = null;
+  blocks.forEach((b, i) => { let w = .3, h = 1; const grp = new T.Group(); g.add(grp);
+    if (b.map) { const [hh, , ch] = b.map, s = Math.pow(hh / 256, .45) * 2.1; w = Math.min(1.3, .1 + ch / 64 * .5); h = s; const n = Math.max(1, Math.min(6, Math.round(ch / 10)));
+      box(grp, w, s, s, b.c || C, 0, 0, 0, { op: .1, eo: .7 }); for (let j = 0; j < n; j++) plane(grp, s * .94, s * .94, heatTex(i * 31 + j * 7 + 3, Math.max(6, Math.min(24, hh / 8))), -w / 2 + w * (j + .5) / n, 0, 0, { ry: Math.PI / 2, ec: b.c || C }); }
+    else if (b.vec) { const n = Math.max(3, Math.min(18, Math.round(Math.log2(b.vec) * 1.5))); w = .16; h = n * .15; const r = rng(i * 13 + 5); tiles(grp, 1, n, .12, .03, () => b.out ? Y : inf(.15 + r() * .8), { ry: Math.PI / 2 }); }
+    else if (b.tokens) { const [n, d] = b.tokens, ny = Math.max(6, Math.min(15, Math.round(n / 6))), nz = Math.max(3, Math.min(9, Math.round(Math.log2(d)))); w = .16; h = ny * .15; const r = rng(i * 17 + 1); tiles(grp, nz, ny, .12, .03, (a, j) => b.out ? (j % 3 === 0 ? 0xffd77a : Y) : inf(.1 + r() * .85), { ry: Math.PI / 2 }); }
+    else if (b.op) { [w, h] = b.op; const d = b.op[2]; box(grp, w, h, d, b.c || VI, 0, 0, 0, { op: b.solid ? .55 : .16, eo: .9 }); const n = b.layers || 0; for (let j = 0; j < n; j++) box(grp, w / n * .5, h * .9, d * .9, b.c || VI, -w / 2 + w * (j + .5) / n, 0, 0, { op: .35, eo: .5 });
+      if (b.attn) { const r = rng(i * 7), a = []; for (let j = 0; j < 26; j++) a.push(-w / 2, (r() - .5) * h * .85, (r() - .5) * d * .85, w / 2, (r() - .5) * h * .85, (r() - .5) * d * .85); segs(grp, a, Y, .4); } }
+    x += w / 2; grp.position.x = x; if (prev != null) segs(g, [prev, 0, 0, x - w / 2, 0, 0], 0x8794b3, .7);
+    if (lab) { const up = k % 2 === 0; label(g, b.label, x, up ? h / 2 + .62 : -h / 2 - .62, 0, .5, b.out ? '#f2b441' : '#f3ead2', b.sub); segs(g, [x, up ? h / 2 + .05 : -h / 2 - .05, 0, x, up ? h / 2 + .3 : -h / 2 - .3, 0], 0x8794b3, .6); }
+    x += w / 2; prev = x; x += o.gap || .75; k++; });
+  g.position.x = -x / 2; }
+const F = {
+  mlp: [{ vec: 14, label: 'state', sub: 'joints + cube position' }, { op: [.8, 1.7, 1.7], c: B, layers: 2, label: 'small MLP', sub: 'one look, one step' }, { vec: 6, out: 1, label: 'action', sub: '6 joint targets' }],
+  chunk: [{ vec: 14, label: 'state', sub: 'joints + cube position' }, { op: [.9, 1.9, 1.9], c: B, layers: 3, label: 'MLP', sub: 'trained with input noise' }, { tokens: [90, 6], out: 1, label: 'plan', sub: '90 steps × 6 joints' }],
+  cnn: [{ map: [256, 256, 3], label: 'wrist frame', sub: '256×256×3' }, { map: [64, 64, 16], label: 'conv 4×4 /4', sub: '64×64×16' }, { map: [32, 32, 32], label: 'conv 3×3 /2', sub: '32×32×32' }, { map: [16, 16, 64], label: 'conv 3×3 /2', sub: '16×16×64' }, { map: [8, 8, 64], label: 'conv 3×3 /2', sub: '8×8×64' }, { vec: 4128, label: 'flatten + state', sub: '4096 + 32' }, { vec: 512, label: 'linear', sub: '512' }, { vec: 512, label: 'linear', sub: '512' }, { tokens: [90, 6], out: 1, label: 'plan', sub: '90 steps × 6 joints' }],
+  act: [{ map: [256, 256, 3], label: 'wrist frame', sub: '256×256×3' }, { op: [1.1, 1.7, 1.7], c: O, solid: 1, layers: 4, label: 'ResNet-18', sub: '11.2M · ImageNet start' }, { map: [8, 8, 512], c: O, label: 'feature map', sub: '8×8×512' }, { tokens: [66, 512], label: 'tokens', sub: '64 image + state + style' }, { op: [1.4, 2, 2], c: VI, layers: 4, attn: 1, label: 'encoder ×4', sub: '17.3M · self-attention' }, { tokens: [66, 512], label: 'memory', sub: '66×512' }, { op: [.7, 1.8, 1.8], c: P, layers: 1, attn: 1, label: 'decoder ×1', sub: '5.4M · 90 queries' }, { tokens: [90, 512], label: 'action tokens', sub: '90×512' }, { tokens: [90, 6], out: 1, label: 'plan', sub: 'run first 30 of 90' }],
+  pi05: [{ map: [256, 256, 3], label: 'wrist frame', sub: 'camera image' }, { vec: 12, label: 'task text', sub: 'prompt tokens' }, { op: [2.6, 2.6, 2.4], c: VI, layers: 9, attn: 1, label: 'pi0.5 backbone', sub: 'pretrained · LoRA rank 16' }, { op: [1.2, 1.9, 1.8], c: O, layers: 4, label: 'action expert', sub: 'flow matching' }, { tokens: [90, 6], out: 1, label: 'residual chunk', sub: 'correction to the plan' }],
+};
+const S = {};
+Object.keys(F).forEach(k => S['arch_' + k] = g => { flow(g, F[k]); return { az: .32, el: .22, sway: .22 }; });
+
+/* one scene per experiment */
+S.droop = g => { table(g); arm(g, { x: -1.3, lift: -.95, elbow: -1.75, wrist: -.2 }); cube(g, 1.4, .3);
+  const t = new T.Mesh(new T.TorusGeometry(.5, .025, 8, 40, 5.3), mat(RD, { em: .4 })); t.position.set(.2, 2.1, 0); g.add(t); head(g, [.7, 2.1, 0], [0, -1, 0], RD, .12); label(g, '7 months', .2, 2.1, 0, .22, '#e5566b'); return { az: .5 }; };
+S.jaws = g => { cube(g, 0, -.75, .46, Y); const a = jaws(g, 0, .02, -.75, .17, RD, { op: .5 }); label(g, 'before', 0, 1.0, -.75, .2, '#e5566b');
+  cube(g, 0, .75, .46, Y); jaws(g, 0, .02, .75, .27, G); label(g, 'after', 0, 1.0, .75, .2, '#57c78a'); box(g, 2.2, .04, 2.6, TB, 0, -.02, 0, { em: 0, ec: 0x46557a }); return { az: 1.1, el: .3 }; };
+S.diverge = g => { table(g); const a = arc([-1.6, .9, 0], [1.2, .12, 0], .5, 24); tube(g, a, Y, .035); tube(g, a.map((p, i) => { const t = i / 24; return new T.Vector3(p.x, p.y + t * t * .7, p.z + t * t * 1.3); }), RD, .035); cube(g, 1.2, 0); sph(g, .09, WH, -1.6, .9, 0); return { az: .2, el: .5 }; };
+S.anchors = g => { table(g); const a = arc([-1.6, .8, 0], [1.2, .12, 0], .5, 24); tube(g, a, Y, .03); const r = rng(3);
+  for (let i = 0; i < 8; i++) { const p = a[3 + i * 2], q = [p.x + (r() - .5) * .3, p.y + .25 + r() * .25, p.z + (r() - .5) * .9]; sph(g, .07, G, ...q, { em: .5 }); line(g, [q, p], G, .8); }
+  box(g, .05, 1.6, 2.2, RD, 1.75, .8, 0, { op: .25 }); tube(g, [[-1.6, .8, 0], [-.4, 1.3, .3], [.8, 1.25, .5], [1.72, 1.0, .6]], RD, .03); cube(g, 1.2, 0); return { az: .1, el: .42 }; };
+S.weights = g => { box(g, 3.6, .05, 1.2, TB, 0, -.025, 0, { em: 0 }); [1.6, 1.1, .7, .4, .18].forEach((h, i) => { bar(g, h, G, -1.4 + i * .7, 0, .42); box(g, .46, .06, .46, RD, -1.4 + i * .7, h + .08, 0, { em: .6 }); }); label(g, '0/3', 1.5, 1.2, 0, .26, '#e5566b'); return { az: .35, el: .3 }; };
+S.inputs = g => { [[C, 6, -2.1], [O, 3, -1.75], [VI, 6, -1.4], [VI, 6, -1.25], [VI, 6, -1.1]].forEach(([c, n, x]) => tiles(g, 1, n, .14, .03, () => c, { x, ry: Math.PI / 2 })); tiles(g, 1, 8, .14, .03, () => WH, { x: -2.6, ry: Math.PI / 2 });
+  const p = mlpNet(g, [6, 6, 1], -.3, .9); const a = []; p[0].forEach(q => a.push(-1.0, 0, 0, ...q)); segs(g, a, B, .25); sph(g, .13, RD, 1.5, 0, 0, { em: .6 }); return { az: .25, el: .15, sway: .3 }; };
+S.cloud = g => { table(g); const a = arc([-1.6, .8, 0], [1.2, .12, 0], .5, 40); tube(g, a, Y, .03); const r = rng(11), pts = [], ln = [];
+  for (let i = 0; i < 420; i++) { const p = a[(r() * 40) | 0], s = .15 + r() * .5; const q = [p.x + (r() - .5) * s, p.y + (r() - .3) * s, p.z + (r() - .5) * s * 2.4]; pts.push(q); if (i % 9 === 0) ln.push(...q, p.x, p.y, p.z); }
+  dots(g, pts, .045, (i, p) => inf(.25 + Math.abs(p[2]) * .7)); segs(g, ln, C, .5); cube(g, 1.2, 0); return { az: .15, el: .45 }; };
+S.chunk = g => { sph(g, .16, WH, -2, 0, 0, { em: .5 }); const a = []; for (let j = 0; j < 6; j++) a.push(-2, 0, 0, -1.25, (j - 2.5) * .17, 0); segs(g, a, WH, .5);
+  const m = tiles(g, 45, 6, .13, .03, (i) => i > 37 ? RD : inf(.2 + i / 45 * .7), { x: 1.1, rx: -.5 }); label(g, '90 steps', 1.1, 1.0, 0, .24); return { az: -.25, el: .3 }; };
+S.corridor = g => { box(g, 4, 1.2, 1.2, C, 0, .7, 0, { op: .1 }); const r = rng(5); [Y, O, VI, G, B, RD].forEach((c, k) => { const ph = r() * 6, pts = []; for (let i = 0; i <= 16; i++) pts.push([-2 + i * .25, .7 + Math.sin(i * .5 + ph) * .38, (k - 2.5) * .16]); tube(g, pts, c, .022); });
+  const pts = []; for (let i = 0; i < 40; i++) pts.push([-2.2 + (r() - .5) * .3, .7 + (r() - .5) * .9, (r() - .5) * .9]); dots(g, pts, .05, () => WH); return { az: .5, el: .25 }; };
+S.twin = g => { table(g); arm(g, { x: -1.2, lift: -.35, elbow: -1.35, wrist: -1.3 }); arm(g, { x: -1.2, lift: -.42, elbow: -1.25, wrist: -1.3, color: C, op: .28, gc: C, jc: C }); cube(g, .36, 0); cube(g, .5, .12, .2, C, 0, { op: .35 }); label(g, '3.9', -1.2, 2.0, .5, .26, '#f2b441'); label(g, '3.11', -1.2, 2.0, -.5, .26, '#4cc3d9'); return { az: .6 }; };
+S.starts = g => { box(g, 2.6, .05, 2.6, TB, 0, -.025, 0, { em: 0, ec: 0x46557a }); cube(g, 0, 0, .34); [[.7, 0], [-.7, 0], [0, .7], [0, -.7]].forEach(([x, z]) => cube(g, x, z, .34, Y, 0, { op: .3 })); jaws(g, 0, .5, 0, .24, C); arrow(g, [0, .03, 1.1], [.7, .03, 1.1], WH, .015); label(g, '1.5 mm', .35, .28, 1.2, .22); return { az: .6, el: .55 }; };
+S.bargrid = g => { box(g, 2.6, .05, 2.6, TB, 0, -.025, 0, { em: 0 }); const h = [[.2, .5, .7], [.5, .9, 1.5], [.4, .9, 1.0]]; h.forEach((row, i) => row.forEach((v, j) => bar(g, v, v === 1.5 ? Y : B, (i - 1) * .75, (j - 1) * .75, .46, { op: v === 1.5 ? 1 : .7, em: .2 }))); label(g, '9/15', 0, 1.85, .75, .26, '#f2b441'); label(g, 'steps', -1.2, .1, 1.6, .2); label(g, 'width', 1.75, .1, -.4, .2); return { az: .8, el: .5 }; };
+S.cosine = g => { box(g, 4, .04, 1.6, TB, 0, -.02, 0, { em: 0 }); const p = []; for (let i = 0; i <= 30; i++) p.push([-1.9 + i * .1, .1 + .75 * (1 + Math.cos(i / 30 * Math.PI)), -.3]); tube(g, p, Y, .035); line(g, [[-1.9, 1.6, -.3], [1.1, 1.6, -.3]], WH, .35);
+  [[12, G], [12, G], [3, RD]].forEach(([v, c], i) => { bar(g, v / 15 * 1.3, c, 1.35 + i * .32, .35, .24); }); label(g, '12 · 12 · 3', 1.65, 1.6, .35, .24); return { az: .3, el: .3 }; };
+S.horizon = g => { tiles(g, 48, 6, .09, .02, i => i < 30 ? inf(.25 + i / 30 * .5) : G, { rx: -1.1, y: .2 }); line(g, [[.66, 0, -.5], [.66, .9, -.5]], WH, .8); label(g, '480 steps', 1.6, .75, 0, .24, '#57c78a'); return { az: 0, el: .55, sway: .3 }; };
+S.clamp = g => { box(g, 3.8, .02, 1.4, C, 0, .5, 0, { op: .22 }); const p = [], q = []; for (let i = 0; i <= 30; i++) { const x = -1.8 + i * .12, y = 1.1 - 1.15 * Math.exp(-Math.pow((x - .3) / .55, 2)) + (x < -.9 ? .2 : 0); p.push([x, y, 0]); q.push([x, Math.max(y, .53), .0]); } tube(g, p, RD, .03, { op: .55 }); tube(g, q, Y, .04); label(g, 'gripper limit', -1.1, .28, .5, .22, '#4cc3d9'); return { az: .25, el: .22 }; };
+S.ignore = g => { plane(g, 1.3, 1.0, frameTex({ noise: 4 }), -1.9, .55, 0, { ry: .5 }); plane(g, 1.3, 1.0, frameTex({ black: 1 }), -2.1, -.75, 0, { ry: .5, ec: RD }); tiles(g, 1, 8, .14, .03, () => WH, { x: -1.7, y: -.1, z: 1.1, ry: Math.PI / 2 });
+  const p = mlpNet(g, [5, 5, 3], 0, .8); const a = [], b = []; p[0].forEach(q => { a.push(-1.2, .5, 0, ...q); b.push(-1.6, -.1, 1.1, ...q); }); segs(g, a, RD, .12); segs(g, b, WH, .7); return { az: .35, el: .2 }; };
+S.scatter25 = g => { table(g, 3.4, 2.6); const r = rng(8); for (let i = 0; i < 25; i++) cube(g, (r() - .5) * 2.8, (r() - .5) * 2.1, .11); for (let i = 0; i < 10; i++) { const x = (r() - .5) * 2.8, z = (r() - .5) * 2.1; ring(g, .13, i < 6 ? G : RD, x, .02, z); ring(g, .09, i < 6 ? G : RD, x, .02, z); } return { az: .5, el: .7 }; };
+S.stairs = g => { const r = rng(2); [25, 50, 100, 200, 400].forEach((n, i) => { const y = i * .32; box(g, .8, .06, 1.3, i === 4 ? G : DK, -1.7 + i * .85, y, 0, { em: i === 4 ? .3 : .05 }); const pts = []; for (let k = 0; k < n; k++) pts.push([-1.7 + i * .85 + (r() - .5) * .68, y + .07, (r() - .5) * 1.15]); dots(g, pts, .045, () => Y, { flat: 1 }); }); label(g, '25 → 400', 0, 2.0, 0, .26); return { az: .55, el: .5 }; };
+S.axis = g => { cube(g, 0, 0, .5, Y); const a = box(g, .09, .7, .3, C, -.38, .4, 0), b = box(g, .09, .7, .3, C, .38, .4, 0); a.rotation.z = -.22; b.rotation.z = .22;
+  tube(g, [[-1.5, .3, 0], [1.5, .3, 0]], G, .02); const an = 25.4 * Math.PI / 180; tube(g, [[-1.5 * Math.cos(an), .3 - 1.5 * Math.sin(an), 0], [1.5 * Math.cos(an), .3 + 1.5 * Math.sin(an), 0]], RD, .02); label(g, '25.4°', 1.3, .65, .25, .24); return { az: .3, el: .25 }; };
+S.frames = g => { plane(g, 1.9, 1.42, frameTex({ sq: .16, sy: .78, bg: '#263042' }), -1.15, 0, 0, { ry: .25, ec: C }); plane(g, 1.9, 1.42, frameTex({ sq: .34, sy: .45, bg: '#3c3a36', noise: 2 }), 1.15, 0, 0, { ry: -.25, ec: Y }); label(g, 'sim', -1.15, 1.0, 0, .24, '#4cc3d9'); label(g, 'real', 1.15, 1.0, 0, .24, '#f2b441'); return { az: 0, el: .12, sway: .3 }; };
+S.ghostroll = g => { table(g, 3.4, 2.6); arm(g, { x: -1, lift: -.35, elbow: -1.2, wrist: -.9 }); arm(g, { x: -1, lift: -.39, elbow: -1.44, wrist: -.6, roll: 1.64, color: RD, gc: RD, jc: RD, op: .32 }); label(g, '94°', .9, 1.6, 0, .28, '#e5566b'); return { az: .7 }; };
+S.checker = g => { const m = tiles(g, 9, 6, .22, 0, (i, j) => (i + j) % 2 ? 0xf1f1ea : 0x15171c, { rx: -Math.PI / 2, th: .03 }); box(g, 2.3, .06, 1.6, DK, 0, -.05, 0, { em: 0 }); box(g, .3, .22, .3, WH, 0, 2.1, 0);
+  const fr = (deg, c, op) => { const t = Math.tan(deg / 2 * Math.PI / 180) * 2.0, u = t * .75, a = []; [[t, u], [-t, u], [-t, -u], [t, -u]].forEach(([x, z], i, arr) => { const n = arr[(i + 1) % 4]; a.push(0, 2, 0, x, 0.02, z, x, .02, z, n[0], .02, n[1]); }); segs(g, a, c, op); }; fr(72, RD, .5); fr(44, Y, 1); label(g, '44°', .5, 1.2, .6, .24, '#f2b441'); label(g, '72°', 1.7, .5, 1.0, .22, '#e5566b'); return { az: .6, el: .35 }; };
+S.bench = (g, P, ups) => { table(g); sq(g, .36, 0, .5); cube(g, .36, 0); const a = arm(g, { x: -1.2, lift: -.35, elbow: -1.35, wrist: -1.3 });
+  const f = new T.Group(); a.j4.add(f); const s = []; [[.35, .28], [-.35, .28], [-.35, -.28], [.35, -.28]].forEach(([x, z], i, ar) => { const n = ar[(i + 1) % 4]; s.push(0, .1, 0, x, .75, z, x, .75, z, n[0], .75, n[1]); }); segs(f, s, Y, .9);
+  ups.push(t => { const k = (Math.sin(t * .8) + 1) / 2; a.j1.rotation.z = -.35 - k * .15; a.j2.rotation.z = -1.35 - k * .15; a.j3.rotation.z = -1.3 + k * .3; }); return { az: .7 }; };
+S.barrel = g => { const a = [], b = [], k = -.32, f = (x, y) => { const r2 = x * x + y * y, s = 1 + k * r2 * .45; return [x * s * 1.5, y * s * 1.5 + 0, 0]; };
+  for (let i = -6; i <= 6; i++) for (let j = -4; j < 4; j++) { a.push(...f(i / 4, j / 4), ...f(i / 4, (j + 1) / 4)); b.push(i / 4 * 1.5, j / 4 * 1.5, -.5, i / 4 * 1.5, (j + 1) / 4 * 1.5, -.5); }
+  for (let j = -4; j <= 4; j++) for (let i = -6; i < 6; i++) { a.push(...f(i / 4, j / 4), ...f((i + 1) / 4, j / 4)); b.push(i / 4 * 1.5, j / 4 * 1.5, -.5, (i + 1) / 4 * 1.5, j / 4 * 1.5, -.5); }
+  segs(g, b, WH, .16); segs(g, a, C, 1); sph(g, .07, Y, 0, 0, 0, { em: .8 }); return { az: .35, el: .15 }; };
+S.looks2 = g => { plane(g, 1.7, 1.28, frameTex({ bg: '#2b3a55', light: .05 }), -1.1, 0, 0, { ry: .3, ec: C }); plane(g, 1.7, 1.28, frameTex({ bg: '#6b5a48', noise: 9, light: .5 }), 1.1, 0, 0, { ry: -.3, ec: Y }); label(g, 'trained on', -1.1, .92, 0, .2, '#4cc3d9'); label(g, 'real frame', 1.1, .92, 0, .2, '#f2b441'); arrow(g, [1.1, -.75, .3], [2.0, -1.5, .9], RD, .03); return { az: 0, el: .1, sway: .3 }; };
+S.fan = g => { const r = rng(21); for (let i = 0; i < 9; i++) { const a = (i - 4) * .26; plane(g, 1.0, .75, frameTex({ bg: `hsl(${r() * 360 | 0},${20 + r() * 40 | 0}%,${22 + r() * 30 | 0}%)`, noise: i + 1, light: r() * .6, sqc: `hsl(${r() * 60 + 20 | 0},40%,${60 + r() * 30 | 0}%)`, sx: .35 + r() * .3, sy: .4 + r() * .3 }), Math.sin(a) * 2.2, Math.abs(i - 4) * -.06, Math.cos(a) * 2.2 - 2.2, { ry: a }); } return { az: 0, el: .25, sway: .35 }; };
+S.miss = g => { table(g, 3, 2.4); sq(g, 0, 0, .9); cube(g, .55, .15, .3); jaws(g, 0, .02, 0, .1, C); arrow(g, [0, .04, .75], [.55, .04, .75], RD, .018); label(g, '20–40 mm', .3, .3, .95, .22, '#e5566b'); return { az: .5, el: .5 }; };
+S.lift = (g, P, ups) => { table(g, 3, 2.4); sq(g, 0, 0, .9, G); const grp = new T.Group(); g.add(grp); cube(grp, 0, 0, .3); jaws(grp, 0, .02, 0, .19, C); line(g, [[.9, 0, 0], [.9, .7, 0]], WH); segs(g, [.82, 0, 0, .98, 0, 0, .82, .55, 0, .98, .55, 0], WH); label(g, '18.6 mm', 1.35, .35, 0, .22); ups.push(t => { grp.position.y = .32 + Math.sin(t * 1.1) * .22; }); grp.position.y = .5; return { az: .5, el: .3 }; };
+S.samespot = g => { table(g, 3.4, 2.6); const r = rng(14); for (let i = 0; i < 5; i++) { const x = (r() - .5) * 2.4, z = (r() - .5) * 1.8; cube(g, x, z, .18, Y, 0, { op: .55, em: .3 }); tube(g, arc([-1.5 + i * .1, 1.6, (i - 2) * .3], [.25, .1, .1], .2, 10), WH, .014, { op: .7 }); } sph(g, .13, RD, .25, .1, .1, { em: .7 }); ring(g, .28, RD, .25, .02, .1); return { az: .5, el: .6 }; };
+function placeScene(g, n, seed, s) { box(g, 2.8, .05, 2.0, TB, 0, -.025, 0, { em: 0, ec: 0x46557a }); const r = rng(seed), pts = []; for (let i = 0; i < n; i++) pts.push([(r() - .5) * 2.65, .02, (r() - .5) * 1.85, r() * 3.14]); dots(g, pts, s, i => i % 13 === 0 ? Y : G, { flat: 1 }); }
+S.placements = g => { placeScene(g, 400, 4, .06); label(g, '14 × 10 in', 0, .45, 1.25, .22); return { az: .45, el: .75 }; };
+S.gap2 = g => { placeScene(g, 1200, 6, .04); bar(g, .12, G, 1.75, -.3, .3); bar(g, 2.0, RD, 1.75, .3, .3); label(g, '417×', 1.75, 2.3, .3, .26, '#e5566b'); return { az: .6, el: .5 }; };
+S.lattice = g => { const a = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) { const p = [(i - 1) * .8, (j - 1) * .8, (k - 1) * .8]; sph(g, .09, B, ...p, { em: .3 }); if (i < 2) a.push(...p, p[0] + .8, p[1], p[2]); if (j < 2) a.push(...p, p[0], p[1] + .8, p[2]); if (k < 2) a.push(...p, p[0], p[1], p[2] + .8); } segs(g, a, B, .4);
+  tiles(g, 5, 5, .13, .03, () => Y, { x: 1.9, y: .3, ry: -.5 }); label(g, 'lookup table', 1.9, 1.0, 0, .2, '#f2b441'); label(g, 'loss: flat', -.1, 1.35, 0, .2, '#6aa6f8'); return { az: .6, el: .35 }; };
+S.shift = g => { const r = rng(9), tx = frameTex({ noise: 3 }); for (let i = 0; i < 7; i++) plane(g, 1.9, 1.42, tx, (r() - .5) * .5, (r() - .5) * .5, (i - 3) * .32, { op: i === 6 ? 1 : .5 }); label(g, '± 12 px', 1.5, 1.0, 1.0, .22); return { az: .6, el: .2 }; };
+S.fork = g => { box(g, 3.6, .04, 2.4, TB, 0, -.02, 0, { em: 0 }); sph(g, .1, WH, -1.5, .9, 0); tube(g, [[-1.5, .9, 0], [-.6, .7, -.4], [.3, 1.0, -.8], [1.3, 1.7, -.9]], RD, .035); tube(g, [[-1.5, .9, 0], [-.6, .6, .4], [.3, .35, .8], [1.3, .2, .9]], G, .035); label(g, 'more steps', 1.2, 2.0, -.9, .2, '#e5566b'); label(g, 'more placements', 1.1, .55, 1.1, .2, '#57c78a'); return { az: .25, el: .35 }; };
+function barsScene(g, vals, cols, labs, max) { box(g, vals.length * .8 + .4, .05, 1.2, TB, 0, -.025, 0, { em: 0 }); vals.forEach((v, i) => { const x = (i - (vals.length - 1) / 2) * .8; bar(g, v / max * 2, cols[i], x, 0, .44); if (max) box(g, .44, 2, .44, WH, x, 1, 0, { op: .04, eo: .3 }); label(g, labs[i], x, v / max * 2 + .22, 0, .22); }); }
+S.seeds = g => { barsScene(g, [15, 6, 12], [G, RD, Y], ['15', '6', '12'], 30); return { az: .45, el: .25 }; };
+S.pillars = g => { box(g, 4.2, .05, 1.2, TB, 0, -.025, 0, { em: 0 }); [[136, RD], [417, RD], [15, O], [6, Y], [1.6, G]].forEach(([v, c], i) => { const h = Math.log10(v) * .78 + .05, x = -1.7 + i * .7; bar(g, h, c, x, 0, .4); label(g, v + '×', x, h + .2, 0, .2); }); bar(g, .4, WH, 1.9, 0, .4, { op: .5 }); label(g, '6/30', 1.9, .65, 0, .2, '#e5566b'); return { az: .35, el: .28 }; };
+S.bullseye = g => { box(g, 2.6, .05, 2.6, TB, 0, -.025, 0, { em: 0 }); ring(g, .64, G, 0, .02, 0); ring(g, .66, G, 0, .02, 0); cube(g, 0, 0, .22); const r = rng(31), pts = []; for (let i = 0; i < 70; i++) { const a = r() * 6.283, d = Math.sqrt(-2 * Math.log(r() + .001)) * .56; pts.push([Math.cos(a) * d, .03, Math.sin(a) * d]); } dots(g, pts, .07, (i, p) => Math.hypot(p[0], p[2]) < .64 ? G : RD); label(g, '8 mm', .75, .2, .75, .22, '#57c78a'); return { az: .5, el: .85 }; };
+S.pi05 = g => { flow(g, F.pi05, { labels: false, gap: .5 }); return { az: .45, el: .3, sway: .3 }; };
+S.incident = (g, P, ups) => { table(g); arm(g, { x: -.6, lift: -.35, elbow: -1.35, wrist: -1.3, op: .22 }); arm(g, { x: -.6, pan: 1.83, lift: -.75, elbow: -1.55, wrist: -.75, color: 0xf0a0a8, gc: RD, jc: RD }); const rs = [ring(g, .2, RD, -.2, .02, -1.35), ring(g, .35, RD, -.2, .02, -1.35)]; ups.push(t => rs.forEach((r, i) => { const s = 1 + ((t * .6 + i * .5) % 1) * 1.2; r.scale.set(s, 1, s); r.position.set(-.2 * (1 - s), 0, -1.35 * (1 - s)); r.material.opacity = 1; })); label(g, '105°', -.3, 2.0, -.8, .26, '#e5566b'); return { az: 2.4, el: .45 }; };
+S.servo = (g, P, ups) => { const mk = (c, op) => { const j = new T.Group(); g.add(j); box(j, .22, 1.4, .22, c, 0, .7, 0, { op }); const e = new T.Group(); e.position.y = 1.4; j.add(e); box(e, .18, 1.3, .18, c, 0, .65, 0, { op }); sph(e, .16, op ? c : Y, 0, 0, 0, { op }); return e; };
+  const t = mk(C, .25), a = mk(WH); t.rotation.z = -1.5; let h = null; ups.push(tm => { a.rotation.z = -1.5 + .28 + Math.sin(tm * 1.5) * .04; }); a.rotation.z = -1.22; helix(g, [1.25, 1.75, 0], [1.3, 1.35, 0], .09, 4, Y, .018); label(g, 'rests short', 1.7, 2.2, 0, .22, '#f2b441'); cyl(g, .3, .12, DK, 0, 0, 0); return { az: .2, el: .2 }; };
+S.podium = g => { barsScene(g, [24, 21, 20, 2], [Y, VI, 0xc9973a, O], ['24', '21', '20', '2'], 30); return { az: .4, el: .25 }; };
+S.recentre = g => { table(g, 3, 2.4); cube(g, 0, 0, .26); ring(g, .5, B, 0, .75, 0); ring(g, .12, B, 0, .75, 0, .6); const r = rng(17); for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283, d = .45 + r() * .4; tube(g, [[Math.cos(a) * d, 1.9, Math.sin(a) * d], [Math.cos(a) * d * .9, 1.3, Math.sin(a) * d * .9], [Math.cos(a) * .06, .75, Math.sin(a) * .06], [0, .3, 0]], i % 3 ? B : Y, .018); } label(g, '20 mm above', 1.2, .8, 0, .2, '#6aa6f8'); return { az: .5, el: .35 }; };
+S.sagfan = g => { table(g); for (let i = 0; i < 5; i++) arm(g, { x: -1.2, lift: -.35, elbow: -1.05 - i * .11, wrist: -1.3, op: i === 4 ? null : .22 + i * .08, color: i === 4 ? WH : B, gc: i === 4 ? C : B, jc: i === 4 ? Y : B }); cube(g, .36, 0); return { az: .75, el: .3 }; };
+S.grippers2 = g => { box(g, 3.4, .05, 1.6, TB, 0, -.025, 0, { em: 0 }); cube(g, -.9, 0, .4); jaws(g, -.9, .05, 0, .23, RD); cube(g, .9, 0, .4); jaws(g, .9, .05, 0, .36, G); box(g, .12, .03, .2, RD, -.9, .02, .9); box(g, .55, .03, .2, G, .9, .02, .9); label(g, 'SO-100', -.9, 1.05, 0, .22, '#e5566b'); label(g, 'SO-101', .9, 1.05, 0, .22, '#57c78a'); return { az: .25, el: .3 }; };
+S.registers = g => { tiles(g, 5, 6, .28, .06, (i, j) => i === 1 ? Y : DK, {}); label(g, 'P = 16', -.34, 1.3, 0, .26, '#f2b441'); label(g, '6 servos', 1.5, 0, 0, .2); return { az: .4, el: .15 }; };
+S.springs = g => { box(g, 4, .06, .8, DK, 0, -.03, 0, { em: 0 }); for (let i = 0; i < 6; i++) { const x = -1.6 + i * .64, c = new T.Color(B).lerp(new T.Color(WH), i / 5).getHex(); helix(g, [x, 0, 0], [x, 1.5, 0], .2 - i * .018, 2.5 + i * 1.6, c, .022); box(g, .46, .08, .46, c, x, 1.54, 0); } label(g, 'soft', -1.6, 1.95, 0, .22, '#6aa6f8'); label(g, 'stiff', 1.6, 1.95, 0, .22); return { az: .3, el: .2 }; };
+S.chunkstarts = g => { tiles(g, 16, 1, .22, .03, i => inf(.25 + i / 16 * .55), { rx: -Math.PI / 2, th: .08 }); for (let i = 0; i < 16; i++) { const x = (i - 7.5) * .25 - .11, miss = i === 4 || i === 5; if (i % 1 === 0 && (i < 7 || i % 3 === 0)) { if (miss) { box(g, .05, .8, .05, RD, x, .45, 0, { op: .2 }); } else { box(g, .05, .8, .05, Y, x, .45, 0); sph(g, .07, Y, x, .9, 0, { em: .6 }); } } } label(g, '120 · 150 missing', -.9, 1.3, 0, .2, '#e5566b'); return { az: .2, el: .4 }; };
+S.floorRise = (g, P, ups) => { box(g, 4, .02, 3, RD, 0, .45, 0, { op: .16 }); table(g); const a = arm(g, { x: -1.2, lift: -.5, elbow: -1.5, wrist: -1 }); arrow(g, [.75, .1, .5], [.75, .95, .5], G, .03); ups.push(t => { const k = (Math.sin(t * .9) + 1) / 2; a.j1.rotation.z = -.5 + k * .2; a.j2.rotation.z = -1.5 + k * .12; }); label(g, 'floor limit', 1.1, .6, 1.3, .2, '#e5566b'); return { az: .65, el: .28 }; };
+S.highlift = (g, P, ups) => { table(g, 3, 2.4); sq(g, 0, 0, .8, G); const grp = new T.Group(); g.add(grp); cube(grp, 0, 0, .26); jaws(grp, 0, .02, 0, .17, C); line(g, [[1, 0, 0], [1, 2.1, 0]], WH); const a = []; for (let i = 0; i <= 10; i++) a.push(.94, i * .2, 0, i % 5 ? 1.0 : 1.08, i * .2, 0); segs(g, a, WH); label(g, '100 mm', 1.55, 2.0, 0, .24, '#f2b441'); line(g, [[0, .15, 0], [0, 2.0, 0]], Y, .4); ups.push(t => { grp.position.y = 1.0 + Math.sin(t * .7) * .95; }); grp.position.y = 1.9; return { az: .5, el: .25 }; };
+S.blackout = g => { [-.8, .8].forEach((z, i) => { plane(g, 1.1, .82, frameTex({ black: 1 }), -1.9, .6, z, { ry: Math.PI / 2, ec: RD }); box(g, .9, .8, .8, i ? VI : C, -.5, .6, z, { op: .2 }); segs(g, [-1.9, .6, z, -.95, .6, z], WH, .5); tube(g, arc([-.05, .6, z], [1.2, .05, z * 2.1], .5, 10), RD, .02); }); box(g, 4.4, .05, 3.6, TB, 0, -.025, 0, { em: 0 }); cube(g, 2.0, 0, .22); label(g, '11 cm off', 1.6, .9, 0, .22, '#e5566b'); return { az: .5, el: .45 }; };
+S.versus = g => { const a = new T.Group(), b = new T.Group(); g.add(a, b); flow(a, F.cnn.slice(0, 5), { labels: false, gap: .35 }); flow(b, [F.act[2], F.act[3], F.act[4], F.act[6]], { labels: false, gap: .35 }); a.position.z = 1.2; b.position.z = -1.2; label(g, 'CNN 2.71M', 0, 1.5, 1.2, .24, '#4cc3d9'); label(g, 'ACT 51.6M', 0, 1.6, -1.2, .24, '#d58be8'); return { az: .5, el: .4 }; };
+S.offsets = g => { table(g); const a = arm(g, { x: -1.2, lift: -.35, elbow: -1.35, wrist: -1.3 }); [a.j1, a.j2, a.j3].forEach(j => { const m = new T.Mesh(new T.RingGeometry(.2, .36, 20, 1, Math.PI / 2 - .35, .7), new T.MeshBasicMaterial({ color: O, side: T.DoubleSide, transparent: true, opacity: .85 })); m.position.z = .14; j.add(m); });
+  [0, 1, 2].forEach(i => tiles(g, 1, 6, .1, .02, () => C, { x: .9 + i * .22, y: 1.5 + i * .12, ry: .3 })); tube(g, [[1.4, 1.3, 0], [1.0, .9, .3], [.2, 1.1, .2], [-.3, 1.4, 0]], C, .015); label(g, '± 3°', -.9, 2.3, 0, .24, '#f0764a'); return { az: .6, el: .3 }; };
+S.probe = (g, P, ups) => { table(g, 3.2, 2.4); cube(g, -.4, 0, .24, Y, 0, { op: .25 }); const c = cube(g, .5, 0, .24); arrow(g, [-.2, .12, .35], [.4, .12, .35], Y, .02); tube(g, [[-1.3, 1.7, 0], [-.9, 1.1, 0], [-.5, .6, 0], [-.4, .3, 0]], RD, .025); tube(g, [[-1.3, 1.7, 0], [-.9, 1.1, 0], [-.1, .75, 0], [.5, .3, 0]], G, .03); label(g, '20 mm', .1, .5, .7, .22, '#f2b441'); ups.push(t => { c.position.x = .05 + Math.min(1, Math.max(0, Math.sin(t * .8) * 1.5 + .5)) * .45; }); return { az: .25, el: .4 }; };
+S.stack = g => { box(g, 1.1, .5, 1.1, B, -.62, .25, 0, { op: .85 }); box(g, 1.1, .5, 1.1, O, .62, .25, 0, { op: .85 }); box(g, 2.0, .5, 1.1, P, 0, .82, 0, { op: .5 }); box(g, 1.2, .5, 1.1, WH, 0, 1.39, 0, { op: .1 }); label(g, 'follow', -.62, .25, .7, .18); label(g, 'soft elbow', .62, .25, .7, .18); label(g, 'both at once', 0, .82, .7, .18); label(g, 'next?', 0, 1.39, .7, .18, '#9fb0cc'); return { az: .35, el: .3 }; };
+
+
+const views = [];
+const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const io = new IntersectionObserver(es => es.forEach(en => { const v = views.find(q => q.canvas === en.target); if (v) { v.vis = en.isIntersecting; v.dirty = true; } }), { rootMargin: '200px' });
+function view(canvas, key, wide, opt) { const v = { canvas, key, wide, built: null, vis: false, dAz: 0, dEl: 0, dirty: true, ph: Math.random() * 6, k: (opt && opt.k) || 1 };
+  if (opt && opt.nodrag) { views.push(v); io.observe(canvas); return v; }
+  let px = null, py = 0; const st = canvas.parentElement;
+  st.addEventListener('pointerdown', ev => { px = ev.clientX; py = ev.clientY; st.setPointerCapture(ev.pointerId); });
+  st.addEventListener('pointermove', ev => { if (px === null) return; v.dAz -= (ev.clientX - px) * .012; v.dEl += (ev.clientY - py) * .006; px = ev.clientX; py = ev.clientY; v.dirty = true; });
+  const up = () => { px = null; }; st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+  views.push(v); io.observe(canvas); return v; }
+function wipe(o) { o.traverse(m => { if (m.geometry) m.geometry.dispose(); const mt = m.material; if (mt) (Array.isArray(mt) ? mt : [mt]).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); }
+function drop(v) { const i = views.indexOf(v); if (i >= 0) views.splice(i, 1); io.unobserve(v.canvas); if (v.built) wipe(v.built.scene); }
+function build(v) { const scene = new T.Scene(), g = new T.Group(); scene.add(g); scene.add(new T.HemisphereLight(0xffffff, 0x1a2238, .95)); const d = new T.DirectionalLight(0xfff1d6, .9); d.position.set(3, 6, 4); scene.add(d);
+  const ups = []; let o = {}; try { o = (S[v.key] || S.stack)(g, {}, ups) || {}; } catch (err) { console.error(v.key, err); }
+  scene.updateMatrixWorld(true); const bb = new T.Box3().setFromObject(g), c = bb.getCenter(new T.Vector3()), e = bb.getSize(new T.Vector3()).multiplyScalar(.5);
+  v.built = { scene, cam: new T.PerspectiveCamera(30, 1, .1, 200), c, e, ups, az: o.az == null ? .6 : o.az, el: o.el == null ? .38 : o.el, sway: o.sway == null ? .4 : o.sway }; }
+function draw(v, t) { const cv = v.canvas, dpr = Math.min(window.devicePixelRatio || 1, 2) * (v.k || 1), w = Math.min(BW, Math.round(cv.clientWidth * dpr)), h = Math.min(BH, Math.round(cv.clientHeight * dpr)); if (w < 4 || h < 4) return;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const b = v.built, cam = b.cam; cam.aspect = w / h; cam.updateProjectionMatrix();
+  const vf = cam.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * cam.aspect);
+  const hr = v.wide ? b.e.x + b.e.z * .5 : Math.max(Math.hypot(b.e.x, b.e.z) * .82, Math.max(b.e.x, b.e.z) * 1.1), hy = b.e.y + (v.wide ? b.e.z * .3 : hr * .32);
+  const dist = Math.max(hr / (v.wide ? Math.tan(hf) : Math.sin(hf)), hy / Math.tan(vf)) * (v.wide ? .96 : 1.02) + (v.wide ? b.e.z * .6 : 0);
+  const az = b.az + Math.sin(t * .35 + v.ph) * b.sway + v.dAz, el = Math.max(.03, Math.min(1.4, b.el + v.dEl));
+  cam.position.set(b.c.x + dist * Math.cos(el) * Math.sin(az), b.c.y + dist * Math.sin(el), b.c.z + dist * Math.cos(el) * Math.cos(az)); cam.lookAt(b.c);
+  b.ups.forEach(f => f(t));
+  R.setViewport(0, 0, w, h); R.setScissor(0, 0, w, h); R.clear(); R.render(b.scene, cam);
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, w, h); ctx.drawImage(R.domElement, 0, BH - h, w, h, 0, 0, w, h); v.dirty = false; }
+
+/* the stage (flat): time runs left to right; each thread is a branch off the timeline; every
+   experiment's card sits over its node. Lines are SVG strokes with constant pixel widths. */
+function makeStage() { const box = $('tlstage'), svg = $('slines'), g = $('sg'), grid = $('sgrid'), layer = $('cards'), bp = $('bpanel');
+  const CW = 3.2, GAP = .45, CPX = 236, P1 = CPX / CW; let LZ = 2.15, mode = 'lanes'; try { const m0 = localStorage.getItem('xtl-layout'); if (m0 === 'tree' || m0 === 'sun') mode = m0; } catch (err) {}
+  let sunR = 9.5, BD = { x0: -12, x1: 20, z0: -6, z1: 2 }, P = {}, lanes = [], focusBox = { x0: 0, z0: -4, z1: 1, zl: -2 }, els = {}, labs = [], X = [], threads = [], shown = new Set(), xmax = 10, xT = 12, zfar = -4, sig = '', pinKey = null, sel = null, vis = false, Wc = 1, Hc = 1, moved = false, ready = false;
+  const pinLocal = {}, V = { x: 0, z: 0, p: 60, tx: null, tz: null, tp: null, dirty: true };
+  new IntersectionObserver(es => { vis = es[0].isIntersecting; V.dirty = true; }).observe(box);
+  const n2 = v => +v.toFixed(3);
+  let isPin = () => true;
+  // Sunrise layout (after the Agentic Journal's Sunrise): today is a sun on the horizon. Above it, a fan with one
+  // slice per chosen direction holds what is in play (running nearest the sun, then flagged for follow-up, then each
+  // direction's latest result). Below the horizon the history runs down, newest first, to the project's start.
+  function sunLayout(cnt) { const RR = [2.0, 4.5, 7.0, 9.5], pinned = lanes.filter(t => isPin(t)), rest = lanes.filter(t => !isPin(t)), ringOf = {}, cv = t => `var(--s${((t && t.c) || 0) % 10})`;
+    X.forEach(e => { if (!isPin(D.tById[e.thread])) return; if (e.st === 'running') ringOf[e.id] = 0; else if (e.flag) ringOf[e.id] = 1; });
+    pinned.forEach(t => { for (let i = X.length - 1; i >= 0; i--) if (X[i].thread === t.id && ringOf[X[i].id] == null) { ringOf[X[i].id] = 2; break; } });
+    const left = [], right = []; pinned.concat(rest).forEach((t, i) => (i % 2 ? right : left).push(t)); const colX = {}; left.forEach((t, k) => colX[t.id] = -(k + 1) * 3.8); right.forEach((t, k) => colX[t.id] = (k + 1) * 3.8);
+    const secs = left.filter(t => isPin(t)).reverse().concat(right.filter(t => isPin(t))), sky = X.filter(e => ringOf[e.id] != null), w = secs.map(t => Math.max(1.3, sky.filter(e => e.thread === t.id).length)), tot = w.reduce((a, b) => a + b, 0) || 1, span = 168 - 2 * Math.max(0, secs.length - 1);
+    let a = 174; const sec = {}; secs.forEach((t, i) => { const wd = span * w[i] / tot; sec[t.id] = { a0: a, a1: a - wd, mid: a - wd / 2 }; a -= wd + 2; });
+    const rad = d => d * Math.PI / 180, pt = (r, d) => [n2(r * Math.cos(rad(d))), n2(-r * Math.sin(rad(d)))], boxes = [], hit = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]; P = {};
+    secs.forEach(t => { const S = sec[t.id], half = (S.a0 - S.a1) / 2; [0, 1, 2].forEach(ring => { const items = sky.filter(e => e.thread === t.id && ringOf[e.id] === ring), mid = (RR[ring] + RR[ring + 1]) / 2;
+      items.forEach((e, k) => { const base = S.a1 + (k + .5) / items.length * (S.a0 - S.a1); let best = null;
+        for (const dr of [0, .95, -.95, 1.9, 2.85]) { for (const f of [0, .3, -.3, .6, -.6, .9, -.9]) { const r = mid + dr, th = Math.max(8, Math.min(172, base + f * half)), x = r * Math.cos(rad(th)), z = Math.min(-.75, -r * Math.sin(rad(th))), b = [x - 1.7, z - 1.75, x + 1.7, z + .3]; if (!best) best = { x, z, b }; if (!boxes.some(o => hit(b, o))) { best = { x, z, b }; break; } } if (best && !boxes.some(o => hit(best.b, o))) break; }
+        boxes.push(best.b); P[e.id] = { x: best.x, z: best.z }; }); }); });
+    let cur = 2.7, pm = null; const months = [], lastZ = {}, top = {}, bot = {}, orphanX = (Math.max(left.length, right.length) + 1) * 3.8;
+    for (let i = X.length - 1; i >= 0; i--) { const e = X[i]; if (ringOf[e.id] != null) continue; const m = e.when.slice(0, 7); if (m !== pm) { if (pm !== null) cur += .9; months.push({ m, z: cur - .62 }); pm = m; }
+      const z = Math.max(cur, (lastZ[e.thread] == null ? -1e9 : lastZ[e.thread]) + 1.82); lastZ[e.thread] = z; cur = z + .5; if (top[e.thread] == null) top[e.thread] = z; bot[e.thread] = z; P[e.id] = { x: colX[e.thread] == null ? orphanX : colX[e.thread], z }; }
+    const depth = cur + 4.4, R3 = RR[3], halfW = Math.max(orphanX, R3 + 2);
+    const stars = () => { let seed = 7, s = ''; const nx = () => (seed = (seed * 16807) % 2147483647) / 2147483647; for (let i = 0; i < 170; i++) { const z = -nx() * (R3 + 9), x = (nx() - .5) * 2 * (R3 + 12), op = Math.min(1, -z / (R3 + 4)) * (.25 + nx() * .7); s += `<circle cx="${n2(x)}" cy="${n2(z)}" r="${nx() < .08 ? .05 : .028}" style="fill:#fff;opacity:${op.toFixed(2)}"/>`; } return s; };
+    const BANDS = ['rgba(255,196,128,.17)', 'rgba(255,196,128,.07)', 'rgba(170,200,240,.05)']; let s = `<defs><linearGradient id="skyG" gradientUnits="userSpaceOnUse" x1="0" y1="${-(R3 + 4.5)}" x2="0" y2="0">${[[0, '#05070d'], [.3, '#0b1730'], [.58, '#1b3f6e'], [.8, '#5b7aa6'], [.92, '#c9a08a'], [1, '#e39a5f']].map(q => `<stop offset="${q[0]}" stop-color="${q[1]}"/>`).join('')}</linearGradient><radialGradient id="sunG" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1.75"><stop offset="0" stop-color="#fff6d8"/><stop offset=".45" stop-color="#ffd27a"/><stop offset=".8" stop-color="#ff9a3c"/><stop offset="1" stop-color="#ff7a2f"/></radialGradient><radialGradient id="hazeG" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="7.5"><stop offset="0" stop-color="#ffc26b" stop-opacity=".55"/><stop offset="1" stop-color="#ffc26b" stop-opacity="0"/></radialGradient><linearGradient id="earthG" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="9"><stop offset="0" stop-color="#3a281a"/><stop offset=".35" stop-color="#1c130d"/><stop offset="1" stop-color="#0b0807"/></linearGradient></defs>`;
+    s += `<rect x="-600" y="-600" width="1200" height="600" style="fill:url(#skyG)"/>` + stars() + `<circle cx="0" cy="0" r="7.5" style="fill:url(#hazeG)"/>`;
+    [0, 1, 2].forEach(i => { s += `<path style="fill:${BANDS[i]}" d="M${-RR[i + 1]} 0A${RR[i + 1]} ${RR[i + 1]} 0 0 1 ${RR[i + 1]} 0L${RR[i]} 0A${RR[i]} ${RR[i]} 0 0 0 ${-RR[i]} 0Z"/>`; });
+    secs.forEach(t => { const S = sec[t.id], p0 = pt(RR[0], S.a0), p1 = pt(R3, S.a0), p2 = pt(R3, S.a1), p3 = pt(RR[0], S.a1); s += `<path style="fill:${cv(t)};opacity:.07" d="M${p0}L${p1}A${R3} ${R3} 0 0 1 ${p2}L${p3}A${RR[0]} ${RR[0]} 0 0 0 ${p0}Z"/><path class="sray" stroke="${cv(t)}" d="M${p0}L${pt(R3 + .5, S.a0)}M${p3}L${pt(R3 + .5, S.a1)}"/>`; });
+    RR.forEach(r => { s += `<path class="sring" d="M${-r} 0A${r} ${r} 0 0 1 ${r} 0"/>`; });
+    s += `<circle cx="0" cy="0" r="1.75" style="fill:url(#sunG)"/><rect x="-600" y="0" width="1200" height="${n2(depth + 600)}" style="fill:url(#earthG)"/><rect x="-600" y="0" width="1200" height=".1" style="fill:#d9b48d;opacity:.85"/>`;
+    s += `<path class="trunk" d="M0 .1V${n2(depth)}"/><circle class="tdot" cx="0" cy="${n2(depth)}" r=".12"/>` + months.map(mo => `<path class="tick" d="M-.3 ${n2(mo.z)}H.3"/>`).join('');
+    const labels = [{ cls: 'mlab sunl', html: 'today', kind: 'c', a: { x: 0, z: -.7 } }, { cls: 'mlab', html: 'project start', kind: 'm', a: { x: 0, z: depth + .25 } }];
+    ['running now', 'needs follow-up', 'latest result'].forEach((nm, i) => labels.push({ cls: 'mlab ringl', html: nm, kind: 'c', a: { x: -(RR[i] + RR[i + 1]) / 2, z: -.3 } }));
+    lanes.forEach(t => { const c = cv(t), cx = colX[t.id], pin = isPin(t), on = X.some(e => e.thread === t.id && shown.has(e.id)), o = on ? '' : ' off';
+      if (sec[t.id]) { const q = pt(R3 + .95, sec[t.id].mid); labels.push({ cls: 'slab', style: `--c:${c}`, html: `${esc(t.name)}<small>${cnt[t.id]}</small>`, kind: 'c', a: { x: q[0], z: q[1] } }); }
+      if (top[t.id] == null) return; const zb = bot[t.id] + 3.5, d = `M0 ${n2(zb)}C0 ${n2(zb - 1.3)} ${cx} ${n2(zb - 1.1)} ${cx} ${n2(zb - 2.4)}V${n2(top[t.id])}`;
+      s += `<path class="bg${o}" stroke="${c}" d="${d}"/><path class="b${o}" stroke="${c}" d="${d}"/><circle class="root${o}" style="fill:${c}" cx="0" cy="${n2(zb)}" r=".085"/>` + (pin ? `<path class="ext${o}" stroke="${c}" d="M${cx} ${n2(top[t.id])}V.14"/><circle class="tip${o}" stroke="${c}" cx="${cx}" cy=".14" r=".12"/>` : `<path class="cap${o}" stroke="${c}" d="M${cx - .2} ${n2(top[t.id] - .95)}H${cx + .2}M${cx} ${n2(top[t.id])}V${n2(top[t.id] - .95)}"/>`);
+      labels.push({ cls: 'slab', style: `--c:${c}`, html: `${esc(t.name)}<small>${cnt[t.id]}</small>`, kind: 'v', a: { x: cx, z: .62 }, ze: bot[t.id] }); });
+    months.forEach(mo => labels.push({ cls: 'mlab', html: esc(new Date(mo.m + '-15T12:00:00Z').toLocaleString('en', { month: 'long', year: 'numeric', timeZone: 'UTC' })), kind: 'm', a: { x: 0, z: mo.z } }));
+    X.forEach(e => { const p = P[e.id], c = cv(D.tById[e.thread]), o = shown.has(e.id) ? '' : ' off'; s += `<path class="cn${o}" d="M${n2(p.x)} ${n2(p.z - .2)}V${n2(p.z - .5)}"/><g class="nd${o}${e.st === 'running' ? ' run' : ''}" data-id="${esc(e.id)}" transform="translate(${n2(p.x)} ${n2(p.z)})"><circle class="nh" r=".36" stroke="${c}"/><circle class="nr" r=".19" stroke="${c}"/><circle class="ns" r=".085" style="fill:var(--k-${STV[e.st] || 'running'})"/></g>`; });
+    BD = { x0: -halfW - 3, x1: halfW + 3, z0: -(R3 + 3.5), z1: depth + 2 }; sunR = R3; return { svg: s, labels }; }
+  function update(X_, threads_, shown_) { X = X_; threads = threads_; shown = shown_;
+    const s2 = JSON.stringify([X.map(e => [e.id, e.when, e.d, e.thread, e.st, e.flag, e.p, e.q, e.s, shown.has(e.id)]), threads, pinLocal, mode]); if (s2 === sig) return; sig = s2; box.hidden = !X.length; if (!X.length) return;
+    const latest = Date.parse(X[X.length - 1].when), lastOf = {}, cnt = {}, idx = {}; X.forEach((e, i) => { lastOf[e.thread] = e.id; cnt[e.thread] = (cnt[e.thread] || 0) + 1; idx[e.id] = i; });
+    isPin = t => !!t && (pinLocal[t.id] != null ? pinLocal[t.id] : t.pin != null ? !!t.pin : (latest - Date.parse(D.byId[lastOf[t.id]].when)) / 864e5 <= 21 || X.some(e => e.thread === t.id && e.st === 'running'));
+    const used = threads.filter(t => lastOf[t.id]); lanes = used.filter(t => isPin(t)).concat(used.filter(t => !isPin(t)));
+    let labelsHTML = '', bindLabs = () => {}; grid.style.display = mode === 'sun' ? 'none' : '';
+    if (mode === 'sun') { const S = sunLayout(cnt); g.innerHTML = S.svg; labelsHTML = S.labels.map((L, i) => `<span class="${L.cls}" data-s="${i}" style="${L.style || ''}">${L.html}</span>`).join(''); bindLabs = () => layer.querySelectorAll('[data-s]').forEach(el => labs.push(Object.assign({ el }, S.labels[+el.dataset.s]))); } else {
+    // lanes (default): each thread is one straight branch off the timeline, so an experiment's parent is
+    // the one before it in its thread. tree: each experiment hangs off the first earlier experiment it
+    // builds on; the first child in the same thread carries the limb on, every other child forks
+    const par = {}, cont = {}, kids = {}, prevT = {}; LZ = mode === 'tree' ? 1.8 : 2.15; X.forEach(e => { const pid = mode === 'tree' ? (e.p || []).find(q => idx[q] != null && idx[q] < idx[e.id]) || null : prevT[e.thread] || null; prevT[e.thread] = e.id; par[e.id] = pid; if (pid) { (kids[pid] || (kids[pid] = [])).push(e.id); if (!cont[pid] && D.byId[pid].thread === e.thread) cont[pid] = e.id; } });
+    let cur = 0, pm = null; const months = []; P = {};
+    X.forEach(e => { const m = e.when.slice(0, 7); if (m !== pm) { if (pm !== null) cur += 1.3; months.push({ m, x: cur - .7 }); pm = m; } const pp = par[e.id], x = Math.max(cur, pp ? P[pp].x + (cont[pp] === e.id ? CW + GAP : 4.5) : -1e9); cur = x + 1.15; P[e.id] = { x, z: 0 }; });
+    xmax = cur + 1; xT = xmax + 1.6; const xs = P[X[0].id].x - 5;
+    const limbs = [], limbOf = {}; X.forEach(e => { const pp = par[e.id]; if (pp && cont[pp] === e.id) { limbOf[e.id] = limbOf[pp]; limbOf[pp].nodes.push(e.id); } else { const L = { nodes: [e.id], from: pp, thread: e.thread }; limbs.push(L); limbOf[e.id] = L; } });
+    const occ = {}, rowOf = {}, free = (r, a, b) => !(occ[r] || []).some(iv => a < iv[1] && iv[0] < b); let maxRow = 1;
+    limbs.forEach(L => { const f = L.nodes[0], l = L.nodes[L.nodes.length - 1], t = D.tById[L.thread], le = D.byId[l]; L.ext = !kids[l] && isPin(t) && (lastOf[L.thread] === l || le.st === 'running');
+      const a0 = L.from ? P[L.from].x + 1.75 : P[f].x - 3.7, zb = L.from ? P[L.from].x + 4.1 : P[f].x - 1.2, b = L.ext ? xT + .4 : P[l].x + 1.95, r0 = L.from ? rowOf[L.from] : 0; let row = 0; if (mode !== 'tree') { const li = lanes.findIndex(q => q.id === L.thread); row = li < 0 ? lanes.length + 1 : li + 1; }
+      for (let d = 1; d < 60 && !row; d++) for (const r of [r0 + d, r0 - d]) { if (r < 1 || !free(r, a0, b)) continue; let ok = true; for (let q = Math.min(r, r0) + 1; q < Math.max(r, r0); q++) if (!free(q, a0, zb)) ok = false; if (ok) { row = r; break; } }
+      if (!row) row = maxRow + 1; (occ[row] || (occ[row] = [])).push([a0, b]); maxRow = Math.max(maxRow, row); L.row = row; L.z = -row * LZ; L.nodes.forEach(id => { rowOf[id] = row; P[id].z = L.z; }); });
+    zfar = -(maxRow + 1) * LZ;
+    const cv = t => `var(--s${((t && t.c) || 0) % 10})`, fork = (a, z) => `M${n2(a.x)} ${n2(a.z)}H${n2(a.x + 1.75)}C${n2(a.x + 2.95)} ${n2(a.z)} ${n2(a.x + 2.95)} ${n2(z)} ${n2(a.x + 4.1)} ${n2(z)}`; let arcs = '', br = '', nd = ''; const lab = [], seenT = {};
+    limbs.forEach(L => { const f = L.nodes[0], l = L.nodes[L.nodes.length - 1], t = D.tById[L.thread], c = cv(t), z = L.z, on = L.nodes.some(id => shown.has(id)), o = on ? '' : ' off', x0 = P[f].x - 3.6;
+      const d = (L.from ? fork(P[L.from], z) : `M${n2(x0)} 0C${n2(x0 + 1.2)} 0 ${n2(x0 + 1.2)} ${n2(z)} ${n2(x0 + 2.4)} ${n2(z)}`) + `H${n2(P[l].x)}`;
+      br += `<path class="bg${o}" stroke="${c}" d="${d}"/><path class="b${o}" stroke="${c}" d="${d}"/>` + (L.from ? '' : `<circle class="root${o}" style="fill:${c}" cx="${n2(x0)}" cy="0" r=".085"/>`);
+      if (L.ext) br += `<path class="ext${o}" stroke="${c}" d="M${n2(P[l].x)} ${n2(z)}H${n2(xT)}"/><circle class="tip${o}" stroke="${c}" cx="${n2(xT)}" cy="${n2(z)}" r=".12"/>`;
+      if (t && (!seenT[L.thread] || (L.from && D.byId[L.from].thread !== L.thread && L.nodes.length > 1))) { seenT[L.thread] = 1; lab.push({ x: (L.from ? P[L.from].x + 4.1 : x0 + 2.4) + .1, xe: L.ext ? xT : P[l].x + 1.6, z, col: (t.c || 0) % 10, n: cnt[L.thread], pin: isPin(t), name: t.name }); } });
+    X.forEach(e => { const p = P[e.id], t = D.tById[e.thread], c = cv(t), on = shown.has(e.id), o = on ? '' : ' off', pp = par[e.id];
+      if (pp) arcs += `<path class="arc same" data-a="${esc(pp)}" data-b="${esc(e.id)}" stroke="${c}" d="${cont[pp] === e.id ? `M${n2(P[pp].x)} ${n2(P[pp].z)}` : fork(P[pp], p.z)}H${n2(p.x)}"/>`;
+      (e.p || []).forEach(pid => { const a = P[pid]; if (!a || pid === pp || idx[pid] >= idx[e.id]) return; const m = n2((a.x + p.x) / 2); arcs += `<path class="arc${on && shown.has(pid) ? '' : ' off'}" data-a="${esc(pid)}" data-b="${esc(e.id)}" stroke="${c}" d="M${n2(a.x)} ${n2(a.z)}C${m} ${n2(a.z)} ${m} ${n2(p.z)} ${n2(p.x)} ${n2(p.z)}"/>`; });
+      nd += `<path class="cn${o}" d="M${n2(p.x)} ${n2(p.z - .2)}V${n2(p.z - .5)}"/><g class="nd${o}${e.st === 'running' ? ' run' : ''}" data-id="${esc(e.id)}" transform="translate(${n2(p.x)} ${n2(p.z)})"><circle class="nh" r=".36" stroke="${c}"/><circle class="nr" r=".19" stroke="${c}"/><circle class="ns" r=".085" style="fill:var(--k-${STV[e.st] || 'running'})"/></g>`; });
+    g.innerHTML = `<path class="today" d="M${n2(xT)} .9V${n2(zfar + 1)}"/>` + months.map(mo => `<path class="tick" d="M${n2(mo.x)} -.26V.26"/>`).join('') + arcs + `<path class="trunk" d="M${n2(xs)} 0H${n2(xT)}"/><circle class="tdot" cx="${n2(xs)}" cy="0" r=".1"/><circle class="tdot" cx="${n2(xT)}" cy="0" r=".14"/>` + br + nd;
+    // what "Current work" frames: recent or running experiments on the chosen branches
+    { const rec = X.filter(e => isPin(D.tById[e.thread]) && ((latest - Date.parse(e.when)) / 864e5 <= 14 || e.st === 'running')), pick = rec.length ? rec : X.filter(e => isPin(D.tById[e.thread]) && lastOf[e.thread] === e.id), use = pick.length ? pick : [X[X.length - 1]];
+      focusBox = { x0: Math.min(...use.map(e => P[e.id].x)) - 2.3, z0: Math.min(...use.map(e => P[e.id].z)) - 2.1, z1: Math.max(...use.map(e => P[e.id].z)) + .9, zl: use.slice(-4).reduce((a, e) => a + P[e.id].z, 0) / Math.min(4, use.length) };
+      if (mode !== 'tree') { const pl = lanes.filter(t => isPin(t)), nP = pl.length || 1, lx = pl.map(t => P[lastOf[t.id]].x); focusBox = { x0: (lx.length ? Math.min(...lx) : xmax) - 2.4, z0: -(nP * LZ) - 2.1, z1: 1, zl: -(nP * LZ) / 2 - .6 }; } }
+    BD = { x0: -12, x1: xmax + 8, z0: zfar - 2, z1: 2 };
+    labelsHTML = months.map((mo, i) => `<span class="mlab" data-m="${i}">${esc(new Date(mo.m + '-15T12:00:00Z').toLocaleString('en', { month: 'long', year: 'numeric', timeZone: 'UTC' }))}</span>`).join('') + `<span class="mlab now" data-m="now">today</span>`
+      + lab.map((L, i) => `<span class="slab" data-l="${i}" style="--c:var(--s${L.col})">${esc(L.name)}<small>${L.n}${L.pin ? '' : ' · not on main view'}</small></span>`).join('');
+    bindLabs = () => { layer.querySelectorAll('.mlab').forEach(el => labs.push({ el, kind: 'm', a: el.dataset.m === 'now' ? { x: xT, z: zfar + .75 } : { x: months[+el.dataset.m].x, z: .42 } })); layer.querySelectorAll('.slab').forEach(el => labs.push({ el, kind: 't', L: lab[+el.dataset.l] })); }; }
+    Object.values(els).forEach(c => c.view && drop(c.view)); els = {}; labs = [];
+    layer.innerHTML = labelsHTML + X.map(e => { const t = D.tById[e.thread] || { c: 9 }; return `<button type="button" class="tc${e.flag ? ' flag' : ''}${shown.has(e.id) ? '' : ' dim'}" data-id="${esc(e.id)}" style="--c:var(--s${(t.c || 0) % 10});--sc:var(--k-${STV[e.st] || 'running'})" aria-label="Experiment ${esc(e.id)}: ${esc(e.q)}"><span class="tth"><canvas></canvas></span><span class="tb"><span class="tm"><b>${esc(e.id)}</b><i></i><em>${esc(ST[e.st] || 'Running')}</em><span class="td">${esc(e.d || '')}</span></span><span class="tq">${esc(e.q)}</span></span></button>`; }).join('');
+    layer.querySelectorAll('.tc').forEach(el => { const e = D.byId[el.dataset.id]; els[e.id] = { el, a: { x: P[e.id].x, z: P[e.id].z - .5 }, view: view(el.querySelector('canvas'), e.s, false, { nodrag: true, k: 2 }), mode: '' }; });
+    bindLabs();
+    bp.innerHTML = '<p>Choose which branches the “Current work” view frames. Every branch stays on the timeline.</p>' + lanes.map(t => `<button type="button" data-pin="${esc(t.id)}" aria-pressed="${isPin(t)}" style="--c:var(--s${(t.c || 0) % 10})"><i></i>${esc(t.name)}<span>${isPin(t) ? 'on main view' : 'hidden from main view'}</span></button>`).join('');
+    ready = true; const pk = lanes.map(t => t.id + isPin(t)).join(); if (pk !== pinKey) { const firstTime = pinKey === null; pinKey = pk; home(firstTime); }
+    if (sel && !P[sel]) sel = null; mark(); V.dirty = true; }
+  function size() { const w = box.clientWidth, h = Math.max(box.clientHeight, 1), c = w !== Wc || h !== Hc; Wc = w; Hc = h; return c; }
+  const pmin = () => Math.min(Wc / (BD.x1 - BD.x0 + 2), Hc * .8 / (BD.z1 - BD.z0 - 1));
+  function home(now) { size(); if (mode === 'sun') { const R = sunR, pf = Math.max(P1 * .42, Math.min(P1, Wc * .98 / (2 * R + 6.4), Hc * .95 / (R + 5))); V.tp = pf; V.tx = 0; V.tz = -(R - .6) / 2; if (now) { V.p = V.tp; V.x = V.tx; V.z = V.tz; } V.dirty = true; return; }
+    const B = focusBox, lo = P1 * (Wc < 700 ? .55 : .78), pf = Math.max(lo, Math.min(P1, Wc * .94 / (xT + 1 - B.x0), (Hc * .9) / (B.z1 - B.z0)));
+    V.tp = pf; V.tx = xT + 1 - (Wc / 2 / pf) * .92; V.tz = (B.z1 - B.z0) * pf > Hc * .92 ? B.zl - .6 : (B.z0 + B.z1) / 2; if (now) { V.p = V.tp; V.x = V.tx; V.z = V.tz; } V.dirty = true; }
+  function fitAll() { size(); V.tp = pmin(); V.tx = (BD.x0 + BD.x1) / 2 + (mode === 'sun' ? 0 : 1); V.tz = (BD.z0 + BD.z1) / 2; }
+  const sx = x => Wc / 2 + (x - V.x) * V.p, sy = z => Hc / 2 + (z - V.z) * V.p;
+  function layout() { const p = V.p, s = p / P1; g.setAttribute('transform', `matrix(${p.toFixed(4)} 0 0 ${p.toFixed(4)} ${(Wc / 2 - V.x * p).toFixed(2)} ${(Hc / 2 - V.z * p).toFixed(2)})`); svg.style.setProperty('--lw', Math.max(1.5, Math.min(3.25, s * 3.25)).toFixed(2) + 'px');
+    let gs = 2 * p; while (gs < 26) gs *= 2; grid.style.backgroundSize = `${gs.toFixed(2)}px ${gs.toFixed(2)}px`; grid.style.backgroundPosition = `${((Wc / 2 - V.x * p) % gs).toFixed(2)}px ${((Hc / 2 - V.z * p) % gs).toFixed(2)}px`;
+    for (const id in els) { const c = els[id], x = sx(c.a.x), y = sy(c.a.z); let mode = x < -260 || x > Wc + 260 || y < -30 || y > Hc + 260 ? 'none' : s >= .4 ? 'full' : s >= .045 ? 'mini' : 'none';
+      if (mode !== c.mode) { c.mode = mode; c.el.style.display = mode === 'none' ? 'none' : ''; c.el.classList.toggle('mini', mode === 'mini'); }
+      if (mode === 'none') continue; const k = mode === 'full' ? s : Math.max(.46, Math.min(1, s * 2.6)); c.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%) scale(${k.toFixed(3)})`; c.el.style.zIndex = id === sel ? 6000 : 3000; }
+    labs.forEach(l => { let x, y; if (l.kind === 't') { const L = l.L, wx = Math.min(L.xe - 1, Math.max(L.x, V.x + (14 - Wc / 2) / p)); x = sx(wx); y = sy(L.z); } else if (l.kind === 'v') { x = sx(l.a.x); y = Math.min(sy(l.ze), Math.max(sy(l.a.z), 56)); } else { x = sx(l.a.x); y = sy(l.a.z); }
+      const off = x < -40 || x > Wc + 300 || y < -10 || y > Hc + 30 || s < .04; l.el.style.display = off ? 'none' : ''; if (off) return; const k = Math.max(.6, Math.min(1.1, s * 1.2));
+      l.el.style.transform = l.kind === 't' ? `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(0,30%) scale(${k.toFixed(3)})` : `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,${l.kind === 'm' ? '0' : '-50%'}) scale(${k.toFixed(3)})`; }); }
+  function mark() { for (const id in els) els[id].el.classList.toggle('sel', id === sel); svg.classList.toggle('focus', !!sel);
+    g.querySelectorAll('.nd').forEach(n => n.classList.toggle('sel', n.dataset.id === sel)); g.querySelectorAll('.arc').forEach(a => a.classList.toggle('hl', !!sel && (a.dataset.a === sel || a.dataset.b === sel))); }
+  function select(id, focus, open) { sel = id && P[id] ? id : null; mark(); V.dirty = true; if (open !== false) showDrawer(sel);
+    if (sel && focus) { const p = Math.max(V.p, P1 * .8), dw = $('drawer').hidden ? 0 : Math.min(440, Wc); V.tp = p; V.tx = P[sel].x + (dw < Wc ? dw / 2 / p : 0); V.tz = P[sel].z - .6; } }
+  function setFs(on) { box.classList.toggle('fs', on); $('sx-fs').setAttribute('aria-pressed', String(on)); $('sx-fs').textContent = on ? 'Exit full screen' : 'Full screen'; document.body.style.overflow = on ? 'hidden' : ''; V.dirty = true;
+    try { if (on && box.requestFullscreen) { const pr = box.requestFullscreen(); if (pr && pr.catch) pr.catch(() => {}); } else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (err) {} }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && box.classList.contains('fs')) setFs(false); V.dirty = true; });
+  document.addEventListener('keydown', ev => { if (ev.key !== 'Escape') return; if (!bp.hidden) { bp.hidden = true; $('sx-br').setAttribute('aria-expanded', 'false'); } else if (!$('drawer').hidden) select(null); else if (box.classList.contains('fs')) setFs(false); });
+  const pts = new Map(); let pinch = 0;
+  const clampV = () => { V.p = Math.max(pmin() * .8, Math.min(150, V.p)); const mx = Wc / 2 / V.p, mz = Hc / 2 / V.p; V.x = Math.max(BD.x0 - mx * .6, Math.min(BD.x1 + mx * .6, V.x)); V.z = Math.max(BD.z0 - mz * .6, Math.min(BD.z1 + mz * .6, V.z)); };
+  const zoomAt = (k, cx, cy) => { const r = box.getBoundingClientRect(), mx = cx - r.left, my = cy - r.top, wx = V.x + (mx - Wc / 2) / V.p, wz = V.z + (my - Hc / 2) / V.p; V.p *= k; clampV(); V.x = wx - (mx - Wc / 2) / V.p; V.z = wz - (my - Hc / 2) / V.p; clampV(); V.dirty = true; };
+  box.addEventListener('pointerdown', ev => { if (ev.target.closest('#drawer, .sctl, #bpanel')) return; pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, sx: ev.clientX, sy: ev.clientY }); moved = false; V.tx = V.tz = V.tp = null; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+  window.addEventListener('pointermove', ev => { const q = pts.get(ev.pointerId); if (!q) return; const dx = ev.clientX - q.x, dy = ev.clientY - q.y; q.x = ev.clientX; q.y = ev.clientY; if (Math.hypot(ev.clientX - q.sx, ev.clientY - q.sy) > 5) moved = true;
+    if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch > 0 && d > 0) zoomAt(d / pinch, (a.x + b.x) / 2, (a.y + b.y) / 2); pinch = d; moved = true; } else if (moved) { V.x -= dx / V.p; V.z -= dy / V.p; clampV(); }
+    V.dirty = true; });
+  const end = ev => { pts.delete(ev.pointerId); pinch = 0; }; window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+  box.addEventListener('wheel', ev => { if (ev.target.closest('#drawer, #bpanel')) return; if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); V.tx = V.tz = V.tp = null; zoomAt(Math.exp(-ev.deltaY * .01), ev.clientX, ev.clientY); } else { const k = ev.deltaMode === 1 ? 32 : 1, x0 = V.x, z0 = V.z; V.tx = V.tz = null; V.x += (ev.shiftKey && !ev.deltaX ? ev.deltaY : ev.deltaX) * k / V.p; if (!ev.shiftKey) V.z += ev.deltaY * k / V.p; clampV(); if (V.x !== x0 || V.z !== z0 || box.classList.contains('fs')) ev.preventDefault(); V.dirty = true; } }, { passive: false });
+  layer.addEventListener('click', ev => { const c = ev.target.closest('.tc'); if (c && !moved) select(c.dataset.id === sel ? null : c.dataset.id, true); });
+  const zoom = k => { V.tp = (V.tp || V.p) * k; };
+  $('sx-in').addEventListener('click', () => zoom(1.4)); $('sx-out').addEventListener('click', () => zoom(.72)); $('sx-home').addEventListener('click', () => home()); $('sx-all').addEventListener('click', () => fitAll());
+  $('sx-fs').addEventListener('click', () => setFs(!box.classList.contains('fs')));
+  const syncMode = () => box.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode))); syncMode();
+  box.querySelector('.smode').addEventListener('click', ev => { const b = ev.target.closest('[data-mode]'); if (!b || b.dataset.mode === mode) return; mode = b.dataset.mode; try { localStorage.setItem('xtl-layout', mode); } catch (err) {} syncMode(); pinKey = null; sel = null; showDrawer(null); schedule(); });
+  $('sx-br').addEventListener('click', ev => { bp.hidden = !bp.hidden; ev.currentTarget.setAttribute('aria-expanded', String(!bp.hidden)); });
+  bp.addEventListener('click', ev => { const b = ev.target.closest('[data-pin]'); if (!b) return; const id = b.dataset.pin, t = D.tById[id], v = !isPin(t); pinLocal[id] = v; if (db && D.canWrite) db.doc('threads/' + id).update({ pin: v }).catch(() => {}); schedule(); });
+  $('drawer-x').addEventListener('click', () => select(null));
+  function frame() { if (!vis || !ready) return; const ch = size(); let mv = false;
+    if (V.tx != null) { V.x += (V.tx - V.x) * .18; if (Math.abs(V.tx - V.x) < .01) V.tx = null; mv = true; } if (V.tz != null) { V.z += (V.tz - V.z) * .18; if (Math.abs(V.tz - V.z) < .01) V.tz = null; mv = true; } if (V.tp != null) { V.p *= Math.pow(V.tp / V.p, .18); if (Math.abs(V.tp / V.p - 1) < .003) V.tp = null; mv = true; }
+    if (mv || ch) clampV(); if (V.dirty || mv || ch) { layout(); V.dirty = false; } }
+  return { update, select, frame }; }
+const stg = makeStage();
+let last = 0;
+function loop(ms) { requestAnimationFrame(loop); if (ms - last < 33) return; last = ms; const t = still ? 2 : ms / 1000; let built = 0;
+  if (stg) stg.frame();
+  for (const v of views) { if (!v.vis) continue; if (!v.built) { if (built++ > 1) continue; build(v); } if (!still || v.dirty || v.canvas.width < 4) draw(v, t); } }
+requestAnimationFrame(loop); window.addEventListener('resize', () => views.forEach(v => v.dirty = true));
+return { view, drop, stage: stg };
+}
+G3 = init3D(); tree = G3 && G3.stage;
+if (!tree) $('tlstage').hidden = true;
+const go = () => connect().catch(() => { msg.textContent = 'The experiment records could not be loaded.'; });
+if (document.fonts && document.fonts.ready) Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(go); else go();
+})();
+</script>

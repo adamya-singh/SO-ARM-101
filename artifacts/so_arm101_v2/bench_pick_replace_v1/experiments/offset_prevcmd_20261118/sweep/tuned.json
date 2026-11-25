@@ -1,0 +1,66 @@
+{
+  "criterion": "lowest final.heldout_start_90",
+  "winner": {
+    "name": "current",
+    "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/full_current_s202",
+    "heldout_start_90": 0.00033930462086573243,
+    "median": 0.0002000274253077805,
+    "ratio_start_90": 0.8269080620148881,
+    "rollouts": {
+      "30": {
+        "successes": 21,
+        "pickups": 24,
+        "rollouts": 30,
+        "lateral_median_mm": 5.625896442218365
+      }
+    },
+    "learning_rate": 0.0001,
+    "backbone_learning_rate": 1e-05,
+    "kl_weight": 10.0,
+    "max_steps": 40000,
+    "seed": 202
+  },
+  "ranking": [
+    {
+      "name": "current",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/full_current_s202",
+      "heldout_start_90": 0.00033930462086573243,
+      "median": 0.0002000274253077805,
+      "ratio_start_90": 0.8269080620148881,
+      "rollouts": {
+        "30": {
+          "successes": 21,
+          "pickups": 24,
+          "rollouts": 30,
+          "lateral_median_mm": 5.625896442218365
+        }
+      },
+      "learning_rate": 0.0001,
+      "backbone_learning_rate": 1e-05,
+      "kl_weight": 10.0,
+      "max_steps": 40000,
+      "seed": 202
+    },
+    {
+      "name": "winner",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/full_winner_s202",
+      "heldout_start_90": 0.17266464233398438,
+      "median": 0.15595196932554245,
+      "ratio_start_90": 1.1011826806268135,
+      "rollouts": {
+        "30": {
+          "successes": 0,
+          "pickups": 0,
+          "rollouts": 30,
+          "lateral_median_mm": 136.08021518209227
+        }
+      },
+      "learning_rate": 0.0003,
+      "backbone_learning_rate": 0.0001,
+      "kl_weight": 10.0,
+      "max_steps": 40000,
+      "seed": 202
+    }
+  ],
+  "missing": []
+}

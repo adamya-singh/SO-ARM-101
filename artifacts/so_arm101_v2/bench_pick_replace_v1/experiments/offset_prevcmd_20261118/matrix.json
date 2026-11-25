@@ -1,0 +1,403 @@
+{
+  "cells": [
+    "servo",
+    "servo_real_like_v1",
+    "servo_bench_physics_v2",
+    "servo_real_like_offset_v1"
+  ],
+  "policies": {
+    "base_s101_exec30": {
+      "servo": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 8.192699274616395,
+        "not_descended": 3,
+        "safety_frames": 357
+      },
+      "servo_bench_physics_v2": {
+        "successes": 16,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 16
+        },
+        "lateral_rms_250_mm": 45.89653321752356,
+        "not_descended": 7,
+        "safety_frames": 1173
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 19,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 11,
+          "success": 19
+        },
+        "lateral_rms_250_mm": 35.02454291580755,
+        "not_descended": 5,
+        "safety_frames": 1108
+      },
+      "servo_real_like_v1": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 39.98316867522154,
+        "not_descended": 7,
+        "safety_frames": 1454
+      }
+    },
+    "base_s202_exec30": {
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 5.802927716355874,
+        "not_descended": 3,
+        "safety_frames": 288
+      },
+      "servo_bench_physics_v2": {
+        "successes": 14,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 14
+        },
+        "lateral_rms_250_mm": 54.80352021802881,
+        "not_descended": 10,
+        "safety_frames": 1729
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 15
+        },
+        "lateral_rms_250_mm": 45.04658500338992,
+        "not_descended": 9,
+        "safety_frames": 1241
+      },
+      "servo_real_like_v1": {
+        "successes": 17,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 13,
+          "success": 17
+        },
+        "lateral_rms_250_mm": 40.81962318018986,
+        "not_descended": 9,
+        "safety_frames": 1409
+      }
+    },
+    "off_s101_exec30": {
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 9,
+          "success": 21
+        },
+        "lateral_rms_250_mm": 4.336880122520474,
+        "not_descended": 3,
+        "safety_frames": 237
+      },
+      "servo_bench_physics_v2": {
+        "successes": 10,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 19,
+          "success": 10,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 50.490636637897694,
+        "not_descended": 12,
+        "safety_frames": 1664
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 16,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 16
+        },
+        "lateral_rms_250_mm": 24.371382310295207,
+        "not_descended": 9,
+        "safety_frames": 1013
+      },
+      "servo_real_like_v1": {
+        "successes": 19,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 11,
+          "success": 19
+        },
+        "lateral_rms_250_mm": 18.969642211771948,
+        "not_descended": 4,
+        "safety_frames": 573
+      }
+    },
+    "off_s202_exec30": {
+      "servo": {
+        "successes": 16,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 16
+        },
+        "lateral_rms_250_mm": 26.51901737933764,
+        "not_descended": 2,
+        "safety_frames": 493
+      },
+      "servo_bench_physics_v2": {
+        "successes": 13,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 13,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 60.667125056753626,
+        "not_descended": 7,
+        "safety_frames": 2058
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 14,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 14
+        },
+        "lateral_rms_250_mm": 52.726327714196586,
+        "not_descended": 8,
+        "safety_frames": 1398
+      },
+      "servo_real_like_v1": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 15
+        },
+        "lateral_rms_250_mm": 48.05963927237461,
+        "not_descended": 8,
+        "safety_frames": 1515
+      }
+    },
+    "offprev_s101_exec30": {
+      "servo": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 30.42178824607462,
+        "not_descended": 3,
+        "safety_frames": 1195
+      },
+      "servo_bench_physics_v2": {
+        "successes": 17,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 13,
+          "success": 17
+        },
+        "lateral_rms_250_mm": 44.89259087470786,
+        "not_descended": 7,
+        "safety_frames": 2152
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 16,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 16
+        },
+        "lateral_rms_250_mm": 37.251682939855485,
+        "not_descended": 4,
+        "safety_frames": 1347
+      },
+      "servo_real_like_v1": {
+        "successes": 13,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 13,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 37.16639988656127,
+        "not_descended": 4,
+        "safety_frames": 1350
+      }
+    },
+    "offprev_s202_exec30": {
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 21,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 29.489992739235127,
+        "not_descended": 3,
+        "safety_frames": 1159
+      },
+      "servo_bench_physics_v2": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 15
+        },
+        "lateral_rms_250_mm": 36.67751103904381,
+        "not_descended": 8,
+        "safety_frames": 1397
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 18,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 12,
+          "success": 18
+        },
+        "lateral_rms_250_mm": 32.190845717862516,
+        "not_descended": 5,
+        "safety_frames": 1645
+      },
+      "servo_real_like_v1": {
+        "successes": 15,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "success": 15,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 29.513652631075463,
+        "not_descended": 4,
+        "safety_frames": 1439
+      }
+    },
+    "prev_s101_exec30": {
+      "servo": {
+        "successes": 21,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 21,
+          "pickup_incomplete": 3
+        },
+        "lateral_rms_250_mm": 8.701146896176782,
+        "not_descended": 3,
+        "safety_frames": 36
+      },
+      "servo_bench_physics_v2": {
+        "successes": 13,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 16,
+          "success": 13,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 43.761330139239696,
+        "not_descended": 9,
+        "safety_frames": 2006
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 19,
+        "rollouts": 30,
+        "categories": {
+          "success": 19,
+          "safety_invalidation": 11
+        },
+        "lateral_rms_250_mm": 37.73107887926098,
+        "not_descended": 5,
+        "safety_frames": 1069
+      },
+      "servo_real_like_v1": {
+        "successes": 17,
+        "rollouts": 30,
+        "categories": {
+          "not_settled": 1,
+          "pickup_incomplete": 2,
+          "success": 17,
+          "safety_invalidation": 10
+        },
+        "lateral_rms_250_mm": 26.429004676929107,
+        "not_descended": 6,
+        "safety_frames": 545
+      }
+    },
+    "prev_s202_exec30": {
+      "servo": {
+        "successes": 24,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 6,
+          "success": 24
+        },
+        "lateral_rms_250_mm": 36.2057519166593,
+        "not_descended": 3,
+        "safety_frames": 1141
+      },
+      "servo_bench_physics_v2": {
+        "successes": 14,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 15,
+          "success": 14,
+          "pickup_incomplete": 1
+        },
+        "lateral_rms_250_mm": 54.98941879418483,
+        "not_descended": 9,
+        "safety_frames": 2646
+      },
+      "servo_real_like_offset_v1": {
+        "successes": 14,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 14,
+          "pickup_incomplete": 2,
+          "success": 14
+        },
+        "lateral_rms_250_mm": 37.91003295307881,
+        "not_descended": 6,
+        "safety_frames": 1581
+      },
+      "servo_real_like_v1": {
+        "successes": 13,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 17,
+          "success": 13
+        },
+        "lateral_rms_250_mm": 41.1807433720621,
+        "not_descended": 8,
+        "safety_frames": 1802
+      }
+    },
+    "ref_lift_act_ft_exec30": {
+      "servo_real_like_offset_v1": {
+        "successes": 7,
+        "rollouts": 30,
+        "categories": {
+          "safety_invalidation": 23,
+          "success": 7
+        },
+        "lateral_rms_250_mm": 49.924449867626855,
+        "not_descended": 12,
+        "safety_frames": 2331
+      }
+    }
+  },
+  "pooled": {}
+}

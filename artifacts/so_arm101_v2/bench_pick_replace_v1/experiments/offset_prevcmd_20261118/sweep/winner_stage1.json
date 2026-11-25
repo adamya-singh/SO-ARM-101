@@ -1,0 +1,186 @@
+{
+  "criterion": "lowest final.heldout_start_90",
+  "winner": {
+    "name": "lr3e-4_bb1e-4_kl10",
+    "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr3e-4_bb1e-4_kl10",
+    "heldout_start_90": 0.00038238437264226377,
+    "median": 0.00022261955018620938,
+    "ratio_start_90": 0.5304642232723874,
+    "rollouts": {
+      "30": {
+        "successes": 24,
+        "pickups": 27,
+        "rollouts": 30,
+        "lateral_median_mm": 4.58834333952243
+      }
+    },
+    "learning_rate": 0.0003,
+    "backbone_learning_rate": 0.0001,
+    "kl_weight": 10.0,
+    "max_steps": 15000,
+    "seed": 202
+  },
+  "ranking": [
+    {
+      "name": "lr3e-4_bb1e-4_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr3e-4_bb1e-4_kl10",
+      "heldout_start_90": 0.00038238437264226377,
+      "median": 0.00022261955018620938,
+      "ratio_start_90": 0.5304642232723874,
+      "rollouts": {
+        "30": {
+          "successes": 24,
+          "pickups": 27,
+          "rollouts": 30,
+          "lateral_median_mm": 4.58834333952243
+        }
+      },
+      "learning_rate": 0.0003,
+      "backbone_learning_rate": 0.0001,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr3e-4_bb3e-5_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr3e-4_bb3e-5_kl10",
+      "heldout_start_90": 0.0003861746226903051,
+      "median": 0.00027401391707826406,
+      "ratio_start_90": 0.7113328661470577,
+      "rollouts": {
+        "30": {
+          "successes": 24,
+          "pickups": 24,
+          "rollouts": 30,
+          "lateral_median_mm": 6.106327313683961
+        }
+      },
+      "learning_rate": 0.0003,
+      "backbone_learning_rate": 3e-05,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr1e-4_bb1e-4_kl1",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr1e-4_bb1e-4_kl1",
+      "heldout_start_90": 0.00038896541809663177,
+      "median": 0.0002417557843727991,
+      "ratio_start_90": 0.9509537073621986,
+      "rollouts": {
+        "30": {
+          "successes": 27,
+          "pickups": 27,
+          "rollouts": 30,
+          "lateral_median_mm": 4.25149179753559
+        }
+      },
+      "learning_rate": 0.0001,
+      "backbone_learning_rate": 0.0001,
+      "kl_weight": 1.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr1e-4_bb1e-4_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr1e-4_bb1e-4_kl10",
+      "heldout_start_90": 0.0003987085074186325,
+      "median": 0.00022970300051383674,
+      "ratio_start_90": 0.6721957439784607,
+      "rollouts": {
+        "30": {
+          "successes": 27,
+          "pickups": 27,
+          "rollouts": 30,
+          "lateral_median_mm": 4.1412199728449375
+        }
+      },
+      "learning_rate": 0.0001,
+      "backbone_learning_rate": 0.0001,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr1e-4_bb1e-5_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr1e-4_bb1e-5_kl10",
+      "heldout_start_90": 0.0005078265676274896,
+      "median": 0.0003452232194831595,
+      "ratio_start_90": 0.7588015130465957,
+      "rollouts": {
+        "30": {
+          "successes": 21,
+          "pickups": 21,
+          "rollouts": 30,
+          "lateral_median_mm": 7.183292458086548
+        }
+      },
+      "learning_rate": 0.0001,
+      "backbone_learning_rate": 1e-05,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr1e-4_bb1e-5_kl1",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr1e-4_bb1e-5_kl1",
+      "heldout_start_90": 0.0005580607103183866,
+      "median": 0.00033752588205970824,
+      "ratio_start_90": 0.8455666403608819,
+      "rollouts": {
+        "30": {
+          "successes": 21,
+          "pickups": 21,
+          "rollouts": 30,
+          "lateral_median_mm": 6.318178735261936
+        }
+      },
+      "learning_rate": 0.0001,
+      "backbone_learning_rate": 1e-05,
+      "kl_weight": 1.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr3e-4_bb1e-5_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr3e-4_bb1e-5_kl10",
+      "heldout_start_90": 0.0005855045164935291,
+      "median": 0.0003355368971824646,
+      "ratio_start_90": 1.021134951161324,
+      "rollouts": {
+        "30": {
+          "successes": 18,
+          "pickups": 18,
+          "rollouts": 30,
+          "lateral_median_mm": 6.636515654883247
+        }
+      },
+      "learning_rate": 0.0003,
+      "backbone_learning_rate": 1e-05,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    },
+    {
+      "name": "lr3e-5_bb1e-5_kl10",
+      "dir": "/home/win10ubuntu/projects/SO-ARM-101/artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/offset_prevcmd_20261118/sweep/s1_lr3e-5_bb1e-5_kl10",
+      "heldout_start_90": 0.0008696292643435299,
+      "median": 0.000634678901406005,
+      "ratio_start_90": 0.7688135539841829,
+      "rollouts": {
+        "30": {
+          "successes": 22,
+          "pickups": 22,
+          "rollouts": 30,
+          "lateral_median_mm": 5.197727986823926
+        }
+      },
+      "learning_rate": 3e-05,
+      "backbone_learning_rate": 1e-05,
+      "kl_weight": 10.0,
+      "max_steps": 15000,
+      "seed": 202
+    }
+  ],
+  "missing": []
+}
