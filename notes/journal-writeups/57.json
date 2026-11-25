@@ -1,0 +1,140 @@
+{
+  "question": "The policy that drives the real arm is a transformer with 48 attention heads. What does each head read, and which heads does the plan depend on?",
+  "measure": "Three things on 720 held-out frames. Where each head puts its attention. Effect: how far the 90-step plan moves when one head is removed, as a share of the plan's variance. Error ratio: the plan's error against the teacher divided by the intact model's, when heads are removed or when attention is stopped from reading a group of tokens. A ratio of 1.00 means no change.",
+  "outcome": "No head has a job of its own: removing the strongest one moves the plan by 0.0200 of its variance. As a whole the attention mixes the joint state into the image tokens (hiding the state from the encoder gives 11.56 times the error). It does not need to read the patches that show the cube (1.00). The style token is unused (0.99) and the decoder's 8 self-attention heads cannot do anything.",
+  "setup": "A policy is the network that drives the arm. Ours is ACT. It reads one wrist-camera frame and the joint state, and outputs a plan: the next 90 joint commands. The teacher is the scripted controller in the simulator whose plans it was trained to copy. Held-out placements are cube positions it never trained on. Inside ACT, a ResNet-18 turns the frame into an 8 by 8 grid, and each cell becomes a token: a vector of 512 numbers that describes one 32-pixel patch. Two more tokens join the 64 patches. The state token holds the 6 joint angles and a progress value. The style token holds a hint that only exists in training and is zero when the arm runs. Attention is how tokens exchange information: each token scores every other token, turns the scores into weights that sum to 1, and takes the weighted average. One such averaging unit is a head. The encoder has 4 layers of 8 heads, numbered layer 0 to 3 here. The decoder has one layer with 8 self-attention heads (its 90 plan steps read each other) and 8 cross-attention heads (the plan steps read the encoder's tokens). That is 48 heads. The cube sits on a white napkin, so the napkin patches are where the cube is. We ask what a head does in two ways. Reading: record its weights. Removing (mean ablation): replace the head's output by its average over all the frames, so it can no longer pass on anything about the current frame. We also hide tokens: stop attention from reading them and let the weights renormalise. Open loop means the frames come from episodes the teacher drove, and we score the plan, not a run of the arm.",
+  "parts": [
+    {
+      "title": "Does the plan depend on any single head?",
+      "why": "If a few heads carried the plan we could name what each one does. If none does, a story about one head's job is not supported.",
+      "did": "Removed each of the 48 heads in turn, then all 8 heads of each layer at once, and scored the plan on the 720 frames.",
+      "predictions": [],
+      "table": {
+        "head": ["What is removed", "Effect on the plan", "Error ratio"],
+        "rows": [
+          {"cells": ["nothing (intact model)", "0", "1.00"], "mark": "baseline"},
+          {"cells": ["strongest single head (encoder layer 1, head 5)", "0.0200", "1.05"], "mark": "ours"},
+          {"cells": ["any other single head", "0.0142 or less", "0.93 to 1.03"], "mark": "ours"},
+          {"cells": ["all 8 heads of encoder layer 0", "0.0197", "0.94"], "mark": "ours"},
+          {"cells": ["all 8 heads of encoder layer 1", "0.1045", "1.96"], "mark": "ours"},
+          {"cells": ["all 8 heads of encoder layer 2", "0.0984", "2.86"], "mark": "ours"},
+          {"cells": ["all 8 heads of encoder layer 3", "0.0888", "1.46"], "mark": "ours"},
+          {"cells": ["all 8 decoder self-attention heads", "0.0000", "1.00"], "mark": "ours"},
+          {"cells": ["all 8 decoder cross-attention heads", "1.0173", "13.38"], "mark": "ours"}
+        ]
+      },
+      "conclusion": "No single head matters much, but layers do. The heads of a layer cover for each other: in encoder layer 2 the eight single-head effects add up to 0.018, and removing the layer gives 0.098. Encoder layer 0 can be removed whole without raising the error. The decoder's cross-attention is the one part the plan cannot do without."
+    },
+    {
+      "title": "Which tokens does the attention need to read?",
+      "why": "Removing heads says where the work is done. Hiding tokens says what information the work uses.",
+      "did": "Stopped attention from reading one group of tokens at a time: the state token, the style token, the napkin patches (7.5 patches a frame on average), and as a control the same number of other patches chosen at random.",
+      "predictions": [],
+      "table": {
+        "head": ["What attention cannot read", "Error ratio"],
+        "rows": [
+          {"cells": ["nothing (intact model)", "1.00"], "mark": "baseline"},
+          {"cells": ["control: random patches, in every layer", "1.01"], "mark": "baseline"},
+          {"cells": ["the napkin patches, in every layer", "1.00"], "mark": "ours"},
+          {"cells": ["the style token, in every layer", "0.99"], "mark": "ours"},
+          {"cells": ["the state token, in every layer", "11.70"], "mark": "ours"},
+          {"cells": ["the state token, in the encoder", "11.56"], "mark": "ours"},
+          {"cells": ["the state token, in encoder layer 0 only", "1.00"], "mark": "ours"},
+          {"cells": ["the state token, in encoder layer 1 only", "3.06"], "mark": "ours"},
+          {"cells": ["the state token, in encoder layer 2 only", "5.17"], "mark": "ours"},
+          {"cells": ["the state token, in encoder layer 3 only", "1.09"], "mark": "ours"},
+          {"cells": ["the state token, in the decoder", "0.98"], "mark": "ours"},
+          {"cells": ["style and state, in the decoder", "1.28"], "mark": "ours"},
+          {"cells": ["any image token, in the decoder", "12.78"], "mark": "ours"}
+        ]
+      },
+      "conclusion": "The encoder's job is to get the joint state into the image tokens, and it does this in layers 1 and 2. Attention does not need to read the patches where the cube is: hiding them costs the same as hiding random patches. The style token carries nothing of its own. The decoder treats it as a second copy of the state: hiding either one does nothing, hiding both costs 1.28, and 1.85 on the first 30 plan steps."
+    },
+    {
+      "title": "What does each head read?",
+      "why": "This is the picture people ask for. It has to be read next to the two tables above, because where a head looks is not proof the plan needs it.",
+      "did": "For each head: the share of its attention on the state token, how many tokens it spreads over, and how much it favours the napkin over the rest of the image (1 means no preference). Heads are grouped where they behave alike. The last column is the effect of removing one head of the group.",
+      "predictions": [],
+      "table": {
+        "head": ["Heads", "What they read", "Effect of removing one"],
+        "rows": [
+          {"cells": ["Encoder layer 0: heads 0, 1, 2, 4, 5", "Fixed background regions. They avoid the napkin (0.0 to 0.3)", "0.0001 to 0.0009"], "mark": "ours"},
+          {"cells": ["Encoder layer 0: heads 3, 7", "A spot at the jaws and the cube", "0.0029, 0.0024"], "mark": "ours"},
+          {"cells": ["Encoder layer 0: head 6", "2.9 tokens: 0.73 on the state, the rest on the cube", "0.0023"], "mark": "ours"},
+          {"cells": ["Encoder layer 1: head 5", "0.63 on the state, the rest favours the napkin (2.5)", "0.0200"], "mark": "ours"},
+          {"cells": ["Encoder layer 1: head 7", "0.68 on the state", "0.0044"], "mark": "ours"},
+          {"cells": ["Encoder layer 1: heads 0, 3, 4, 6", "State (0.27 to 0.49) and image", "0.0007 to 0.0031"], "mark": "ours"},
+          {"cells": ["Encoder layer 1: heads 1, 2", "Image only", "0.0022, 0.0032"], "mark": "ours"},
+          {"cells": ["Encoder layer 2: head 3", "0.94 on the state, the same pattern every frame", "0.0008"], "mark": "ours"},
+          {"cells": ["Encoder layer 2: heads 0, 5, 6", "About half state (0.46 to 0.58), rest favours the napkin (1.4 to 2.3)", "0.0016 to 0.0037"], "mark": "ours"},
+          {"cells": ["Encoder layer 2: heads 1, 4", "Patterns that change most with the frame; napkin 2.1 and 2.2", "0.0034, 0.0018"], "mark": "ours"},
+          {"cells": ["Encoder layer 2: heads 2, 7", "Broad image mixing (17.7 and 25.4 tokens)", "0.0023, 0.0010"], "mark": "ours"},
+          {"cells": ["Encoder layer 3: heads 0 to 5", "Image only, spread over 31 to 37 tokens", "0.0005 to 0.0018"], "mark": "ours"},
+          {"cells": ["Encoder layer 3: heads 6, 7", "Still read the state (0.27, 0.43)", "0.0014, 0.0059"], "mark": "ours"},
+          {"cells": ["Decoder self-attention: heads 0 to 7", "Nothing", "0"], "mark": "ours"},
+          {"cells": ["Decoder cross-attention: heads 0, 1, 2, 4, 5, 6", "Plan steps 0 to 29 read state and style; later steps read the image", "0.0053 to 0.0131"], "mark": "ours"},
+          {"cells": ["Decoder cross-attention: head 3", "The image at every step (0.97)", "0.0142"], "mark": "ours"},
+          {"cells": ["Decoder cross-attention: head 7", "The reverse: steps 60 to 89 read state and style", "0.0038"], "mark": "ours"}
+        ]
+      },
+      "conclusion": "There is a rough order. Layer 0 mostly reads fixed background regions. Layers 1 and 2 have the sharp heads that read the joint state and look toward the napkin. Layer 3 spreads what was found over all the patches. Every decoder cross-attention head is broad: it spreads over 36 to 41 of the 66 tokens with no preference for the napkin (0.8 to 1.2), so a plan step takes a wide average of the scene and does not look up one place. This table has no baseline row: it describes the heads, it does not compare them with anything."
+    },
+    {
+      "title": "Why do the decoder's self-attention heads do nothing?",
+      "why": "Eight of the 48 heads had an effect of exactly zero, which needs an explanation and not just a number.",
+      "did": "Compared the output of these heads across the 90 plan steps and across frames.",
+      "predictions": [],
+      "table": null,
+      "conclusion": "Their output is the same for all 90 plan steps to 7e-9. The reason is in the design: the decoder's input is all zeros and there is only one decoder layer, so these heads average 90 copies of the same vector. Whatever weights they learned, the result is one constant. They are inert by construction, not by training."
+    }
+  ],
+  "trust": [
+    {"text": "The written-out attention used for the measurements gives the same plan as the real model to 1.3e-6, and the intact model scores 2.88e-4 on chunk start 90, the value the training run logged.", "ok": true},
+    {"text": "The napkin test has a control: the same number of other patches, hidden the same way (1.01 against 1.00).", "ok": true},
+    {"text": "Every head and layer is scored on the same 720 frames against the same teacher plans.", "ok": true},
+    {"text": "Open loop on frames the teacher drove. This is error against the teacher's plan, not task success. No rollout was run with a head removed.", "ok": false},
+    {"text": "One checkpoint, one seed, simulation only. 720 frames from 9 held-out placements.", "ok": false},
+    {"text": "Heads were removed one at a time or a whole layer at a time. Heads that cover for each other hide each other's importance, so a small single-head effect does not mean the head is useless.", "ok": false},
+    {"text": "The error over all frames is dominated by the gripper joint, so the error ratio weights the gripper most. The effect column weights the six joints equally.", "ok": false},
+    {"text": "The napkin is found by a brightness threshold and scored on 32-pixel patches, which is coarse.", "ok": false},
+    {"text": "Why the napkin patches are not needed is not tested. The likely reason is that the last ResNet-18 stage sees the whole frame from every cell, so the cube's position is already in all 64 tokens.", "ok": false}
+  ],
+  "meaning": "This is a description of the deployed policy, not a decision. It corrects the picture we had of it. The transformer is not where the cube is found: by the time the tokens reach it, the cube's position is already spread through them. What the transformer adds is the joint state, mixed in at encoder layers 1 and 2, and the read-out of 90 steps. It also shows slack in the architecture: the style token and its 17.3M-parameter training-only encoder buy nothing with a scripted teacher, the decoder's self-attention cannot act, and encoder layer 0 can go. None of this explains the real-arm misses, which experiment 48 traced to geometry.",
+  "lesson": "Where a head looks is not what the model needs. Heads look at the cube, and hiding the cube's patches changes nothing. Trust the removal and hiding numbers over the pictures.",
+  "next": [
+    {"title": "Repeat the removals in closed loop", "why": "Open-loop error is not task success. Rerun the 30 held-out rollouts with encoder layer 0 removed and with the style token hidden to see whether success holds."},
+    {"title": "Train without the style token and with a smaller encoder", "why": "If the style token, the decoder self-attention and encoder layer 0 do nothing, a model without them should score the same and train faster."},
+    {"title": "Test where the cube's position is read from", "why": "Hide the napkin pixels in the image itself, or probe each token for the cube's position, to check that the ResNet has already spread it."}
+  ],
+  "log": "",
+  "run": {
+    "state": "Finished",
+    "line": "Nov 25 · one analysis run on the RTX 3090, no training and no rollouts",
+    "watch": [],
+    "command": "PYTHONNOUSERSITE=1 PYTHONPATH=src:$HOME/projects/lerobot-fork/src ~/miniforge3/envs/lerobot/bin/python tools/attention_heads.py --output-dir artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/attention_heads_20261125",
+    "stages": [
+      {"name": "Record attention", "note": "720 held-out frames through the high-lift ACT with every attention module written out. Matches the real model to 1.3e-6.", "state": "done"},
+      {"name": "Remove heads", "note": "48 single heads and 6 whole modules, mean ablation.", "state": "done"},
+      {"name": "Hide tokens", "note": "17 tests: state, style, napkin and control patches, per layer and everywhere.", "state": "done"},
+      {"name": "Figures", "note": "Overlays of 8 heads on 6 frames per module, the decoder's reading by plan step, and the presentation strips.", "state": "done"}
+    ],
+    "housekeeping": [
+      {"text": "Committed: 7ac0d2f (tool, test, note, results and figures)", "ok": true},
+      {"text": "Written up in notes/attention-heads-20261125.md", "ok": true},
+      {"text": "No W&B run: analysis only, nothing was trained", "ok": false},
+      {"text": "No research-log entry", "ok": false},
+      {"text": "No predictions were written down before the run", "ok": false}
+    ],
+    "files": [
+      {"path": "notes/attention-heads-20261125.md", "note": "the note: method, the three tables, reading, limits"},
+      {"path": "tools/attention_heads.py", "note": "the analysis tool"},
+      {"path": "tests/test_attention_heads.py", "note": "checks the written-out attention against the real module"},
+      {"path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/attention_heads_20261125/heads.json", "note": "per head: what it reads and the effect of removing it; per module too"},
+      {"path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/attention_heads_20261125/block.json", "note": "the token-hiding tests"},
+      {"path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/attention_heads_20261125/overlay_enc2.png", "note": "example overlay: encoder layer 2, 8 heads on 6 frames"},
+      {"path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/attention_heads_20261125/dec_cross_bystep.png", "note": "what each decoder head reads at each plan step"},
+      {"path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/high_lift_20261112/act_ft/model/act.pt", "note": "the checkpoint analysed (experiment 48)"},
+      {"path": "commit 7ac0d2f", "note": "tool, test, note and results"}
+    ]
+  }
+}
