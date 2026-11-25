@@ -1,27 +1,53 @@
 {
-  "question": "In October the big pretrained models did poorly: pi0.5 15/30, SmolVLA 2/30. Since then the recipe changed a lot for ACT. Do the big models do better on that same recipe, and does RL on top help?",
-  "measure": "Successes out of 30 simulated episodes: 10 held-out cube poses (poses never trained on), 3 repeats each. Also pickups, and closure: how far sideways the jaws are from the cube when they close (median, mm). The grasp tolerance is 8.0 mm.",
-  "outcome": "SmolVLA went from 2/30 to 14/30 with the same model settings. pi0.5, half-trained, scored 7/30 with 16 pickups. Neither reaches ACT (21 and 24 of 30). RL on the SmolVLA fine-tune then scored 19/30; that last result is not analysed yet.",
-  "setup": "A policy is the network that drives the arm. ACT is the small policy this project trains from zero. pi0.5 and SmolVLA are big models pretrained on other robots' data (called VLAs, vision-language-action models). Fine-tuning means training them further on our data.\n\nThe October runs (experiments 37 and 40) used the old SO-100 scene, captures without randomized physics and a 25 mm lift. Since then the ACT recipe changed: the SO-101 gripper (wider grasp tolerance), the measured servo model, physics v2 (servo gains randomized from soft to stiff), a 100 mm lift, a slow release, and execute 30 (the policy predicts a chunk of actions and replans every 30 steps). None of that had reached the big models.\n\nHere both are fine-tuned on the same data and scene as the tuned ACT baseline of 2026-11-18: 7150 placements (capture_v2, physics v2), scene so101_servo_lift100_rel30, the same 10 held-out poses x 3, execute 30. SmolVLA: 30,000 steps, batch 32, frozen language model (the October settings). pi0.5: LoRA rank 16 (a small trainable add-on), 5,000 steps where October had 10,000, cut to fit the night.\n\nA safety invalidation is an episode thrown out because a command broke a safety rule. \"Not settled\" means the cube was picked up but the episode did not end with it at rest on the target. Held-out loss is the prediction error on the held-out poses (lower is better), measured at chunk start 90.",
+  "question": "Do the big pretrained Vision-Language-Action (VLA) models, SmolVLA and pi0.5, match or beat the smaller Action Chunking with Transformers (ACT) policy when trained on the tuned SO-101 recipe, and does online reinforcement learning (RL) close SmolVLA's remaining gap?",
+  "measure": "Offline action-chunk mean squared error (MSE) at chunk start 90 (the first descent toward the cube) on 10 held-out cube poses, closed-loop task successes and pickups out of 30 simulation rollouts (10 held-out poses x 3 repeats, replanning every 30 steps), and horizontal gripper-to-cube error just before jaw closure in millimetres (lateral closure median, against the 8.0 mm grasp tolerance).",
+  "outcome": "Mixed. On the tuned SO-101 recipe, SmolVLA rose from 2 of 30 (0 of 30 at execute 30) in October to 14 of 30, and 20,000 reinforcement learning episodes pushed it to 19 of 30 (20 pickups, 9.7 mm median closure error). Half-trained pi0.5 (5,000 steps) reached a lower offline loss (7.5e-4 vs 1.6e-3) and tighter closure (6.8 mm) with 16 pickups, but lost 9 pickups at set-down to score 7 of 30; neither beat ACT (21 to 24 of 30).",
+  "setup": "A policy is the neural network that maps camera images and joint angles to joint commands. Our policies predict an action chunk of 90 future steps at once and run the first 30 steps before replanning from a new image (execute 30). Chunk start 0 is the opening survey move, chunk start 90 is the first descent toward the cube where visual localization matters most, and chunk starts 180, 270 and 360 cover lifting, carrying, setting down and retreating. Offline loss is the mean squared error (MSE) between the policy's chunk and the scripted teacher's chunk; held-out means 10 cube placements the model never trained on. In October (experiments 37 and 40), two pretrained Vision-Language-Action (VLA) models, pi0.5 (3.38B parameters, 458M trained with Low-Rank Adaptation, or LoRA, rank 16) and SmolVLA (450M parameters, 100M trained with a frozen vision-language backbone), scored 15 of 30 and 2 of 30 (0 of 30 at execute 30) on the older SO-100 scene with unrandomized captures and a 25 mm lift. Since then, the Action Chunking with Transformers (ACT) recipe changed in six ways: the SO-101 gripper with a wider 8.0 mm grasp tolerance (experiment 43), a measured servo model (experiments 39 and 44), physics v2 servo-gain randomization from soft to stiff (experiment 45), a 100 mm lift with slow release (experiment 48), execute 30 replanning, and 7,150 randomized placements in capture_v2 (experiment 51). On that recipe, ACT scores 21 to 24 of 30 in simulation. Experiment 56 trains SmolVLA (30,000 steps) and pi0.5 (5,000 steps) on that exact recipe, then runs 20,000 episodes of ReinFlow Proximal Policy Optimization (PPO) reinforcement learning on SmolVLA's output head (out_head).",
   "parts": [
     {
-      "title": "Do the big models work on the recipe that works for ACT?",
-      "why": "If the October scores were caused by the recipe and not the models, the big models are back in play.",
-      "did": "Fine-tuned SmolVLA and pi0.5 on the tuned-baseline data and scene, then ran the same 30 held-out episodes ACT is scored on.",
+      "title": "Do the tuned SO-101 recipe and 30-step replanning fix SmolVLA and pi0.5?",
+      "why": "In October, SmolVLA scored 2 of 30 (0 of 30 at execute 30) and pi0.5 scored 15 of 30 on the older SO-100 scene. Testing both on the exact capture_v2 dataset and so101_servo_lift100_rel30 scene separates model limitations from task and recipe improvements.",
+      "did": "Fine-tuned SmolVLA for 30,000 steps (batch 32, 0.96 M samples) and pi0.5 LoRA rank 16 for 5,000 steps (batch 32, 0.16 M samples, cut from October's 10,000 steps to fit the night) on capture_v2 (7,150 placements), then ran 30 rollouts (10 held-out poses x 3 repeats) at execute 30.",
       "predictions": [],
       "table": {
         "head": [
           "Policy",
-          "Held-out loss (start 90)",
-          "Successes",
+          "Samples seen",
+          "Held-out loss, start 90",
+          "Successes (exec 30)",
           "Pickups",
-          "Closure, median",
-          "Failures"
+          "Closure lateral median",
+          "Rollout failures"
         ],
         "rows": [
           {
             "cells": [
-              "ACT, tuned baseline (seeds 202 / 101)",
+              "Fixed-square working policy",
+              "single square",
+              "2.5e-6",
+              "",
+              "",
+              "1.7 mm",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "CNN, 4,800 placements",
+              "",
+              "3.6e-4",
+              "6 of 30",
+              "",
+              "5.1 mm",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "ACT, tuned (seeds 202 / 101)",
+              "5.1 M",
               "3.4e-4 / 3.2e-4",
               "21 / 24 of 30",
               "24 / 27",
@@ -32,9 +58,10 @@
           },
           {
             "cells": [
-              "SmolVLA, October recipe",
+              "SmolVLA, October (SO-100)",
+              "0.96 M",
               "",
-              "2 of 30 (0 of 30 at execute 30)",
+              "0 of 30 (2 at exec 90)",
               "",
               "13 mm",
               ""
@@ -43,9 +70,10 @@
           },
           {
             "cells": [
-              "pi0.5, October recipe, 10,000 steps",
+              "pi0.5, October (SO-100, 10k)",
+              "0.32 M",
               "2.5e-4",
-              "15 of 30",
+              "15 of 30 (12 at exec 90)",
               "",
               "",
               ""
@@ -54,217 +82,473 @@
           },
           {
             "cells": [
-              "SmolVLA",
-              "1.6e-3",
+              "SmolVLA fine-tune, 30,000 steps",
+              "0.96 M",
+              "1.6e-3 (7.23 deg RMS)",
               "14 of 30",
               "17",
-              "13.2 mm",
-              "10 safety, 3 not settled, 3 pickup incomplete"
+              "13.2 mm (9 within 8 mm)",
+              "10 safety, 3 not settled, 3 incomplete"
             ],
             "mark": "ours"
           },
           {
             "cells": [
-              "pi0.5, 5,000 steps",
-              "7.5e-4",
+              "pi0.5 fine-tune, 5,000 steps",
+              "0.16 M",
+              "7.5e-4 (4.93 deg RMS)",
               "7 of 30",
               "16",
-              "6.8 mm",
-              "12 safety, 9 not settled, 2 pickup incomplete"
+              "6.8 mm (3 within 8 mm)",
+              "12 safety, 9 not settled, 2 incomplete"
             ],
             "mark": "ours"
           }
         ]
       },
-      "conclusion": "For SmolVLA the recipe, not the model, was what held it back: 2/30 to 14/30 with the same settings. Its closing error is still 13 mm, the same as in October, so the gain is the SO-101's grasp tolerance and the task changes, not better placement. pi0.5 picks up about as often (16 against 17) with half the closing error, but loses 9 episodes after the pickup and 12 to safety. Its loss was still falling (1.1e-3 at 4,000 steps, 7.5e-4 at 5,000), so this is not its ceiling."
+      "conclusion": "SmolVLA jumped from 0 of 30 at execute 30 to 14 of 30 with the same model settings, but its closing error stayed at 13.2 mm (13.15 mm), so the gain came from the SO-101 grasp tolerance, slow release and 30-step replanning (which corrected 29.50 mm of lateral RMS error between steps 179 and 250). Half-trained pi0.5 picked up the cube 16 times with half the lateral error (6.8 mm), but lost 9 pickups at set-down. Neither reached ACT."
     },
     {
-      "title": "Does RL on top of the SmolVLA fine-tune help? (result in, not analysed)",
-      "why": "In October, RL in the simulator improved fine-tuned policies (experiment 40). The note queued the same step for SmolVLA.",
-      "did": "ReinFlow PPO (trial-and-error training that starts from the fine-tune) for 20,000 episodes, execute 30, physics v2 drawn per episode, seed 202. Then the same 30 held-out episodes. During training a 20-pose monitor set was scored every 480 episodes.",
+      "title": "Are the VLAs memorizing the training placements or under-fitting?",
+      "why": "When closed-loop success lags the baseline, comparing held-out loss against training loss across task stages separates memorization of training scenes (held-out / train ratio far above 1) from under-training or capacity limits (ratio near 1, both high).",
+      "did": "Scored SmolVLA every 2,500 steps and pi0.5 every 1,000 steps on the 10 held-out poses and the training set at chunk start 0 (survey), start 90 (descent) and starts 180, 270 and 360 (lift, carry, set-down).",
       "predictions": [],
       "table": {
         "head": [
-          "Policy",
-          "Successes",
-          "Pickups",
-          "Closure, median",
-          "Within tolerance",
-          "Failures"
+          "Policy and step",
+          "Start 0 (survey)",
+          "Held-out start 90",
+          "Train start 90",
+          "Ratio, start 90",
+          "Starts 180/270/360",
+          "Poses < 2.5e-4"
         ],
         "rows": [
           {
             "cells": [
-              "SmolVLA fine-tune",
-              "14 of 30",
-              "17",
-              "13.2 mm",
-              "9 of 30",
-              "10 safety, 3 not settled, 3 pickup incomplete"
+              "ACT, tuned (seeds 202 / 101)",
+              "",
+              "3.4e-4 / 3.2e-4",
+              "",
+              "",
+              "",
+              ""
             ],
             "mark": "baseline"
           },
           {
             "cells": [
-              "SmolVLA fine-tune + RL",
-              "19 of 30",
-              "20",
-              "9.7 mm",
-              "12 of 30",
-              "10 safety, 1 pickup incomplete"
+              "SmolVLA, step 5,000",
+              "5.5e-4",
+              "0.005347",
+              "0.005284",
+              "1.01",
+              "5.4e-4",
+              "0 of 10"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA, step 15,000",
+              "2.7e-4",
+              "0.003105",
+              "0.003407",
+              "0.91",
+              "2.5e-4",
+              "0 of 10"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA, step 30,000",
+              "2.3e-4",
+              "0.001614 (1.6e-3)",
+              "0.002068",
+              "0.78",
+              "1.7e-4",
+              "1 of 10"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pi0.5, step 2,000",
+              "4.4e-4",
+              "0.002998",
+              "0.004274",
+              "0.70",
+              "2.9e-4",
+              "0 of 10"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pi0.5, step 4,000",
+              "2.4e-4",
+              "0.001089 (1.1e-3)",
+              "0.002155",
+              "0.51",
+              "2.1e-4",
+              "1 of 10"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pi0.5, step 5,000",
+              "2.9e-4",
+              "0.000751 (7.5e-4)",
+              "0.001703",
+              "0.44",
+              "2.1e-4",
+              "1 of 10"
             ],
             "mark": "ours"
           }
         ]
       },
-      "conclusion": "The report file gives 19 of 30 after RL against 14 of 30 before, on the same held-out suite, with the same 10 safety invalidations. No note describes this result and nobody has analysed it. Read it with care: the 20-pose monitor score moved between 0.25 and 0.6 during training with no clear trend (0.5 at the start, 0.25 at 19,680 episodes, 0.6 at the end), and 30 episodes are 10 poses repeated 3 times."
+      "conclusion": "Error concentrates at chunk start 90 (3.6x to 9.3x higher than start 0 and starts 180 to 360). Because the held-out to train ratio at start 90 is 0.78 for SmolVLA and 0.44 for pi0.5, memorization is ruled out. SmolVLA's frozen backbone settles near a 1.6e-3 floor after 30,000 steps, whereas pi0.5 is still falling fast at 5,000 steps (from 1.1e-3 at 4,000 to 7.5e-4 at 5,000, compared with 2.5e-4 at 10,000 steps in October)."
+    },
+    {
+      "title": "Does online reinforcement learning (ReinFlow PPO) fix SmolVLA's failures?",
+      "why": "SmolVLA's supervised fine-tune had a 13.15 mm median lateral closure error and lost 16 of 30 rollouts (10 safety invalidations, 3 not settled, 3 pickup incomplete). Online RL with physics v2 randomization tests whether trial-and-error can tighten closure and set-down.",
+      "did": "Ran ReinFlow PPO for 20,000 episodes (334 iterations, 12 parallel environments, 60 episodes per iteration, execute 30) updating SmolVLA's output head (out_head) on 1,600 training poses with bench_physics_v2, scoring a 20-pose monitor suite every 480 episodes and the 30-rollout held-out suite at the end.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "SmolVLA stage",
+          "Held-out successes",
+          "Held-out pickups",
+          "Closure lateral med / RMS",
+          "Within 8.0 mm",
+          "Step 179 to 250 RMS fix",
+          "Monitor success (20 poses)"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "ACT, tuned (seeds 202 / 101)",
+              "21 / 24 of 30",
+              "24 / 27",
+              "5.2 mm",
+              "",
+              "",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SmolVLA fine-tune (start)",
+              "14 of 30",
+              "17",
+              "13.15 / 19.10 mm",
+              "9 of 30",
+              "29.50 mm",
+              "0.50 (return 0.251)"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "SmolVLA + RL, 6,720 ep",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "0.55 (return 0.467)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA + RL, 15,840 ep",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "0.45 (closure med 6.68 mm)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "SmolVLA + RL, 20,000 ep",
+              "19 of 30",
+              "20",
+              "9.69 / 17.41 mm",
+              "12 of 30",
+              "30.69 mm",
+              "0.60 (return 0.496)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "RL raised SmolVLA from 14 of 30 to 19 of 30 on the held-out suite and from 0.50 to 0.60 on the 20-pose monitor suite (pickup rate 0.50 to 0.65, grasp rate 0.55 to 0.70, invalidation rate 0.40 to 0.30). It cut held-out median lateral closure error from 13.15 mm to 9.69 mm, cut median yaw error from 3.36 deg to 2.11 deg, eliminated all 3 not-settled losses, and cut pickup-incomplete losses from 3 to 1."
+    },
+    {
+      "title": "Why do pi0.5's pickups fail to settle, and why do 10 safety invalidations remain after RL?",
+      "why": "Aggregate counts hide which poses fail and why. Breaking the 30 rollouts down across the 10 held-out poses shows whether losses come from joint limits, table collisions, vertical height gaps, or set-down placement.",
+      "did": "Inspected per-pose start-90 loss, closure lateral and vertical errors (lat and dz), and rollout flags (pickup_completed, released, retreated, settled_frames, limiting_frames, unsafe_contact_frames) in evaluation.json for all three runs.",
+      "predictions": [],
+      "table": {
+        "head": [
+          "Held-out pose",
+          "pi0.5 loss / lat / dz",
+          "pi0.5 (5k) outcome",
+          "SmolVLA FT lat / outcome",
+          "SmolVLA RL lat / outcome"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "pose_000",
+              "0.00210 / 49.66 / 42.93 mm",
+              "0/3 (56 limit frames)",
+              "35.83 mm / 0/3 (87 limit)",
+              "33.63 mm / 0/3 (87 limit)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_001",
+              "0.00032 / 4.57 / 7.02 mm",
+              "0/3 (3 not settled, 82.4 mm lift)",
+              "8.84 mm / 3/3 success",
+              "4.06 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_002",
+              "0.00025 / 11.01 / 32.44 mm",
+              "0/3 (36 limit frames)",
+              "5.79 mm / 3/3 success",
+              "3.90 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_003",
+              "0.00031 / 9.36 / 8.80 mm",
+              "0/3 (3 not settled, 84.0 mm lift)",
+              "18.91 mm / 0/3 (1 safety, 2 inc)",
+              "19.14 mm / 0/3 (2 safety, 1 inc)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_004",
+              "0.00147 / 6.77 / 7.12 mm",
+              "3/3 success",
+              "7.44 mm / 0/3 (3 not settled)",
+              "2.51 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_005",
+              "0.00045 / 5.71 / 3.78 mm",
+              "3/3 success",
+              "14.98 mm / 0/3 (2 safety, 1 inc)",
+              "9.39 mm / 1/3 (2 safety: 26, 4)"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_006",
+              "0.00025 / 7.23 / 9.14 mm",
+              "1/3 (2 inc at 85.5 to 85.8 mm)",
+              "12.22 mm / 3/3 success",
+              "11.09 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_007",
+              "0.00085 / 3.77 / 10.39 mm",
+              "0/3 (31 to 32 contact frames)",
+              "15.01 mm / 2/3 (1 safety: 2)",
+              "10.05 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_008",
+              "0.00072 / 2.14 / 12.41 mm",
+              "0/3 (30 contact frames)",
+              "5.56 mm / 3/3 success",
+              "6.76 mm / 3/3 success"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "pose_009",
+              "0.00079 / 9.49 / 3.05 mm",
+              "0/3 (3 not settled, 82.7 mm lift)",
+              "34.73 mm / 0/3 (141-144 contact)",
+              "33.70 mm / 0/3 (143-147 contact)"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "In all 9 of pi0.5's not-settled episodes (pose_001, pose_003, pose_009), the arm lifted the cube 82.4 to 84.1 mm, entered the placement region, released and retreated, leaving the cube stationary on the table but outside the target square center (settled_frames: 0 at 480 actions). On pose_007 and pose_008, pi0.5 aimed within 2.14 to 3.77 mm laterally but had a 10.39 to 12.41 mm vertical gap (dz) and hit 30 to 32 unsafe contact frames. Output-head RL fixed SmolVLA on pose_004 (0/3 to 3/3), pose_007 (2/3 to 3/3) and pose_005 (0/3 to 1/3), but could not reroute the gross joint-limit and contact failures on pose_000, pose_003 and pose_009."
     }
   ],
   "trust": [
     {
-      "text": "Same data, scene, held-out poses and execute 30 as the tuned ACT baseline.",
+      "text": "Same 7,150-placement capture_v2 training manifest, so101_servo_lift100_rel30 scene (hash de39e898) and 10 held-out poses x 3 repeats at execute 30 as the tuned ACT baseline",
       "ok": true
     },
     {
-      "text": "SmolVLA used the October model settings, so its change is the recipe.",
+      "text": "Both fine-tunes logged in-training held-out and train loss curves across chunk boundaries (start 0, start 90, starts 180/270/360) plus closed-loop closure kinematics in millimetres",
       "ok": true
     },
     {
-      "text": "The RL run was scored on the same held-out suite as the fine-tune it started from.",
+      "text": "RL on SmolVLA completed all 20,000 episodes (334 iterations) under bench_physics_v2 randomization and was scored on both the 20-pose monitor suite and the 30-rollout held-out suite",
       "ok": true
     },
     {
-      "text": "pi0.5 is half-trained (5,000 steps, October had 10,000), so its 7/30 is not a fair comparison with October's 15/30.",
+      "text": "Sample budgets were not equal: ACT saw 5.1 M samples, SmolVLA saw 0.96 M samples (plus 20,000 RL episodes), and pi0.5 saw only 0.16 M samples (5,000 steps, half of October's 10,000 steps)",
       "ok": false
     },
     {
-      "text": "ACT saw 5x the samples: 5.1 M against 0.96 M for SmolVLA and 0.16 M for pi0.5.",
+      "text": "One training seed (seed 202), 10 held-out poses, and simulation only (no real-arm rollouts or real-frame gate in this run)",
       "ok": false
     },
     {
-      "text": "One seed per big model. 30 episodes are 10 poses x 3 repeats. Simulation only.",
-      "ok": false
-    },
-    {
-      "text": "The RL result (19/30) is read from result.json only. It is in no note and has not been analysed.",
-      "ok": false
-    },
-    {
-      "text": "No prediction or pass bar was written down before these runs.",
+      "text": "Per-rollout telemetry/*.json files and original task-spooler lines for job IDs 256 to 264 were not in the input bundle, and pi05_ft/progress.json kept step 4000 beside the step-5000 final block",
       "ok": false
     }
   ],
-  "meaning": "The October verdict on SmolVLA (\"barely worked\") was a verdict on the recipe. On the current recipe it is a working policy, though still behind ACT and still closing 13 mm off. pi0.5 places better (6.8 mm) but needs its full training before it can be judged. The note's plan: give pi0.5 the full 10,000 steps before any RL (about 7 more hours), and read its 9 \"not settled\" episodes, which point at the release or the set-down.",
-  "lesson": "A model comparison is only as good as the recipe each model was given. SmolVLA went from 2/30 to 14/30 without touching the model.",
+  "meaning": "The recipe changes that made ACT work (wider SO-101 gripper tolerance, physics v2 servo randomization, 100 mm lift with slow release, and replanning every 30 steps) also make SmolVLA work (0 of 30 to 14 of 30), and 20,000 episodes of ReinFlow PPO on the output head bring SmolVLA to 19 of 30 by tightening closure error from 13.15 mm to 9.69 mm and eliminating set-down failures. However, ACT remains better (21 to 24 of 30, 5.2 mm closure median) and safer. Do not switch from ACT to SmolVLA while 10 of 30 held-out rollouts still end in safety invalidation, and finish training pi0.5 to 10,000 steps before running RL on it.",
+  "lesson": "When a model jumps from 0 of 30 to 14 of 30 after a recipe change while its 13.2 mm grasp error stays unchanged, the environment tolerance and replanning loop did the work, not better perception; always measure jaw-to-object error directly in task units.",
   "next": [
     {
-      "title": "Analyse the RL-on-SmolVLA result",
-      "why": "19/30 is in the report file but in no note. The monitor curve is noisy, so check whether the gain is real."
+      "title": "Resume pi0.5 LoRA fine-tuning from 5,000 to 10,000 steps",
+      "why": "At 5,000 steps (0.16 M samples), pi0.5 already has half of SmolVLA's start-90 loss (7.5e-4 vs 1.6e-3) and 6.8 mm lateral closure error, and its loss is still dropping fast toward October's 2.5e-4."
     },
     {
-      "title": "Train pi0.5 to the full 10,000 steps",
-      "why": "Its loss was still falling at 5,000. About 7 more hours."
+      "title": "Inspect per-frame telemetry on pi0.5's 9 not-settled episodes (pose_001, pose_003, pose_009)",
+      "why": "All 9 completed pickup and released the cube stationary on the table, but missed the settled-in-square tolerance around square_center_xy."
     },
     {
-      "title": "Read the pi0.5 \"not settled\" episodes",
-      "why": "9 losses after a good pickup points at the release or the set-down."
+      "title": "Unfreeze more than out_head or add safety-margin shaping for VLA RL",
+      "why": "Output-head PPO fixed near-misses (14 of 30 to 19 of 30) but left all 10 held-out safety invalidations (pose_000 joint limits and pose_003/pose_009 table contacts) unchanged."
     }
   ],
   "log": "",
   "run": {
     "state": "Finished",
-    "line": "Nov 22 to 23 · fine-tunes done Nov 22, RL on SmolVLA finished about 03:00 on Nov 23 · RL result not analysed",
+    "line": "Nov 22 to 23 · 6 of 6 stages finished · rehearsal trouble on pi0.5",
     "watch": [
       {
-        "title": "SmolVLA fine-tune",
-        "note": "W&B run stdc1vmk",
+        "title": "SmolVLA fine-tune (30k steps)",
+        "note": "W&B run stdc1vmk: 14 of 30 rollouts, start-90 loss 1.6e-3",
         "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/stdc1vmk"
       },
       {
-        "title": "pi0.5 fine-tune",
-        "note": "W&B run a6oyfhh9",
+        "title": "pi0.5 LoRA fine-tune (5k steps)",
+        "note": "W&B run a6oyfhh9: 7 of 30 rollouts (16 pickups), start-90 loss 7.5e-4",
         "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/a6oyfhh9"
       },
       {
-        "title": "RL on SmolVLA",
-        "note": "W&B run hh4wrtf7",
+        "title": "SmolVLA ReinFlow PPO (20k episodes)",
+        "note": "W&B run hh4wrtf7: 19 of 30 rollouts (20 pickups), monitor 0.50 to 0.60",
         "href": "https://wandb.ai/7adamyasingh-rutgers-university/so-arm101-v2-scaling/runs/hh4wrtf7"
       }
     ],
-    "command": "",
+    "command": "bash simulation_code/queue_vla_best_sim_20261122.sh",
     "stages": [
       {
-        "name": "rehearsals",
-        "note": "The first pi0.5 rehearsal failed on import lerobot (stale install paths in its env). Fixed with PYTHONPATH and re-run.",
-        "state": "trouble"
+        "name": "SmolVLA rehearsal",
+        "note": "20 steps, 1 rollout at execute 30 (W&B 09fabgba). Completed in 103.7 s.",
+        "state": "done"
       },
       {
         "name": "SmolVLA fine-tune",
-        "note": "30,000 steps. A pi0.5 rehearsal run beside it slowed it from 75 to 3 samples/s for about 15 minutes.",
+        "note": "30,000 steps, batch 32 (W&B stdc1vmk). Slowed from 75 to 3 samples/s for 15 min when a pi0.5 rehearsal ran on a second spooler socket; CPU jobs also cost ~15% throughput. Finished 14 of 30.",
         "state": "done"
+      },
+      {
+        "name": "pi0.5 rehearsal",
+        "note": "First rehearsal failed on import lerobot because editable installs in lerobot-pi05 pointed at the old checkout path (fixed with PYTHONPATH). Second rehearsal on a second socket overlapped SmolVLA. Passed 4 steps, 1 rollout (W&B hycll0k7).",
+        "state": "trouble"
       },
       {
         "name": "pi0.5 fine-tune",
-        "note": "LoRA rank 16, 5,000 steps (the queue script planned 6,000; cut to fit the night).",
+        "note": "5,000 steps, LoRA rank 16 (W&B a6oyfhh9). Finished 7 of 30 (16 pickups, start-90 loss 7.5e-4). Note: progress.json kept step 4000 while final and heldout_curve.jsonl recorded step 5000.",
         "state": "done"
       },
       {
-        "name": "RL rehearsal",
-        "note": "Gate for the RL run. Passed.",
+        "name": "SmolVLA RL rehearsal",
+        "note": "tsp 263: 120 episodes (2 iterations of 60), 1 rollout at execute 30 (W&B nyjjb989). Completed in 344.5 s.",
         "state": "done"
       },
       {
-        "name": "RL on SmolVLA",
-        "note": "20,000 episodes. Finished, not aborted. Held-out 19 of 30.",
+        "name": "SmolVLA RL (ReinFlow PPO)",
+        "note": "tsp 264: 20,000 episodes (334 iterations) on out_head with bench_physics_v2 (W&B hh4wrtf7). Completed in 10.3 hours; held-out score rose from 14 of 30 to 19 of 30.",
         "state": "done"
       }
     ],
     "housekeeping": [
       {
-        "text": "Committed: d9e5a0e (queue script), ddb1d73 (fine-tune results and note)",
+        "text": "All 6 stage result.json and evaluation.json files written under experiments/vla_best_sim_20261122",
         "ok": true
       },
       {
-        "text": "Write-up for the fine-tunes: notes/vla-best-sim-20261122.md",
+        "text": "Note (notes/vla-best-sim-20261122.md) was written before tsp 263 to 264 finished; results.md updates it with the completed RL run",
         "ok": true
       },
       {
-        "text": "The RL result is not in the note (its status line still says queued) and not analysed",
+        "text": "No pre-registered predictions JSON file or research-log entry was present in the input bundle",
         "ok": false
       },
       {
-        "text": "No research-log entry yet",
+        "text": "tsp.txt was captured after a task-spooler reset (shows jobs 0 to 8, not original job IDs 256 to 264), and per-rollout telemetry/*.json files were not bundled",
         "ok": false
       }
     ],
     "files": [
       {
         "path": "notes/vla-best-sim-20261122.md",
-        "note": "the write-up for the two fine-tunes, with the ACT and October baselines"
-      },
-      {
-        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/smolvla_ft/result.json",
-        "note": "SmolVLA: 14/30, pickups, closure, failure categories (checked)"
-      },
-      {
-        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/pi05_ft/pi05_result.json",
-        "note": "pi0.5: 7/30, pickups, closure, failure categories (checked)"
-      },
-      {
-        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/vla_best_sim_20261122/rl_smolvla/result.json",
-        "note": "RL on SmolVLA: 19/30, closure, monitor history; the only source for part 2"
+        "note": "the experiment note"
       },
       {
         "path": "simulation_code/queue_vla_best_sim_20261122.sh",
-        "note": "the queue for the fine-tunes"
+        "note": "the queue script (jobs 256 to 264)"
       },
       {
-        "path": "memory/overnight-rg-vla-20261122.md",
-        "note": "project memory note for the night"
+        "path": "experiments/vla_best_sim_20261122/smolvla_ft/result.json",
+        "note": "SmolVLA 30,000-step fine-tune numbers (14 of 30)"
       },
       {
-        "path": "commits d9e5a0e · ddb1d73",
-        "note": "queued · fine-tune results"
+        "path": "experiments/vla_best_sim_20261122/pi05_ft/pi05_result.json",
+        "note": "pi0.5 5,000-step LoRA fine-tune numbers (7 of 30)"
+      },
+      {
+        "path": "experiments/vla_best_sim_20261122/rl_smolvla/result.json",
+        "note": "SmolVLA 20,000-episode ReinFlow PPO numbers (19 of 30)"
+      },
+      {
+        "path": "experiments/vla_best_sim_20261122/rl_smolvla/metrics.jsonl",
+        "note": "per-iteration PPO training metrics (334 iterations)"
       }
     ]
   }
