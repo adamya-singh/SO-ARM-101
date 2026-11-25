@@ -65,6 +65,14 @@ part of the work, for every agent:
   `notes/journal-writeups/<NN>.json` with the question, the setup, the registered predictions
   (`result: "open"`) and `run.stages` as `waiting`, and `put` it. Update the stages when you check
   on the queue.
+- **Every queue script ends with the analysis job** (user request 2026-11-25). A queue often finishes after
+  the session that started it has gone, and then nobody reads the results. So the last job a queue script adds
+  is `tsp -L analysis bash tools/queue_analysis.sh --experiment <NN> --note <note> --dir <results folder>
+  [--predictions <file>] [--jobs <ids>]`, queued without `-d`/`-D` so it also runs after a failure. It starts
+  an unattended Claude Code run that analyses the results, writes the results section of the note, uploads
+  the write-up and commits; it cannot train, evaluate or move the arm. `--dry-run` shows what it would do.
+  If you are still in the session when the queue ends, read its log (`<results folder>/analysis_*.log`) and
+  check its work instead of repeating it.
 - **When it finishes and is analysed.** Complete the write-up and set the outcome, as Part 3 of the
   `experiment-analyze-explain` skill describes: `put <NN>`, then `update <NN>` with the status, the
   one-line answer and the numbers. An experiment is not done until its write-up is uploaded.
