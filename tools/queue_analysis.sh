@@ -29,7 +29,8 @@
 #      uploads the write-up, sets the outcome and commits the note and the write-up. Nothing is pushed.
 # The job returns at once; steps 2 and 3 run detached, so the GPU queue is never held. The log is
 # <dir>/analysis_<time>.log. ANALYSIS_HOST (default ubuntu-laptop), ANALYSIS_TIMEOUT in seconds (default 3000),
-# ANALYSIS_MODEL (an OpenClaw model id, default OpenClaw's own) and ANALYSIS_THINKING (default high).
+# ANALYSIS_MODEL (an OpenClaw model id) and ANALYSIS_THINKING (default high). The model is Gemini 4 Argon until
+# Neon is available to us (user, 2026-11-25); change MODEL below then. OpenClaw's own default is a fast model.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,6 +59,7 @@ cd "$ROOT"
 
 HOST="${ANALYSIS_HOST:-ubuntu-laptop}"
 TIMEOUT="${ANALYSIS_TIMEOUT:-3000}"
+MODEL="${ANALYSIS_MODEL:-google-vertex/gemini-4-argon}"
 REMOTE=".openclaw/workspace/so-arm-101-analysis/exp-$experiment"   # under the laptop user's home
 stamp="$(date +%Y%m%dT%H%M%S)"
 log="$dir/analysis_$stamp.log"
@@ -128,8 +130,8 @@ cat > "$finish" <<FINISH
 set -uo pipefail
 cd "$ROOT"
 say() { echo "[\$(date +%H:%M:%S)] \$*"; }
-say "OpenClaw is analysing experiment $experiment on $HOST (up to ${TIMEOUT}s)."
-ssh -o BatchMode=yes -o ServerAliveInterval=30 "$HOST" 'openclaw agent --agent main --session-key so-arm-101-exp-$experiment-analysis-$stamp --message-file ~/$REMOTE/prompt.txt --timeout $TIMEOUT --thinking ${ANALYSIS_THINKING:-high} ${ANALYSIS_MODEL:+--model $ANALYSIS_MODEL}' 2>&1 | tail -60
+say "OpenClaw ($MODEL) is analysing experiment $experiment on $HOST (up to ${TIMEOUT}s)."
+ssh -o BatchMode=yes -o ServerAliveInterval=30 "$HOST" 'openclaw agent --agent main --session-key so-arm-101-exp-$experiment-analysis-$stamp --message-file ~/$REMOTE/prompt.txt --timeout $TIMEOUT --thinking ${ANALYSIS_THINKING:-high} --model $MODEL' 2>&1 | tail -60
 out="\$(mktemp -d)"
 rsync -a -e "ssh -o BatchMode=yes" "$HOST:$REMOTE/out/" "\$out/" || { say "FAILED: could not copy OpenClaw's files back."; exit 1; }
 say "OpenClaw wrote: \$(ls "\$out" | tr '\n' ' ')"
