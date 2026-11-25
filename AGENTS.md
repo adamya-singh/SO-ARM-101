@@ -69,8 +69,10 @@ part of the work, for every agent:
   the session that started it has gone, and then nobody reads the results. So the last job a queue script adds
   is `tsp -L analysis bash tools/queue_analysis.sh --experiment <NN> --note <note> --dir <results folder>
   [--predictions <file>] [--jobs <ids>]`, queued without `-d`/`-D` so it also runs after a failure. It copies
-  the results folder's text files and the note to the laptop, has OpenClaw analyse them there (OpenClaw never
-  touches this machine, so it cannot train, evaluate or move the arm), then appends OpenClaw's results section
+  the results folder's text files and the note to the laptop and has OpenClaw analyse them there. OpenClaw can
+  read the whole project on this machine through `tools/pc_read.sh` (the code, every artifact, git history, the
+  memory notes), in a sandbox with nothing writable, no GPU, no serial port and no network, so it cannot train,
+  evaluate or move the arm. The job then appends OpenClaw's results section
   to the note, uploads the write-up, sets the record's outcome and commits. `--dry-run` shows what it would
   send. So the experiment needs its journal record and its note before the queue is built, and anything the
   analysis must know (the baselines, the question, the pass bars) has to be in the note or the predictions file.

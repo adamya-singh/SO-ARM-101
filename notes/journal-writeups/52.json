@@ -1,40 +1,86 @@
 {
-  "question": "Does each change to the training data give the policy its own skill? And can a probe that changes the world mid-episode tell whether the skill is there?",
-  "measure": "Follow gain: how far the jaws move when the cube is moved 20 mm mid-episode, as a fraction of the move (0 = ignored, 1 = followed). Pickups kept: pickups with the probe over pickups in the same episodes left alone. Each probed episode is paired with its untouched twin on 100 placements.",
-  "outcome": "On the headline stage, 12 of 13 predictions written down in advance held. Policies trained on a self-correcting teacher follow the cube (+0.73 against +0.04 for ACT). Policies trained on random servo physics keep their pickups when the elbow goes soft (62 of 73 against 35 of 87). The later stage adds a surprise that no note has analysed: all 10 \"will not follow a moved square\" predictions read as failed.",
-  "setup": "A policy is the network that drives the arm. We have two kinds: ACT (a transformer) and a small CNN. Both read a wrist-camera frame and output a chunk of the next 90 joint commands. Execute 90 runs the whole chunk; execute 30 replans every 30 commands. The teacher is the scripted controller in the simulator that knows the true cube position; policies learn by imitating it. The recipe we want to test says: a policy trained by imitation learns only the skills its data forces. That is three claims. (1) A data change produces the skill. (2) A probe detects it. (3) The skill is what buys success. A success count cannot test them, because a policy that keeps looking and one that only remembers the first frame both succeed when nothing changes. A probe changes the world mid-episode and compares with the same episode left alone. The simulator is deterministic, so the pair differs only by the change. We probed checkpoints we already had. Baseline: no data change. Perturbed teacher (\"look\"): the teacher starts off-target and recentres, so the data contains corrections. Physics v2 (\"motor\"): each servo's strength is random, soft to stiff. The probes: shift_placement moves cube and square 20 mm at action 100, after the survey frame at action 90. swap_elbow turns the elbow servo into the other kind (soft or stiff) at action 100. drop_cube puts the cube back once it is lifted. move_square moves the square once the cube is lifted.",
+  "question": "Does each change to the training data give the policy its own skill, and only that skill? And can a probe that changes the world mid-episode tell whether the skill is there?",
+  "measure": "Follow gain: how far the jaws (or the set-down cube) move when the cube or the square is moved 20 mm mid-episode, as a fraction of the move (0 = ignored, 1 = followed). Pickups kept: pickups with the probe over pickups in the same episodes left alone. Each probed episode is paired with its untouched twin on 100 placements. 55 predictions were written down before the run.",
+  "outcome": "Mixed. The two data changes we aimed give their skills: trained on a self-correcting teacher, policies follow a moved cube (+0.73 against +0.04 for ACT); trained on random servos, they keep pickups when the elbow goes soft (62 of 73 against 35 of 87). But of all 55 predictions, 32 held and 23 failed. 19 of the failures are one probe: every policy, baselines included, sets the cube down on a square that moved (+0.51 to +0.96 on the nominal scene, scripted teacher 0.00), although no data change aimed at that.",
+  "setup": "A policy is the network that drives the arm. We have two kinds: ACT (a transformer) and a small CNN. Both read a wrist-camera frame and output a chunk of the next 90 joint commands. Execute 90 runs the whole chunk; execute 30 replans every 30 commands. The teacher is the scripted controller in the simulator that knows the true cube position; policies learn by imitating it. The recipe we want to test says: a policy trained by imitation learns only the skills its data forces. That is three claims. (1) A data change produces the skill. (2) A probe detects it. (3) The skill is what buys success. A success count cannot test them, because a policy that keeps looking and one that only remembers the first frame both succeed when nothing changes. A probe changes the world mid-episode and compares with the same episode left alone. The pair is meant to differ only by the change. We probed checkpoints we already had. Baseline: no data change. Perturbed teacher (\"look\"): the teacher starts off-target and recentres, so the data contains corrections. Physics v2 (\"motor\"): each servo's strength is random, soft to stiff. The probes: shift_placement moves cube and square 20 mm at action 100, after the survey frame at action 90. swap_elbow turns the elbow servo into the other kind (soft or stiff) at action 100. drop_cube puts the cube back once it is lifted. move_square moves the square once the cube is lifted. Scenes: nominal (stiff elbow), servo (the measured soft elbow), high-lift (servo scene, 100 mm lift). \"matrix\" below means the report file matrix.json; \"recomputed\" means made on Nov 25 from the stored per-episode rows and traces with the repository's own scoring functions, with no new simulation.",
   "parts": [
     {
       "title": "Is the probe itself sound?",
       "why": "If the probe reads a skill where there is none, no policy result means anything.",
-      "did": "Ran two reference controls. The plain teacher is open-loop, so its follow gain must be 0. The same teacher told about the shift in advance must read 1 and still succeed.",
+      "did": "Ran two reference controls on all three scenes. The plain teacher is open-loop (it never looks again), so its follow gain must be 0. The same teacher told about the change in advance must read 1 and still succeed.",
       "predictions": [],
       "table": {
         "head": [
-          "Control, nominal scene, 100 placements",
-          "Follow gain",
-          "Successes under the shift"
+          "Control",
+          "Scene",
+          "Cube and square shift: gain",
+          "Square moves: gain",
+          "Square moves: cube ends on it"
         ],
         "rows": [
           {
             "cells": [
               "plain teacher",
+              "nominal",
               "+0.02",
-              "0/100"
+              "-0.00",
+              "1 of 100"
             ],
             "mark": "baseline"
           },
           {
             "cells": [
-              "teacher told the shift in advance",
+              "plain teacher",
+              "servo",
+              "+0.06",
+              "-0.00",
+              "0 of 100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "plain teacher",
+              "high-lift",
+              "+0.05",
+              "-0.00",
+              "3 of 85"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told in advance",
+              "nominal",
               "+0.98",
-              "100/100"
+              "+0.99",
+              "100 of 100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told in advance",
+              "servo",
+              "+0.98",
+              "+1.02",
+              "100 of 100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told in advance",
+              "high-lift",
+              "+1.01",
+              "+1.02",
+              "85 of 85"
             ],
             "mark": "baseline"
           }
         ]
       },
-      "conclusion": "The probe reads 0 and 1 where it must. Both teachers score 100 of 100 with no probe."
+      "conclusion": "The probes read 0 and 1 where they must on every scene (matrix). Since Nov 21 the zero control is judged on the median, because on the soft arm a few bumped cubes pull the mean; for the square-move probe mean and median are both -0.00, so that change does not matter there."
     },
     {
       "title": "\"Look\": does training on corrections make a policy follow a cube that moved?",
@@ -127,7 +173,7 @@
           }
         ]
       },
-      "conclusion": "The data change produces the skill: +0.55 and +0.73 with corrections in the data, +0.01 and +0.04 without. Replanning alone does not: the baseline ACT at execute 30 looks at four frames and still ignores the shift (+0.06). That was the one failed prediction. One result was not predicted: the physics v2 ACT at execute 30 follows the shift (+0.87) although nothing in its data aims at that. The perturbed ACT at execute 30 picks up only 7 of 100 without the probe, so its \"9 of 7\" is not a usable ratio."
+      "conclusion": "The data change produces the skill: +0.55 and +0.73 with corrections in the data, +0.01 and +0.04 without. Replanning alone does not: the baseline ACT at execute 30 looks at four frames and still ignores the shift (+0.06). That was the one failed prediction here. Not predicted: the physics v2 ACT at execute 30 follows the shift (+0.87) with no data aimed at that. The full matrix shows the same for the high-lift ACT (+0.61) and the fair CNN (+0.64) at execute 30, so the servo data brings some of this skill with it. The perturbed ACT at execute 30 picks up only 7 of 100 unprobed, so \"9 of 7\" is not a usable ratio."
     },
     {
       "title": "\"Motor\": does training on random servos make a policy keep its grip when the elbow goes soft?",
@@ -202,7 +248,7 @@
     {
       "title": "Is the skill what buys success?",
       "why": "Claim 3. A policy could follow the cube and still fail to pick it up, or keep picking up without following.",
-      "did": "Across the learned-policy cells under shift_placement, compared follow gain with pickups kept.",
+      "did": "Across the learned-policy cells under shift_placement, compared follow gain with pickups kept (matrix, 32 cells; one cell with no pickups unprobed is left out).",
       "predictions": [
         {
           "text": "Rank correlation between follow gain and pickups kept above 0.5",
@@ -210,19 +256,35 @@
         },
         {
           "text": "Gain 0.5 or more keeps at least 70% of pickups; gain 0.2 or less keeps at most 30%",
-          "result": "half"
+          "result": "failed"
         }
       ],
       "table": {
         "head": [
-          "Reading",
+          "Test",
           "Cells",
-          "Rank correlation"
+          "Result"
         ],
         "rows": [
           {
             "cells": [
-              "headline stage (notebook, Nov 19)",
+              "plain teacher, gain +0.02 (no following)",
+              "1",
+              "keeps 12 of 100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told in advance, gain +0.98",
+              "1",
+              "keeps 100 of 100"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "rank correlation, headline stage",
               "15",
               "+0.90"
             ],
@@ -230,104 +292,317 @@
           },
           {
             "cells": [
-              "all stages (matrix.json as it stands)",
+              "rank correlation, all stages",
               "32",
               "+0.77"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "gain 0.5 or more keeps at least 70%",
+              "11",
+              "8 meet it, 3 do not"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "gain 0.2 or less keeps at most 30%",
+              "18",
+              "11 meet it, 7 do not"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "perturbed CNN seeds 101 / 202 / 303 (the 3 that miss)",
+              "3",
+              "49 of 83, 45 of 81, 45 of 82"
             ],
             "mark": "ours"
           }
         ]
       },
-      "conclusion": "Follow gain and pickups kept rise together. The threshold half of the prediction is only partly met: the low-gain cells on the nominal scene keep at most 30% (baseline CNN 46 of 227, baseline ACT 14 of 87), but the perturbed-teacher CNN has gain +0.55 and keeps 139 of 246, which is under 70%. The notes report the correlation and do not report this threshold check."
+      "conclusion": "Following and kept pickups rise together across cells. The thresholds fail as registered: the three perturbed CNN seeds follow (+0.60, +0.54, +0.51) and keep under 70%, and 7 low-gain cells keep 32% to 50%. The correlation is a ranking over cells that share checkpoints, seeds and placements, and that also differ in network and replanning rate. It does not show that following keeps a given pickup. Recomputed per episode: among the perturbed CNN's episodes with gain 0.5 or more, 28 of 50, 22 of 43 and 22 of 41 keep the pickup, because half of 20 mm still leaves up to 10 mm."
     },
     {
-      "title": "Do skills appear that no data change forced?",
-      "why": "The note says in advance what would count against the recipe: any policy that retries after a dropped cube, or follows a moved square.",
-      "did": "The last stage ran drop_cube and move_square on the measured-servo and high-lift scenes. Read here from the report file; no note discusses it.",
-      "predictions": [
-        {
-          "text": "drop_cube, every policy: absent (no training episode contains a failed grasp)",
-          "result": "held"
-        },
-        {
-          "text": "move_square, every policy: absent (no data change targets it)",
-          "result": "failed"
-        }
-      ],
+      "title": "Were all 55 predictions read?",
+      "why": "\"12 of 13\" covers the headline stage. The other 42 predictions were never reported.",
+      "did": "Counted the predictions list in the report file. 18 entries had no verdict: drop_cube and move_square for the 9 policy groups on the nominal scene. Their episodes ran on Nov 19 and are on disk, but each cell's result file was rewritten on Nov 20 03:44 with only the three probes experiment 53 asked for, so the report had nothing to compare. Recomputed those 18 from the stored rows and traces.",
+      "predictions": [],
       "table": {
         "head": [
-          "Policy and scene",
-          "drop_cube: regrasps",
-          "move_square: follow gain",
-          "Verdict on move_square"
+          "Reading",
+          "Predictions",
+          "Held",
+          "Failed",
+          "Not read"
         ],
         "rows": [
           {
             "cells": [
-              "plain teacher, servo scene",
-              "0",
-              "-0.00",
-              "control"
+              "headline stage (notebook, Nov 19)",
+              "13",
+              "12",
+              "1",
+              "0"
             ],
             "mark": "baseline"
           },
           {
             "cells": [
-              "baseline ACT, execute 90, servo scene",
+              "report file as it stands",
+              "55",
+              "26",
+              "11",
+              "18"
+            ],
+            "mark": ""
+          },
+          {
+            "cells": [
+              "all 55, the 18 recomputed",
+              "55",
+              "32",
+              "23",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "of which shift_placement",
+              "8",
+              "7",
+              "1",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "of which swap_elbow",
+              "9",
+              "9",
               "0",
-              "+0.44",
-              "partial"
+              "0"
             ],
             "mark": "ours"
           },
           {
             "cells": [
-              "baseline CNN, servo scene",
+              "of which drop_cube",
+              "19",
+              "16",
+              "3",
+              "0"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "of which move_square",
+              "19",
               "0",
-              "+0.31",
-              "partial"
-            ],
-            "mark": "ours"
-          },
-          {
-            "cells": [
-              "physics v2 CNN, servo scene",
-              "0",
-              "+0.51",
-              "present"
-            ],
-            "mark": "ours"
-          },
-          {
-            "cells": [
-              "physics v2 ACT, execute 90 / 30, servo scene",
-              "0 / 0",
-              "+0.75 / +0.81",
-              "present"
-            ],
-            "mark": "ours"
-          },
-          {
-            "cells": [
-              "high-lift ACT, execute 90 / 30, high-lift scene",
-              "0 / 0",
-              "+0.81 / +0.87",
-              "present"
-            ],
-            "mark": "ours"
-          },
-          {
-            "cells": [
-              "fair CNN, execute 90 / 30, high-lift scene",
-              "0 / 0",
-              "+0.22 / +0.51",
-              "partial / present"
+              "19",
+              "0"
             ],
             "mark": "ours"
           }
         ]
       },
-      "conclusion": "No policy ever retries a dropped cube: 0 regrasps in all 10 cells that were read. But every move_square cell that was read shows the set-down following the square at least partly, with gains from +0.22 to +0.87 (one further cell, baseline ACT at execute 30, had no pickups to compare and reads n/a). By the note's own rule that counts against \"data alone decides\". It has not been examined, so it could also be a property of the probe."
+      "conclusion": "The headline was a fair reading of its 13. The full record is 32 held and 23 failed. 19 of the 23 are move_square: 18 groups follow the square, and one (baseline ACT at execute 30 on the servo scene) picks up 0 of 100 unprobed, has nothing to compare, and is counted failed by the report although it is unreadable. The recomputed numbers are in the note, not yet in matrix.json."
+    },
+    {
+      "title": "Do policies really follow a moved square, or does the probe invent it?",
+      "why": "The note said in advance that a policy following a moved square counts against \"data alone decides\". Before accepting that, rule out a number produced without the policy doing anything.",
+      "did": "Read the scoring code and the per-episode traces. The square moves 20 mm once the cube is 15 mm up; only the square moves. The gain is the cube's final position against the untouched twin, along the move.",
+      "predictions": [
+        {
+          "text": "move_square, every policy on every scene: absent (no data change targets it). 19 predictions.",
+          "result": "failed"
+        }
+      ],
+      "table": {
+        "head": [
+          "Policy group",
+          "Nominal: gain",
+          "Nominal: cube ends on moved square",
+          "Servo: gain",
+          "High-lift: gain"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "plain teacher",
+              "-0.00",
+              "1 of 100",
+              "-0.00",
+              "-0.00"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "teacher told in advance",
+              "+0.99",
+              "100 of 100",
+              "+1.02",
+              "+1.02"
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "baseline CNN",
+              "+0.51",
+              "165 of 227",
+              "+0.31",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "baseline ACT, execute 90 / 30",
+              "+0.71 / +0.74",
+              "83 of 87 / 83 of 87",
+              "+0.44 / n/a",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "perturbed CNN",
+              "+0.52",
+              "175 of 246",
+              "",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "perturbed ACT, execute 90 / 30",
+              "+0.68 / +0.85",
+              "63 of 77 / 7 of 7",
+              "",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 CNN",
+              "+0.71",
+              "178 of 201",
+              "+0.51",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "physics v2 ACT, execute 90 / 30",
+              "+0.93 / +0.96",
+              "72 of 73 / 64 of 66",
+              "+0.75 / +0.81",
+              ""
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "fair CNN, execute 90 / 30",
+              "",
+              "",
+              "",
+              "+0.22 / +0.51"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "high-lift ACT, execute 90 / 30",
+              "",
+              "",
+              "",
+              "+0.81 / +0.87"
+            ],
+            "mark": "ours"
+          }
+        ]
+      },
+      "conclusion": "It is real. The gain is a paired difference, so where the untouched cube lands cancels. Both cubes end at rest (height differs by 1.0 mm at most). Sideways drift averages -0.04 to +0.06 of the move. The jaws do not move until the next camera frame is read, then move +0.47 to +0.91 of the way. The open-loop teacher reads 0. Proven: the policies carry the cube to the moved square. Only suggested: why. All policies were trained on random placements with the square in view during the carry, so ordinary data may already force it; no file tests that."
+    },
+    {
+      "title": "Does any policy retry after a dropped cube?",
+      "why": "A retry would be a second skill nobody trained. Three nominal-scene groups read \"partial\" in the recomputed rows.",
+      "did": "The probe puts the cube back at its start once it has risen 15 mm, and counts a regrasp when the cube is 10 mm up again from 10 actions later. Read the height and gripper traces of every counted episode.",
+      "predictions": [
+        {
+          "text": "drop_cube, every policy on every scene: absent (no training episode contains a failed grasp). 19 predictions: 16 held, 3 read partial.",
+          "result": "half"
+        }
+      ],
+      "table": {
+        "head": [
+          "Group",
+          "Scene",
+          "Counted regrasps",
+          "Jaws reopened first"
+        ],
+        "rows": [
+          {
+            "cells": [
+              "plain teacher",
+              "nominal",
+              "0 of 100",
+              ""
+            ],
+            "mark": "baseline"
+          },
+          {
+            "cells": [
+              "perturbed CNN, 3 seeds",
+              "nominal",
+              "31 of 274",
+              "0 of 31"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "perturbed ACT, execute 90",
+              "nominal",
+              "6 of 87",
+              "0 of 6"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "baseline ACT, execute 30",
+              "nominal",
+              "5 of 94",
+              "0 of 5"
+            ],
+            "mark": "ours"
+          },
+          {
+            "cells": [
+              "every group on the servo and high-lift scenes",
+              "10 groups",
+              "0",
+              ""
+            ],
+            "mark": ""
+          }
+        ]
+      },
+      "conclusion": "No policy retries. In the 42 counted episodes the jaws never reopen, and in 41 the cube is already 10 mm up at the first action the count looks at. Closed jaws took the cube along again. The three \"partial\" verdicts are the probe's counting rule, not a skill. Why it happens only on the nominal scene was not determined."
     }
   ],
   "trust": [
@@ -336,23 +611,39 @@
       "ok": true
     },
     {
-      "text": "Each probed episode is paired with the same episode left alone in a deterministic simulator, on 100 teacher-screened placements not used elsewhere. Every policy on a scene gets the same shift.",
+      "text": "Each probed episode is paired with the same episode left alone, on 100 teacher-screened placements not used elsewhere. Every policy on a scene gets the same shift.",
       "ok": true
     },
     {
-      "text": "The reference controls read +0.02 and +0.98.",
+      "text": "The reference controls read 0 and 1 on all three scenes, for the shift probe and for the square-move probe.",
       "ok": true
     },
     {
-      "text": "\"12 of 13\" covers the headline stage only (nominal scene, shift_placement and swap_elbow). The report file as it stands lists 55 registered predictions: 26 held, 11 failed, 18 not read. Ten of the 11 failures are move_square. No note reports these later numbers.",
+      "text": "Where matrix.json has a number, the Nov 25 recomputation from stored rows and traces matches it exactly.",
+      "ok": true
+    },
+    {
+      "text": "18 of the 55 verdicts counted here (drop_cube and move_square for the 9 nominal-scene groups) are recomputed and are not in matrix.json yet. The nominal-scene result files lost three probes when experiment 53 re-ran those cells with a shorter probe list.",
       "ok": false
     },
     {
-      "text": "The controls job first exited with an error (the teacher has no solution for some placements on the high-lift scene). It was fixed on Nov 21 (commit 099f3c9): such placements are left out and the zero control is read on the median.",
+      "text": "A learned policy's two paired episodes are not identical before the change: commands differ by a median of 0 but up to 0.10 command units in the worst episode, jaws by up to 8.6 mm in the worst pair. The teacher's pairs are identical. The cause was not looked for. It has no direction and the mean jaw displacement is 0.00 until the next frame is read.",
       "ok": false
     },
     {
-      "text": "On the servo scene the plain teacher's mean follow gain for shift_cube is -0.16 (bound 0.15). After the Nov 21 fix the control is read on the median (+0.03) and passes. shift_cube results are not used here.",
+      "text": "Why the policies follow a moved square is not established. Every checkpoint was trained on random placements, so there is no policy without that to compare.",
+      "ok": false
+    },
+    {
+      "text": "The drop_cube count takes a cube carried up again by closed jaws for a regrasp. Its three \"partial\" verdicts are not retries.",
+      "ok": false
+    },
+    {
+      "text": "One cell (baseline ACT, execute 30, servo scene) picks up 0 of 100 unprobed. Its move_square verdict is n/a and its drop_cube verdict rests on 1 drop.",
+      "ok": false
+    },
+    {
+      "text": "The controls job first exited with an error (the teacher has no solution for some placements on the high-lift scene). Fixed on Nov 21 (commit 099f3c9): such placements are left out and the zero control is read on the median.",
       "ok": false
     },
     {
@@ -360,24 +651,32 @@
       "ok": false
     },
     {
-      "text": "The 70% / 30% threshold check and the move_square reading in this write-up are the registered rules applied to the report file by the writer, not conclusions taken from a note.",
+      "text": "The per-episode readings (jaw timing, millimetres left, gripper traces) are analyses made after the run, not registered tests.",
       "ok": false
     }
   ],
-  "meaning": "The recipe held where it was aimed: one data change, one skill, detected by a probe, and the skill goes with kept pickups. That was enough to plan the next step, which asks whether two skills stack in one policy, combine in one episode and get cheaper in order (experiment 53). Two things stay open. The physics v2 ACT follows a moved cube when it replans every 30 steps without any data aimed at that. And the later stage shows policies following a moved square, which the recipe said they would not. Until that is looked at, \"data alone decides which skills exist\" is supported for the two skills we targeted and not shown in general.",
-  "lesson": "Write the predictions down first, and then read all of them. The headline said 12 of 13. The full file says 26 held and 11 failed, and the 11 are where the next question is.",
+  "meaning": "The recipe held where it was aimed: one data change, its skill, detected by a probe whose controls pass. That part is enough for experiment 53, whose own numbers use the same two probes and stand. The other half did not hold. The recipe also said no skill appears without a data change aimed at it, and named a policy following a moved square as evidence against. Every learned policy does that, baselines included. And the servo data brings some following of a moved cube at execute 30. So \"data decides which skills exist\" may still be true, but we cannot predict the skills from the changes we made on purpose: the ordinary data (random placements, the square in view) seems to teach some already. Experiment 53 needs two caveats: its opening line \"one data change gives one feature\" is true only for the aimed pair, and the skill it names as a harder next rung (set-down on a moved square) is already there. The link between following and kept pickups is a ranking, not the registered 70% and 30% levels.",
+  "lesson": "Write the predictions down first, and then read all of them. A prediction that fails in all 18 groups where it can be read is not noise. It sat unread because the report printed \"not run\" for half of it and the headline had already been told. When a tool re-runs part of a result, check that it did not drop what was there.",
   "next": [
     {
-      "title": "Stacking, combination and order (experiment 53)",
-      "why": "The probes test one change giving one skill. A curriculum needs skills to build on each other."
+      "title": "Regenerate matrix.json with all probes",
+      "why": "Make the run command keep the metrics of probes already on disk, rewrite the 15 nominal-scene result files from stored rows and traces, re-run the report, commit. CPU only."
     },
     {
-      "title": "Examine the move_square result",
-      "why": "Ten registered \"absent\" predictions read partial or present, and nothing in notes/ explains it."
+      "title": "Frozen-frame control for move_square",
+      "why": "Give one ACT checkpoint the untouched twin's frame at the first read after the square moves. A gain of 0.2 or less (from about +0.9) proves the frame of the square is the cause."
     },
     {
-      "title": "A retry capture, so drop_cube becomes a real test",
-      "why": "With no data change aimed at retrying, drop_cube can only show absence."
+      "title": "Fix the drop_cube count",
+      "why": "Count a regrasp only when the jaws reopen. Needed before a retry capture is judged with this probe."
+    },
+    {
+      "title": "Restate link 3 in millimetres left at closure",
+      "why": "The 70% and 30% gain thresholds failed; distance left separates kept from lost pickups in the traces."
+    },
+    {
+      "title": "Add the two caveats to experiment 53's write-up",
+      "why": "Its results stand, but its premise and its suggested harder skill need correcting."
     },
     {
       "title": "Probe the previous-command policies with swap_elbow",
@@ -387,7 +686,7 @@
   "log": "",
   "run": {
     "state": "Finished",
-    "line": "Nov 18 to 21 · 5 stages · headline read Nov 19 · last stage and the repaired controls finished by Nov 21",
+    "line": "Nov 18 to 21 · 5 stages · headline read Nov 19 · full matrix read Nov 25",
     "watch": [],
     "command": "simulation_code/queue_feature_probes_20261118.sh [--dry-run]",
     "stages": [
@@ -413,7 +712,7 @@
       },
       {
         "name": "rest",
-        "note": "All other probes and the servo and high-lift scenes. Queue job 170, exit 0. Not written up.",
+        "note": "All other probes and the servo and high-lift scenes. Queue job 170, exit 0. Read on Nov 25; nominal-scene numbers recomputed from stored rows.",
         "state": "done"
       }
     ],
@@ -427,11 +726,11 @@
         "ok": true
       },
       {
-        "text": "notes/feature-probes-20261118.md still says \"queued\" and has no results section; the last stage is not written up anywhere",
-        "ok": false
+        "text": "Full matrix written up in notes/feature-probes-20261118.md, section \"Results of the full matrix (read 2026-11-25)\"; not committed yet",
+        "ok": true
       },
       {
-        "text": "matrix.json has uncommitted changes in the working tree",
+        "text": "matrix.json lacks drop_cube, move_square and shift_cube for the 15 nominal-scene cells and has uncommitted changes",
         "ok": false
       },
       {
@@ -442,7 +741,7 @@
     "files": [
       {
         "path": "notes/feature-probes-20261118.md",
-        "note": "the claims, the probes, thresholds, predictions, limits, the queue"
+        "note": "claims, probes, thresholds, predictions, limits, and the full-matrix results (Nov 25)"
       },
       {
         "path": "notes/feature-probes-20261118-predictions.json",
@@ -458,7 +757,11 @@
       },
       {
         "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/matrix.json",
-        "note": "all cells, pooled CNNs, controls, predictions held or failed, link 3"
+        "note": "cells, pooled CNNs, controls, predictions, link 3; nominal cells lack three probes"
+      },
+      {
+        "path": "artifacts/so_arm101_v2/bench_pick_replace_v1/experiments/feature_probes_20261118/cells/",
+        "note": "per cell and probe: rows_<probe>.json and trace_<probe>.npz, the source of the recomputed numbers"
       },
       {
         "path": "~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory/feature-probes-20261118.md",

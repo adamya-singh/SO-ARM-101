@@ -18,11 +18,13 @@
 #   --dry-run     print what would be sent and the instructions, start nothing
 #   --smoke       send OpenClaw a harmless file task instead of an analysis (tests the whole round trip)
 #
-# How it works (user request 2026-11-25: OpenClaw does the analysis). OpenClaw runs on the laptop and never
-# touches this machine, so it cannot train, evaluate, use the GPU or move the arm:
+# How it works (user request 2026-11-25: OpenClaw does the analysis, and it can read this whole project on the PC
+# but not write to it). OpenClaw runs on the laptop. It reads this machine through tools/pc_read.sh, a sandbox
+# with nothing writable, no GPU, no serial port and no network, so it cannot train, evaluate or move the arm:
 #   1. The results folder's text files (reports, matrices, logs; no models, frames or telemetry), the note, the
 #      predictions, `tsp -l`, and the rules (the skill, the write-up guide and model) are copied to the laptop,
-#      into ~/.openclaw/workspace/so-arm-101-analysis/exp-<NN>/in.
+#      into ~/.openclaw/workspace/so-arm-101-analysis/exp-<NN>/in, with a helper, in/pcread, that runs one
+#      read-only command on this machine (the code, every artifact, git history, the memory notes).
 #   2. `openclaw agent` is given the instructions and writes three files into .../out: results.md (the results
 #      section for the note), <NN>.json (the journal write-up) and patch.json (the record's outcome).
 #   3. This machine copies them back, appends results.md to the note (it never rewrites the note), validates and
@@ -79,12 +81,22 @@ cp .claude/skills/experiment-analyze-explain/SKILL.md "$stage/in/rules/analysis-
 cp notes/journal-writeups/README.md "$stage/in/rules/writeup-guide.md"
 cp notes/journal-writeups/53.json "$stage/in/rules/writeup-model-53.json"
 python3 tools/journal_writeup.py record > "$stage/in/journal-record.txt" 2>/dev/null || echo "the journal did not answer" > "$stage/in/journal-record.txt"
+cat > "$stage/in/pcread" <<PCREAD
+#!/usr/bin/env bash
+# Run one read-only shell command in the SO-ARM-101 repository on the PC. Usage: ./pcread '<command line>'
+# Nothing there can be changed through this; see tools/pc_read.sh in the repository for what it can see.
+exec ssh -o BatchMode=yes -o ConnectTimeout=15 ${ANALYSIS_PC_HOST:-win10ubuntu} "$ROOT/tools/pc_read.sh \$(printf '%q' "\$*")"
+PCREAD
+chmod +x "$stage/in/pcread"
 size="$(du -sh "$stage/in" | cut -f1)"; count="$(find "$stage/in" -type f | wc -l)"
 
 base="\$HOME/$REMOTE"
+# Optional lines of the instructions, built here: a \${x:+...} with an apostrophe inside a here-document breaks bash.
+pred_line=""; [[ -n "$predictions" ]] && pred_line=$'\n- in/predictions.json: the predictions registered before the run.'
+jobs_line=""; [[ -n "$jobs" ]] && jobs_line=" The jobs of this experiment were $jobs."
 if [[ $smoke -eq 1 ]]; then
   cat > "$stage/prompt.txt" <<PROMPT
-This is a test of an automatic job, not real work. In the folder $base there is a folder "in". Do exactly this and nothing else: count the files under $base/in/results, read the first line of $base/in/note.md, and write a file $base/out/results.md with two lines: the count, and that first line. Do not touch anything outside $base. Reply with one line saying you wrote it.
+This is a test of an automatic job, not real work. In the folder $base there is a folder "in". Do exactly this and nothing else: (1) count the files under $base/in/results; (2) run \`$base/in/pcread 'git log --oneline -1; ls tools | wc -l'\` and note its two lines; (3) run \`$base/in/pcread 'echo x > notes/zz_test.txt; echo rc=\$?'\` and note what it printed (it should be refused). Write a file $base/out/results.md with those three findings, one per line. Do not touch anything outside $base. Reply with one line saying you wrote it.
 PROMPT
 else
   cat > "$stage/prompt.txt" <<PROMPT
@@ -92,10 +104,10 @@ This is an automatic job with nobody watching, so do not ask questions: decide, 
 
 A machine-learning experiment queue has finished for the SO-ARM-101 robot-arm project (experiment $experiment in the Agentic Journal's record). Everything you need is in $base/in on this computer:
 - in/results/: the report, matrix, summary, result and log files the jobs wrote.
-- in/note.md: the experiment's note (its plan, what was run, the baselines).${predictions:+
-- in/predictions.json: the predictions registered before the run.}
-- in/tsp.txt: the job queue's listing. A job with a non-zero exit failed; "skipped" jobs did not run.${jobs:+ This experiment's jobs were $jobs.}
+- in/note.md: the experiment's note (its plan, what was run, the baselines).$pred_line
+- in/tsp.txt: the job queue's listing. A job with a non-zero exit failed; "skipped" jobs did not run.$jobs_line
 - in/journal-record.txt: the journal's experiments, so you can name the ones this builds on.
+- in/pcread: reads the rest of the project on the PC where it lives. \`$base/in/pcread '<shell command>'\` runs the command in the repository's root there, read-only: the code (tools/, src/), every file under artifacts/ (in/results is only a copy of this experiment's small text files), notes/, the git history (git log, git show) and the project's memory notes (~/.claude/projects/-home-win10ubuntu-projects-SO-ARM-101/memory on the PC). Use grep, cat, head, sed -n, find, wc, git and python3 for reading. Nothing can be written, started or sent from there, and it has no GPU, so do not try to run tools, training or evaluation through it. Use it whenever the answer depends on how a number was computed (read the code that wrote it), on a baseline from another experiment, or on a file the copy does not have.
 - in/rules/analysis-skill.md: how to analyse and explain a result. Follow it on the files you have; you cannot take new measurements, so if one is needed, say which under the follow-ups.
 - in/rules/writeup-guide.md and in/rules/writeup-model-53.json: the fields, limits and rules of a journal write-up, and a finished one to copy the level of detail from.
 
@@ -104,7 +116,7 @@ Write exactly these three files into $base/out:
 2. $experiment.json: the journal write-up, following the guide exactly (valid JSON, only the guide's fields, within its limits).
 3. patch.json: {"status": "worked" | "failed" | "mixed" | "finding", "answer": "<one line>", "numbers": ["<up to 8 short strings>"]}. If the queue failed part-way, write up what exists, name the failed stage as "trouble" in run.stages, and use "status": "running".
 
-Rules: every number comes from a file you read; copy it as the file gives it and never estimate one. If predictions were registered, mark every one of them held, failed, half or open, not only the headline ones, and say plainly which failed. Plain words for a new intern, every term defined on first use, no em dashes. Work only inside $base: do not use ssh, do not contact any other computer, do not start jobs. Finish by replying with five short lines: what the experiment found, what failed, what you could not determine, which files you wrote, and anything a person should check.
+Rules: every number comes from a file you read; copy it as the file gives it and never estimate one. If predictions were registered, mark every one of them held, failed, half or open, not only the headline ones, and say plainly which failed. Plain words for a new intern, every term defined on first use, no em dashes. Write only inside $base. Reach the PC only through in/pcread, never with ssh directly, and do not contact any other computer or start jobs. If a claim rests on how a probe, a score or a gain is computed, read that code through in/pcread and say what you found; do not guess. Finish by replying with five short lines: what the experiment found, what failed, what you could not determine, which files you wrote, and anything a person should check.
 PROMPT
 fi
 

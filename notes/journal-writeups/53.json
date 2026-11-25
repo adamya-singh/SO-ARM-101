@@ -225,6 +225,18 @@
     {
       "text": "One training seed for parts 1 and 2. Two skills only. Simulation only.",
       "ok": false
+    },
+    {
+      "text": "Its premise, one data change gives one skill, holds for the aimed pair only. Experiment 52's full matrix (read 2026-11-25) shows skills nobody aimed at: every policy follows a moved square (gain +0.51 to +0.96 on the nominal scene, teacher 0.00), and the motor data alone brings shift-following when replanning every 30 steps.",
+      "ok": false
+    },
+    {
+      "text": "The next step proposed here, a skill built on an earlier one such as set-down on a moved square, is weaker than it reads: every policy already sets down on a moved square.",
+      "ok": false
+    },
+    {
+      "text": "This experiment's combination stage rewrote experiment 52's nominal-scene result files with three probes only, which is why 18 of 52's predictions went unread until 2026-11-25.",
+      "ok": false
     }
   ],
   "meaning": "Stacking and combining are supported. Order is not, but this pair was a weak test: neither skill needs the other.",
